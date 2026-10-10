@@ -34,7 +34,9 @@ export async function GET(request: Request, { params }: AttachmentRouteParams) {
 		"Content-Security-Policy",
 		"default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'unsafe-inline'; sandbox",
 	);
-	headers.set("Cache-Control", "private, max-age=3600");
+	// Every download must recheck the current session and mailbox grant, including
+	// after logout or account switching in a shared browser.
+	headers.set("Cache-Control", "private, no-store");
 
 	return new Response(object.body, { headers });
 }

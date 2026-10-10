@@ -10,7 +10,9 @@ import { MailSearchInput } from "@/components/mail-search/mail-search-input";
 import { MailSearchProvider } from "@/components/mail-search/mail-search-context";
 import { MailboxProvider } from "@/components/mailbox-provider";
 import { MailboxSelector } from "@/components/mailbox-selector";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { AgentPanel } from "@/components/agent/agent-panel";
+import { useAssistantFullSize } from "@/components/agent/use-assistant-full-size";
 import { AssistantOpenContext } from "@/components/agent/assistant-open-state";
 import { Button } from "@/components/ui/button";
 import { DashboardNav } from "@/components/dashboard-nav";
@@ -31,6 +33,7 @@ export default function DashboardLayout({
   const { assistantOpen, setAssistantOpen, assistantFullSize, setAssistantFullSize } = useDashboardState();
   const assistantEnabled = useAssistantAvailability();
   const assistantVisible = assistantEnabled === true && assistantOpen;
+  const panelFullSize = useAssistantFullSize(assistantFullSize);
 
   useEffect(() => {
     if (assistantEnabled === false && (assistantOpen || assistantFullSize)) {
@@ -54,7 +57,7 @@ export default function DashboardLayout({
                     <SidebarResizeBoundary />
                   </SidebarAside>
                   <div className="flex min-h-0 min-w-0 flex-col">
-                    <header className="flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm">
+                    <header className="flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm max-md:gap-1 max-md:pr-2">
                       <MobileMenuButton className="ml-2" />
                       <MailSearchInput />
                       {/* <Link
@@ -64,17 +67,18 @@ export default function DashboardLayout({
                       >
                         <HelpCircle className="h-5 w-5" />
                       </Link> */}
-                      {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600"} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? t("agent.assistant.close") : t("agent.assistant.open")} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
+                      {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={clsx("h-11 w-11 shrink-0 rounded-full px-0", assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600")} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? t("agent.assistant.close") : t("agent.assistant.open")} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
                       <MailboxSelector />
+                      <ThemeToggle />
                     </header>
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                       <AssistantOpenContext.Provider value={assistantVisible}>
-                        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && assistantFullSize} inert={assistantVisible && assistantFullSize}>
+                        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
                           {children}
                         </main>
                       </AssistantOpenContext.Provider>
-                      <aside className={clsx(assistantFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2 max-md:p-0`, assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? assistantFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
-                        {assistantEnabled && <AgentPanel open={assistantVisible} fullSize={assistantFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}
+                      <aside className={clsx(panelFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2 max-md:p-0`, assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? panelFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
+                        {assistantEnabled && <AgentPanel open={assistantVisible} fullSize={panelFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}
                       </aside>
                     </div>
                   </div>

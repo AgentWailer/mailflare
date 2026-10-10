@@ -3,6 +3,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+	/* Local system fonts keep all controls consistent without third-party requests. */
+	--font-geist-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 	--background: #f6f8fc;
 	--foreground: #202124;
 	--card: #ffffff;

@@ -69,6 +69,7 @@ export function ComposeForm({
 	const [minimized, setMinimized] = useState(false);
 	const [toast, setToast] = useState<Toast>(null);
 	const [refineActive, setRefineActive] = useState(false);
+	const [draftSaveFailed, setDraftSaveFailed] = useState(false);
 	const frameRef = useRef<HTMLFormElement | null>(null);
 	useComposeViewport(frameRef, mode === "popup" && !minimized);
 	const [loading, setLoading] = useState(false);
@@ -222,18 +223,22 @@ export function ComposeForm({
 				references: threading?.references ?? null,
 				threadId: threading?.threadId ?? null,
 			};
-			const res = await authFetch(draftId ? `/api/drafts/${draftId}` : "/api/drafts", {
-				method: draftId ? "PATCH" : "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			});
-			const data = (await res.json()) as { draft?: { id: string } };
-			if (res.ok && data.draft?.id) {
+			try {
+				const res = await authFetch(draftId ? `/api/drafts/${draftId}` : "/api/drafts", {
+					method: draftId ? "PATCH" : "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
+				});
+				const data = (await res.json()) as { draft?: { id: string } };
+				if (!res.ok || !data.draft?.id) throw new Error("Draft save failed");
 				if (generation !== draftGeneration.current) {
-					void authFetch(`/api/drafts/${data.draft.id}`, { method: "DELETE" });
+					void authFetch(`/api/drafts/${data.draft.id}`, { method: "DELETE" }).catch(() => {});
 					return;
 				}
+				setDraftSaveFailed(false);
 				setDraftId(data.draft.id);
+			} catch {
+				if (generation === draftGeneration.current) setDraftSaveFailed(true);
 			}
 		}, 900);
 
@@ -244,7 +249,7 @@ export function ComposeForm({
 
 	async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (refineActive) return;
+		if (refineActive || loading) return;
 		if (to.length === 0) {
 			setToast({ type: "error", message: t("compose.error.noRecipient") });
 			return;
@@ -285,51 +290,59 @@ export function ComposeForm({
 			finally { setLoading(false); }
 			return;
 		}
-		const res = await authFetch("/api/send", {
-			method: "POST",
-			body: buildSendFormData({
-				attachments,
-				from: fromAddr,
-				to: recipientsToHeader(to),
-				cc: recipientsToHeader(cc),
-				bcc: recipientsToHeader(bcc),
-				subject,
-				text: htmlToPlainText(fullHtml),
-				html: fullHtml,
-				mailboxId: selectedMailbox?.id,
-				threading: threading ?? undefined,
-				draftId,
-				scheduledAt,
-			}),
-		});
-		const data = (await res.json()) as { messageId?: string; scheduled?: boolean; error?: string };
-		setLoading(false);
-
-		if (!res.ok) {
-			setToast({ type: "error", message: data.error ?? t("compose.error.sendFailed") });
-			return;
-		}
-
-		if (draftId) {
-			void authFetch(`/api/drafts/${draftId}`, { method: "DELETE" }).finally(() => {
-				window.dispatchEvent(new Event("mailflare:messages-changed"));
+		try {
+			const res = await authFetch("/api/send", {
+				method: "POST",
+				body: buildSendFormData({
+					attachments,
+					from: fromAddr,
+					to: recipientsToHeader(to),
+					cc: recipientsToHeader(cc),
+					bcc: recipientsToHeader(bcc),
+					subject,
+					text: htmlToPlainText(fullHtml),
+					html: fullHtml,
+					mailboxId: selectedMailbox?.id,
+					threading: threading ?? undefined,
+					draftId,
+					scheduledAt,
+				}),
 			});
+			const data = (await res.json()) as { messageId?: string; scheduled?: boolean; error?: string };
+
+			if (!res.ok) {
+				setToast({ type: "error", message: data.error ?? t("compose.error.sendFailed") });
+				return;
+			}
+
+			if (saveTimer.current) clearTimeout(saveTimer.current);
+			draftGeneration.current += 1;
+			setDraftSaveFailed(false);
+			if (draftId) {
+				void authFetch(`/api/drafts/${draftId}`, { method: "DELETE" }).catch(() => {}).finally(() => {
+					window.dispatchEvent(new Event("mailflare:messages-changed"));
+				});
+			}
+			setDraftId(null);
+			setTo([]);
+			setCc([]);
+			setBcc([]);
+			setShowCc(false);
+			setShowBcc(false);
+			setThreading(null);
+			setStoredAttachments([]);
+			setSubject("");
+			setHtml(applyMailboxSignatureHtml("", "", selectedMailbox?.signature));
+			setQuotedHtml(null);
+			setAttachments([]);
+			setScheduledAt(null);
+			setToast({ type: "success", message: data.scheduled ? t("compose.scheduled") : t("compose.sent") });
+			window.dispatchEvent(new Event("mailflare:messages-changed"));
+		} catch {
+			setToast({ type: "error", message: t("compose.error.sendFailed") });
+		} finally {
+			setLoading(false);
 		}
-		setDraftId(null);
-		setTo([]);
-		setCc([]);
-		setBcc([]);
-		setShowCc(false);
-		setShowBcc(false);
-		setThreading(null);
-		setStoredAttachments([]);
-		setSubject("");
-		setHtml(applyMailboxSignatureHtml("", "", selectedMailbox?.signature));
-		setQuotedHtml(null);
-		setAttachments([]);
-		setScheduledAt(null);
-		setToast({ type: "success", message: data.scheduled ? t("compose.scheduled") : t("compose.sent") });
-		window.dispatchEvent(new Event("mailflare:messages-changed"));
 	}
 
 	async function deleteDraftAndClose() {
@@ -519,7 +532,7 @@ export function ComposeForm({
 			{toast && (
 				<div
 					className={cn(
-						"fixed right-6 top-6 z-[60] rounded-lg px-4 py-3 text-sm font-medium shadow-lg",
+						"fixed right-4 top-6 z-[60] max-w-[calc(100vw-32px)] rounded-lg px-4 py-3 text-sm font-medium shadow-lg",
 						toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white",
 					)}
 				>
@@ -561,6 +574,7 @@ export function ComposeForm({
 					)}
 				</div>
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")}>
+				{draftSaveFailed && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{t("compose.error.saveDraft")}</p>}
 				<div className="max-h-[45%] shrink-0 overflow-y-auto overscroll-contain">
 				<div className={addressRowClassName}>
 					<Label htmlFor={`${mode}-from`} className={addressLabelClassName}>{t("compose.from")}</Label>

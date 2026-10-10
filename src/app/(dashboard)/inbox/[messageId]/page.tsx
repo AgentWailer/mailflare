@@ -184,7 +184,7 @@ export default function MessageDetailPage() {
     <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
       {!message.read && <MarkAsRead messageId={message.id} />}
 
-      <h1 className={clsx(!isAnyPanelVisible ? "pl-16" : "pl-10", "pr-6 pb-2 pt-2 text-2xl text-neutral-900")} title={message.subject ?? t("list.noSubject")}>
+      <h1 className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "pl-4 pr-6 pb-2 pt-2 text-2xl text-neutral-900")} title={message.subject ?? t("list.noSubject")}>
         {message.subject ?? t("list.noSubject")}
       </h1>
       {/* <div className="px-6">
@@ -210,9 +210,9 @@ export default function MessageDetailPage() {
         expandedAll={threadExpanded}
         onExpandedAllChange={setThreadExpanded}
       />
-      <article className={clsx("px-6 py-4", !isAnyPanelVisible && "pl-12")}>
+      <article className={clsx("px-4 py-4 md:px-6", !isAnyPanelVisible && "md:pl-12")}>
         <div className="w-full">
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-5 pl-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-5 md:pl-4">
             <div className="flex min-w-0 items-start gap-3">
               <ContactAvatar
                 mailboxId={message.mailboxId}
@@ -275,7 +275,7 @@ export default function MessageDetailPage() {
             </div>
           </div>
           {scheduledAt && <div className="pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} /></div>}
-          <div className="prose max-w-none pl-16 text-neutral-900">
+          <div className="prose max-w-none md:pl-16 text-neutral-900">
             {htmlBody ? (
               <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />
             ) : (

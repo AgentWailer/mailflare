@@ -8,6 +8,7 @@ import { ComposeProvider } from "@/components/compose/compose-context";
 import { FloatingComposer } from "@/components/compose/floating-composer";
 import { MailboxProvider } from "@/components/mailbox-provider";
 import { MailboxSelector } from "@/components/mailbox-selector";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { AdminNav } from "@/components/admin-nav";
 import { SidebarProvider } from "@/components/sidebar-state";
 import clsx from "clsx";
@@ -61,6 +62,7 @@ export default function DashboardLayout({
                             <MobileTopBar title={mobileTitle} />
               <span className="fixed top-2 right-4 flex items-center gap-4 z-90">
                 <MailboxSelector />
+                      <ThemeToggle />
               </span>
               <main className={clsx("page-flush min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain rounded-tl-3xl max-md:rounded-t-3xl max-md:bg-white max-md:pb-24 px-6 py-10 scrollbar-gutter-stable lg:px-12", mobileTitle && "max-md:[&_h1]:hidden")}>
                 <div className="w-full max-w-3xl">{children}</div>

@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
 import { domains, mailboxAliases, mailboxes, users } from "@/db/schema";
-import { requireUser } from "@/lib/auth/cookies";
+import { requireSessionUser } from "@/lib/api/auth";
 import { newId } from "@/lib/ids";
 import { getLicenseEntitlements } from "@/lib/licenses/service";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
@@ -13,7 +13,8 @@ import { ensurePersonalMailbox } from "./utils";
 
 export async function GET(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const { user, error } = await requireSessionUser(env, request);
+	if (error) return error;
 	const db = getDb(env);
 	const rows = await ensurePersonalMailbox(env, db, user);
 	const entitlements = await getLicenseEntitlements(env);
@@ -31,7 +32,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const { user, error } = await requireSessionUser(env, request);
+	if (error) return error;
 	const parsed = mailboxSchema.safeParse(await request.json());
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

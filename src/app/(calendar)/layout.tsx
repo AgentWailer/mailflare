@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, Sparkles } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { AgentPanel } from "@/components/agent/agent-panel";
+import { useAssistantFullSize } from "@/components/agent/use-assistant-full-size";
 import { AssistantOpenContext } from "@/components/agent/assistant-open-state";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ComposeProvider } from "@/components/compose/compose-context";
@@ -13,6 +14,7 @@ import { FloatingComposer } from "@/components/compose/floating-composer";
 import { MailSearchProvider } from "@/components/mail-search/mail-search-context";
 import { MailboxProvider } from "@/components/mailbox-provider";
 import { MailboxSelector } from "@/components/mailbox-selector";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarAside, MobileMenuButton } from "@/components/sidebar-aside";
 import { SidebarHeader } from "@/components/sidebar-header";
 import { SidebarProvider } from "@/components/sidebar-state";
@@ -30,6 +32,7 @@ export default function CalendarLayout({ children }: { children: React.ReactNode
   const { assistantOpen, setAssistantOpen, assistantFullSize, setAssistantFullSize } = useDashboardState();
   const assistantEnabled = useAssistantAvailability();
   const assistantVisible = assistantEnabled === true && assistantOpen;
+  const panelFullSize = useAssistantFullSize(assistantFullSize);
 
   useEffect(() => {
     if (assistantEnabled === false && (assistantOpen || assistantFullSize)) {
@@ -59,17 +62,18 @@ export default function CalendarLayout({ children }: { children: React.ReactNode
                       </nav>
                       <div id="calendar-header-slot" className="flex min-w-0 flex-1 items-center md:min-w-max max-md:order-last max-md:basis-full max-md:pl-3 max-md:empty:hidden" />
                     </div>
-                    {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600"} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? t("agent.assistant.close") : t("agent.assistant.open")} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
+                    {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={clsx("h-11 w-11 shrink-0 rounded-full px-0", assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600")} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? t("agent.assistant.close") : t("agent.assistant.open")} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
                     <MailboxSelector />
+                      <ThemeToggle />
                   </header>
                   <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                     <AssistantOpenContext.Provider value={assistantVisible}>
-                      <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-[#f6f8fc] overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && assistantFullSize} inert={assistantVisible && assistantFullSize}>
+                      <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-[#f6f8fc] overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
                         <div key={pathname} className="page-transition-enter h-full min-h-0">{children}</div>
                       </main>
                     </AssistantOpenContext.Provider>
-                    <aside className={clsx(assistantFullSize ? "pl-0" : "pl-4", "min-h-0 min-w-0 shrink-0 overflow-hidden pb-2 pr-2 max-md:p-0 transition-[width] duration-300 ease-in-out motion-reduce:transition-none", assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? assistantFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
-                      {assistantEnabled && <AgentPanel open={assistantVisible} fullSize={assistantFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}
+                    <aside className={clsx(panelFullSize ? "pl-0" : "pl-4", "min-h-0 min-w-0 shrink-0 overflow-hidden pb-2 pr-2 max-md:p-0 transition-[width] duration-300 ease-in-out motion-reduce:transition-none", assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? panelFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
+                      {assistantEnabled && <AgentPanel open={assistantVisible} fullSize={panelFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}
                     </aside>
                   </div>
                 </div>

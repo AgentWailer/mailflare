@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messageAttachments, sharedAttachmentLinks } from "@/db/schema";
 import { getEnv } from "@/lib/cloudflare";
@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: SharedFileParams) {
 		.select({ r2Key: messageAttachments.r2Key, filename: messageAttachments.filename, size: messageAttachments.size, contentType: messageAttachments.contentType })
 		.from(sharedAttachmentLinks)
 		.innerJoin(messageAttachments, eq(sharedAttachmentLinks.attachmentId, messageAttachments.id))
-		.where(and(eq(sharedAttachmentLinks.id, id), gt(sharedAttachmentLinks.expiresAt, new Date())))
+		.where(and(eq(sharedAttachmentLinks.id, id), gt(sharedAttachmentLinks.expiresAt, new Date()), isNull(messageAttachments.trashedAt)))
 		.limit(1);
 	if (!file) return new Response("Link expired or not found", { status: 404 });
 	const object = await env.BUCKET.get(file.r2Key);

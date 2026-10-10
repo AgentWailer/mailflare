@@ -6,6 +6,7 @@ import { ComposeProvider } from "@/components/compose/compose-context";
 import { MailSearchProvider } from "@/components/mail-search/mail-search-context";
 import { MailboxProvider } from "@/components/mailbox-provider";
 import { MailboxSelector } from "@/components/mailbox-selector";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarAside, MobileMenuButton } from "@/components/sidebar-aside";
 import { SidebarHeader } from "@/components/sidebar-header";
 import { SidebarResizeBoundary } from "@/components/sidebar-resize-boundary";
@@ -26,10 +27,11 @@ function DriveFrame({ children }: { children: React.ReactNode }) {
 				<SidebarResizeBoundary />
 			</SidebarAside>
 			<div className="flex min-h-0 min-w-0 flex-col">
-				<header className="flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm">
+				<header className="flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm max-md:gap-1 max-md:pr-2">
 					<MobileMenuButton className="ml-2" />
 					<div id="drive-header-slot" className="flex min-w-0 flex-1 items-center" />
 					<MailboxSelector />
+                      <ThemeToggle />
 				</header>
 				<main className="min-h-0 min-w-0 flex-1 overflow-hidden md:pr-4">{children}</main>
 			</div>

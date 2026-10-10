@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { folders } from "@/db/schema";
-import { requireUser } from "@/lib/auth/cookies";
+import { requireSessionUser } from "@/lib/api/auth";
 import { getEnv } from "@/lib/cloudflare";
 import { newId } from "@/lib/ids";
 import { folderSchema } from "@/lib/validators";
@@ -10,7 +10,8 @@ import { getMailboxFolderAccess, listFoldersForMailbox } from "./utils";
 
 export async function GET(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const { user, error } = await requireSessionUser(env, request);
+	if (error) return error;
 	const url = new URL(request.url);
 	const mailboxId = url.searchParams.get("mailboxId");
 	if (!mailboxId) {
@@ -29,7 +30,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const { user, error } = await requireSessionUser(env, request);
+	if (error) return error;
 	const parsed = folderSchema.safeParse(await request.json());
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
