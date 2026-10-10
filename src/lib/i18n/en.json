@@ -1975,5 +1975,10 @@
 	"drive.noPreview": "No preview available for this file type.",
 	"drive.publicNotFound": "This link is not available. It may have been turned off or the file removed.",
 	"drive.sharedBy": "Shared by {name}",
-	"drive.save": "Save"
+	"drive.save": "Save",
+	"fork.unlocked": "All features enabled",
+	"fork.features": "This self-hosted fork includes branding, account management, shared inboxes, booking hosts and email forwarding with unlimited accounts. No upgrade or license key is required.",
+	"fork.permissions": "Administrator permissions and access to individual mailboxes still depend on your account role.",
+	"fork.updateManual": "Updates are managed through this fork. Merge upstream changes into AgentWailer/mailflare and deploy the reviewed version. Automatic upstream replacement is disabled.",
+	"fork.source": "Modified Mailflare source · AGPL-3.0"
 }

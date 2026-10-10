@@ -1861,5 +1861,10 @@
 	"layout.resizeMenu": "Linkes Menü in der Größe ändern",
 	"nav.loadingPage": "Seite wird geladen",
 	"message.blockRemote": "Externe Inhalte blockieren",
-	"message.allowRemote": "Externe Inhalte zulassen"
+	"message.allowRemote": "Externe Inhalte zulassen",
+	"fork.unlocked": "Alle Funktionen freigeschaltet",
+	"fork.features": "Dieser selbst gehostete Fork bietet Branding, Benutzerverwaltung, gemeinsame Postfächer, Buchungshosts und E-Mail-Weiterleitung mit unbegrenzt vielen Accounts. Ein Upgrade oder Lizenzschlüssel ist nicht erforderlich.",
+	"fork.permissions": "Adminrechte und der Zugriff auf einzelne Postfächer richten sich weiterhin nach deiner Accountrolle.",
+	"fork.updateManual": "Updates werden über diesen Fork verwaltet. Änderungen des Originalprojekts in AgentWailer/mailflare übernehmen und die geprüfte Version deployen. Automatisches Überschreiben durch das Originalprojekt ist deaktiviert.",
+	"fork.source": "Quellcode der angepassten Mailflare-Version · AGPL-3.0"
 }

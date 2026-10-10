@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import packageJson from "../../../package.json";
 import { getDb } from "@/db";
 import { licenseSettings } from "@/db/schema";
+import { SELF_HOSTED_ENTITLEMENTS } from "./features";
 import { LICENSE_PRODUCT_IDS } from "./constants";
 import { callPaymugLicenseApi } from "./paymug";
 import type { LicenseEntitlements, LicensePlan, LicenseStatus, PaymugLicenseAction } from "./types";
@@ -43,21 +44,13 @@ export async function getLicenseStatus(env: CloudflareEnv): Promise<LicenseStatu
 	return toLicenseStatus(await getOrCreateLicenseSettings(env));
 }
 
+/** This AGPL fork enables every bundled feature independently of purchased licenses.
+ * Account roles and resource authorization are still enforced by each caller.
+ * Existing license records remain untouched for compatibility and backup/restore.
+ */
 export async function getLicenseEntitlements(env: CloudflareEnv): Promise<LicenseEntitlements> {
-	try {
-		const status = await getLicenseStatus(env);
-		// Pro adds accounts up to its seat limit; Team is unlimited and also unlocks shared mailboxes.
-		return {
-			plan: status.plan,
-			canCustomizeBranding: status.active,
-			canManageAccounts: status.active,
-			canShareMailboxes: status.active && status.plan === "team",
-			accountSeatLimit: status.seatLimit,
-			canForwardEmail: status.active,
-		};
-	} catch {
-		return { plan: "community", canCustomizeBranding: false, canManageAccounts: false, canShareMailboxes: false, accountSeatLimit: 0, canForwardEmail: false };
-	}
+	void env; // Retain the public signature used by Worker and Node callers.
+	return { ...SELF_HOSTED_ENTITLEMENTS };
 }
 
 async function updateLicenseFromPaymug(

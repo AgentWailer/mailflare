@@ -133,11 +133,13 @@ export function AdminUpdateCard() {
 								<CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
 							)}
 							<p className="min-w-0 text-sm text-neutral-700">
-								{status.available
+								{status.manualOnly
+									? t("fork.updateManual")
+									: status.available
 									? t("update.available", { target: status.targetVersion, current: status.currentVersion })
 									: t("update.upToDate", { current: status.currentVersion })}
 							</p>
-							{status.available && (
+							{status.available && !status.manualOnly && (
 								<button
 									type="button"
 									onClick={handleUpdate}

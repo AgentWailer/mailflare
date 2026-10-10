@@ -31,6 +31,7 @@ export interface UpdateDispatchConfig {
 }
 
 export interface UpdateStatus {
+	manualOnly?: boolean;
 	available?: boolean;
 	configuration: UpdateConfigurationItem[];
 	configured: boolean;

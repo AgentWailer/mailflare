@@ -2,6 +2,9 @@
 
 # Mailflare
 
+> **AgentWailer fork, modified 10 October 2026 (AGPL-3.0-or-later).** All bundled features are available without a purchased key, including unlimited accounts and shared inboxes. Authentication and account/mailbox permissions remain enforced. Updates are merged into this fork rather than replacing it with upstream. See [Fork operation and deployment](docs/fork.md).
+
+
 Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare. Supports **Resend**, or **AWS SES**
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ForkSource } from "@/components/fork-source";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
 import { DEFAULT_LOCALE, getDirection } from "@/lib/i18n/utils";
@@ -54,7 +55,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 				<link rel="icon" href="/api/branding/icon"></link>
 			</head>
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-				<LanguageProvider initialLocale={locale} initialMessages={messages}><Providers>{children}</Providers></LanguageProvider>
+				<LanguageProvider initialLocale={locale} initialMessages={messages}><Providers>{children}</Providers><ForkSource /></LanguageProvider>
 			</body>
 		</html>
 	);

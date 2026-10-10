@@ -4,6 +4,7 @@ export interface UpdateConfigurationItem {
 }
 
 export interface UpdateStatusResponse {
+	manualOnly?: boolean;
 	available?: boolean;
 	configuration?: UpdateConfigurationItem[];
 	configured?: boolean;

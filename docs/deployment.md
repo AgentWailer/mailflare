@@ -139,33 +139,9 @@ The assistant panel no longer exposes MCP key management. External MCP clients c
 
 ## Updating Mailflare
 
-The **Update Mailflare** button in the admin dashboard dispatches `.github/workflows/deploy-update.yml` in the installation repository. The workflow replaces the installation branch's complete tracked tree with the latest upstream source, commits that replacement, and pushes it. This avoids merge conflicts between independently created installation and upstream histories. Target-only committed files and code changes are intentionally removed; repository variables, secrets, and other GitHub or Cloudflare configuration remain unchanged. A connected Cloudflare Git integration then builds and deploys the change.
+This AgentWailer fork disables the original automatic updater. That updater replaces the complete tracked tree with upstream code and would remove this fork's feature policy. The admin update endpoint returns HTTP 409 instead of dispatching a GitHub Action, even when update tokens remain configured. Database migration checks and the **Update database** action remain available.
 
-### Auto update
-
-Create a fine-grained personal access token for the installation repository with these repository permissions:
-
-| Permission | Access | Used for |
-| --- | --- | --- |
-| Actions | Read and write | Dispatching `deploy-update.yml` from the Mailflare admin dashboard |
-| Contents | Read and write | Committing and pushing the upstream source into the installation repository |
-| Workflows | Read and write | Replacing files inside `.github/workflows` during an update |
-
-Configure the token and repository details in both Cloudflare and GitHub:
-
-| Location | Name | Type | Value |
-| --- | --- | --- | --- |
-| Cloudflare Worker | `GITHUB_UPDATE_TOKEN` | Secret | The fine-grained personal access token |
-| Cloudflare Worker | `GITHUB_UPDATE_REPO` | Variable | The installation repository in `owner/repository` format |
-| Cloudflare Worker | `GITHUB_UPDATE_REF` | Optional variable | The installation branch to update; omit it to use the repository's default branch |
-| GitHub repository → Actions | `MAILFLARE_UPDATE_TOKEN` | Repository secret | The same fine-grained personal access token |
-| GitHub repository → Actions | `UPDATE_SOURCE_REPOSITORY` | Optional repository variable | The upstream repository; defaults to `hieunc229/mailflare` |
-
-The same token can be used for `GITHUB_UPDATE_TOKEN` and `MAILFLARE_UPDATE_TOKEN` when it has all three permissions above. Keep both values secret and limit the token's repository access to the installation repository.
-
-Make sure `.github/workflows/deploy-update.yml` exists on the installation branch. If it is missing, create the file and copy its contents from the [canonical Mailflare update workflow](https://github.com/hieunc229/mailflare/blob/main/.github/workflows/deploy-update.yml). If an older installation has a different updater, replace it with the latest canonical workflow once. A running workflow cannot create or replace itself until the current workflow has been installed manually.
-
-After the GitHub Action completes successfully, wait for the connected Cloudflare deployment to finish before refreshing Mailflare or applying pending database migrations. The workflow updates the repository first; the new application version is not live until Cloudflare completes its deployment.
+Merge upstream changes into `AgentWailer/mailflare`, review them, run the fork tests and build, and deploy the fork through your Cloudflare Git integration or Wrangler. Do not install or dispatch the original `deploy-update.yml` replacement workflow. See [Fork operation and deployment](fork.md).
 
 Deployment and database migration are separate. After Cloudflare deploys a repository push or an admin-triggered update, open or refresh **Admin settings**. The application update card shows any pending database migrations. Select **Update database** to apply them through the Worker's D1 binding. The same runner initializes a new database during setup.
 
@@ -177,6 +153,6 @@ New application releases must remain compatible with the previous schema until a
 
 When adding a schema change, create a new uniquely named SQL file in `drizzle/migrations` and do not edit an applied migration. Build and development commands generate the Worker migration bundle from those files. `npm run db:bundle` can generate it explicitly.
 
-## Branding license
+## Features in this fork
 
-Activate a purchased Pro or Team key from **Admin → Licenses**. Mailflare sends the key to Paymug and stores only a one-way hash and the activation state. Apply all D1 migrations before activating a license.
+Branding, account management, shared inboxes, booking hosts and email forwarding are enabled without a key. Accounts have no license seat limit. Existing license records and the legacy activation API remain for compatibility, but they do not control this fork's feature access. **Admin → Licenses** explains this policy instead of offering an upgrade.
