@@ -625,6 +625,7 @@ export function ComposeForm({
 				<Label htmlFor={`${mode}-text`} className="sr-only">{t("compose.body")}</Label>
 				<RichTextEditor
 					id={`${mode}-text`}
+					mailboxId={selectedMailbox?.id}
 					value={html}
 					onChange={setHtml}
 					quotedHtml={quotedHtml}

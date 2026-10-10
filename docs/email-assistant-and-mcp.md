@@ -13,3 +13,14 @@ MCP clients can use `update_draft` for the same draft fields and attachments, th
 Calendar access uses separate **Read calendar** and **Manage calendar** MCP permissions. The personal calendar exposes `get_calendars`, `get_schedule`, `search_events`, `get_event`, `find_free_time`, `create_event`, `update_events`, and `delete_events`. Calendar-only keys need no mailbox selection. Calendar writes save immediately. Event updates and deletes use series IDs and affect the entire recurring series; these tools record attendees but do not send invitations or cancellations. Supply absolute ISO 8601 times with offsets. Schedule and availability ranges are limited to 90 days.
 
 For management tools, create a separate MCP key in **Admin → API keys**. Its selected domain, account, and mailbox management permissions do not grant access to mail content. This page also provides copyable AI agent instructions after key creation.
+
+
+## Refine email text
+
+The composer toolbar has a **Refine** / **Überarbeiten** action. Select a passage to refine it, or choose **Entire email body** in the dialog. Choose Polish, More professional, Friendlier, Shorter or More detailed, and keep the original language or choose German or English. Review the suggestion and select **Apply**; **Cancel** leaves the draft unchanged. The toolbar's **Undo refinement** action restores the original content until you edit it again.
+
+Refine uses the AI provider configured under **Admin → Assistant** and the mailbox's selected model. It respects the administrator's assistant-enabled setting, session origin rules, the existing per-user AI rate limit and permission to send on behalf of the selected mailbox. A read-only mailbox grant is insufficient. Usage is recorded with source `refine`. No new schema migration or provider credential is required.
+
+Only the selected passage or editable message body is sent for refinement. The signature and folded quoted conversation are preserved; inline images are represented by protected placeholders and restored locally. The generated prose uses plain text and line breaks; existing rich formatting inside the rewritten passage is simplified, while surrounding content remains intact. A suggestion cannot overwrite content or a sending-mailbox change made while it is being generated. Refine does not send mail or change draft records on the server; applying the result participates in the composer's usual draft autosave.
+
+Requests accept up to 12,000 characters, and incomplete or invalid model output is rejected. The feature's controls and messages are available in German and English; other interface locales use the English fallback. AI processing uses your configured provider and its usual usage charges.

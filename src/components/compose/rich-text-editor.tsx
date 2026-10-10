@@ -12,12 +12,17 @@ import {
 	RemoveFormatting,
 	Strikethrough,
 	Underline,
+	Sparkles,
+	Undo2,
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
+import { RefineDialog } from "./refine-dialog";
+import { captureRefineTarget, applyRefinement } from "./refine-utils";
+import type { RefineTarget } from "./refine-utils";
 import type { RichTextEditorProps, ToolbarCommand } from "./rich-text-editor-types";
 
 const COMMANDS: ToolbarCommand[] = [
@@ -37,6 +42,7 @@ const COMMANDS: ToolbarCommand[] = [
  */
 export function RichTextEditor({
 	id,
+	mailboxId,
 	value,
 	onChange,
 	quotedHtml,
@@ -53,6 +59,8 @@ export function RichTextEditor({
 	const [linkOpen, setLinkOpen] = useState(false);
 	const [linkUrl, setLinkUrl] = useState("");
 	const [showQuoted, setShowQuoted] = useState(false);
+	const [refine, setRefine] = useState<{ mailboxId: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
+	const [refineUndo, setRefineUndo] = useState<{ mailboxId: string; before: string; after: string } | null>(null);
 	const savedRange = useRef<Range | null>(null);
 
 	// Keep the DOM in step with the value without resetting the caret on every keystroke.
@@ -84,6 +92,28 @@ export function RichTextEditor({
 	function emit() {
 		// Export validated original resource addresses, never the blocked preview placeholders.
 		onChange(sanitizeEmailHtml(editorRef.current?.innerHTML ?? "", { forOutgoing: true }) ?? "");
+	}
+
+	function openRefine() {
+		const element = editorRef.current;
+		if (!element || !mailboxId) return;
+		setRefine({ mailboxId, selection: captureRefineTarget(element, "selection", window.getSelection()), message: captureRefineTarget(element, "message", null) });
+	}
+
+	function applyRefine(target: RefineTarget, text: string) {
+		const element = editorRef.current;
+		if (!element || !refine || !mailboxId || disabled || mailboxId !== refine.mailboxId || !applyRefinement(element, target, text)) return false;
+		setRefineUndo({ mailboxId: refine.mailboxId, before: target.snapshot, after: element.innerHTML });
+		emit();
+		return true;
+	}
+
+	function undoRefine() {
+		const element = editorRef.current;
+		if (!element || !refineUndo || disabled || mailboxId !== refineUndo.mailboxId || element.innerHTML !== refineUndo.after) { setRefineUndo(null); return; }
+		element.innerHTML = refineUndo.before;
+		setRefineUndo(null);
+		emit();
 	}
 
 	function run(command: string, commandValue?: string) {
@@ -147,7 +177,7 @@ export function RichTextEditor({
 					contentEditable={!disabled}
 					suppressContentEditableWarning
 					data-placeholder={placeholder}
-					onInput={emit}
+					onInput={() => { setRefineUndo(null); emit(); }}
 					onBlur={emit}
 					onPaste={onPaste}
 					onKeyDown={onKeyDown}
@@ -174,8 +204,9 @@ export function RichTextEditor({
 					</div>
 				)}
 			</div>
+			{refine && <RefineDialog mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onApply={applyRefine} onClose={() => { setRefine(null); editorRef.current?.focus(); }} />}
 			{footerContent}
-			<div className="relative flex items-center gap-0.5 border-t border-neutral-100 px-4 py-3">
+			<div className="relative flex flex-wrap items-center gap-0.5 border-t border-neutral-100 px-4 py-3">
 				{toolbarStart}
 				{COMMANDS.map((item) => (
 					<Tooltip key={item.command} label={t(item.labelKey)}>
@@ -219,6 +250,8 @@ export function RichTextEditor({
 						<RemoveFormatting className="h-4 w-4" />
 					</button>
 				</Tooltip>
+				{mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={openRefine} className="flex items-center gap-1 rounded-md p-1.5 text-blue-600 hover:bg-blue-50 disabled:opacity-50"><Sparkles className="h-4 w-4" /><span className="hidden text-xs sm:inline">{t("refine.title")}</span></button></Tooltip>}
+				{refineUndo && <Tooltip label={t("refine.undo")}><button type="button" aria-label={t("refine.undo")} disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={undoRefine} className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"><Undo2 className="h-4 w-4" /></button></Tooltip>}
 				{toolbarEnd}
 				{linkOpen && (
 					<form

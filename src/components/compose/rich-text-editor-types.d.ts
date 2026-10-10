@@ -1,6 +1,8 @@
 import type { TranslationKey } from "@/lib/i18n/types";
 export type RichTextEditorProps = {
 	id: string;
+	/** Mailbox authorizing AI text refinement; omit outside the mail composer. */
+	mailboxId?: string | null;
 	/** Editable HTML. */
 	value: string;
 	onChange: (html: string) => void;
