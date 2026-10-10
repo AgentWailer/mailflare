@@ -52,7 +52,7 @@ export function RecipientInput({
 
 	return (
 		<div
-			className="flex min-h-9 items-center gap-2 border-b border-neutral-100 px-4 py-1"
+			className="flex min-h-11 items-center md:min-h-9 gap-2 border-b border-neutral-100 px-4 py-1"
 			onClick={() => inputRef.current?.focus()}
 		>
 			<Label htmlFor={id} className="w-8 shrink-0 text-sm text-neutral-500">
@@ -111,7 +111,7 @@ export function RecipientInput({
 					disabled={disabled}
 					// Native `required` would block submit while chips exist; the form checks itself.
 					aria-required={required}
-					className="h-7 min-w-32 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed"
+					className="h-9 min-w-[min(128px,100%)] flex-1 md:h-7 border-0 bg-transparent p-0 text-base md:text-sm outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed"
 				/>
 			</div>
 			{trailing && (

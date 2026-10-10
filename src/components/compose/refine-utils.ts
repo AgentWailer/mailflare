@@ -64,3 +64,28 @@ export function applyRefinement(editor: HTMLElement, target: RefineTarget, text:
 	target.range.insertNode(fragment);
 	return true;
 }
+
+/** Render the proposal in a detached copy. Autosave and sending still see the original. */
+export function previewRefinement(editor: HTMLElement, target: RefineTarget, text: string): string | null {
+	if (editor.innerHTML !== target.snapshot || !editor.contains(target.startNode) || !editor.contains(target.endNode)) return null;
+	const copy = editor.cloneNode(true) as HTMLElement;
+	function copiedNode(node: Node): Node | null {
+		const path: number[] = [];
+		while (node !== editor) {
+			const parent = node.parentNode;
+			if (!parent) return null;
+			path.unshift(Array.prototype.indexOf.call(parent.childNodes, node));
+			node = parent;
+		}
+		let result: Node = copy;
+		for (const index of path) result = result.childNodes[index];
+		return result;
+	}
+	const startNode = copiedNode(target.startNode);
+	const endNode = copiedNode(target.endNode);
+	if (!startNode || !endNode || target.range.startContainer !== target.startNode || target.range.endContainer !== target.endNode) return null;
+	const range = editor.ownerDocument.createRange();
+	range.setStart(startNode, target.range.startOffset);
+	range.setEnd(endNode, target.range.endOffset);
+	return applyRefinement(copy, { ...target, range, startNode, endNode }, text) ? copy.innerHTML : null;
+}

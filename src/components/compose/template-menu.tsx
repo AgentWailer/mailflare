@@ -35,7 +35,7 @@ export function TemplateMenu({ onApply, onNew }: TemplateMenuProps) {
 				<DropdownMenu.Portal>
 					<DropdownMenu.SubContent
 						sideOffset={4}
-						className="z-50 flex max-h-80 w-64 flex-col rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg"
+						className="z-[130] flex max-h-[min(320px,var(--radix-dropdown-menu-content-available-height))] w-64 max-w-[calc(100vw-16px)] flex-col rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg"
 					>
 						<div className="min-h-0 flex-1 overflow-y-auto">
 							{templates.length === 0 && <p className="px-3 py-2 text-xs text-neutral-400">{t("template.none")}</p>}
@@ -51,7 +51,7 @@ export function TemplateMenu({ onApply, onNew }: TemplateMenuProps) {
 										aria-label={t("template.delete")}
 										onPointerDown={(event) => event.stopPropagation()}
 										onClick={(event) => { event.stopPropagation(); void remove(template.id); }}
-										className="shrink-0 rounded p-1 text-neutral-400 opacity-0 hover:text-red-600 group-hover:opacity-100 group-focus:opacity-100"
+										className="shrink-0 rounded p-1 text-neutral-400 md:opacity-0 hover:text-red-600 group-hover:opacity-100 group-focus:opacity-100"
 									>
 										<Trash2 className="h-3.5 w-3.5" />
 									</button>

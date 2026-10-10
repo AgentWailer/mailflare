@@ -17,7 +17,9 @@ For management tools, create a separate MCP key in **Admin → API keys**. Its s
 
 ## Refine email text
 
-The composer toolbar has a **Refine** / **Überarbeiten** action. Select a passage to refine it, or choose **Entire email body** in the dialog. Choose Polish, More professional, Friendlier, Shorter or More detailed, and keep the original language or choose German or English. Review the suggestion and select **Apply**; **Cancel** leaves the draft unchanged. The toolbar's **Undo refinement** action restores the original content until you edit it again.
+The sparkle button immediately to the left of **Send** starts Refine using the last style and language selected on this device. Select a passage first to refine it, or leave the selection empty to refine the editable email body. The suggestion appears in the original editor area with a brief blue highlight. **Replace** accepts it, **Try again** generates another suggestion from the original text, and **Cancel** restores the original view. Until accepted, suggestions do not change the draft and sending is disabled. The settings icon opens compact style and language controls; changing an option immediately regenerates the proposal. Available styles are Polish, More professional, Friendlier, Shorter and More detailed, with original language, German or English. The toolbar's **Undo refinement** action restores the original content until you edit it again.
+
+On phones the floating composer fills the visual viewport, including adjustments when the software keyboard opens. Send, Refine and attachments remain in the bottom toolbar; formatting controls expand on demand.
 
 Refine uses the AI provider configured under **Admin → Assistant** and the mailbox's selected model. It respects the administrator's assistant-enabled setting, session origin rules, the existing per-user AI rate limit and permission to send on behalf of the selected mailbox. A read-only mailbox grant is insufficient. Usage is recorded with source `refine`. No new schema migration or provider credential is required.
 

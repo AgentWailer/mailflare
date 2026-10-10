@@ -28,7 +28,7 @@ export function ScheduleSendMenu({ disabled, value, onChange, mailboxId, from, o
 				type="button"
 				disabled={disabled}
 				aria-label={t("schedule.optionsLabel")}
-				className="inline-flex h-8 items-center justify-center rounded-r-lg border-l border-blue-500 bg-blue-600 px-2 text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+				className="inline-flex h-11 md:h-8 items-center justify-center rounded-r-lg border-l border-blue-500 bg-blue-600 px-2 text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
 			>
 				<ChevronDown className="h-4 w-4" />
 			</DropdownMenu.Trigger>
@@ -36,7 +36,7 @@ export function ScheduleSendMenu({ disabled, value, onChange, mailboxId, from, o
 				<DropdownMenu.Content
 					align="start"
 					sideOffset={6}
-					className="z-50 min-w-56 rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg"
+					className="z-[130] max-h-[var(--radix-dropdown-menu-content-available-height)] max-w-[calc(100vw-16px)] overflow-y-auto min-w-56 rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg"
 				>
 					<TemplateMenu onApply={onApplyTemplate} onNew={() => setNewTemplateOpen(true)} />
 					<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />

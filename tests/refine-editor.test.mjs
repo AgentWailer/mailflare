@@ -6,7 +6,7 @@ import { JSDOM } from "jsdom";
 const dom = new JSDOM('', { url: 'https://mailflare.test/' });
 for (const key of ['window', 'document', 'HTMLElement', 'Node', 'DOMParser']) globalThis[key] = dom.window[key];
 const built = await build({ entryPoints: ['src/components/compose/refine-utils.ts'], bundle: true, write: false, platform: 'browser', format: 'esm' });
-const { captureRefineTarget, applyRefinement, refinedHtml } = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
+const { captureRefineTarget, applyRefinement, refinedHtml, previewRefinement } = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
 function editor(html) { const e=document.createElement('div'); e.innerHTML=html; document.body.replaceChildren(e); return e; }
 function select(start, startOffset, end=start, endOffset=start.textContent.length) {
  const range=document.createRange(); range.setStart(start,startOffset); range.setEnd(end,endOffset);
@@ -81,4 +81,22 @@ test('selection boundary whitespace is preserved so adjacent words never join', 
  const target=captureRefineTarget(e,'selection',select(e.firstChild.firstChild,6,e.firstChild.firstChild,18));
  assert.equal(target.text,'bad phrase');assert.equal(applyRefinement(e,target,'clear phrase'),true);
  assert.equal(e.textContent,'Before clear phrase after');
+});
+
+
+test('inline preview shows replacement in context without mutating live DOM, range or images', () => {
+ const e=editor('<p>Before <b>bad wording</b> after.</p><div data-mailflare-signature="1">Sam</div>');
+ const target=captureRefineTarget(e,'selection',select(e.querySelector('b').firstChild,0));
+ const original=e.innerHTML; const start=target.range.startContainer;
+ assert.equal(previewRefinement(e,target,'clear wording'),'<p>Before <b>clear wording</b> after.</p><div data-mailflare-signature="1">Sam</div>');
+ assert.equal(e.innerHTML,original);assert.equal(target.range.startContainer,start);
+ assert.equal(applyRefinement(e,target,'clear wording'),true);
+});
+
+test('invalid and stale suggestions cannot appear as inline previews', () => {
+ const e=editor('<p>Original</p><img src="/image.png">');
+ const target=captureRefineTarget(e,'message',null);
+ assert.equal(previewRefinement(e,target,'Missing image'),null);
+ assert.ok(previewRefinement(e,target,target.text).includes('<img src="/image.png">'));
+ e.firstChild.textContent='New text';assert.equal(previewRefinement(e,target,target.text),null);
 });

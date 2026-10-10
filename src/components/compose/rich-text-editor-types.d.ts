@@ -14,6 +14,8 @@ export type RichTextEditorProps = {
 	toolbarStart?: React.ReactNode;
 	toolbarEnd?: React.ReactNode;
 	footerContent?: React.ReactNode;
+	/** Block sending while the user reviews an uncommitted suggestion. */
+	onRefineActiveChange?: (active: boolean) => void;
 };
 
 export type ToolbarCommand = {

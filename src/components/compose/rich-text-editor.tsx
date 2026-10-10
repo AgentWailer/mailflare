@@ -14,14 +14,15 @@ import {
 	Underline,
 	Sparkles,
 	Undo2,
+	Type,
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
-import { RefineDialog } from "./refine-dialog";
-import { captureRefineTarget, applyRefinement } from "./refine-utils";
+import { RefineControls } from "./refine-controls";
+import { captureRefineTarget, applyRefinement, previewRefinement } from "./refine-utils";
 import type { RefineTarget } from "./refine-utils";
 import type { RichTextEditorProps, ToolbarCommand } from "./rich-text-editor-types";
 
@@ -52,14 +53,19 @@ export function RichTextEditor({
 	toolbarStart,
 	toolbarEnd,
 	footerContent,
+	onRefineActiveChange,
 }: RichTextEditorProps) {
 	const { t } = useLanguage();
 	const editorRef = useRef<HTMLDivElement | null>(null);
 	const [active, setActive] = useState<Record<string, boolean>>({});
+	const [formattingOpen, setFormattingOpen] = useState(false);
+	const [preview, setPreview] = useState<{ html: string; revision: number } | null>(null);
+	const pendingSelection = useRef<RefineTarget | null>(null);
+	const previewRevision = useRef(0);
 	const [linkOpen, setLinkOpen] = useState(false);
 	const [linkUrl, setLinkUrl] = useState("");
 	const [showQuoted, setShowQuoted] = useState(false);
-	const [refine, setRefine] = useState<{ mailboxId: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
+	const [refine, setRefine] = useState<{ mailboxId: string; snapshot: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
 	const [refineUndo, setRefineUndo] = useState<{ mailboxId: string; before: string; after: string } | null>(null);
 	const savedRange = useRef<Range | null>(null);
 
@@ -69,12 +75,18 @@ export function RichTextEditor({
 		if (!element) return;
 		const safeValue = sanitizeEditorHtml(value);
 		if (element.innerHTML !== safeValue) element.innerHTML = safeValue;
-	}, [value]);
+		if (refine && (mailboxId !== refine.mailboxId || element.innerHTML !== refine.snapshot)) { setRefine(null); setPreview(null); }
+	}, [value, mailboxId, refine]);
+
+	useEffect(() => {
+		onRefineActiveChange?.(!!refine);
+		return () => onRefineActiveChange?.(false);
+	}, [refine, onRefineActiveChange]);
 
 	useEffect(() => {
 		function refresh() {
 			const element = editorRef.current;
-			if (!element || !element.contains(document.activeElement)) return;
+			if (!element || !element.contains(document.activeElement) || !document.queryCommandState) return;
 			const next: Record<string, boolean> = {};
 			for (const item of COMMANDS) {
 				if (item.command === "formatBlock") {
@@ -97,7 +109,25 @@ export function RichTextEditor({
 	function openRefine() {
 		const element = editorRef.current;
 		if (!element || !mailboxId) return;
-		setRefine({ mailboxId, selection: captureRefineTarget(element, "selection", window.getSelection()), message: captureRefineTarget(element, "message", null) });
+		setLinkOpen(false);
+		setPreview(null);
+		setRefine({ mailboxId, snapshot: element.innerHTML, selection: pendingSelection.current ?? captureRefineTarget(element, "selection", window.getSelection()), message: captureRefineTarget(element, "message", null) });
+		pendingSelection.current = null;
+		element.blur();
+	}
+
+	function showRefinePreview(target: RefineTarget | null, text: string | null) {
+		if (!target || text === null) { setPreview(null); return true; }
+		const element = editorRef.current;
+		if (!element || !refine || disabled || mailboxId !== refine.mailboxId) return false;
+		const html = previewRefinement(element, target, text);
+		if (html === null) return false;
+		setPreview({ html, revision: ++previewRevision.current });
+		return true;
+	}
+
+	function closeRefine() {
+		setRefine(null); setPreview(null);
 	}
 
 	function applyRefine(target: RefineTarget, text: string) {
@@ -117,6 +147,7 @@ export function RichTextEditor({
 	}
 
 	function run(command: string, commandValue?: string) {
+		if (refine) return;
 		editorRef.current?.focus();
 		if (command === "formatBlock" && active.formatBlock) {
 			document.execCommand("formatBlock", false, "div");
@@ -127,6 +158,7 @@ export function RichTextEditor({
 	}
 
 	function openLink() {
+		if (refine) return;
 		const selection = window.getSelection();
 		savedRange.current = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
 		setLinkUrl("");
@@ -167,26 +199,31 @@ export function RichTextEditor({
 
 	return (
 		<div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-			<div className="relative min-h-0 flex-1 overflow-y-auto">
+			<div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
 				<div
 					ref={editorRef}
 					id={id}
 					role="textbox"
 					aria-multiline="true"
 					aria-label={t("editor.messageBody")}
-					contentEditable={!disabled}
+					contentEditable={!disabled && !refine}
+					aria-readonly={!!refine || disabled}
+					aria-hidden={!!preview}
+					inert={!!preview}
 					suppressContentEditableWarning
 					data-placeholder={placeholder}
 					onInput={() => { setRefineUndo(null); emit(); }}
 					onBlur={emit}
 					onPaste={onPaste}
-					onKeyDown={onKeyDown}
+					onKeyDown={event => { if (event.key === "Escape" && refine) { event.preventDefault(); closeRefine(); } else onKeyDown(event); }}
 					className={cn(
-						"email-body max-w-none px-4 py-3 text-sm text-neutral-900 outline-none",
+						"email-body flex-1 max-w-none break-words px-4 py-3 text-base text-neutral-900 outline-none md:text-sm",
+						preview && "hidden",
 						"min-h-32 empty:before:pointer-events-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]",
 						disabled && "cursor-not-allowed opacity-60",
 					)}
 				/>
+				{preview && <div key={preview.revision} role="textbox" aria-readonly="true" aria-multiline="true" aria-label={t("refine.preview")} className="refine-preview email-body min-h-32 flex-1 max-w-none break-words px-4 py-3 text-base text-neutral-900 md:text-sm" dangerouslySetInnerHTML={{ __html: preview.html }} />}
 				{quotedHtml && (
 					<div className="px-4 pb-3">
 						<button
@@ -204,21 +241,25 @@ export function RichTextEditor({
 					</div>
 				)}
 			</div>
-			{refine && <RefineDialog mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onApply={applyRefine} onClose={() => { setRefine(null); editorRef.current?.focus(); }} />}
+			{refine && <RefineControls mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onPreview={showRefinePreview} onApply={applyRefine} onClose={closeRefine} />}
 			{footerContent}
-			<div className="relative flex flex-wrap items-center gap-0.5 border-t border-neutral-100 px-4 py-3">
+			<div className="compose-toolbar relative flex shrink-0 flex-wrap items-center gap-0.5 border-t border-neutral-100 bg-white px-3 py-2 md:gap-0.5 md:px-4 md:py-3">
+				{mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled || !!refine} onPointerDown={() => { const element = editorRef.current; pendingSelection.current = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; }} onMouseDown={event => event.preventDefault()} onClick={openRefine} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 disabled:opacity-50 md:h-8 md:w-8"><Sparkles className="h-5 w-5" /></button></Tooltip>}
 				{toolbarStart}
+				<button type="button" aria-label={t("editor.formatting")} aria-expanded={formattingOpen} disabled={disabled || !!refine} onMouseDown={event => event.preventDefault()} onClick={() => setFormattingOpen(open => !open)} className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 md:hidden", formattingOpen && "bg-neutral-100 text-neutral-900")}><Type className="h-5 w-5" /></button>
+				<div className={cn("order-last w-full flex-wrap items-center gap-0.5 border-t border-neutral-100 pt-1 md:order-none md:flex md:w-auto md:border-0 md:pt-0", formattingOpen ? "flex" : "hidden")}>
+
 				{COMMANDS.map((item) => (
 					<Tooltip key={item.command} label={t(item.labelKey)}>
 						<button
 							type="button"
 							aria-label={t(item.labelKey)}
 							aria-pressed={!!active[item.command]}
-							disabled={disabled}
+							disabled={disabled || !!refine}
 							onMouseDown={(event) => event.preventDefault()}
 							onClick={() => run(item.command, item.value)}
 							className={cn(
-								"rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900",
+								"flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 md:h-7 md:w-7",
 								active[item.command] && "bg-neutral-200 text-neutral-900",
 							)}
 						>
@@ -230,10 +271,10 @@ export function RichTextEditor({
 					<button
 						type="button"
 						aria-label={t("editor.insertLink")}
-						disabled={disabled}
+						disabled={disabled || !!refine}
 						onMouseDown={(event) => event.preventDefault()}
 						onClick={openLink}
-						className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+						className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 md:h-7 md:w-7"
 					>
 						<Link2 className="h-4 w-4" />
 					</button>
@@ -242,24 +283,20 @@ export function RichTextEditor({
 					<button
 						type="button"
 						aria-label={t("editor.clearFormatting")}
-						disabled={disabled}
+						disabled={disabled || !!refine}
 						onMouseDown={(event) => event.preventDefault()}
 						onClick={() => run("removeFormat")}
-						className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+						className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 md:h-7 md:w-7"
 					>
 						<RemoveFormatting className="h-4 w-4" />
 					</button>
 				</Tooltip>
-				{mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={openRefine} className="flex items-center gap-1 rounded-md p-1.5 text-blue-600 hover:bg-blue-50 disabled:opacity-50"><Sparkles className="h-4 w-4" /><span className="hidden text-xs sm:inline">{t("refine.title")}</span></button></Tooltip>}
-				{refineUndo && <Tooltip label={t("refine.undo")}><button type="button" aria-label={t("refine.undo")} disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={undoRefine} className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"><Undo2 className="h-4 w-4" /></button></Tooltip>}
+				{refineUndo && <Tooltip label={t("refine.undo")}><button type="button" aria-label={t("refine.undo")} disabled={disabled || !!refine} onMouseDown={event => event.preventDefault()} onClick={undoRefine} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 md:h-7 md:w-7"><Undo2 className="h-4 w-4" /></button></Tooltip>}
+				</div>
 				{toolbarEnd}
 				{linkOpen && (
-					<form
-						className="absolute bottom-full left-2 z-10 mb-1 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg"
-						onSubmit={(event) => {
-							event.preventDefault();
-							applyLink();
-						}}
+					<div
+						className="absolute bottom-full inset-x-2 z-10 mb-1 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg md:right-auto"
 					>
 						<input
 							autoFocus
@@ -267,14 +304,15 @@ export function RichTextEditor({
 							onChange={(event) => setLinkUrl(event.target.value)}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") setLinkOpen(false);
+								if (event.key === "Enter") { event.preventDefault(); applyLink(); }
 							}}
 							placeholder="https://example.com"
-							className="h-8 w-64 rounded-md border border-neutral-200 px-2 text-sm outline-none focus:border-blue-400"
+							className="h-11 min-w-0 flex-1 rounded-md border border-neutral-200 px-2 text-base outline-none focus:border-blue-400 md:h-8 md:w-64 md:text-sm"
 						/>
-						<button type="submit" className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
+						<button type="button" onClick={applyLink} className="min-h-11 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 md:min-h-8">
 							{t("editor.apply")}
 						</button>
-					</form>
+					</div>
 				)}
 			</div>
 		</div>

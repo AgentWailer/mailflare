@@ -25,6 +25,37 @@ body {
 	font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+@keyframes refine-preview-reveal {
+	from { background-color: #dbeafe; box-shadow: inset 0 0 24px #93c5fd80; }
+	to { background-color: transparent; box-shadow: inset 0 0 0 transparent; }
+}
+
+.refine-preview {
+	animation: refine-preview-reveal 900ms ease-out both;
+}
+
+@media (max-width: 767px) {
+	/* Keep iOS from zooming the page whenever an editable field receives focus. */
+	input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select, [contenteditable="true"] {
+		font-size: 16px;
+	}
+
+	.compose-popup {
+		top: var(--compose-viewport-top, 0px);
+		right: 0;
+		bottom: auto;
+		left: 0;
+		width: 100%;
+		height: var(--compose-viewport-height, 100dvh);
+		transform: none;
+		border: 0;
+		border-radius: 0;
+	}
+
+	.compose-popup .compose-header { padding-top: env(safe-area-inset-top); }
+	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+}
+
 pre {
 	font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
@@ -104,6 +135,7 @@ pre {
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.refine-preview { animation: none; background-color: #eff6ff; }
 	.dialog-overlay,
 	.dialog-content {
 		animation-duration: 1ms !important;

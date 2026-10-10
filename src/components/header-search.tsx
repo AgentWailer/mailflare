@@ -41,7 +41,7 @@ export function HeaderSearch({ value, onChange, label, placeholder, onSubmit, tr
 					onChange={(event) => onChange(event.target.value)}
 					aria-label={label}
 					placeholder={placeholder ?? label}
-					className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-neutral-800 outline-none! shadow-none! border-none! placeholder:text-neutral-500"
+					className="h-full min-w-0 flex-1 bg-transparent text-base md:text-[15px] text-neutral-800 outline-none! shadow-none! border-none! placeholder:text-neutral-500"
 				/>
 				{trailing}
 			</form>

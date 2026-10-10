@@ -1997,12 +1997,12 @@
 	"refine.preview": "Suggested revision",
 	"refine.generate": "Generate suggestion",
 	"refine.retry": "Try again",
-	"refine.apply": "Apply",
+	"refine.apply": "Replace",
 	"refine.cancel": "Cancel",
 	"refine.working": "Refining your text…",
 	"refine.undo": "Undo refinement",
 	"refine.empty": "Write some email text first, or select a passage outside the signature and quoted messages.",
-	"refine.changed": "The message or sending mailbox changed. Close this dialog and create a new suggestion.",
+	"refine.changed": "The message or sending mailbox changed. Cancel and create a new suggestion.",
 	"refine.tooLong": "Refine up to 12,000 characters at a time. Select a shorter passage.",
 	"refine.failed": "The AI request failed. Try again or check the configured AI provider.",
 	"refine.forbidden": "You need permission to compose messages in this mailbox.",
@@ -2012,5 +2012,7 @@
 	"refine.rateLimit": "Too many AI requests. Please try again shortly.",
 	"refine.truncated": "The suggestion was incomplete. Try refining a shorter passage.",
 	"refine.invalidOutput": "The suggestion could not be applied safely. Please try again.",
-	"refine.image": "[Inline image]"
+	"refine.image": "[Inline image]",
+	"editor.formatting": "Formatting",
+	"refine.settings": "Refine settings"
 }
