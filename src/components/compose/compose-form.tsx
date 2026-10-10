@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import { ChevronUp, FileText, Forward, Maximize2, Minimize2, Minus, Paperclip, Reply, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Forward, Maximize2, Minimize2, Minus, Paperclip, Reply, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { authFetch } from "@/lib/auth/client";
@@ -18,6 +17,7 @@ import { SendReview } from "@/components/agent/send-review";
 import type { ReviewSnapshot } from "@/components/agent/send-review-types";
 import { buildSendFormData, fetchDraft, formatAttachmentSize } from "./utils";
 import { RecipientInput } from "./recipient-input";
+import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleSendMenu } from "./schedule-send-menu";
 import { useComposeViewport } from "./use-compose-viewport";
@@ -562,23 +562,27 @@ export function ComposeForm({
 				</div>
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")}>
 				<div className="max-h-[45%] shrink-0 overflow-y-auto overscroll-contain">
-				<div className="min-h-11 border-b border-neutral-100 px-4 py-1 flex flex-row items-center md:min-h-9">
-					<Label htmlFor={`${mode}-from`} className="text-sm text-neutral-500">{t("compose.from")}</Label>
-					<Select
-						id={`${mode}-from`}
-						value={selectedMailbox && selectedFrom ? `${selectedMailbox.id}|${selectedFrom}` : ""}
-						onChange={(event) => selectSender(event.target.value)}
-						// placeholder="Select a mailbox first"
-						required
-						disabled={loadingDraft || senderOptions.length === 0}
-						className="h-9 min-w-0 px-0 py-1 text-base md:h-8 md:text-sm shadow-none focus-visible:ring-0"
-						containerClassName="min-w-0 border-0 flex-1"
-					>
-						{senderOptions.length === 0 && <option value="">{t("compose.selectMailboxFirst")}</option>}
-						{senderOptions.map(({ mailbox, address }) => (
-							<option key={`${mailbox.id}|${address}`} value={`${mailbox.id}|${address}`}>{address}</option>
-						))}
-					</Select>
+				<div className={addressRowClassName}>
+					<Label htmlFor={`${mode}-from`} className={addressLabelClassName}>{t("compose.from")}</Label>
+					<div className={cn(addressChipClassName, "relative max-w-[calc(100%-2.5rem)] border-neutral-200 bg-neutral-50 text-neutral-800 focus-within:ring-2 focus-within:ring-blue-500", (loadingDraft || senderOptions.length === 0) && "opacity-50")}>
+						<span aria-hidden="true" className="truncate">{selectedFrom || t("compose.selectMailboxFirst")}</span>
+						<ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-neutral-400" />
+						{/* Keep the native sender picker on iOS, with a full row-height touch target. */}
+						<select
+							id={`${mode}-from`}
+							value={selectedMailbox && selectedFrom ? `${selectedMailbox.id}|${selectedFrom}` : ""}
+							onChange={(event) => selectSender(event.target.value)}
+							required
+							disabled={loadingDraft || senderOptions.length === 0}
+							title={selectedFrom}
+							className="absolute inset-x-0 top-1/2 h-11 w-full -translate-y-1/2 cursor-pointer text-base opacity-0 disabled:cursor-not-allowed md:h-9 md:text-sm"
+						>
+							{senderOptions.length === 0 && <option value="">{t("compose.selectMailboxFirst")}</option>}
+							{senderOptions.map(({ mailbox, address }) => (
+								<option key={`${mailbox.id}|${address}`} value={`${mailbox.id}|${address}`}>{address}</option>
+							))}
+						</select>
+					</div>
 				</div>
 				<RecipientInput
 					id={`${mode}-to`}
@@ -591,12 +595,12 @@ export function ComposeForm({
 					trailing={
 						<>
 							{!showCc && (
-								<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800" onClick={() => setShowCc(true)}>
+								<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onClick={() => setShowCc(true)}>
 									{t("compose.cc")}
 								</button>
 							)}
 							{!showBcc && (
-								<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800" onClick={() => setShowBcc(true)}>
+								<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onClick={() => setShowBcc(true)}>
 									{t("compose.bcc")}
 								</button>
 							)}

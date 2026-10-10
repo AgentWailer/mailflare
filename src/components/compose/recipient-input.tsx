@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/language-provider";
 import { Label } from "@/components/ui/label";
 import { getEmailAddress } from "@/lib/email/address";
 import { cn } from "@/lib/utils";
+import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
 import type { RecipientInputProps } from "./recipient-input-types";
 import { getRecipientLabel, isValidRecipient, parseRecipientEntries } from "./recipient-utils";
 
@@ -28,7 +29,9 @@ export function RecipientInput({
 }: RecipientInputProps) {
 	const { t } = useLanguage();
 	const [draft, setDraft] = useState("");
+	const [focused, setFocused] = useState(false);
 	const inputRef = useRef<HTMLInputElement | null>(null);
+	const editing = focused || draft.length > 0 || value.length === 0;
 
 	function commit(raw = draft) {
 		const entries = parseRecipientEntries(raw, value);
@@ -52,10 +55,10 @@ export function RecipientInput({
 
 	return (
 		<div
-			className="flex min-h-11 items-center md:min-h-9 gap-2 border-b border-neutral-100 px-4 py-1"
+			className={addressRowClassName}
 			onClick={() => inputRef.current?.focus()}
 		>
-			<Label htmlFor={id} className="w-8 shrink-0 text-sm text-neutral-500">
+			<Label htmlFor={id} className={addressLabelClassName}>
 				{label}
 			</Label>
 			<div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -66,7 +69,8 @@ export function RecipientInput({
 							key={entry}
 							title={getEmailAddress(entry)}
 							className={cn(
-								"inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs",
+								addressChipClassName,
+								editing ? "max-w-full" : "max-w-[calc(100%-0.75rem)]",
 								valid
 									? "border-neutral-200 bg-neutral-50 text-neutral-800"
 									: "border-red-200 bg-red-50 text-red-700",
@@ -77,13 +81,13 @@ export function RecipientInput({
 								<button
 									type="button"
 									aria-label={t("recipient.remove", { address: getEmailAddress(entry) })}
-									className="rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+									className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
 									onClick={(event) => {
 										event.stopPropagation();
 										onChange(value.filter((item) => item !== entry));
 									}}
 								>
-									<X className="h-3 w-3" />
+										<X className="h-3.5 w-3.5" />
 								</button>
 							)}
 						</span>
@@ -102,7 +106,8 @@ export function RecipientInput({
 						setDraft(event.target.value);
 					}}
 					onKeyDown={onKeyDown}
-					onBlur={() => commit()}
+					onFocus={() => setFocused(true)}
+					onBlur={() => { commit(); setFocused(false); }}
 					type="text"
 					autoComplete="off"
 					autoFocus={autoFocus}
@@ -111,13 +116,17 @@ export function RecipientInput({
 					disabled={disabled}
 					// Native `required` would block submit while chips exist; the form checks itself.
 					aria-required={required}
-					className="h-9 min-w-[min(128px,100%)] flex-1 md:h-7 border-0 bg-transparent p-0 text-base md:text-sm outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed"
+					className={cn(
+						"h-8 flex-1 border-0 bg-transparent p-0 text-base outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed md:h-7 md:text-sm",
+						// Leave a small focusable area after the chips, without forcing an empty second line.
+						editing ? "min-w-[min(128px,100%)]" : "min-w-0 basis-0",
+					)}
 				/>
 			</div>
 			{trailing && (
 				// Toggles live inside the clickable row; keep their clicks from refocusing this field.
 				<div
-					className="flex shrink-0 items-center gap-1 text-xs text-neutral-500"
+					className="flex shrink-0 items-center gap-1 text-base font-normal text-neutral-500 md:text-sm"
 					onClick={(event) => event.stopPropagation()}
 				>
 					{trailing}
