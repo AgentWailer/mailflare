@@ -100,3 +100,12 @@ test('invalid and stale suggestions cannot appear as inline previews', () => {
  assert.ok(previewRefinement(e,target,target.text).includes('<img src="/image.png">'));
  e.firstChild.textContent='New text';assert.equal(previewRefinement(e,target,target.text),null);
 });
+
+
+test('an empty editable range accepts a new reply while preserving the signature and quoted history', () => {
+ const e=editor('<div><br></div><div data-mailflare-signature="1">Sam</div><div data-mailflare-quote="1">Previous message</div>');
+ assert.equal(captureRefineTarget(e,'message',null),null);
+ const target=captureRefineTarget(e,'message',null,true);assert.equal(target.text,'');
+ const before=e.innerHTML;assert.ok(previewRefinement(e,target,'A proposed answer.').startsWith('<div>A proposed answer.</div>'));assert.equal(e.innerHTML,before);
+ assert.equal(applyRefinement(e,target,'A proposed answer.'),true);assert.equal(e.querySelector('[data-mailflare-signature]').textContent,'Sam');assert.equal(e.querySelector('[data-mailflare-quote]').textContent,'Previous message');
+});

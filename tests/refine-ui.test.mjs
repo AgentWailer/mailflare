@@ -20,9 +20,9 @@ await build({stdin:{contents:`
  import { LanguageProvider } from './src/components/language-provider.tsx';
  import { RichTextEditor } from './src/components/compose/rich-text-editor.tsx';
  import de from './public/locales/de.json';
- export function Harness({ locale='en', mailboxId='mailbox', initialValue='<p>Hello badly worded text.</p>' }) {
+ export function Harness({ locale='en', mailboxId='mailbox', initialValue='<p>Hello badly worded text.</p>', replyContext, quotedHtml }) {
   const [value, setValue] = useState(initialValue); const [refining, setRefining] = useState(false);
-  return <LanguageProvider initialLocale={locale} initialMessages={locale==='de'?de:undefined}><RichTextEditor id='editor' mailboxId={mailboxId} value={value} onChange={setValue} onRefineActiveChange={setRefining} toolbarStart={<button type='submit' disabled={refining}>Send</button>} /><output data-draft={value} /></LanguageProvider>;
+  return <LanguageProvider initialLocale={locale} initialMessages={locale==='de'?de:undefined}><RichTextEditor id='editor' mailboxId={mailboxId} replyContext={replyContext} quotedHtml={quotedHtml} value={value} onChange={setValue} onRefineActiveChange={setRefining} toolbarStart={<button type='submit' disabled={refining}>Send</button>} /><output data-draft={value} /></LanguageProvider>;
  }
 `,loader:'tsx',resolveDir:process.cwd(),sourcefile:'refine-ui-entry.tsx'},outfile:join(directory,'entry.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',tsconfig:'tsconfig.json',logLevel:'silent'});
 const { Harness }=await import(pathToFileURL(join(directory,'entry.mjs')).href);
@@ -99,8 +99,32 @@ test('empty text and provider failures leave the original draft intact and remai
  t.after(cleanup);let calls=0;
  t.mock.method(globalThis,'fetch',async()=>{calls++;return Response.json({code:'provider_error'},{status:502});});
  await mount({initialValue:'<div data-mailflare-signature="1">Sam</div>'});const before=draft();
- await click('Refine');assert.equal(calls,0);assert.match(document.querySelector('[role="alert"]').textContent,/Write some/);
+ await click('Refine');assert.equal(calls,0);assert.match(document.querySelector('[role="alert"]').textContent,/No conversation history/);
  await click('Cancel');assert.equal(draft(),before);
  await cleanup();await mount({});await click('Refine');assert.equal(calls,1);assert.match(document.querySelector('[role="alert"]').textContent,/failed/);
  await click('Try again');assert.equal(calls,2);await click('Cancel');assert.equal(preview(),null);
+});
+
+
+test('blank replies generate from conversation context immediately; cancel, retry, replace and undo keep the signature and quotes',async(t)=>{
+ t.after(cleanup);const calls=[];
+ t.mock.method(globalThis,'fetch',async(_url,init)=>{calls.push(JSON.parse(init.body));return Response.json({text:'Hallo Julia, gerne besprechen wir die nächsten Schritte.'});});
+ const replyContext={threadId:'thread',inReplyTo:'source@example.test',subject:'Re: Next steps',from:'sam@example.test',to:'julia@example.test'};
+ await mount({locale:'de',initialValue:'<div><br></div><div data-mailflare-signature="1">Sam</div>',quotedHtml:'<p>Original conversation</p>',replyContext});
+ const original=editor().innerHTML;await click('Überarbeiten');assert.equal(calls.length,1);assert.equal(calls[0].action,'reply');assert.equal(calls[0].text,'');assert.deepEqual(calls[0].replyContext,replyContext);
+ assert.equal(editor().innerHTML,original);assert.equal(draft(),original);assert.equal(preview().querySelector('[data-mailflare-signature]').textContent,'Sam');assert.equal(button('Send').disabled,true);
+ await click('Abbrechen');assert.equal(draft(),original);await click('Überarbeiten');await click('Neu');assert.equal(calls[2].text,'');
+ await click('Ersetzen');assert.ok(editor().textContent.startsWith('Hallo Julia'));assert.equal(editor().querySelector('[data-mailflare-signature]').textContent,'Sam');
+ await click('Überarbeiten');assert.equal(calls.at(-1).action,undefined);assert.ok(calls.at(-1).text.startsWith('Hallo Julia'));await click('Abbrechen');
+ await click('Überarbeitung rückgängig machen');assert.equal(draft(),original);
+});
+
+test('a pending reply is discarded if recipients or conversation context change',async(t)=>{
+ t.after(cleanup);let resolve,signal;
+ t.mock.method(globalThis,'fetch',(_url,init)=>{signal=init.signal;return new Promise(r=>{resolve=r;});});
+ const props={initialValue:'<div data-mailflare-signature="1">Sam</div>',replyContext:{threadId:'thread',to:'julia@example.test'}};
+ await mount(props);const before=draft();await click('Refine');
+ await act(async()=>root.render(React.createElement(Harness,{...props,replyContext:{...props.replyContext,to:'different@example.test'}})));
+ assert.equal(signal.aborted,true);assert.equal(button('Send').disabled,false);
+ await act(async()=>resolve(Response.json({text:'Late answer to the old recipient'})));assert.equal(draft(),before);assert.equal(preview(),null);
 });

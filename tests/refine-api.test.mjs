@@ -82,7 +82,7 @@ test('invalid origin and exhausted rate limiter are rejected before generation',
 test('invalid, oversized and malformed payloads do not reach the model',async(t)=>{
  const f=await fixture(t);
  for(const input of [{text:''},{text:'x'.repeat(12001)},{language:'fr'},{mode:'invent'},{protectedTokens:['bad']},{mailboxId:''}])assert.equal((await f.post(input)).status,400);
- assert.equal((await f.post({text:'x'.repeat(81000)})).status,413);
+ assert.equal((await f.post({text:'x'.repeat(410000)})).status,413);
  assert.equal(f.calls.length,0);
 });
 
@@ -111,4 +111,57 @@ test('image placeholders are preserved in order and duplicate/unknown placeholde
  f.change(`Please see ${a} and ${b}.`);assert.equal((await f.post(input)).status,200);
  f.change(`${b} ${a}`);assert.equal((await f.post(input)).status,502);
  f.change(`${a} ${a}`);assert.equal((await f.post(input)).status,502);
+});
+
+
+function addHistoryMail(f, overrides={}) {
+ const mail={id:'source',user:'owner',mailbox:'mailbox',direction:'inbound',from:'Julia <julia@example.test>',to:'owner@example.test',subject:'Next steps',text:'Can we discuss the next steps?',html:null,status:'received',thread:'thread',provider:'source@example.test',created:1,...overrides};
+ f.database.db.prepare('INSERT INTO messages (id,user_id,mailbox_id,direction,from_addr,to_addr,subject,text_body,html_body,status,thread_id,provider_message_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(mail.id,mail.user,mail.mailbox,mail.direction,mail.from,mail.to,mail.subject,mail.text,mail.html,mail.status,mail.thread,mail.provider,mail.created);
+}
+const replyInput={action:'reply',text:'',replyContext:{threadId:'thread',inReplyTo:'<source@example.test>',from:'owner@example.test',to:'julia@example.test',subject:'Re: Next steps'}};
+
+test('empty-body suggestions read the complete thread in chronological order, excluding drafts and unrelated conversations',async(t)=>{
+ const f=await fixture(t);
+ // More than one database page: older messages must not silently disappear.
+ for(let i=0;i<55;i++)addHistoryMail(f,{id:`history-${i}`,provider:`mail-${i}@example.test`,created:i+1,text:`History message ${i}`,direction:i%2?'outbound':'inbound',status:i%2?'sent':'received'});
+ addHistoryMail(f,{created:56,text:'Can you summarize our agreed next steps?'});
+ addHistoryMail(f,{id:'other-draft',user:'reader',status:'draft',text:'Private unsent draft',created:57});
+ addHistoryMail(f,{id:'own-draft',status:'draft',text:'Own uncommitted draft',created:58});
+ addHistoryMail(f,{id:'unrelated',thread:'another-thread',text:'Unrelated content',created:59});
+ const before=f.database.db.prepare('SELECT * FROM messages ORDER BY id').all();
+ const response=await f.post(replyInput);assert.equal(response.status,200);
+ const prompt=f.calls[0].input.messages;assert.match(prompt[0].content,/draft an email reply/);assert.match(prompt[0].content,/entire supplied conversation/);assert.match(prompt[0].content,/Write in German/);
+ const context=JSON.parse(prompt.at(-1).content);assert.equal(context.conversation.length,56);assert.equal(context.conversation[0].text,'History message 0');assert.equal(context.conversation.at(-1).text,'Can you summarize our agreed next steps?');
+ assert.equal(context.to,'julia@example.test');assert.ok(!JSON.stringify(context).includes('Private unsent'));assert.ok(!JSON.stringify(context).includes('Unrelated content'));
+ assert.deepEqual(f.database.db.prepare('SELECT * FROM messages ORDER BY id').all(),before);assert.equal(f.database.db.prepare('SELECT COUNT(*) n FROM outbound_jobs').get().n,0);
+});
+
+test('reply history checks source-mailbox read access separately from sending permissions',async(t)=>{
+ const f=await fixture(t);
+ f.database.db.exec("INSERT INTO mailboxes (id,user_id,domain_id,local_part,type,created_at) VALUES ('private','owner','domain','private','personal',1),('allowed','owner','domain','allowed','shared',1); INSERT INTO mailbox_access (id,mailbox_id,user_id,permission,created_at) VALUES ('source-read','allowed','sender','read_only',1);");
+ addHistoryMail(f,{mailbox:'private'});
+ let response=await f.post({...replyInput,replyContext:{...replyInput.replyContext,mailboxId:'private'}},'sender');assert.equal(response.status,403);assert.equal(f.calls.length,0);
+ f.database.db.exec("UPDATE messages SET mailbox_id='allowed'");
+ response=await f.post({...replyInput,replyContext:{...replyInput.replyContext,mailboxId:'allowed'}},'sender');assert.equal(response.status,200);assert.equal(f.calls.length,1);
+ response=await f.post(replyInput,'reader');assert.equal(response.status,403);assert.equal(f.calls.length,1);
+});
+
+test('missing or inconsistent history and oversized complete conversations never invoke the provider',async(t)=>{
+ const f=await fixture(t);
+ let r=await f.post(replyInput);assert.equal(r.status,404);assert.equal((await r.json()).code,'history_missing');
+ addHistoryMail(f);
+ r=await f.post({...replyInput,replyContext:{...replyInput.replyContext,threadId:'wrong-thread'}});assert.equal(r.status,404);
+ r=await f.post({action:'reply',text:'',replyContext:{}});assert.equal(r.status,400);
+ f.database.db.exec("UPDATE messages SET text_body='"+'x'.repeat(60001)+"'");
+ r=await f.post(replyInput);assert.equal(r.status,413);assert.equal((await r.json()).code,'history_too_long');assert.equal(f.calls.length,0);
+});
+
+test('legacy single-message replies and quoted-history fallback use reply prompts with original-language settings',async(t)=>{
+ const f=await fixture(t);addHistoryMail(f,{thread:null,text:null,html:'<p>Could you send the report?</p>'});
+ let response=await f.post({action:'reply',text:'',language:'keep',replyContext:{inReplyTo:'source@example.test',threadId:'source@example.test'}});assert.equal(response.status,200);
+ assert.match(f.calls[0].input.messages[0].content,/language of the latest email/);
+ assert.equal(JSON.parse(f.calls[0].input.messages.at(-1).content).conversation[0].text,'Could you send the report?');
+ response=await f.post({action:'reply',text:'',replyContext:{quotedText:'On Monday Julia wrote: Could we discuss the proposal?'}});assert.equal(response.status,200);
+ assert.equal(JSON.parse(f.calls[1].input.messages.at(-1).content).conversation[0].text,'On Monday Julia wrote: Could we discuss the proposal?');
+ assert.equal(f.database.db.prepare('SELECT COUNT(*) n FROM messages').get().n,1);
 });

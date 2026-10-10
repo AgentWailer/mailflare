@@ -2014,5 +2014,8 @@
 	"refine.invalidOutput": "The suggestion could not be applied safely. Please try again.",
 	"refine.image": "[Inline image]",
 	"editor.formatting": "Formatting",
-	"refine.settings": "Refine settings"
+	"refine.settings": "Refine settings",
+	"refine.historyMissing": "No conversation history is available. Open a reply or write some email text first.",
+	"refine.historyTooLong": "This conversation is too long to generate a complete reply. Write a first draft, then refine it.",
+	"refine.replyWorking": "Suggesting a reply from the conversation…"
 }

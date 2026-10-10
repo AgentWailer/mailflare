@@ -13,8 +13,8 @@ export type RefineTarget = {
 	images: Array<{ token: string; html: string }>;
 };
 
-/** Capture the selection before opening a dialog; signatures and folded quotes stay outside it. */
-export function captureRefineTarget(editor: HTMLElement, scope: RefineTarget["scope"], selection: Selection | null): RefineTarget | null {
+/** Capture the editable range; signatures and folded quotes stay outside it. */
+export function captureRefineTarget(editor: HTMLElement, scope: RefineTarget["scope"], selection: Selection | null, allowEmpty = false): RefineTarget | null {
 	const range = editor.ownerDocument.createRange();
 	if (scope === "selection") {
 		if (!selection?.rangeCount || selection.isCollapsed) return null;
@@ -38,7 +38,7 @@ export function captureRefineTarget(editor: HTMLElement, scope: RefineTarget["sc
 		image.replaceWith(editor.ownerDocument.createTextNode(`\n${token}\n`));
 	}
 	const text = htmlToPlainText(copy.innerHTML).trim();
-	if (!text || !text.replace(/\[\[MAILFLARE_IMAGE_[a-f0-9-]+_\d+\]\]/g, "").trim()) return null;
+	if (!allowEmpty && (!text || !text.replace(/\[\[MAILFLARE_IMAGE_[a-f0-9-]+_\d+\]\]/g, "").trim())) return null;
 	const selectedText = range.toString();
 	const leadingWhitespace = scope === "selection" ? selectedText.match(/^\s*/)?.[0] ?? "" : "";
 	const trailingWhitespace = scope === "selection" ? selectedText.match(/\s*$/)?.[0] ?? "" : "";

@@ -494,6 +494,15 @@ export function ComposeForm({
 		</div>
 	);
 
+	const refineReplyContext = useMemo(() => ({
+		mailboxId: loadedDraftMailboxId ?? selectedMailbox?.id,
+		threadId: threading?.threadId ?? undefined,
+		inReplyTo: threading?.inReplyTo ?? undefined,
+		// The stored conversation is authoritative; quoted text covers imported/forwarded mail.
+		quotedText: !threading?.threadId && !threading?.inReplyTo && quotedHtml ? htmlToPlainText(quotedHtml).trim() : undefined,
+		subject, from: fromAddr, to: recipientsToHeader(to), cc: recipientsToHeader(cc),
+	}), [loadedDraftMailboxId, selectedMailbox?.id, threading, quotedHtml, subject, fromAddr, to, cc]);
+
 	const frameClass =
 		mode === "popup"
 			? minimized
@@ -637,6 +646,7 @@ export function ComposeForm({
 					onChange={setHtml}
 					onRefineActiveChange={setRefineActive}
 					quotedHtml={quotedHtml}
+					replyContext={refineReplyContext}
 					disabled={loadingDraft}
 					placeholder={t("compose.bodyPlaceholder")}
 					footerContent={attachmentContent}

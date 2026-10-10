@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 	if (!hasValidSessionMutationOrigin(request)) return Response.json({ code: "forbidden" }, { status: 403 });
 	if (!await allowAgentRequest(env, `chat:${user.id}`)) return Response.json({ code: "rate_limit" }, { status: 429 });
 	let body: unknown;
-	try { body = await readJsonBody(request, 80_000); }
+	try { body = await readJsonBody(request, 400_000); }
 	catch (error) { return Response.json({ code: error instanceof RequestBodyTooLargeError ? "too_long" : "invalid_request" }, { status: error instanceof RequestBodyTooLargeError ? 413 : 400 }); }
 	const parsed = refineSchema.safeParse(body);
 	if (!parsed.success) return Response.json({ code: "invalid_request" }, { status: 400 });

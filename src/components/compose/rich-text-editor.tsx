@@ -24,6 +24,7 @@ import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
 import { RefineControls } from "./refine-controls";
 import { captureRefineTarget, applyRefinement, previewRefinement } from "./refine-utils";
 import type { RefineTarget } from "./refine-utils";
+import type { RefineReplyContext } from "@/lib/agent/refine-input";
 import type { RichTextEditorProps, ToolbarCommand } from "./rich-text-editor-types";
 
 const COMMANDS: ToolbarCommand[] = [
@@ -47,6 +48,7 @@ export function RichTextEditor({
 	value,
 	onChange,
 	quotedHtml,
+	replyContext,
 	disabled,
 	placeholder,
 	className,
@@ -65,7 +67,7 @@ export function RichTextEditor({
 	const [linkOpen, setLinkOpen] = useState(false);
 	const [linkUrl, setLinkUrl] = useState("");
 	const [showQuoted, setShowQuoted] = useState(false);
-	const [refine, setRefine] = useState<{ mailboxId: string; snapshot: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
+	const [refine, setRefine] = useState<{ mailboxId: string; snapshot: string; draftReply: boolean; replyContext?: RefineReplyContext; contextKey: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
 	const [refineUndo, setRefineUndo] = useState<{ mailboxId: string; before: string; after: string } | null>(null);
 	const savedRange = useRef<Range | null>(null);
 
@@ -75,8 +77,8 @@ export function RichTextEditor({
 		if (!element) return;
 		const safeValue = sanitizeEditorHtml(value);
 		if (element.innerHTML !== safeValue) element.innerHTML = safeValue;
-		if (refine && (mailboxId !== refine.mailboxId || element.innerHTML !== refine.snapshot)) { setRefine(null); setPreview(null); }
-	}, [value, mailboxId, refine]);
+		if (refine && (mailboxId !== refine.mailboxId || element.innerHTML !== refine.snapshot || refine.draftReply && JSON.stringify(replyContext) !== refine.contextKey)) { setRefine(null); setPreview(null); }
+	}, [value, mailboxId, refine, replyContext]);
 
 	useEffect(() => {
 		onRefineActiveChange?.(!!refine);
@@ -111,7 +113,9 @@ export function RichTextEditor({
 		if (!element || !mailboxId) return;
 		setLinkOpen(false);
 		setPreview(null);
-		setRefine({ mailboxId, snapshot: element.innerHTML, selection: pendingSelection.current ?? captureRefineTarget(element, "selection", window.getSelection()), message: captureRefineTarget(element, "message", null) });
+		const selection = pendingSelection.current ?? captureRefineTarget(element, "selection", window.getSelection());
+		const message = captureRefineTarget(element, "message", null);
+		setRefine({ mailboxId, snapshot: element.innerHTML, draftReply: !selection && !message, replyContext, contextKey: JSON.stringify(replyContext), selection, message: message ?? captureRefineTarget(element, "message", null, true) });
 		pendingSelection.current = null;
 		element.blur();
 	}
@@ -241,7 +245,7 @@ export function RichTextEditor({
 					</div>
 				)}
 			</div>
-			{refine && <RefineControls mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onPreview={showRefinePreview} onApply={applyRefine} onClose={closeRefine} />}
+			{refine && <RefineControls draftReply={refine.draftReply} replyContext={refine.draftReply ? refine.replyContext : undefined} mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onPreview={showRefinePreview} onApply={applyRefine} onClose={closeRefine} />}
 			{footerContent}
 			<div className="compose-toolbar relative flex shrink-0 flex-wrap items-center gap-0.5 border-t border-neutral-100 bg-white px-3 py-2 md:gap-0.5 md:px-4 md:py-3">
 				{mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled || !!refine} onPointerDown={() => { const element = editorRef.current; pendingSelection.current = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; }} onMouseDown={event => event.preventDefault()} onClick={openRefine} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 disabled:opacity-50 md:h-8 md:w-8"><Sparkles className="h-5 w-5" /></button></Tooltip>}

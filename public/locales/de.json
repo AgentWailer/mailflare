@@ -1900,5 +1900,8 @@
 	"refine.invalidOutput": "Der Vorschlag konnte nicht übernommen werden. Bitte versuche es erneut.",
 	"refine.image": "[Eingebettetes Bild]",
 	"editor.formatting": "Formatierung",
-	"refine.settings": "Refine-Einstellungen"
+	"refine.settings": "Refine-Einstellungen",
+	"refine.historyMissing": "Es ist kein E-Mail-Verlauf vorhanden. Öffne eine Antwort oder schreibe zunächst etwas Text.",
+	"refine.historyTooLong": "Diese Unterhaltung ist zu lang für einen vollständigen Antwortvorschlag. Schreibe einen ersten Entwurf und überarbeite ihn anschließend.",
+	"refine.replyWorking": "Antwort aus dem E-Mail-Verlauf wird vorgeschlagen…"
 }

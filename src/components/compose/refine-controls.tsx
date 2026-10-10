@@ -5,8 +5,8 @@ import { Loader2, RotateCw, SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/auth/client";
-import { REFINE_TEXT_LIMIT } from "@/lib/agent/refine-input";
-import type { RefineInput } from "@/lib/agent/refine-input";
+import { REFINE_TEXT_LIMIT, REFINE_HISTORY_LIMIT } from "@/lib/agent/refine-input";
+import type { RefineInput, RefineReplyContext } from "@/lib/agent/refine-input";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { readRefinePreferences, saveRefinePreferences } from "./refine-preferences";
 import type { RefineTarget } from "./refine-utils";
@@ -19,12 +19,15 @@ const ERRORS: Record<string, TranslationKey> = {
 	unauthorized: "refine.unauthorized", forbidden: "refine.forbidden", disabled: "refine.disabled",
 	not_configured: "refine.notConfigured", rate_limit: "refine.rateLimit", too_long: "refine.tooLong",
 	invalid_request: "refine.failed", provider_error: "refine.failed", truncated: "refine.truncated", invalid_output: "refine.invalidOutput",
+	history_missing: "refine.historyMissing", history_too_long: "refine.historyTooLong",
 };
 
-export function RefineControls({ mailboxId, selection, message, onPreview, onApply, onClose }: {
+export function RefineControls({ mailboxId, selection, message, draftReply, replyContext, onPreview, onApply, onClose }: {
 	mailboxId: string;
 	selection: RefineTarget | null;
 	message: RefineTarget | null;
+	draftReply: boolean;
+	replyContext?: RefineReplyContext;
 	onPreview: (target: RefineTarget | null, text: string | null) => boolean;
 	onApply: (target: RefineTarget, text: string) => boolean;
 	onClose: () => void;
@@ -40,6 +43,7 @@ export function RefineControls({ mailboxId, selection, message, onPreview, onApp
 	const [pending, setPending] = useState(true);
 	const target = scope === "selection" ? selection : message;
 	const { mode, language } = preferences;
+	const hasHistory = !!(replyContext?.threadId || replyContext?.inReplyTo || replyContext?.quotedText?.trim());
 	const callbacks = useRef({ onPreview, onApply, onClose });
 	useEffect(() => { callbacks.current = { onPreview, onApply, onClose }; });
 
@@ -51,6 +55,8 @@ export function RefineControls({ mailboxId, selection, message, onPreview, onApp
 			if (request.signal.aborted) return;
 			setResult(""); setError(null); setPending(true);
 			callbacks.current.onPreview(null, null);
+			if (draftReply && !hasHistory) { setError("refine.historyMissing"); setPending(false); return; }
+			if (draftReply && (replyContext?.quotedText?.length ?? 0) > REFINE_HISTORY_LIMIT) { setError("refine.historyTooLong"); setPending(false); return; }
 			if (!target || target.text.length > REFINE_TEXT_LIMIT || target.images.length > 100) {
 				setError(target ? "refine.tooLong" : "refine.empty"); setPending(false);
 				return;
@@ -58,7 +64,7 @@ export function RefineControls({ mailboxId, selection, message, onPreview, onApp
 			try {
 				const response = await authFetch("/api/compose/refine", {
 					method: "POST", headers: { "Content-Type": "application/json" }, signal: request.signal,
-					body: JSON.stringify({ mailboxId, text: target.text, mode, language, protectedTokens: target.images.map(image => image.token) }),
+					body: JSON.stringify({ mailboxId, text: target.text, mode, language, protectedTokens: target.images.map(image => image.token), ...(draftReply ? { action: "reply", replyContext } : {}) }),
 					redirectOnUnauthorized: false,
 				});
 				const data = await response.json() as { text?: string; code?: string };
@@ -71,18 +77,18 @@ export function RefineControls({ mailboxId, selection, message, onPreview, onApp
 			finally { if (!request.signal.aborted) setPending(false); }
 		});
 		return () => request.abort();
-	}, [mailboxId, target, mode, language, generation]);
+	}, [mailboxId, target, mode, language, generation, draftReply, replyContext, hasHistory]);
 
 	return (
 		<div className="shrink-0 border-t border-blue-100 bg-blue-50/60 px-3 py-2" aria-label={t("refine.title")}>
 			{error && <p role="alert" className="mb-2 text-sm text-red-700">{t(error)}</p>}
 			<div className="flex flex-wrap items-center gap-1.5">
-				{pending ? <span role="status" className="flex min-w-0 flex-1 items-center gap-2 text-xs text-blue-700"><Loader2 className="h-4 w-4 shrink-0 animate-spin" />{t("refine.working")}</span> : <span role="status" className="sr-only">{result ? t("refine.preview") : ""}</span>}
+				{pending ? <span role="status" className="flex min-w-0 flex-1 items-center gap-2 text-xs text-blue-700"><Loader2 className="h-4 w-4 shrink-0 animate-spin" />{t(draftReply ? "refine.replyWorking" : "refine.working")}</span> : <span role="status" className="sr-only">{result ? t("refine.preview") : ""}</span>}
 				{!!result && <Button type="button" size="sm" className="min-h-10 md:min-h-8" onClick={() => {
 					if (target && callbacks.current.onApply(target, result)) callbacks.current.onClose();
 					else setError("refine.changed");
 				}}>{t("refine.apply")}</Button>}
-				{!pending && <Button type="button" variant="ghost" size="sm" className="min-h-10 md:min-h-8" disabled={!target} onClick={() => setGeneration(value => value + 1)}><RotateCw className="h-3.5 w-3.5" />{t("refine.retry")}</Button>}
+				{!pending && <Button type="button" variant="ghost" size="sm" className="min-h-10 md:min-h-8" disabled={!target || draftReply && !hasHistory} onClick={() => setGeneration(value => value + 1)}><RotateCw className="h-3.5 w-3.5" />{t("refine.retry")}</Button>}
 				<Button type="button" variant="ghost" size="sm" className="min-h-10 md:min-h-8" onClick={onClose}>{t("refine.cancel")}</Button>
 				<button type="button" aria-label={t("refine.settings")} aria-expanded={settingsOpen} aria-controls={`${id}-settings`} onClick={() => setSettingsOpen(open => !open)} className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-100 md:h-8 md:w-8"><SlidersHorizontal className="h-4 w-4" /></button>
 			</div>
