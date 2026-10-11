@@ -5,7 +5,7 @@ import { useLanguage } from "./language-provider";
 import { folderColorKeys } from "@/lib/folders/color-keys";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Archive,
   CalendarClock,
@@ -52,6 +52,8 @@ import {
   moveMessagesToSystemFolder,
 } from "./dashboard-nav-utils";
 import { NavSectionHeader, useSectionOpen } from "./nav-section-header";
+import { LabelActions } from "./label-actions";
+import { notifyLabelsChanged } from "./messages/use-mailbox-folders";
 import { ReorderableList } from "./reorderable-list";
 import { readStorage, writeStorage } from "./reorderable-list-utils";
 import { SidebarFooter } from "./sidebar-footer";
@@ -105,11 +107,16 @@ export function DashboardNav({ className }: { className?: string }) {
   const { t } = useLanguage();
   const { minimal } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const [foldersOpen, setFoldersOpen] = useState(false);
   const [foldersSectionOpen, toggleFoldersSection] = useSectionOpen("mailflare:nav:folders-section-open");
   const { selectedMailbox, isLoading } = useSelectedMailbox();
   const { counts } = useMessageCounts(selectedMailbox?.id, !isLoading);
+  const [deletingLabel, setDeletingLabel] = useState<CustomFolder | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
+  const canManageLabels = !!selectedMailbox && (!selectedMailbox.permission || selectedMailbox.permission === "full_access");
   const [folders, setFolders] = useState<CustomFolder[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderColor, setNewFolderColor] =
@@ -197,20 +204,31 @@ export function DashboardNav({ className }: { className?: string }) {
     }
 
     let cancelled = false;
+    let requestNumber = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const params = new URLSearchParams({ mailboxId: selectedMailbox.id });
-    authFetch(`/api/folders?${params.toString()}`)
-      .then(
-        (response) => response.json() as Promise<{ folders?: CustomFolder[] }>,
-      )
-      .then((data) => {
-        if (!cancelled) setFolders(data.folders ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setFolders([]);
-      });
-
+    function load() {
+      const request = ++requestNumber;
+      authFetch(`/api/folders?${params.toString()}`)
+        .then((response) => response.json() as Promise<{ folders?: CustomFolder[] }>)
+        .then((data) => {
+          if (!cancelled && request === requestNumber) setFolders(data.folders ?? []);
+        })
+        .catch(() => {
+          if (!cancelled && request === requestNumber) setFolders([]);
+        });
+    }
+    function reload() {
+      requestNumber += 1;
+      clearTimeout(timer);
+      timer = setTimeout(load, 150);
+    }
+    load();
+    window.addEventListener("mailflare:messages-changed", reload);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      window.removeEventListener("mailflare:messages-changed", reload);
     };
   }, [selectedMailbox?.id]);
 
@@ -237,9 +255,25 @@ export function DashboardNav({ className }: { className?: string }) {
       setNewFolderName("");
       setNewFolderColor(DEFAULT_FOLDER_COLOR);
       setFolderDialogOpen(false);
+      notifyLabelsChanged();
     } finally {
       setAddingFolder(false);
     }
+  }
+
+  async function deleteLabel() {
+    if (!deletingLabel || !selectedMailbox) return;
+    setDeleting(true);
+    setDeleteError(false);
+    try {
+      const response = await authFetch(`/api/folders/${encodeURIComponent(deletingLabel.id)}?${new URLSearchParams({ mailboxId: selectedMailbox.id })}`, { method: "DELETE" });
+      if (!response.ok) { setDeleteError(true); return; }
+      setFolders((items) => items.filter((item) => item.id !== deletingLabel.id));
+      if (isActiveHref(`/folders/${deletingLabel.id}`)) router.replace("/all");
+      setDeletingLabel(null);
+      notifyLabelsChanged();
+    } catch { setDeleteError(true); }
+    finally { setDeleting(false); }
   }
 
   return (
@@ -263,7 +297,7 @@ export function DashboardNav({ className }: { className?: string }) {
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       {!minimal && (
         <NavSectionHeader label={t("smart.labels")} open={foldersSectionOpen} onToggle={toggleFoldersSection}>
-          {selectedMailbox && (
+          {canManageLabels && (
             <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
               <DialogTrigger asChild>
                 <button
@@ -339,7 +373,16 @@ export function DashboardNav({ className }: { className?: string }) {
         </div>
       )}
       {(minimal || foldersSectionOpen) && <ReorderableList
-        storageKey="mailflare:nav:layout:folders"
+        key={selectedMailbox?.id ?? "none"}
+        storageKey={`mailflare:nav:layout:folders:${selectedMailbox?.id ?? "none"}`}
+        fallbackStorageKey="mailflare:nav:layout:folders"
+        renderItem={(item, actions) => minimal ? item.node : (
+          <div className="flex items-start">
+            <div className="min-w-0 flex-1">{item.node}</div>
+            <LabelActions name={folders.find((folder) => folder.id === item.id)?.name ?? ""} actions={actions} canDelete={canManageLabels}
+              onDelete={() => { setDeleteError(false); setDeletingLabel(folders.find((folder) => folder.id === item.id) ?? null); }} />
+          </div>
+        )}
         enabled={!minimal}
         lists={[{
           id: "folders",
@@ -369,6 +412,19 @@ export function DashboardNav({ className }: { className?: string }) {
           })),
         }]}
       />}
+      <Dialog open={!!deletingLabel} onOpenChange={(open) => { if (!open && !deleting) setDeletingLabel(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("labels.deleteTitle", { name: deletingLabel?.name ?? "" })}</DialogTitle>
+            <DialogDescription>{t("labels.deleteDescription")}</DialogDescription>
+          </DialogHeader>
+          {deleteError && <p role="alert" className="mb-4 text-sm text-red-600">{t("labels.deleteError")}</p>}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" className="max-md:min-h-11" disabled={deleting} onClick={() => setDeletingLabel(null)}>{t("common.cancel")}</Button>
+            <Button className="bg-red-600 hover:bg-red-700 max-md:min-h-11" disabled={deleting} onClick={() => void deleteLabel()}>{t(deleting ? "labels.deleting" : "labels.delete")}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {foldersSectionOpen && foldersOverflow && <NavToggle expanded={foldersOpen} onClick={toggleFolders} />}
     </SidebarScaffold>
   );

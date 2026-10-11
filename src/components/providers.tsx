@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { clearMailboxClientState } from "@/components/mailbox-provider-utils";
 import { BrandingProvider } from "@/components/branding-provider";
 import { NewMessagePopup } from "@/components/new-message-popup";
@@ -12,10 +12,12 @@ import { useMessagePolling } from "@/hooks/use-message-polling";
 import { clearMessageClientState } from "@/hooks/utils";
 import { clearMessageDetailCache } from "@/lib/messages/detail-cache";
 import { clearCurrentUserCache } from "@/hooks/use-current-user";
+import { clearMailboxFoldersCache } from "@/components/messages/use-mailbox-folders";
 import { AUTH_SESSION_CHANGED_EVENT } from "@/lib/auth/client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
 	const realtime = useMessagePolling();
+	const [sessionRevision, setSessionRevision] = useState(0);
 
 	const [client] = useState(
 		() =>
@@ -38,6 +40,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 			clearMessageClientState();
 			clearMessageDetailCache();
 			clearCurrentUserCache();
+			clearMailboxFoldersCache();
+			// Recreate account contexts, preferences and editors after replacing the session.
+			setSessionRevision((revision) => revision + 1);
 		}
 
 		window.addEventListener(AUTH_SESSION_CHANGED_EVENT, resetUserScopedState);
@@ -49,8 +54,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 			<BrandingProvider>
 				<PwaServiceWorker />
 				<AppBadgeSync />
-				{children}
-				<ThemeSync />
+				<Fragment key={sessionRevision}>
+					{children}
+					<ThemeSync />
+				</Fragment>
 				{realtime.notification && (
 					<NewMessagePopup
 						notification={realtime.notification}

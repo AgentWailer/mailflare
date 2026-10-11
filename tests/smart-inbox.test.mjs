@@ -29,6 +29,7 @@ await build({
  export {shouldNotifyMail,isPrimaryInboxMail} from './src/lib/mail-sorting/categories.ts';
  export {getUnreadBadgeCount} from './src/lib/push/badge.ts';
  export {parseNewMessageEvent,showBrowserNewMessageNotification} from './src/hooks/message-realtime-utils.ts';
+ export {DELETE as deleteLabel} from './src/app/api/folders/[folderId]/route.ts';
  export {GET as list} from './src/app/api/messages/route.ts';
  export {GET as counts} from './src/app/api/messages/counts/route.ts';
  export {GET as navigation} from './src/app/api/messages/navigation/route.ts';
@@ -780,3 +781,41 @@ test("bulk shortcuts spare AI calls while excluding security, personal messages 
  test('primary membership counts read mail correctly and ignores snoozed mail',()=>{
   const message={status:'received',direction:'inbound',category:'primary',read:true};assert.equal(app.isPrimaryInboxMail(message),true);assert.equal(app.shouldNotifyMail(message),false);assert.equal(app.isPrimaryInboxMail({...message,category:'social'}),false);assert.equal(app.isPrimaryInboxMail({...message,snoozedUntil:new Date(Date.now()+3600000).toISOString()}),false);
  });
+
+
+test("deleting a label preserves mail, attachments, other labels and filter actions", async t => {
+ const f = await fixture(t);
+ f.DB.db.exec(`
+  UPDATE messages SET folder_id='work' WHERE id='primary';
+  INSERT OR IGNORE INTO message_labels(message_id,folder_id) VALUES ('primary','work'),('primary','follow'),('spam','work'),('foreign','foreign');
+  INSERT INTO message_attachments(id,message_id,filename,content_type,size,r2_key,created_at) VALUES ('attachment','primary','contract.pdf','application/pdf',100,'private-key',1);
+  INSERT INTO routing_rules(id,user_id,domain_id,mailbox_id,scope,pattern,match_value,label_ids,folder_id,category,skip_inbox,created_at) VALUES
+   ('filter','owner','domain','box','mailbox','sam','sam','["work","follow"]','work','social',1,1),
+   ('foreign-filter','other','domain','otherbox','mailbox','sam','sam','["foreign"]','foreign','promotions',0,1);
+ `);
+ const context={params:Promise.resolve({folderId:'work'})};
+ const response=await app.deleteLabel(new Request(f.request('/api/folders/work?mailboxId=box'),{method:'DELETE'}),context);
+ assert.equal(response.status,200);
+ assert.equal(f.DB.db.prepare('SELECT count(*) AS n FROM messages').get().n,5);
+ assert.equal(f.DB.db.prepare('SELECT r2_key FROM message_attachments').get().r2_key,'private-key');
+ assert.deepEqual(f.DB.db.prepare("SELECT folder_id,status,category FROM messages WHERE id='primary'").get(),{folder_id:null,status:'archived',category:'primary'});
+ assert.deepEqual(f.DB.db.prepare("SELECT status,category FROM messages WHERE id='spam'").get(),{status:'spam',category:'primary'});
+ assert.deepEqual(f.DB.db.prepare("SELECT folder_id FROM message_labels WHERE message_id='primary'").all(),[{folder_id:'follow'}]);
+ assert.equal(f.DB.db.prepare("SELECT count(*) AS n FROM folders WHERE id='work'").get().n,0);
+ assert.deepEqual(f.DB.db.prepare("SELECT label_ids,folder_id,category,skip_inbox FROM routing_rules WHERE id='filter'").get(),{label_ids:'["follow"]',folder_id:null,category:'social',skip_inbox:1});
+ assert.deepEqual(f.DB.db.prepare("SELECT label_ids,folder_id FROM routing_rules WHERE id='foreign-filter'").get(),{label_ids:'["foreign"]',folder_id:'foreign'});
+ const all=await (await app.list(f.request('/api/messages?direction=inbound&mailboxId=box'))).json();
+ assert.equal(all.total,4);
+ assert.equal((await app.deleteLabel(new Request(f.request('/api/folders/work?mailboxId=box'),{method:'DELETE'}),context)).status,404);
+});
+
+test("label deletion rejects unauthenticated, foreign, mismatched and read-only access", async t => {
+ const f=await fixture(t),context={params:Promise.resolve({folderId:'work'})};
+ assert.equal((await app.deleteLabel(new Request('https://mailflare.test/api/folders/work?mailboxId=box',{method:'DELETE'}),context)).status,401);
+ assert.equal((await app.deleteLabel(new Request(f.request('/api/folders/work?mailboxId=box',undefined,'other'),{method:'DELETE'}),context)).status,404);
+ assert.equal((await app.deleteLabel(new Request(f.request('/api/folders/work?mailboxId=otherbox'),{method:'DELETE'}),context)).status,404);
+ assert.equal((await app.deleteLabel(new Request(f.request('/api/folders/work'),{method:'DELETE'}),context)).status,400);
+ f.DB.db.exec(`UPDATE mailboxes SET type='shared' WHERE id='box'; INSERT INTO mailbox_access(id,mailbox_id,user_id,permission,created_at) VALUES ('grant','box','other','read_only',1);`);
+ assert.equal((await app.deleteLabel(new Request(f.request('/api/folders/work?mailboxId=box',undefined,'other'),{method:'DELETE'}),context)).status,404);
+ assert.equal(f.DB.db.prepare("SELECT count(*) AS n FROM folders WHERE id='work'").get().n,1);
+});

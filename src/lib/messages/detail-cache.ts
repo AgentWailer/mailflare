@@ -2,10 +2,12 @@ import { authFetch } from "@/lib/auth/client";
 import type { Message } from "@/hooks/types";
 import type { CachedMessageDetail } from "./detail-cache-types";
 
+let cacheGeneration = 0;
 const detailCache = new Map<string, CachedMessageDetail>();
 const detailRequests = new Map<string, Promise<CachedMessageDetail>>();
 
 export function clearMessageDetailCache() {
+	cacheGeneration += 1;
 	detailCache.clear();
 	detailRequests.clear();
 }
@@ -30,13 +32,18 @@ export function primeMessageDetail(message: Message): void {
 export async function fetchCachedMessageDetail(messageId: string, force = false): Promise<CachedMessageDetail> {
 	if (!force && detailCache.has(messageId)) return detailCache.get(messageId) ?? {};
 	if (!force && detailRequests.has(messageId)) return detailRequests.get(messageId) ?? {};
+	const generation = cacheGeneration;
 	const request = authFetch(`/api/messages/${messageId}`)
 		.then((response) => response.json() as Promise<CachedMessageDetail>)
 		.then((data) => {
-			detailCache.set(messageId, data);
+			if (generation === cacheGeneration && detailRequests.get(messageId) === request) {
+				detailCache.set(messageId, data);
+			}
 			return data;
 		})
-		.finally(() => detailRequests.delete(messageId));
+		.finally(() => {
+			if (detailRequests.get(messageId) === request) detailRequests.delete(messageId);
+		});
 	detailRequests.set(messageId, request);
 	return request;
 }

@@ -16,10 +16,19 @@ export type ReorderableListSpec = {
 	visibleIds?: (orderedIds: string[]) => string[];
 };
 
+export type ReorderableItemActions = {
+	canMoveUp: boolean;
+	canMoveDown: boolean;
+	moveUp: () => void;
+	moveDown: () => void;
+};
+
 export type ReorderableListProps = {
+	renderItem?: (item: ReorderableItem, actions: ReorderableItemActions) => ReactNode;
 	lists: ReorderableListSpec[];
 	/** localStorage key for the saved layout. */
 	storageKey: string;
+	fallbackStorageKey?: string;
 	/** Position new items after an existing item when upgrading a saved layout. */
 	initialItemAfter?: Record<string, string>;
 	/** Hold-to-reorder is switched off when false (e.g. the collapsed icon rail). */

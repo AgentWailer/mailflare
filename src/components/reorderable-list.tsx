@@ -13,7 +13,7 @@ const CANCEL_DISTANCE = 6;
 // Press and hold an item, then drag it. A ghost follows the pointer and a blue line marks where
 // it will land; nothing moves until you let go. Lists can hand items to each other through the
 // `before` row between them.
-export function ReorderableList({ lists, storageKey, enabled = true, initialItemAfter }: ReorderableListProps) {
+export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled = true, initialItemAfter, renderItem }: ReorderableListProps) {
 	const [stored, setStored] = useState<ReorderableLayout>({});
 	const [drag, setDrag] = useState<ReorderableDrag | null>(null);
 	const [target, setTarget] = useState<ReorderableDropTarget | null>(null);
@@ -22,10 +22,20 @@ export function ReorderableList({ lists, storageKey, enabled = true, initialItem
 	const suppressClick = useRef(false);
 	const latest = useRef({ layout: {} as ReorderableLayout, target: null as ReorderableDropTarget | null });
 
-	useEffect(() => { setStored(readStorage<ReorderableLayout>(storageKey, {})); }, [storageKey]);
+	useEffect(() => { setStored(readStorage<ReorderableLayout>(storageKey, fallbackStorageKey ? readStorage<ReorderableLayout>(fallbackStorageKey, {}) : {})); }, [storageKey, fallbackStorageKey]);
 
 	const layout = resolveLayout(Object.fromEntries(lists.map((list) => [list.id, list.items.map((item) => item.id)])), stored, initialItemAfter);
-	const nodes = new Map(lists.flatMap((list) => list.items.map((item) => [item.id, item.node] as const)));
+	const nodes = new Map(lists.flatMap((list) => list.items.map((item) => {
+		const ids = layout[list.id] ?? [];
+		const index = ids.indexOf(item.id);
+		function move(direction: -1 | 1) {
+			if (index + direction < 0 || index + direction >= ids.length) return;
+			const next = moveItem(layout, item.id, list.id, direction === -1 ? ids[index - 1] : ids[index + 2] ?? null);
+			setStored(next);
+			writeStorage(storageKey, next);
+		}
+		return [item.id, renderItem ? renderItem(item, { canMoveUp: index > 0, canMoveDown: index < ids.length - 1, moveUp: () => move(-1), moveDown: () => move(1) }) : item.node] as const;
+	})));
 	useEffect(() => { latest.current.layout = layout; latest.current.target = target; });
 
 	const dragId = drag?.id ?? null;
@@ -101,7 +111,7 @@ export function ReorderableList({ lists, storageKey, enabled = true, initialItem
 	}
 
 	function startHold(event: ReactPointerEvent<HTMLDivElement>, id: string) {
-		if (!enabled || event.button !== 0) return;
+		if (!enabled || event.button !== 0 || (event.target as Element).closest("button, [role=menuitem]")) return;
 		cancelHold();
 		const element = event.currentTarget;
 		const { clientX, clientY } = event;

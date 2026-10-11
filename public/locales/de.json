@@ -1961,5 +1961,13 @@
 	"smart.reasonSender": "Gemerkte Absenderentscheidung",
 	"smart.reasonManual": "Deine Auswahl",
 	"smart.reasonFallback": "Ohne sichere Entscheidung im Posteingang belassen",
-	"smart.reasonObserve": "Beobachtungsmodus: nur ein Sortiervorschlag"
+	"smart.reasonObserve": "Beobachtungsmodus: nur ein Sortiervorschlag",
+  "labels.actions": "Aktionen für {name}",
+  "labels.moveUp": "Nach oben",
+  "labels.moveDown": "Nach unten",
+  "labels.delete": "Label löschen",
+  "labels.deleteTitle": "„{name}“ löschen?",
+  "labels.deleteDescription": "E-Mails und Anhänge bleiben erhalten. Das Label wird von E-Mails und aus Filtern entfernt. Bereits wegsortierte E-Mails bleiben archiviert.",
+  "labels.deleteError": "Das Label konnte nicht gelöscht werden. Bitte erneut versuchen.",
+  "labels.deleting": "Wird gelöscht…"
 }

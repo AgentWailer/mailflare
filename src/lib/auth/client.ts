@@ -52,12 +52,14 @@ export function getAuthHeaders(headers?: HeadersInit): Headers {
 
 export async function authFetch(input: RequestInfo | URL, init: AuthFetchOptions = {}): Promise<Response> {
 	const { redirectOnUnauthorized = true, headers, ...requestInit } = init;
+	const sessionToken = getClientSessionToken();
 	const response = await fetch(input, {
 		...requestInit,
 		headers: getAuthHeaders(headers),
 	});
 
-	if (response.status === 401 && redirectOnUnauthorized && typeof window !== "undefined") {
+	if (response.status === 401 && redirectOnUnauthorized && typeof window !== "undefined"
+		&& sessionToken === getClientSessionToken()) {
 		clearClientSessionToken();
 		window.location.assign("/login");
 	}

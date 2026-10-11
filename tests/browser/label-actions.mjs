@@ -1,0 +1,54 @@
+// Run after npm run build; supports the same browser tooling variables as message-action-menus.mjs.
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {createServer} from 'node:http';
+import {join} from 'node:path';
+import {build} from 'esbuild';
+const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
+const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','mailflare-label-browser-'));
+const write=(name,value)=>writeFileSync(join(dir,name),value);
+const de=JSON.parse(readFileSync(join(root,'public/locales/de.json'),'utf8'));
+write('compose.ts','export const useCompose=()=>({openComposer:()=>{}});');
+write('mailbox.ts',`export const useSelectedMailbox=()=>({selectedMailbox:{id:new URLSearchParams(location.search).get('box')||'box',permission:new URLSearchParams(location.search).has('readonly')?'read_only':'full_access'},mailboxes:[],isLoading:false});`);
+write('sidebar.ts',`export const useSidebar=()=>({minimal:false,mobile:innerWidth<768,mobileOpen:true,toggle:()=>{}});`);
+write('chrome.tsx',`export const SidebarHeader=()=> <div>Mailflare</div>;export const SidebarFooter=()=>null;`);
+write('link.tsx',`export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>;}`);
+write('navigation.ts',`export const usePathname=()=>new URLSearchParams(location.search).has('folder')?'/folders/work':'/inbox';export const useRouter=()=>({replace:path=>{window.replacedPath=path;},push:()=>{},prefetch:()=>{},refresh:()=>{}});`);
+write('entry.tsx',`import React from 'react';import {createRoot} from 'react-dom/client';import {LanguageProvider} from '@/components/language-provider';import {DashboardNav} from '@/components/dashboard-nav';import {useMailboxFolders} from '@/components/messages/use-mailbox-folders';import de from '../../public/locales/de.json';
+function Probe(){const labels=useMailboxFolders(new URLSearchParams(location.search).get('box')||'box');return <output data-testid="label-cache">{labels.map(x=>x.id).join(',')}</output>;}
+if(new URLSearchParams(location.search).has('dark'))document.documentElement.classList.add('dark');
+createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><div style={{width:'min(300px,100vw)',height:'100dvh'}}><DashboardNav/></div><Probe/></LanguageProvider>);`);
+let server,browser;
+try{
+ await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:join(root,'tsconfig.json'),alias:{'@':join(root,'src'),'@/components/compose/compose-context':join(dir,'compose.ts'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'@/components/sidebar-state':join(dir,'sidebar.ts'),'@/components/sidebar-header':join(dir,'chrome.tsx'),'@/components/sidebar-footer':join(dir,'chrome.tsx'),'next/link':join(dir,'link.tsx'),'next/navigation':join(dir,'navigation.ts')},define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'fixture-contexts',setup(b){b.onResolve({filter:/(?:^|\/)(compose-context|mailbox-provider|sidebar-state|sidebar-header|sidebar-footer)$/},args=>({path:join(dir,{'compose-context':'compose.ts','mailbox-provider':'mailbox.ts','sidebar-state':'sidebar.ts','sidebar-header':'chrome.tsx','sidebar-footer':'chrome.tsx'}[args.path.split('/').at(-1)])}));}}],logLevel:'silent'});
+ const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(x=>x.startsWith('index.')&&x.endsWith('.css'))));
+ const assets={'/':Buffer.from('<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/fixture.css':css};
+ server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(assets[path]?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(assets[path]||'Not found');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+ browser=await chromium.launch({headless:true,...(process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),args:['--no-sandbox']});
+ for(const size of [{width:320,height:700},{width:390,height:844},{width:430,height:932},{width:844,height:390},{width:1440,height:900}]){
+  const mobile=size.width<768,page=await browser.newPage({viewport:size,hasTouch:mobile});const errors=[],deletions=[];let failDelete=false;
+  page.setDefaultTimeout(10000);page.on('pageerror',err=>{errors.push(err.message);console.error(err.message);});
+  let labels=[{id:'work',name:'Arbeit',color:'#3b82f6'},{id:'family',name:'Familie',color:'#ef4444'},{id:'long',name:'Ein langes Label für wichtige persönliche Dokumente',color:'#22c55e'}];
+  await page.route('**/api/**',route=>{const req=route.request(),url=new URL(req.url());if(req.method()==='DELETE'){deletions.push(url.pathname);if(failDelete)return route.fulfill({status:500,contentType:'application/json',body:'{"error":"Temporary failure"}'});labels=labels.filter(x=>x.id!==url.pathname.split('/').at(-1));return route.fulfill({contentType:'application/json',body:'{"ok":true}'});}
+   const body=url.pathname==='/api/folders'?{folders:labels}:url.pathname==='/api/messages/counts'?{counts:{folders:Object.fromEntries(['inbox','promotions','social','starred','all','snoozed','sent','scheduled','drafts','archived','spam','trash'].map(key=>[key,{total:0,unread:0}])),customFolders:{},mailboxes:[]}}:{};
+   return route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
+  });
+  const url=origin+'/?folder=1'+(size.width===390?'&dark=1':'');await page.goto(url);
+  const rows=page.locator('[data-reorder-list="folders"]'),order=()=>rows.evaluateAll(nodes=>nodes.map(x=>x.dataset.reorderId));try { await rows.first().waitFor(); } catch(error) { console.error(await page.locator('body').innerText()); throw error; } assert.deepEqual(await order(),['work','family','long']);
+  const open=async id=>{const trigger=page.locator(`[data-reorder-id="${id}"]`).getByRole('button');await trigger.scrollIntoViewIfNeeded();if(mobile)await trigger.tap();else await trigger.click();await page.getByRole('menu').waitFor();return trigger;};
+  const checkMenu=async()=>{const menu=page.getByRole('menu');await page.waitForTimeout(80);const b=await menu.boundingBox();assert(b.x>=11&&b.y>=11&&b.x+b.width<=size.width-11&&b.y+b.height<=size.height-11,JSON.stringify({size,b}));if(mobile){for(const item of await menu.getByRole('menuitem').all()){assert((await item.boundingBox()).height>=44);assert.equal(await item.evaluate(x=>getComputedStyle(x).fontSize),'16px');}}return menu;};
+  const trigger=await open('work');let menu=await checkMenu();assert.equal(await menu.getByRole('menuitem',{name:de['labels.moveUp']}).getAttribute('aria-disabled'),'true');await page.keyboard.press('Escape');assert(await trigger.evaluate(el=>el===document.activeElement));
+  await open('work');menu=await checkMenu();await menu.getByRole('menuitem',{name:de['labels.moveDown']}).click();assert.deepEqual(await order(),['family','work','long']);
+  assert.deepEqual(JSON.parse(await page.evaluate(()=>localStorage.getItem('mailflare:nav:layout:folders:box'))),{folders:['family','work','long']});
+  await page.reload();await rows.first().waitFor();await page.waitForFunction(()=>document.querySelector('[data-reorder-list="folders"]')?.dataset.reorderId==='family');assert.deepEqual(await order(),['family','work','long']);
+  await open('long');menu=await checkMenu();assert.equal(await menu.getByRole('menuitem',{name:de['labels.moveDown']}).getAttribute('aria-disabled'),'true');await menu.getByRole('menuitem',{name:de['labels.moveUp']}).click();assert.deepEqual(await order(),['family','long','work']);
+  await open('work');menu=await checkMenu();await menu.getByRole('menuitem',{name:de['labels.delete']}).click();let dialog=page.getByRole('dialog');await dialog.waitFor();await page.waitForTimeout(80);assert(await dialog.evaluate(el=>el.contains(document.activeElement)));const b=await dialog.boundingBox();assert(b.x>=15&&b.y>=15&&b.x+b.width<=size.width-15&&b.y+b.height<=size.height-15);assert.equal(deletions.length,0);
+  if(size.width===390)await page.screenshot({path:'/tmp/mailflare-label-delete-mobile.png'});
+  await dialog.getByRole('button',{name:de['common.cancel'],exact:true}).click();await dialog.waitFor({state:'hidden'});assert.equal(deletions.length,0);assert.equal(await rows.count(),3);
+  failDelete=true;await open('work');await page.getByRole('menuitem',{name:de['labels.delete']}).click();await dialog.getByRole('button',{name:de['labels.delete'],exact:true}).click();await dialog.getByRole('alert').waitFor();assert.equal(await rows.count(),3);
+  failDelete=false;await dialog.getByRole('button',{name:de['labels.delete'],exact:true}).click();await dialog.waitFor({state:'hidden'});assert.deepEqual(await order(),['family','long']);await page.waitForFunction(()=>document.querySelector('[data-testid="label-cache"]').textContent==='family,long');assert.equal(await page.evaluate(()=>window.replacedPath),'/all');
+  await page.goto(origin+'/?box=other');await rows.first().waitFor();assert.deepEqual(await order(),['family','long']);assert.equal(await page.evaluate(()=>localStorage.getItem('mailflare:nav:layout:folders:other')),null);
+  await page.goto(origin+'/?readonly=1');await rows.first().waitFor();assert.equal(await page.getByRole('button',{name:de['navigation.createFolder'],exact:true}).count(),0);await open('family');await checkMenu();assert.equal(await page.getByRole('menuitem',{name:de['labels.delete'],exact:true}).count(),0);await page.keyboard.press('Escape');
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({viewport:size,reorderAndPersistence:true,deleteConfirmationAndRetry:true,mailPreservedByApiTests:true,cacheRefresh:true,readonly:true}));await page.close();
+ }
+}finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}

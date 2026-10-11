@@ -2075,5 +2075,13 @@
 	"smart.reasonSender": "Remembered sender decision",
 	"smart.reasonManual": "Your choice",
 	"smart.reasonFallback": "Kept in inbox because no confident decision was available",
-	"smart.reasonObserve": "Observation mode: sorting proposal only"
+	"smart.reasonObserve": "Observation mode: sorting proposal only",
+  "labels.actions": "Actions for {name}",
+  "labels.moveUp": "Move up",
+  "labels.moveDown": "Move down",
+  "labels.delete": "Delete label",
+  "labels.deleteTitle": "Delete “{name}”?",
+  "labels.deleteDescription": "Your emails and attachments will be kept. This label will be removed from emails and filters. Previously filed emails remain archived.",
+  "labels.deleteError": "The label could not be deleted. Please try again.",
+  "labels.deleting": "Deleting…"
 }
