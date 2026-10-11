@@ -162,7 +162,7 @@ function MessageListRow({
 						</span>
 					</span>
 					<span
-						className={`mt-0.5 flex min-w-0 items-center gap-1.5 text-sm leading-5 ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
+						className={`mt-0.5 flex min-w-0 items-center gap-1.5 pr-10 text-sm leading-5 ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
 							}`}
 					>
 						<span className="min-w-0 truncate">{message.subject ?? t("list.noSubject")}</span>
@@ -172,7 +172,7 @@ function MessageListRow({
 						<MessageLabelChips labels={message.labels} compact />
 					</span>
 				</Link>
-				{config.folder !== "drafts" && <button type="button" data-mobile-star aria-label={starred ? t("list.starred") : t("list.notStarred")} aria-pressed={starred} className="absolute bottom-1 right-1 flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100" onClick={() => { void toggleMessageStar(message.id).then(result => setStarred(result.starred)).catch(() => undefined); }}><Star className={clsx("h-5 w-5", starred ? "fill-amber-400 text-amber-400" : "text-neutral-400")} /></button>}
+				{config.folder !== "drafts" && <button type="button" data-mobile-star aria-label={starred ? t("list.starred") : t("list.notStarred")} aria-pressed={starred} className="absolute bottom-0 right-1 flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100" onClick={() => { void toggleMessageStar(message.id).then(result => setStarred(result.starred)).catch(() => undefined); }}><Star className={clsx("h-5 w-5", starred ? "fill-amber-400 text-amber-400" : "text-neutral-400")} /></button>}
 			</div>
 		);
 		if (!swipeable) return compactRow;
