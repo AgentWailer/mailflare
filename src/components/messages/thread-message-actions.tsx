@@ -5,6 +5,8 @@ import { Ban, FileCode2, Forward, Mail, MailOpen, MoreVertical, Reply, ReplyAll,
 import { useCompose } from "@/components/compose/compose-context";
 import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
 import { getOwnAddressForMessage } from "@/app/(dashboard)/inbox/[messageId]/utils";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { MessageActionMenuContent } from "@/components/messages/message-action-menu-content";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -164,58 +166,57 @@ export function ThreadMessageActions({
 					<Reply className="h-4 w-4" />
 				</Button>
 			</Tooltip>
-			<div className="relative">
+			<DropdownMenu.Root open={moreOpen} onOpenChange={setMoreOpen}>
 				<Tooltip label={t("common.moreActions")}>
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						className="h-8 w-8 px-0"
-						aria-label={t("common.moreActions")}
-						aria-expanded={moreOpen}
-						disabled={pending}
-						onClick={() => setMoreOpen((open) => !open)}
-					>
-						<MoreVertical className="h-4 w-4" />
-					</Button>
+					<DropdownMenu.Trigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="h-8 w-8 px-0 max-md:h-11 max-md:w-11"
+							aria-label={t("common.moreActions")}
+							aria-expanded={moreOpen}
+							disabled={pending}
+						>
+							<MoreVertical className="h-4 w-4" />
+						</Button>
+					</DropdownMenu.Trigger>
 				</Tooltip>
-				{moreOpen && (
-					<div className="absolute right-0 z-30 mt-1 w-56 rounded-xl border border-neutral-200 bg-white p-2 text-neutral-700 shadow-lg">
-						<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onClick={() => void onReply("reply")}>
-							<Reply className="h-4 w-4" /> {t("message.reply")}
-						</button>
-						{canReplyAll && (
-							<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onClick={() => void onReply("replyAll")}>
-								<ReplyAll className="h-4 w-4" /> {t("message.replyAll")}
-							</button>
-						)}
-						<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onClick={() => void onForward()}>
-							<Forward className="h-4 w-4" /> {t("message.forward")}
-						</button>
-						<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onClick={() => { setMoreOpen(false); setSourceOpen(true); }}>
-							<FileCode2 className="h-4 w-4" /> {t("message.showOriginal")}
-						</button>
-						<hr className="my-1 border-neutral-100" />
-						<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onClick={() => void onMessageAction(message.read ? "unread" : "read")}>
-							{message.read ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
-							{message.read ? t("common.markUnread") : t("common.markRead")}
-						</button>
-						{moveActions.map((item) => (
-							<button key={item.action} type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onClick={() => void onMessageAction(item.action)}>
-								{createElement(item.icon, { size: 16 })} {t(item.labelKey)}
-							</button>
-						))}
-						{message.direction === "inbound" && mailboxId && (
-							<>
-								<hr className="my-1 border-neutral-100" />
-								<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onClick={() => void onBlock()}>
-									<Ban className="h-4 w-4" /> {t("message.blockContact")}
-								</button>
-							</>
-						)}
-					</div>
-				)}
-			</div>
+				<MessageActionMenuContent>
+					<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => void onReply("reply")}>
+						<Reply className="h-4 w-4" /> {t("message.reply")}
+					</DropdownMenu.Item>
+					{canReplyAll && (
+						<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => void onReply("replyAll")}>
+							<ReplyAll className="h-4 w-4" /> {t("message.replyAll")}
+						</DropdownMenu.Item>
+					)}
+					<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => void onForward()}>
+						<Forward className="h-4 w-4" /> {t("message.forward")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => { setMoreOpen(false); setSourceOpen(true); }}>
+						<FileCode2 className="h-4 w-4" /> {t("message.showOriginal")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
+					<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => void onMessageAction(message.read ? "unread" : "read")}>
+						{message.read ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
+						{message.read ? t("common.markUnread") : t("common.markRead")}
+					</DropdownMenu.Item>
+					{moveActions.map((item) => (
+						<DropdownMenu.Item key={item.action} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => void onMessageAction(item.action)}>
+							{createElement(item.icon, { size: 16 })} {t(item.labelKey)}
+						</DropdownMenu.Item>
+					))}
+					{message.direction === "inbound" && mailboxId && (
+						<>
+							<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
+							<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => void onBlock()}>
+								<Ban className="h-4 w-4" /> {t("message.blockContact")}
+							</DropdownMenu.Item>
+						</>
+					)}
+				</MessageActionMenuContent>
+			</DropdownMenu.Root>
 			<MessageSourceDialog messageId={message.id} open={sourceOpen} onOpenChange={setSourceOpen} />
 				</>
 			)}

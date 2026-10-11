@@ -143,13 +143,23 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 	const { counts } = useMessageCounts(null, open);
 
 	useEffect(() => {
+		if (!open) return;
 		function onPointerDown(event: PointerEvent) {
 			if (!ref.current?.contains(event.target as Node)) setOpen(false);
 		}
+		function onKeyDown(event: KeyboardEvent) {
+			if (event.key !== "Escape") return;
+			setOpen(false);
+			ref.current?.querySelector("button")?.focus();
+		}
 
 		document.addEventListener("pointerdown", onPointerDown);
-		return () => document.removeEventListener("pointerdown", onPointerDown);
-	}, []);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open]);
 
 	useEffect(() => {
 		authFetch("/api/auth/me", { redirectOnUnauthorized: false })
@@ -264,7 +274,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 			</button>
 
 			{open && (
-				<div className="absolute right-0 top-14 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-[28px] border border-neutral-200 bg-[#eef3fb] p-3 shadow-2xl shadow-neutral-900/20 max-h-[calc(100dvh-88px)] overscroll-contain overflow-y-auto z-90">
+				<div className="absolute right-0 top-14 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-[28px] border border-neutral-200 bg-[#eef3fb] p-3 shadow-2xl shadow-neutral-900/20 max-h-[calc(100dvh-88px)] overscroll-contain overflow-y-auto z-90 max-md:fixed max-md:inset-x-3 max-md:top-[calc(72px+env(safe-area-inset-top))] max-md:w-auto max-md:max-h-[calc(100dvh-88px-env(safe-area-inset-top)-env(safe-area-inset-bottom))]">
 					<div className="rounded-[22px] bg-white px-5 py-5">
 						<div className="flex items-center gap-4">
 							<AccountAvatar

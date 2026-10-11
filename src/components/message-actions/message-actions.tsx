@@ -3,6 +3,8 @@
 import { createElement, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, Ban, BellOff, Clock, FileCode2, Forward, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { MessageActionMenuContent } from "@/components/messages/message-action-menu-content";
 import { useLanguage } from "@/components/language-provider";
 import { useCompose } from "@/components/compose/compose-context";
 import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
@@ -379,108 +381,103 @@ export function MessageActions({
 			</Tooltip>
 				</>
 			)}
-			<div className="relative">
+			<DropdownMenu.Root open={moreOpen} onOpenChange={setMoreOpen}>
 				<Tooltip label={t("common.moreActions")}>
-					<Button
-						type="button"
-						variant="ghost"
-						size="roundedSM"
-						aria-label={t("common.moreActions")}
-						aria-expanded={moreOpen}
-						disabled={disabled}
-						onClick={() => setMoreOpen((open) => !open)}
-					>
-						<MoreVertical size={iconSize} />
-					</Button>
+					<DropdownMenu.Trigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="roundedSM"
+							className="max-md:h-11 max-md:w-11"
+							aria-label={t("common.moreActions")}
+							aria-expanded={moreOpen}
+							disabled={disabled}
+						>
+							<MoreVertical size={iconSize} />
+						</Button>
+					</DropdownMenu.Trigger>
 				</Tooltip>
 
 
-				{moreOpen && (
-					<div className="absolute right-0 top-8 z-20 w-54 rounded-xl border border-neutral-200 bg-white p-2 shadow-lg">
-						{isMobile && (
-							<>
-								<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" disabled={status === "archived"} onClick={() => void runAction("archive")}>
-									<Archive className="h-4 w-4" />
-									{t("common.archive")}
-								</button>
-								{canReplyAll && (
-									<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onClick={() => { setMoreOpen(false); void handleReply("replyAll"); }}>
-										<ReplyAll className="h-4 w-4" />
-										{t("message.replyAll")}
-									</button>
-								)}
-								{message && messageMeta && (
-									<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onClick={() => { setMoreOpen(false); void handleForward(); }}>
-										<Forward className="h-4 w-4" />
-										{t("message.forward")}
-									</button>
-								)}
-								<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onClick={() => void runAction(markAction)}>
-									{read ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
-									{read ? t("common.markUnread") : t("common.markRead")}
-								</button>
-								<hr className="my-1 border-neutral-100" />
-							</>
-						)}
-						{direction === "inbound" && status === "received" && (
-							<button
-								type="button"
-								className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-								onClick={() => { setMoreOpen(false); setSnoozeOpen(true); }}
-							>
-								<Clock className="h-4 w-4" />
-								{t("common.snooze")}
-							</button>
-						)}
-						{direction === "inbound" && (
-							<>
-								<button
-									type="button"
-									className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-400"
-									disabled={!unsubscribeUrl && status === "trash"}
-									onClick={() => void onUnsubscribe()}
-								>
-									<BellOff className="h-4 w-4 shrink-0" />
-									{t("actions.unsubscribe")}
-								</button>
-								<button
-									type="button"
-									className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-									onClick={() => void onBlockContact()}
-								>
-									<Ban className="h-4 w-4" />
-									{t("message.blockContact")}
-								</button>
-								<hr className="my-1 border-neutral-100" />
-							</>
-						)}
-						<button
-							type="button"
+				<MessageActionMenuContent>
+					{isMobile && (
+						<>
+							<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" disabled={status === "archived"} onSelect={() => void runAction("archive")}>
+								<Archive className="h-4 w-4" />
+								{t("common.archive")}
+							</DropdownMenu.Item>
+							{canReplyAll && (
+								<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onSelect={() => { setMoreOpen(false); void handleReply("replyAll"); }}>
+									<ReplyAll className="h-4 w-4" />
+									{t("message.replyAll")}
+								</DropdownMenu.Item>
+							)}
+							{message && messageMeta && (
+								<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onSelect={() => { setMoreOpen(false); void handleForward(); }}>
+									<Forward className="h-4 w-4" />
+									{t("message.forward")}
+								</DropdownMenu.Item>
+							)}
+							<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onSelect={() => void runAction(markAction)}>
+								{read ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
+								{read ? t("common.markUnread") : t("common.markRead")}
+							</DropdownMenu.Item>
+							<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
+						</>
+					)}
+					{direction === "inbound" && status === "received" && (
+						<DropdownMenu.Item
 							className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-							onClick={() => { setMoreOpen(false); setSourceOpen(true); }}
+							onSelect={() => { setMoreOpen(false); setSnoozeOpen(true); }}
 						>
-							<FileCode2 className="h-4 w-4" />
-							{t("message.showOriginal")}
-						</button>
-						<hr className="my-1 border-neutral-100" />
-						<p className="mt-1 px-3 pb-1 pt-2 text-sm font-medium text-neutral-500">
-							{t("common.moveTo")}
-						</p>
-						{moveActions.map((item) => (
-							<button
-								key={item.action}
-								type="button"
-								className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-								onClick={() => void runAction(item.action)}
+							<Clock className="h-4 w-4" />
+							{t("common.snooze")}
+						</DropdownMenu.Item>
+					)}
+					{direction === "inbound" && (
+						<>
+							<DropdownMenu.Item
+								className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-400"
+								disabled={!unsubscribeUrl && status === "trash"}
+								onSelect={() => void onUnsubscribe()}
 							>
-								{createElement(item.icon, { size: 16 })}
-								{t(item.labelKey)}
-							</button>
-						))}
-					</div>
-				)}
+								<BellOff className="h-4 w-4 shrink-0" />
+								{t("actions.unsubscribe")}
+							</DropdownMenu.Item>
+							<DropdownMenu.Item
+								className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
+								onSelect={() => void onBlockContact()}
+							>
+								<Ban className="h-4 w-4" />
+								{t("message.blockContact")}
+							</DropdownMenu.Item>
+							<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
+						</>
+					)}
+					<DropdownMenu.Item
+						className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
+						onSelect={() => { setMoreOpen(false); setSourceOpen(true); }}
+					>
+						<FileCode2 className="h-4 w-4" />
+						{t("message.showOriginal")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
+					<DropdownMenu.Label asChild><p className="mt-1 px-3 pb-1 pt-2 text-sm font-medium text-neutral-500">
+						{t("common.moveTo")}
+					</p></DropdownMenu.Label>
+					{moveActions.map((item) => (
+						<DropdownMenu.Item
+							key={item.action}
+							className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
+							onSelect={() => void runAction(item.action)}
+						>
+							{createElement(item.icon, { size: 16 })}
+							{t(item.labelKey)}
+						</DropdownMenu.Item>
+					))}
+				</MessageActionMenuContent>
 
-			</div>
+			</DropdownMenu.Root>
 
 			<MessageSourceDialog messageId={messageId} open={sourceOpen} onOpenChange={setSourceOpen} />
 			<MessageSnoozeDialog messageId={messageId} open={snoozeOpen} onOpenChange={setSnoozeOpen} />
