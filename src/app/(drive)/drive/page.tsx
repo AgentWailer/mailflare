@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, ChevronRight, Download, ExternalLink, Mail, MoreVertical, Pencil, RotateCcw, Share2, Trash2, UploadCloud, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Download, ExternalLink, FolderPlus, Mail, MoreVertical, Pencil, Plus, RotateCcw, Share2, Trash2, UploadCloud, X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -252,7 +252,7 @@ export default function DrivePage() {
 			)}
 			<input ref={fileInput} type="file" multiple hidden onChange={(event) => { void upload([...(event.target.files ?? [])]); event.target.value = ""; }} />
 			<div className="flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white">
-				<div className="flex min-h-[4.25rem] shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-5 py-3">
+				<div className="flex min-h-[4.25rem] shrink-0 flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-5 py-3 md:flex-nowrap">
 				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
 					<nav aria-label={title} className="flex min-w-0 flex-wrap items-center gap-1 text-xl text-neutral-800 max-md:text-lg">
 					{loading && folder ? <Skeleton className="h-7 w-48" /> : path.length === 0 ? <h1 className="font-normal">{title}</h1> : (
@@ -274,8 +274,22 @@ export default function DrivePage() {
 						</span>
 					)}
 				</div>
-					<div className="flex items-center gap-2">
+					<div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
 						{selectedItems.length > 0 && <DriveBulkActions selected={selectedItems} trashView={view === "trash"} onDone={() => { setSelectedIds(new Set()); void refresh(); }} />}
+						{canWrite && (
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger asChild>
+									<Button type="button" disabled={loading || failed} className="h-11 shrink-0 gap-2 px-4 md:hidden"><Plus size={18} aria-hidden="true" />{t("drive.new")}</Button>
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Portal>
+									<DropdownMenu.Content align="end" sideOffset={6} collisionPadding={16} className="z-[200] min-w-52 max-w-[calc(100vw-32px)] rounded-xl border border-neutral-200 bg-white p-1.5 shadow-xl">
+										<DropdownMenu.Item className={clsx(menuItemClass, "min-h-11")} onSelect={() => fileInput.current?.click()}><UploadCloud size={18} aria-hidden="true" />{t("drive.fileUpload")}</DropdownMenu.Item>
+										<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
+										<DropdownMenu.Item className={clsx(menuItemClass, "min-h-11")} onSelect={() => setNaming({ mode: "create", value: t("drive.untitledFolder") })}><FolderPlus size={18} aria-hidden="true" />{t("drive.newFolder")}</DropdownMenu.Item>
+									</DropdownMenu.Content>
+								</DropdownMenu.Portal>
+							</DropdownMenu.Root>
+						)}
 						<DriveTypeFilter value={types} onChange={setTypes} />
 					</div>
 				</div>
@@ -347,10 +361,10 @@ export default function DrivePage() {
 				<DialogContent>
 					<DialogHeader><DialogTitle>{naming?.mode === "create" ? t("drive.newFolder") : t("drive.renameTitle")}</DialogTitle></DialogHeader>
 					<form onSubmit={submitName} className="space-y-5">
-						<Input autoFocus value={naming?.value ?? ""} onChange={(event) => setNaming((current) => current && { ...current, value: event.target.value })} onFocus={(event) => event.currentTarget.select()} aria-label={t("drive.folderName")} maxLength={255} />
+						<Input autoFocus className="h-11 text-base md:h-10 md:text-sm" value={naming?.value ?? ""} onChange={(event) => setNaming((current) => current && { ...current, value: event.target.value })} onFocus={(event) => event.currentTarget.select()} aria-label={t("drive.folderName")} maxLength={255} />
 						<div className="flex justify-end gap-2">
-							<Button type="button" variant="ghost" onClick={() => setNaming(null)}>{t("common.cancel")}</Button>
-							<Button type="submit" disabled={!naming?.value.trim()}>{naming?.mode === "create" ? t("drive.create") : t("drive.save")}</Button>
+							<Button type="button" variant="ghost" className="min-h-11 md:min-h-10" onClick={() => setNaming(null)}>{t("common.cancel")}</Button>
+							<Button type="submit" className="min-h-11 md:min-h-10" disabled={!naming?.value.trim()}>{naming?.mode === "create" ? t("drive.create") : t("drive.save")}</Button>
 						</div>
 					</form>
 				</DialogContent>
