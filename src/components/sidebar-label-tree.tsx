@@ -70,9 +70,10 @@ export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canMan
     const folder = siblings.find(label => label.id === item.id)!;
     if (minimal) return item.node;
     const children = groups.get(folder.id)?.length;
-    return <div className="flex min-w-0 items-start" style={{ paddingLeft: Math.min(depth, 5) * 12 }}>
-     {children ? <button type="button" className="label-group-toggle flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-200/60 md:h-9 md:w-6" aria-expanded={!collapsed.includes(folder.id)} aria-label={t(collapsed.includes(folder.id) ? "labels.expand" : "labels.collapse", { name: folder.name })} onClick={() => toggle(folder.id)}>{collapsed.includes(folder.id) ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button> : depth > 0 ? <span className="w-11 shrink-0 md:w-6" /> : null}
-     <div className="min-w-0 flex-1"><NavItem wrap labelClassName="text-sm" link={{ href: `/folders/${folder.id}`, label: folder.parentId && groups.has(folder.parentId) ? folder.name : getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /></div>
+    return <div className="sidebar-label-row relative flex min-w-0 items-start" style={{ paddingLeft: Math.min(depth, 5) * 12 }}>
+     {/* The disclosure control uses the link's leading gutter, never an extra column. */}
+     {children ? <button type="button" className="label-group-toggle absolute top-0 flex h-11 w-6 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-200/60 md:h-9" style={{ left: Math.min(depth, 5) * 12 }} aria-expanded={!collapsed.includes(folder.id)} aria-label={t(collapsed.includes(folder.id) ? "labels.expand" : "labels.collapse", { name: folder.name })} onClick={() => toggle(folder.id)}>{collapsed.includes(folder.id) ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button> : null}
+     <div className="sidebar-label-link min-w-0 flex-1"><NavItem wrap labelClassName="text-sm" link={{ href: `/folders/${folder.id}`, label: folder.parentId && groups.has(folder.parentId) ? folder.name : getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /></div>
      <LabelActions name={folder.name} actions={actions} canDelete={canManage} onDelete={() => onDelete(folder)} onCreateChild={() => onCreateChild(folder)} />
     </div>;
    }}
