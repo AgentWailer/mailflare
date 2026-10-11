@@ -42,6 +42,10 @@ html, body {
 	/* All labels share this gutter, so touch-sized disclosures cannot shift parent labels. */
 	.sidebar-label-link > a { padding-left: 44px; }
 	.email-presentation-action { min-height: 44px; }
+	[data-message-ai] button { min-height: 44px; }
+	[data-message-ai][data-compact] button { min-width: 44px; }
+	[data-message-envelope] > summary { min-height: 44px; }
+	[data-message-envelope][data-compact] > summary { min-width: 44px; }
 	/* Keep iOS from zooming the page whenever an editable field receives focus. */
 	input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select, [contenteditable="true"] {
 		font-size: 16px;

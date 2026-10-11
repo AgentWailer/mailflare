@@ -141,8 +141,6 @@ export default function MessageDetailPage() {
     : [];
   const ownAddress = getOwnAddressForMessage(message, ownAddresses);
   const toEntries = splitEmailAddressList(message.toAddr);
-  const ccEntries = splitEmailAddressList(message.ccAddr);
-  const bccEntries = splitEmailAddressList(message.bccAddr);
   const bodyDisplay = getMessageBodyDisplay(
     body?.textBody,
     body?.htmlBody,
@@ -193,10 +191,12 @@ export default function MessageDetailPage() {
     <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
       {!message.read && <MarkAsRead messageId={message.id} />}
 
-      <h1 className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "pl-4 pr-6 pb-2 pt-2 text-2xl text-neutral-900")} title={message.subject ?? t("list.noSubject")}>
-        {message.subject ?? t("list.noSubject")}
-      </h1>
-      <div className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "px-4 pb-2")}><MessageReaderLabels message={message} /></div>
+      <div data-message-heading className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 pr-6")}>
+        <h1 className="min-w-0 break-words text-xl leading-snug text-neutral-900" title={message.subject ?? t("list.noSubject")}>
+          {message.subject ?? t("list.noSubject")}
+        </h1>
+        <MessageReaderLabels message={message} />
+      </div>
       {/* <div className="px-6">
         <div className="mx-auto w-full max-w-[640px]">
           <SpamScoreDetails
@@ -220,9 +220,9 @@ export default function MessageDetailPage() {
         expandedAll={threadExpanded}
         onExpandedAllChange={setThreadExpanded}
       />
-      <article className={clsx("px-4 py-4 md:px-6", !isAnyPanelVisible && "md:pl-12")}>
+      <article data-message-content className={clsx("px-4 py-1 md:px-6", !isAnyPanelVisible && "md:pl-12")}>
         <div className="w-full">
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-5 md:pl-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-2 md:pl-4">
             <div className="flex min-w-0 flex-1 basis-60 items-start gap-3">
               <SenderAvatar
                 mailboxId={message.mailboxId}
@@ -232,10 +232,9 @@ export default function MessageDetailPage() {
                 managedAvatarUrl={message.direction === "outbound" && message.mailboxId
                   ? `/api/mailboxes/${message.mailboxId}/avatar`
                   : undefined}
-                className="mt-2"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-neutral-900 mt-1.25 flex flex-row items-center gap-1 w-full  overflow-hidden">
+                <p className="flex w-full min-w-0 items-center gap-1 overflow-hidden text-sm leading-5 text-neutral-900">
                   <b className="min-w-0 truncate">
                     {message.direction === "inbound" ? (
                       <ContactDetailsTrigger
@@ -247,35 +246,28 @@ export default function MessageDetailPage() {
                       fromName
                     )}
                   </b>{" "}
-                  <span className="text-neutral-500 text-xs flex-1 overflow-hidden text-ellipsis min-w-0">&lt;{fromAddress}&gt;</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-neutral-500" title={fromAddress}>&lt;{fromAddress}&gt;</span>
                 </p>
-                <p className="text-xs text-neutral-500">
-                  {t("source.to").toLowerCase()}{" "}
-                  <RecipientList
-                    entries={toEntries}
-                    mailboxId={message.mailboxId}
-                    style={showFullRecipientAddresses ? "full" : "address"}
-                  />
-                </p>
-                {ccEntries.length > 0 && (
-                  <p className="text-xs text-neutral-500">
-                    {t("message.cc")} <RecipientList entries={ccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2">
+                  <p className="min-w-0 max-w-full truncate text-xs text-neutral-500">
+                    {t("source.to").toLowerCase()}{" "}
+                    <RecipientList
+                      entries={toEntries}
+                      mailboxId={message.mailboxId}
+                      style={showFullRecipientAddresses ? "full" : "address"}
+                    />
                   </p>
-                )}
-                {bccEntries.length > 0 && (
-                  <p className="text-xs text-neutral-500">
-                    {t("message.bcc")} <RecipientList entries={bccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
-                  </p>
-                )}
-                <MessageEnvelopeDetails message={message} mailboxAddress={messageMailbox ? `${messageMailbox.localPart}@${messageMailbox.hostname}` : undefined} />
+                  <MessageEnvelopeDetails message={message} compact mailboxAddress={messageMailbox ? `${messageMailbox.localPart}@${messageMailbox.hostname}` : undefined} />
+                </div>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <p className="text-xs">
+            <div data-message-header-actions className="flex max-w-full flex-wrap items-center justify-end gap-0 sm:gap-1">
+              <p className="mr-1 text-xs">
                 {scheduledAt
                   ? formatScheduledSendTime(scheduledAt, t)
-                  : formatUserDate(message.createdAt, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  : <><span className="hidden sm:inline">{formatUserDate(message.createdAt, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span><span className="sm:hidden">{formatUserDate(message.createdAt, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</span></>}
               </p>
+              <MessageAiShortcuts message={message} compact />
               {message.mailboxId && <MailOrganizationButton messageIds={[message.id]} mailboxId={message.mailboxId} />}
               <ThreadMessageActions
                 message={currentThreadMessage}
@@ -286,7 +278,6 @@ export default function MessageDetailPage() {
               />
             </div>
           </div>
-          <div className="pb-3 md:pl-16"><MessageAiShortcuts message={message} /></div>
           {scheduledAt && <div className="pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} /></div>}
           <div className="prose max-w-none md:pl-16 text-neutral-900">
             {htmlBody ? (

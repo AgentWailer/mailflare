@@ -1,5 +1,24 @@
 # Mail UI quality check — 2026-10-11
 
+## Compact reader header
+
+Subject and assigned labels share a wrapping row. Smaller article and sender gaps
+bring the body closer to the header. Summary and translation are icon buttons beside
+the date, label action and star, with translated accessible names and tooltips; their
+separate action row is removed. The disclosure next to the recipient opens the full
+envelope, including Cc/Bcc and full date. Phones use a shorter visible date. Touch
+targets remain at least 44 px while desktop icon buttons use 32 px.
+
+The production build passed. A Chromium check of the actual message detail page
+passed at 320, 390, 820, 1024 and 1440 px in both themes: no page overflow, a single
+icon-only AI group, correct summary/translation handoff, accessible envelope details
+and usable touch targets. Screenshots were inspected at desktop and phone sizes.
+Focused component ESLint passed; the page retains its existing state-in-effect lint
+error, and TypeScript retains the same 17 pre-existing diagnostics. Native Safari
+keyboard and Home Screen verification remain outside this Chromium check.
+The existing reading-pane Chromium suite also passed its composer, reply, layout,
+initial-preview, assistant handoff and refresh/retry scenarios.
+
 This check covers the actual mail UI components with controlled API responses and
 a local routing fixture. It does not authenticate against the production mailbox
 or send real mail. The routing fixture verifies client navigation and state changes;
