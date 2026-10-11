@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { real, sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
@@ -237,6 +237,8 @@ export const messages = sqliteTable(
 		direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
 		providerMessageId: text("provider_message_id"),
 		folderId: text("folder_id").references(() => folders.id, { onDelete: "set null" }),
+		category: text("category", { enum: ["primary", "promotions", "social"] }).notNull().default("primary"),
+		sortingDecision: text("sorting_decision"),
 		fromAddr: text("from_addr").notNull(),
 		toAddr: text("to_addr").notNull(),
 		ccAddr: text("cc_addr"),
@@ -269,6 +271,7 @@ export const messages = sqliteTable(
 	(t) => [
 		index("messages_user_created_idx").on(t.userId, t.createdAt),
 		index("messages_mailbox_idx").on(t.mailboxId),
+		index("messages_category_idx").on(t.mailboxId,t.category,t.status,sql`${t.createdAt} desc`),
 		index("messages_folder_idx").on(t.folderId),
 		index("messages_thread_idx").on(t.mailboxId, t.threadId),
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
@@ -480,6 +483,11 @@ export const routingRules = sqliteTable(
 			.notNull()
 			.default("contains"),
 		matchValue: text("match_value").notNull().default(""),
+		conditions: text("conditions").notNull().default("[]"),
+		conditionMode: text("condition_mode").notNull().default("all"),
+		labelIds: text("label_ids").notNull().default("[]"),
+		category: text("category"),
+		skipInbox: integer("skip_inbox", { mode: "boolean" }).notNull().default(false),
 		mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "set null" }),
 		folderId: text("folder_id").references(() => folders.id, { onDelete: "set null" }),
 		action: text("action", { enum: ["store", "forward", "reject", "spam", "trash"] }).notNull().default("store"),
@@ -868,6 +876,27 @@ export const driveShares = sqliteTable("drive_shares", {
 	index("drive_shares_user_idx").on(t.userId),
 ]);
 
+// Mail folders also serve as labels; bodies and attachments are never duplicated.
+export const messageLabels = sqliteTable("message_labels", {
+ messageId: text("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+ folderId: text("folder_id").notNull().references(() => folders.id, { onDelete: "cascade" }),
+}, (t) => [uniqueIndex("message_labels_unique").on(t.messageId, t.folderId), index("message_labels_folder_idx").on(t.folderId)]);
+export const mailboxSortingSettings = sqliteTable("mailbox_sorting_settings", {
+ mailboxId: text("mailbox_id").primaryKey().references(() => mailboxes.id, { onDelete: "cascade" }),
+ mode: text("mode", { enum: ["active", "observe", "off"] }).notNull().default("active"),
+ dailyLimit: integer("daily_limit").notNull().default(1000),
+ threshold: real("threshold").notNull().default(0.90),
+});
+export const mailSortingOverrides = sqliteTable("mail_sorting_overrides", {
+ mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+ sender: text("sender").notNull(), category: text("category").notNull(),
+}, (t) => [uniqueIndex("mail_sorting_overrides_unique").on(t.mailboxId,t.sender)]);
+export const mailSortingUsage = sqliteTable("mail_sorting_usage", {
+ mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+ day: text("day").notNull(), requests: integer("requests").notNull().default(0),
+ inputTokens: integer("input_tokens").notNull().default(0),
+}, (t) => [uniqueIndex("mail_sorting_usage_unique").on(t.mailboxId,t.day)]);
+
 export const schema = {
 	users,
 	domains,
@@ -879,6 +908,10 @@ export const schema = {
 	folders,
 	apiKeys,
 	messages,
+	messageLabels,
+	mailboxSortingSettings,
+	mailSortingOverrides,
+	mailSortingUsage,
 	spamTokenStats,
 	spamReputation,
 	spamFeedback,

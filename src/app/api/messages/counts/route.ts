@@ -1,8 +1,8 @@
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { messages } from "@/db/schema";
+import { messages, messageLabels, folders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
@@ -40,6 +40,7 @@ export async function GET(request: Request) {
 		.select({
 			mailboxId: messages.mailboxId,
 			folderId: messages.folderId,
+			category: messages.category,
 			direction: messages.direction,
 			status: messages.status,
 			read: messages.read,
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
 		.groupBy(
 			messages.mailboxId,
 			messages.folderId,
+			messages.category,
 			messages.direction,
 			messages.status,
 			messages.read,
@@ -64,6 +66,8 @@ export async function GET(request: Request) {
 		.from(messages)
 		.where(and(...conditions, scheduledMessageCondition(db)));
 	const counts = buildMessageCounts(rows);
+	const labels = await db.select({id:messageLabels.folderId,total:count(),unread:sql<number>`sum(case when ${messages.direction}='inbound' and ${messages.read}=0 then 1 else 0 end)`}).from(messageLabels).innerJoin(messages,eq(messageLabels.messageId,messages.id)).innerJoin(folders,eq(messageLabels.folderId,folders.id)).where(and(...conditions,eq(folders.mailboxId,messages.mailboxId),notInArray(messages.status,["spam","trash","template"]))).groupBy(messageLabels.folderId);
+ counts.customFolders = Object.fromEntries(labels.map(label=>[label.id,{total:label.total,unread:label.unread}]));
 	counts.folders.scheduled.total = scheduledRow?.total ?? 0;
 
 	return NextResponse.json({ counts });

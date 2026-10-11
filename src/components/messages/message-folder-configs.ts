@@ -1,4 +1,4 @@
-import { Archive, Clock, CalendarClock, MailOpen, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
+import { Megaphone, Users, Archive, Clock, CalendarClock, MailOpen, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
 import type { MessageFolderConfig } from "./types";
 
 export const inboxFolderConfig: MessageFolderConfig = {
@@ -90,3 +90,6 @@ export const trashFolderConfig: MessageFolderConfig = {
 	icon: Trash2,
 	badgeVariant: "outline",
 };
+
+export const promotionsFolderConfig: MessageFolderConfig = {folder:"promotions",title:"Promotions",titleKey:"smart.promotions",emptyTextKey:"smart.empty",emptyText:"No promotions",hrefPrefix:"/promotions",icon:Megaphone};
+export const socialFolderConfig: MessageFolderConfig = {folder:"social",title:"Social",titleKey:"smart.social",emptyTextKey:"smart.empty",emptyText:"No social updates",hrefPrefix:"/social",icon:Users};

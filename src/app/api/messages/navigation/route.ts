@@ -1,3 +1,4 @@
+import { labelCondition } from "@/lib/mail-sorting/labels";
 import { NextResponse } from "next/server";
 import { and, desc, eq, gt, inArray, isNull, lte, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -10,7 +11,7 @@ import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
 
-const folders: MessageFolder[] = ["inbox", "starred", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
+const folders: MessageFolder[] = ["inbox", "promotions", "social", "starred", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -39,11 +40,12 @@ export async function GET(request: Request) {
 			: eq(messages.userId, user.id));
 	}
 
-	if (folder === "inbox") {
+	if (folder === "inbox" || folder === "promotions" || folder === "social") {
 		conditions.push(eq(messages.direction, "inbound"));
-		conditions.push(eq(messages.status, "received"));
+		conditions.push(folderId ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
 		if (!folderId) {
-			conditions.push(isNull(messages.folderId));
+			conditions.push(eq(messages.category,folder === "inbox" ? "primary" : folder));
+			if(folder === "inbox") conditions.push(isNull(messages.folderId));
 			conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
 		}
 	} else if (folder === "starred") {
@@ -60,7 +62,7 @@ export async function GET(request: Request) {
 	} else {
 		conditions.push(eq(messages.status, folder));
 	}
-	if (folderId) conditions.push(eq(messages.folderId, folderId));
+	if (folderId) conditions.push(labelCondition(folderId));
 
 	const rows = await db.select({
 		id: messages.id,

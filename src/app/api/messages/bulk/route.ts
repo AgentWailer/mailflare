@@ -59,6 +59,7 @@ export async function POST(request: Request) {
 		...(status ? { status } : {}),
 		...(read !== null ? { read } : {}),
 		...(folderId !== undefined ? { folderId } : {}),
+		...(payload.action === "inbox" ? {category:"primary" as const,sortingDecision:JSON.stringify({category:"primary",source:"manual",reason:"inbox_action"})} : {}),
 	};
 
 	if (payload.action !== "delete" && Object.keys(values).length === 0) {

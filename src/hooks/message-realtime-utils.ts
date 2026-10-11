@@ -41,6 +41,7 @@ export function parseNewMessageEvent(value: string): NewMessageEvent | null {
 
 		return {
 			type: "new_message",
+			...(payload.silent === true ? {silent:true} : {}),
 			messageId: payload.messageId,
 			mailboxId: payload.mailboxId,
 			from: payload.from,
@@ -54,6 +55,7 @@ export function parseNewMessageEvent(value: string): NewMessageEvent | null {
 
 export async function showBrowserNewMessageNotification(event: NewMessageEvent): Promise<void> {
 	if (
+		event.silent ||
 		typeof Notification === "undefined" ||
 		Notification.permission !== "granted" ||
 		!areBrowserNotificationsEnabled() ||

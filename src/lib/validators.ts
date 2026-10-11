@@ -251,15 +251,21 @@ export const changePasswordSchema = z.object({
 export const routingRuleSchema = z.object({
 	domainId: z.string().optional(),
 	pattern: z.string().trim().min(1).max(200).optional(),
-	matchField: z.enum(["email", "content", "title"]).default("email"),
-	matchOperator: z.enum(["contains", "exact"]).default("contains"),
+	matchField: z.enum(["email", "sender", "recipient", "content", "title"]).default("email"),
+	matchOperator: z.enum(["contains", "exact", "starts_with", "ends_with"]).default("contains"),
 	matchValue: z.string().trim().min(1).max(500),
 	action: z.enum(["store", "forward", "reject", "spam", "trash"]).optional(),
 	mailboxId: z.string().min(1),
 	folderId: z.string().optional(),
 	destination: z.string().min(1).optional(),
 	forwardTo: z.string().email().optional(),
-	priority: z.number().int().default(0),
+	priority: z.number().int().min(-1000).max(1000).default(0),
+ enabled: z.boolean().default(true),
+ conditions: z.array(z.object({field:z.enum(["email","sender","recipient","title","content"]),operator:z.enum(["contains","exact","starts_with","ends_with"]),value:z.string().trim().min(1).max(500),negate:z.boolean().default(false)})).max(12).default([]),
+ conditionMode:z.enum(["all","any"]).default("all"),
+ labelIds:z.array(z.string().min(1)).max(50).default([]),
+ category:z.enum(["primary","promotions","social"]).optional(),
+ skipInbox:z.boolean().default(false),
 });
 
 export const domainRoutingRuleSchema = z

@@ -1,4 +1,5 @@
 export interface NewMessageNotification {
+	silent?: boolean;
 	from: string;
 	fromName: string | null;
 	mailboxId: string;

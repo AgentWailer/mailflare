@@ -1,9 +1,23 @@
 import { eq, and, asc, desc } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
-import { domains, folders, mailboxAliases, mailboxes, routingRules } from "@/db/schema";
+import {
+	domains,
+	folders,
+	mailboxAliases,
+	mailboxes,
+	routingRules,
+} from "@/db/schema";
+import { validLabelIds } from "@/lib/mail-sorting/labels";
+import {
+	isMailCategory,
+	type MailCategory,
+} from "@/lib/mail-sorting/categories";
 import { getEmailAddress } from "@/lib/email/address";
 import { getMailboxDomainAddresses } from "@/lib/mailboxes/domain-addresses";
-import { normalizeRecipientLocalPart, parseRecipientAddress } from "@/lib/email/recipient-address";
+import {
+	normalizeRecipientLocalPart,
+	parseRecipientAddress,
+} from "@/lib/email/recipient-address";
 
 export type ResolvedMailbox = {
 	mailboxId: string;
@@ -27,7 +41,10 @@ export type RoutingDecision = {
 };
 
 export type InboxRuleDestination = {
-	status: "received" | "spam" | "trash";
+	matched?: boolean;
+	labelIds?: string[];
+	category?: MailCategory;
+	status: "received" | "spam" | "trash" | "archived";
 	folderId: string | null;
 };
 
@@ -61,7 +78,9 @@ export async function resolveInboundAddress(
 	const [domain] = await db
 		.select()
 		.from(domains)
-		.where(and(eq(domains.hostname, parsed.domain), eq(domains.status, "active")))
+		.where(
+			and(eq(domains.hostname, parsed.domain), eq(domains.status, "active")),
+		)
 		.limit(1);
 
 	if (!domain) return null;
@@ -76,7 +95,8 @@ export async function resolveInboundAddress(
 		if (!matchesRule(rule, matchInput)) continue;
 		return {
 			action: "reject",
-			rejectReason: rule.rejectReason?.trim() || "Message rejected by routing rule",
+			rejectReason:
+				rule.rejectReason?.trim() || "Message rejected by routing rule",
 			ruleId: rule.id,
 		};
 	}
@@ -85,13 +105,21 @@ export async function resolveInboundAddress(
 	const exactMailboxes = await db
 		.select()
 		.from(mailboxes)
-		.where(and(eq(mailboxes.domainId, domain.id), eq(mailboxes.disabled, false)));
+		.where(
+			and(eq(mailboxes.domainId, domain.id), eq(mailboxes.disabled, false)),
+		);
 	const exactMailbox = exactMailboxes.find(
-		(mailbox) => normalizeRecipientLocalPart(mailbox.localPart) === parsed.localPart,
+		(mailbox) =>
+			normalizeRecipientLocalPart(mailbox.localPart) === parsed.localPart,
 	);
-	const mailbox = exactMailbox
-		?? await resolveMailboxAlias(db, domain.id, parsed.localPart)
-		?? await resolveMailboxDomainAlias(db, parsed.localPart, parsed.normalizedAddress);
+	const mailbox =
+		exactMailbox ??
+		(await resolveMailboxAlias(db, domain.id, parsed.localPart)) ??
+		(await resolveMailboxDomainAlias(
+			db,
+			parsed.localPart,
+			parsed.normalizedAddress,
+		));
 
 	if (mailbox) {
 		return {
@@ -108,7 +136,9 @@ export async function resolveInboundAddress(
 		if (rule.action === "forward") {
 			const forwardTo = rule.forwardTo?.trim();
 			if (!forwardTo) continue;
-			const catchAll = rule.mailboxId ? await getRuleMailbox(db, rule.mailboxId, domain.id) : null;
+			const catchAll = rule.mailboxId
+				? await getRuleMailbox(db, rule.mailboxId, domain.id)
+				: null;
 			return {
 				action: "forward",
 				forwardTo,
@@ -127,7 +157,10 @@ export async function resolveInboundAddress(
 	return null;
 }
 
-async function listDomainRules(db: AppDatabase, domainId: string): Promise<RuleRow[]> {
+async function listDomainRules(
+	db: AppDatabase,
+	domainId: string,
+): Promise<RuleRow[]> {
 	return db
 		.select()
 		.from(routingRules)
@@ -180,7 +213,10 @@ function toResolvedMailbox(
 }
 
 /** Records that a domain rule fired, for the "last matched" column in the routing UI. */
-export async function recordRuleMatch(db: AppDatabase, ruleId: string): Promise<void> {
+export async function recordRuleMatch(
+	db: AppDatabase,
+	ruleId: string,
+): Promise<void> {
 	const [rule] = await db
 		.select({ matchCount: routingRules.matchCount })
 		.from(routingRules)
@@ -193,15 +229,18 @@ export async function recordRuleMatch(db: AppDatabase, ruleId: string): Promise<
 		.where(eq(routingRules.id, ruleId));
 }
 
-async function resolveMailboxAlias(db: AppDatabase, domainId: string, localPart: string) {
+async function resolveMailboxAlias(
+	db: AppDatabase,
+	domainId: string,
+	localPart: string,
+) {
 	const rows = await db
 		.select({ mailbox: mailboxes, aliasLocalPart: mailboxAliases.localPart })
 		.from(mailboxAliases)
 		.innerJoin(mailboxes, eq(mailboxAliases.mailboxId, mailboxes.id))
-		.where(and(
-			eq(mailboxAliases.domainId, domainId),
-			eq(mailboxes.disabled, false),
-		));
+		.where(
+			and(eq(mailboxAliases.domainId, domainId), eq(mailboxes.disabled, false)),
+		);
 	const row = rows.find(
 		(item) => normalizeRecipientLocalPart(item.aliasLocalPart) === localPart,
 	);
@@ -216,12 +255,20 @@ async function resolveMailboxDomainAlias(
 	const candidates = await db
 		.select()
 		.from(mailboxes)
-		.where(and(eq(mailboxes.useAllDomains, true), eq(mailboxes.disabled, false)));
+		.where(
+			and(eq(mailboxes.useAllDomains, true), eq(mailboxes.disabled, false)),
+		);
 
 	for (const mailbox of candidates) {
 		if (normalizeRecipientLocalPart(mailbox.localPart) !== localPart) continue;
 		const addresses = await getMailboxDomainAddresses(db, mailbox);
-		if (addresses.some((address) => parseRecipientAddress(address)?.normalizedAddress === normalizedAddress)) {
+		if (
+			addresses.some(
+				(address) =>
+					parseRecipientAddress(address)?.normalizedAddress ===
+					normalizedAddress,
+			)
+		) {
 			return mailbox;
 		}
 	}
@@ -254,13 +301,32 @@ export async function resolveInboxRuleDestination(
 		if (!matchesRule(rule, input)) continue;
 
 		if (rule.action === "spam" || rule.action === "trash") {
-			return { status: rule.action, folderId: null };
+			return { status: rule.action, folderId: null, matched: true };
 		}
 
-		if (!rule.folderId) continue;
-		const folderId = await getRuleFolderId(db, rule.folderId, input.mailboxId);
-		if (!folderId) continue;
-		return { status: "received", folderId };
+		let requested: string[] = [];
+		try {
+			const value = JSON.parse(rule.labelIds);
+			if (Array.isArray(value))
+				requested = value.filter((id): id is string => typeof id === "string");
+		} catch {
+			/* Legacy rule. */
+		}
+		if (rule.folderId) requested.push(rule.folderId);
+		const labelIds = await validLabelIds(db, input.mailboxId, [
+			...new Set(requested),
+		]);
+		const category = isMailCategory(rule.category) ? rule.category : undefined;
+		if (!labelIds.length && !category && !rule.skipInbox) continue;
+		return {
+			status: rule.skipInbox && !rule.folderId ? "archived" : "received",
+			folderId: rule.folderId
+				? await getRuleFolderId(db, rule.folderId, input.mailboxId)
+				: null,
+			labelIds,
+			category,
+			matched: true,
+		};
 	}
 
 	return { status: "received", folderId: null };
@@ -268,24 +334,76 @@ export async function resolveInboxRuleDestination(
 
 type MatchableRule = {
 	pattern: string;
+	conditions?: string | null;
+	conditionMode?: string | null;
 	matchField?: string | null;
 	matchOperator?: string | null;
 	matchValue?: string | null;
 };
 
-export function matchesRule(rule: MatchableRule, input: RuleMatchInput): boolean {
+export function matchesRule(
+	rule: MatchableRule,
+	input: RuleMatchInput,
+): boolean {
+	if (rule.conditions) {
+		try {
+			const conditions = JSON.parse(rule.conditions);
+			if (Array.isArray(conditions) && conditions.length) {
+				if (conditions.length > 12) return false;
+				const results = conditions.map((condition) => {
+					if (
+						!condition ||
+						typeof condition.value !== "string" ||
+						!["sender", "recipient", "title", "content", "email"].includes(
+							condition.field,
+						) ||
+						!["contains", "exact", "starts_with", "ends_with"].includes(
+							condition.operator,
+						)
+					)
+						return false;
+					const matches = matchesRule(
+						{
+							pattern: condition.value,
+							matchField: condition.field,
+							matchOperator: condition.operator,
+						},
+						input,
+					);
+					return condition.negate === true ? !matches : matches;
+				});
+				return rule.conditionMode === "any"
+					? results.some(Boolean)
+					: results.every(Boolean);
+			}
+		} catch {
+			return false;
+		}
+	}
+
 	const rawValue = (rule.matchValue || rule.pattern).trim();
 	// "*" is the catch-all pattern used by catch-all and block-everything rules.
 	if (rawValue === "*") return true;
-	const normalizedRuleValue = normalizeRuleComparisonValue(rule.matchField, rawValue);
+	const normalizedRuleValue = normalizeRuleComparisonValue(
+		rule.matchField,
+		rawValue,
+	);
 	if (!normalizedRuleValue) return false;
 
 	const values = getRuleFieldValues(rule.matchField, input);
 	return values.some((value) => {
 		if (!value) return false;
-		const normalizedValue = normalizeRuleComparisonValue(rule.matchField, value);
+		const normalizedValue = normalizeRuleComparisonValue(
+			rule.matchField,
+			value,
+		);
 		if (!normalizedValue) return false;
-		return compareRuleValue(rule.matchOperator, normalizedValue, normalizedRuleValue, rawValue);
+		return compareRuleValue(
+			rule.matchOperator,
+			normalizedValue,
+			normalizedRuleValue,
+			rawValue,
+		);
 	});
 }
 
@@ -321,7 +439,10 @@ function matchesRegex(value: string, pattern: string): boolean {
 	}
 }
 
-function normalizeRuleComparisonValue(field: string | null | undefined, value: string | null | undefined): string {
+function normalizeRuleComparisonValue(
+	field: string | null | undefined,
+	value: string | null | undefined,
+): string {
 	if (!value) return "";
 	if (field === "email" || field === "sender" || field === "recipient") {
 		return getEmailAddress(value).trim().toLowerCase();
@@ -329,7 +450,10 @@ function normalizeRuleComparisonValue(field: string | null | undefined, value: s
 	return value.toLowerCase();
 }
 
-function getRuleFieldValues(field: string | null | undefined, input: RuleMatchInput) {
+function getRuleFieldValues(
+	field: string | null | undefined,
+	input: RuleMatchInput,
+) {
 	if (field === "content") return [input.content];
 	if (field === "title") return [input.subject];
 	if (field === "sender") return [input.fromAddress];

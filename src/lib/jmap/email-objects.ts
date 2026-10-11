@@ -1,15 +1,25 @@
 import { and, inArray, isNull } from "drizzle-orm";
 import { messageAttachments, messages } from "@/db/schema";
-import { parseEmailAddressParts, splitEmailAddressList } from "@/lib/email/address";
+import {
+	parseEmailAddressParts,
+	splitEmailAddressList,
+} from "@/lib/email/address";
 import { htmlToReadableText } from "@/lib/email/reply-content-utils";
 import { KEYWORD_DRAFT, KEYWORD_FLAGGED, KEYWORD_SEEN } from "./constants";
-import { attachmentBlobId, encodeMailboxRef, messageBlobId, statusToRole } from "./ids";
+import {
+	attachmentBlobId,
+	encodeMailboxRef,
+	messageBlobId,
+	statusToRole,
+} from "./ids";
 import type { EmailAddressObject, EmailBodyPart, JmapContext } from "./types";
 
 type MessageRow = typeof messages.$inferSelect;
 type AttachmentRow = typeof messageAttachments.$inferSelect;
 
-export function toAddressObjects(value: string | null | undefined): EmailAddressObject[] | null {
+export function toAddressObjects(
+	value: string | null | undefined,
+): EmailAddressObject[] | null {
 	const entries = splitEmailAddressList(value);
 	if (entries.length === 0) return null;
 	return entries.map((entry) => {
@@ -18,11 +28,38 @@ export function toAddressObjects(value: string | null | undefined): EmailAddress
 	});
 }
 
-export function mailboxIdsFor(row: MessageRow): Record<string, boolean> {
+export function mailboxIdsFor(
+	row: MessageRow,
+	labelIds: string[] = [],
+): Record<string, boolean> {
 	if (!row.mailboxId) return {};
-	if (row.folderId) return { [encodeMailboxRef({ kind: "folder", mailboxId: row.mailboxId, folderId: row.folderId })]: true };
-	const role = statusToRole(row.status);
-	return role ? { [encodeMailboxRef({ kind: "role", mailboxId: row.mailboxId, role })]: true } : {};
+	const ids: Record<string, boolean> = {};
+	if (row.status !== "spam" && row.status !== "trash")
+		for (const folderId of new Set([
+			...labelIds,
+			...(row.folderId ? [row.folderId] : []),
+		]))
+			ids[
+				encodeMailboxRef({ kind: "folder", mailboxId: row.mailboxId, folderId })
+			] = true;
+	if (
+		row.status === "received" &&
+		(row.category === "promotions" || row.category === "social")
+	)
+		ids[
+			encodeMailboxRef({
+				kind: "category",
+				mailboxId: row.mailboxId,
+				category: row.category,
+			})
+		] = true;
+	else if (!row.folderId || row.status !== "received") {
+		const role = statusToRole(row.status);
+		if (role)
+			ids[encodeMailboxRef({ kind: "role", mailboxId: row.mailboxId, role })] =
+				true;
+	}
+	return ids;
 }
 
 export function keywordsFor(row: MessageRow): Record<string, boolean> {
@@ -43,7 +80,19 @@ function stripBrackets(value: string | null): string | null {
 }
 
 function bodyPart(partId: string, type: string, size: number): EmailBodyPart {
-	return { partId, blobId: null, size, headers: [], name: null, type, charset: "utf-8", disposition: null, cid: null, language: null, location: null };
+	return {
+		partId,
+		blobId: null,
+		size,
+		headers: [],
+		name: null,
+		type,
+		charset: "utf-8",
+		disposition: null,
+		cid: null,
+		language: null,
+		location: null,
+	};
 }
 
 function attachmentPart(attachment: AttachmentRow): EmailBodyPart {
@@ -56,7 +105,9 @@ function attachmentPart(attachment: AttachmentRow): EmailBodyPart {
 		type: attachment.contentType,
 		charset: null,
 		disposition: attachment.disposition,
-		cid: attachment.contentId ? attachment.contentId.replace(/^<|>$/g, "") : null,
+		cid: attachment.contentId
+			? attachment.contentId.replace(/^<|>$/g, "")
+			: null,
 		language: null,
 		location: null,
 	};
@@ -67,7 +118,15 @@ function attachmentPart(attachment: AttachmentRow): EmailBodyPart {
  * text and HTML Mailflare keeps; attachments become parts with blob ids the
  * download endpoint understands. Property filtering happens in the caller.
  */
-export function buildEmailObject(row: MessageRow, attachments: AttachmentRow[], options: { fetchBodies: boolean; maxBodyValueBytes: number }) {
+export function buildEmailObject(
+	row: MessageRow,
+	attachments: AttachmentRow[],
+	options: {
+		fetchBodies: boolean;
+		maxBodyValueBytes: number;
+		labelIds?: string[];
+	},
+) {
 	const text = row.textBody ?? "";
 	const html = row.htmlBody ?? "";
 	const textSize = new TextEncoder().encode(text).length;
@@ -78,31 +137,77 @@ export function buildEmailObject(row: MessageRow, attachments: AttachmentRow[], 
 	const attached = attachments.filter((item) => item.disposition !== "inline");
 
 	let structure: EmailBodyPart;
-	const bodyParts = [textPart, htmlPart].filter((part): part is EmailBodyPart => !!part);
+	const bodyParts = [textPart, htmlPart].filter(
+		(part): part is EmailBodyPart => !!part,
+	);
 	const alternative: EmailBodyPart | null =
 		bodyParts.length > 1
-			? { partId: null, blobId: null, size: textSize + htmlSize, name: null, type: "multipart/alternative", charset: null, disposition: null, cid: null, language: null, location: null, subParts: bodyParts }
-			: bodyParts[0] ?? bodyPart("1", "text/plain", 0);
+			? {
+					partId: null,
+					blobId: null,
+					size: textSize + htmlSize,
+					name: null,
+					type: "multipart/alternative",
+					charset: null,
+					disposition: null,
+					cid: null,
+					language: null,
+					location: null,
+					subParts: bodyParts,
+				}
+			: (bodyParts[0] ?? bodyPart("1", "text/plain", 0));
 	if (attachments.length > 0) {
-		structure = { partId: null, blobId: null, size: 0, name: null, type: "multipart/mixed", charset: null, disposition: null, cid: null, language: null, location: null, subParts: [alternative, ...inline.map(attachmentPart), ...attached.map(attachmentPart)] };
+		structure = {
+			partId: null,
+			blobId: null,
+			size: 0,
+			name: null,
+			type: "multipart/mixed",
+			charset: null,
+			disposition: null,
+			cid: null,
+			language: null,
+			location: null,
+			subParts: [
+				alternative,
+				...inline.map(attachmentPart),
+				...attached.map(attachmentPart),
+			],
+		};
 	} else {
 		structure = alternative;
 	}
 
-	const bodyValues: Record<string, { value: string; isEncodingProblem: boolean; isTruncated: boolean }> = {};
+	const bodyValues: Record<
+		string,
+		{ value: string; isEncodingProblem: boolean; isTruncated: boolean }
+	> = {};
 	if (options.fetchBodies) {
 		const clip = (value: string) => {
 			const limit = options.maxBodyValueBytes;
-			if (!limit || value.length <= limit) return { value, isEncodingProblem: false, isTruncated: false };
-			return { value: value.slice(0, limit), isEncodingProblem: false, isTruncated: true };
+			if (!limit || value.length <= limit)
+				return { value, isEncodingProblem: false, isTruncated: false };
+			return {
+				value: value.slice(0, limit),
+				isEncodingProblem: false,
+				isTruncated: true,
+			};
 		};
 		if (textPart) bodyValues["1"] = clip(text);
 		if (htmlPart) bodyValues["2"] = clip(html);
 	}
 
-	const size = textSize + htmlSize + attachments.reduce((total, item) => total + item.size, 0);
-	const preview = (row.snippet ?? htmlToReadableText(html) ?? text).replace(/\s+/g, " ").trim().slice(0, 256);
-	const references = row.references ? row.references.split(/\s+/).filter(Boolean) : null;
+	const size =
+		textSize +
+		htmlSize +
+		attachments.reduce((total, item) => total + item.size, 0);
+	const preview = (row.snippet ?? htmlToReadableText(html) ?? text)
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, 256);
+	const references = row.references
+		? row.references.split(/\s+/).filter(Boolean)
+		: null;
 	const from = toAddressObjects(row.fromAddr);
 	const sentAt = row.createdAt.toISOString();
 
@@ -110,11 +215,13 @@ export function buildEmailObject(row: MessageRow, attachments: AttachmentRow[], 
 		id: row.id,
 		blobId: messageBlobId(row.id),
 		threadId: threadIdFor(row),
-		mailboxIds: mailboxIdsFor(row),
+		mailboxIds: mailboxIdsFor(row, options.labelIds),
 		keywords: keywordsFor(row),
 		size,
 		receivedAt: sentAt,
-		messageId: stripBrackets(row.providerMessageId) ? [stripBrackets(row.providerMessageId)!] : null,
+		messageId: stripBrackets(row.providerMessageId)
+			? [stripBrackets(row.providerMessageId)!]
+			: null,
 		inReplyTo: row.inReplyTo ? [row.inReplyTo] : null,
 		references,
 		sender: from,
@@ -136,10 +243,21 @@ export function buildEmailObject(row: MessageRow, attachments: AttachmentRow[], 
 }
 
 /** Attachment rows for many messages in one query, keyed by message id. */
-export async function loadAttachmentsByMessage(ctx: JmapContext, messageIds: string[]): Promise<Map<string, AttachmentRow[]>> {
+export async function loadAttachmentsByMessage(
+	ctx: JmapContext,
+	messageIds: string[],
+): Promise<Map<string, AttachmentRow[]>> {
 	const result = new Map<string, AttachmentRow[]>();
 	if (messageIds.length === 0) return result;
-	const rows = await ctx.db.select().from(messageAttachments).where(and(inArray(messageAttachments.messageId, messageIds), isNull(messageAttachments.trashedAt)));
+	const rows = await ctx.db
+		.select()
+		.from(messageAttachments)
+		.where(
+			and(
+				inArray(messageAttachments.messageId, messageIds),
+				isNull(messageAttachments.trashedAt),
+			),
+		);
 	for (const row of rows) {
 		const list = result.get(row.messageId) ?? [];
 		list.push(row);
@@ -149,7 +267,10 @@ export async function loadAttachmentsByMessage(ctx: JmapContext, messageIds: str
 }
 
 /** `header:Name[:asForm]` properties, answered from stored fields; unknown headers are null. */
-export function resolveHeaderProperty(row: MessageRow, property: string): unknown {
+export function resolveHeaderProperty(
+	row: MessageRow,
+	property: string,
+): unknown {
 	const [, name, form] = property.split(":");
 	const lower = (name ?? "").toLowerCase();
 	const raw = (() => {
@@ -169,7 +290,12 @@ export function resolveHeaderProperty(row: MessageRow, property: string): unknow
 			case "in-reply-to":
 				return row.inReplyTo ? `<${row.inReplyTo}>` : null;
 			case "references":
-				return row.references ? row.references.split(/\s+/).map((id) => `<${id}>`).join(" ") : null;
+				return row.references
+					? row.references
+							.split(/\s+/)
+							.map((id) => `<${id}>`)
+							.join(" ")
+					: null;
 			case "date":
 				return row.createdAt.toUTCString();
 			default:
@@ -181,7 +307,10 @@ export function resolveHeaderProperty(row: MessageRow, property: string): unknow
 		case "asaddresses":
 			return toAddressObjects(raw);
 		case "asmessageids":
-			return raw.split(/\s+/).map((id) => id.replace(/^<|>$/g, "")).filter(Boolean);
+			return raw
+				.split(/\s+/)
+				.map((id) => id.replace(/^<|>$/g, ""))
+				.filter(Boolean);
 		case "asdate":
 			return row.createdAt.toISOString();
 		case "astext":

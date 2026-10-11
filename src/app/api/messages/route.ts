@@ -1,3 +1,5 @@
+import { labelCondition, getMessageLabels } from "@/lib/mail-sorting/labels";
+import { isMailCategory } from "@/lib/mail-sorting/categories";
 import { NextResponse } from "next/server";
 import { eq, desc, and, or, count, isNull, isNotNull, inArray, lte, gt, notInArray, ne, sql, sum } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -58,17 +60,20 @@ export async function GET(request: Request) {
 		conditions.push(eq(messages.direction, direction));
 	}
 	if (folderId) {
-		conditions.push(eq(messages.folderId, folderId));
+		conditions.push(labelCondition(folderId));
 	}
 	if (status) {
-		conditions.push(eq(messages.status, status));
+		conditions.push(folderId && status === "received" ? inArray(messages.status,["received","archived"]) : eq(messages.status, status));
 	}
 	// Composer templates are stored as messages but never listed.
 	if (status !== "template") {
 		conditions.push(ne(messages.status, "template"));
 	}
 	if (status === "received" && !folderId) {
-		conditions.push(isNull(messages.folderId));
+		const category = url.searchParams.get("category") ?? "primary";
+		if (!isMailCategory(category)) return NextResponse.json({error:"Invalid category"},{status:400});
+		conditions.push(eq(messages.category,category));
+		if(category === "primary") conditions.push(isNull(messages.folderId));
 		conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
 	}
 	if (starred === "true") {
@@ -194,11 +199,13 @@ export async function GET(request: Request) {
 	// `Message.textBody`/`htmlBody` are optional on the wire type and the
 	// reading pane loads them from /api/messages/[id]/thread, so they are
 	// neither selected nor sent here.
+	const labels = await getMessageLabels(db,rows.map(row=>row.id));
 	const enrichedRows = rows.map(({ rawR2Key: _rawR2Key, ...message }) => {
 		const contactMap = contactMapsByUserId.get(message.userId);
 		const accountName = message.mailboxId ? mailboxNameMap.get(message.mailboxId) : null;
 		return {
 			...message,
+			labels: labels.filter(label=>label.messageId===message.id).map(({messageId: _messageId,...label})=>label),
 			snippet: message.snippet,
 			...(scheduledAtByMessageId.has(message.id) ? { scheduledAt: scheduledAtByMessageId.get(message.id) } : {}),
 			fromContactName:

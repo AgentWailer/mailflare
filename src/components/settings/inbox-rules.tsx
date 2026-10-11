@@ -1,306 +1,457 @@
 "use client";
-
-import type { FormEvent, KeyboardEvent } from "react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Folder, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RoutingRuleSelect } from "./domain-routing/routing-rule-select";
-import type { InboxRule, InboxRuleInput } from "./inbox-rules-types";
 import {
-  createInboxRule,
-  deleteInboxRule,
-  fetchInboxRules,
-  fetchRuleFolders,
-  getInboxRuleDestination,
-  getRuleFieldLabel,
-  getRuleOperatorLabel,
-  updateInboxRule,
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
+import { RoutingRuleSelect } from "./domain-routing/routing-rule-select";
+import {
+	createInboxRule,
+	updateInboxRule,
+	deleteInboxRule,
+	fetchInboxRules,
+	fetchRuleFolders,
 } from "./inbox-rules-utils";
-
+import type {
+	InboxRule,
+	InboxRuleInput,
+	RuleCondition,
+} from "./inbox-rules-types";
+const freshCondition = (): RuleCondition => ({
+	field: "sender",
+	operator: "contains",
+	value: "",
+	negate: false,
+});
+function storedArray<T>(value: string | undefined): T[] {
+	try {
+		const parsed = JSON.parse(value ?? "[]");
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+}
 export function InboxRules() {
-  const { t } = useLanguage();
-  const queryClient = useQueryClient();
-  const { selectedMailbox } = useSelectedMailbox();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<InboxRule | null>(null);
-  const [matchField, setMatchField] = useState<"email" | "content" | "title">(
-    "email",
-  );
-  const [matchOperator, setMatchOperator] = useState<"contains" | "exact">(
-    "contains",
-  );
-  const [matchValue, setMatchValue] = useState("");
-  const [destination, setDestination] = useState("");
-  const mailboxId = selectedMailbox?.id ?? "";
-
-  const folders = useQuery({
-    queryKey: ["folders", mailboxId],
-    enabled: !!mailboxId,
-    queryFn: () => fetchRuleFolders(mailboxId),
-  });
-  const rules = useQuery({
-    queryKey: ["routing-rules", mailboxId],
-    enabled: !!mailboxId,
-    queryFn: () => fetchInboxRules(mailboxId),
-  });
-
-  const save = useMutation({
-    mutationFn: () => {
-      const input: InboxRuleInput = {
-        mailboxId,
-        matchField,
-        matchOperator,
-        matchValue,
-        destination,
-        priority: editingRule?.priority ?? 10,
-      };
-      return editingRule
-        ? updateInboxRule(editingRule.id, input)
-        : createInboxRule(input);
-    },
-    onSuccess: () => {
-      setDialogOpen(false);
-      setEditingRule(null);
-      queryClient.invalidateQueries({ queryKey: ["routing-rules", mailboxId] });
-    },
-  });
-  const remove = useMutation({
-    mutationFn: deleteInboxRule,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["routing-rules", mailboxId] }),
-  });
-
-  const folderMap = new Map(
-    (folders.data?.folders ?? []).map((folder) => [folder.id, folder.name]),
-  );
-
-  function getRuleDestinationLabel(
-    rule: Pick<InboxRule, "action" | "folderId">,
-  ) {
-    if (rule.action === "spam") return t("navigation.spam");
-    if (rule.action === "trash") return t("navigation.trash");
-    return folderMap.get(rule.folderId ?? "") ?? t("rules.unknownFolder");
-  }
-
-  function openCreateDialog() {
-    setEditingRule(null);
-    setMatchField("email");
-    setMatchOperator("contains");
-    setMatchValue("");
-    setDestination("");
-    save.reset();
-    setDialogOpen(true);
-  }
-
-  function openEditDialog(rule: InboxRule) {
-    setEditingRule(rule);
-    setMatchField(rule.matchField);
-    setMatchOperator(rule.matchOperator);
-    setMatchValue(rule.matchValue || rule.pattern);
-    setDestination(getInboxRuleDestination(rule));
-    save.reset();
-    setDialogOpen(true);
-  }
-
-  function onRuleKeyDown(
-    event: KeyboardEvent<HTMLDivElement>,
-    rule: InboxRule,
-  ) {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    openEditDialog(rule);
-  }
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    save.mutate();
-  }
-
-  return (
-    <section className="space-y-4">
-      <div className="flex flex-row items-center">
-        <header className="flex-1">
-          <h2 className="text-2xl font-semibold text-neutral-900">
-            {t("rules.mailboxTitle")}
-          </h2>
-          <p className="mt-1 text-sm text-neutral-500">
-            {t("rules.appliedAfterDelivery")}
-          </p>
-        </header>
-
-        <Button type="button" onClick={openCreateDialog} disabled={!mailboxId}>
-          <Plus className="h-4 w-4" />
-          {t("rules.new")}
-        </Button>
-      </div>
-      <div className="rounded-3xl bg-white p-6">
-        {(rules.data?.rules ?? []).length === 0 && (
-          <p className="text-sm text-neutral-500">{t("rules.none")}</p>
-        )}
-        <div className="space-y-1">
-          {(rules.data?.rules ?? []).map((rule) => (
-            <div
-              key={rule.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openEditDialog(rule)}
-              onKeyDown={(event) => onRuleKeyDown(event, rule)}
-              className="group flex cursor-pointer items-center gap-3 rounded-xl bg-neutral-50 px-3 py-3 outline-none transition-colors hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-200"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                {rule.action === "spam" ? (
-                  <ShieldAlert className="h-4 w-4" />
-                ) : rule.action === "trash" ? (
-                  <Trash2 className="h-4 w-4" />
-                ) : (
-                  <Folder className="h-4 w-4" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-neutral-900">
-                  {getRuleFieldLabel(rule.matchField, t)}{" "}
-                  {getRuleOperatorLabel(rule.matchOperator, t)}{" "}
-                  {rule.matchValue || rule.pattern}
-                </p>
-                <p className="truncate text-xs text-neutral-500">
-                  {getRuleDestinationLabel(rule)}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={remove.isPending}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  remove.mutate(rule.id);
-                }}
-                onKeyDown={(event) => event.stopPropagation()}
-                className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                aria-label={t("rules.delete")}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto sm:max-w-[560px]">
-          <DialogHeader>
-            <DialogTitle>
-              {editingRule ? t("rules.update") : t("rules.new")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("rules.dialogDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2">
-              <div className="grid min-w-0 gap-2">
-                <Label htmlFor="matchField">{t("rules.fieldLabel")}</Label>
-                <RoutingRuleSelect
-                  id="matchField"
-                  value={matchField}
-                  onChange={(event) =>
-                    setMatchField(
-                      event.target.value as "email" | "content" | "title",
-                    )
-                  }
-                >
-                  <option value="email">{t("rules.field.email")}</option>
-                  <option value="content">{t("rules.field.content")}</option>
-                  <option value="title">{t("rules.field.title")}</option>
-                </RoutingRuleSelect>
-              </div>
-              <div className="grid min-w-0 gap-2">
-                <Label htmlFor="matchOperator">{t("rules.matchLabel")}</Label>
-                <RoutingRuleSelect
-                  id="matchOperator"
-                  value={matchOperator}
-                  onChange={(event) =>
-                    setMatchOperator(event.target.value as "contains" | "exact")
-                  }
-                >
-                  <option value="contains">{t("rules.operatorOption.contains")}</option>
-                  <option value="exact">{t("rules.operatorOption.exact")}</option>
-                </RoutingRuleSelect>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2">
-              <div className="grid min-w-0 gap-2">
-                <Label htmlFor="matchValue">{t("rules.valueLabel")}</Label>
-                <Input
-                  id="matchValue"
-                  value={matchValue}
-                  onChange={(event) => setMatchValue(event.target.value)}
-                  placeholder={
-                    matchField === "email" ? t("rules.valuePlaceholderEmail") : t("rules.valuePlaceholderOther")
-                  }
-                />
-              </div>
-              <div className="grid min-w-0 gap-2">
-                <Label htmlFor="destination">{t("rules.destination")}</Label>
-                <RoutingRuleSelect
-                  id="destination"
-                  value={destination}
-                  onChange={(event) => setDestination(event.target.value)}
-                >
-                  <option value="">{t("rules.selectDestination")}</option>
-                  <option value="spam">{t("navigation.spam")}</option>
-                  <option value="trash">{t("navigation.trash")}</option>
-                  {(folders.data?.folders ?? []).map((folder) => (
-                    <option key={folder.id} value={`folder:${folder.id}`}>
-                      {folder.name}
-                    </option>
-                  ))}
-                </RoutingRuleSelect>
-              </div>
-            </div>
-            {save.isError && (
-              <p className="text-sm text-red-600">{save.error.message}</p>
-            )}
-            <div className="flex justify-end gap-2 border-t border-neutral-200 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  !mailboxId ||
-                  !destination ||
-                  !matchValue.trim() ||
-                  save.isPending
-                }
-              >
-                {save.isPending
-                  ? t("common.saving")
-                  : editingRule
-                    ? t("rules.saveChanges")
-                    : t("rules.create")}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </section>
-  );
+	const { t } = useLanguage();
+	const { selectedMailbox } = useSelectedMailbox();
+	const mailboxId = selectedMailbox?.id ?? "";
+	const client = useQueryClient();
+	const [open, setOpen] = useState(false);
+	const [editing, setEditing] = useState<InboxRule | null>(null);
+	const [conditions, setConditions] = useState<RuleCondition[]>([
+		freshCondition(),
+	]);
+	const [mode, setMode] = useState<"all" | "any">("all");
+	const [labels, setLabels] = useState<string[]>([]);
+	const [category, setCategory] = useState<
+		"primary" | "promotions" | "social" | ""
+	>("");
+	const [destination, setDestination] = useState("keep");
+	const [skip, setSkip] = useState(false);
+	const [enabled, setEnabled] = useState(true);
+	const [priority, setPriority] = useState(10);
+	const folders = useQuery({
+		queryKey: ["folders", mailboxId],
+		enabled: !!mailboxId,
+		queryFn: () => fetchRuleFolders(mailboxId),
+	});
+	const rules = useQuery({
+		queryKey: ["routing-rules", mailboxId],
+		enabled: !!mailboxId,
+		queryFn: () => fetchInboxRules(mailboxId),
+	});
+	const save = useMutation({
+		mutationFn: () => {
+			const first = conditions[0];
+			const input: InboxRuleInput = {
+				mailboxId,
+				matchField: first.field,
+				matchOperator: first.operator,
+				matchValue: first.value,
+				conditions,
+				conditionMode: mode,
+				labelIds: labels,
+				...(category ? { category } : {}),
+				skipInbox: skip,
+				enabled,
+				priority,
+				destination,
+			};
+			return editing
+				? updateInboxRule(editing.id, input)
+				: createInboxRule(input);
+		},
+		onSuccess: () => {
+			setOpen(false);
+			client.invalidateQueries({ queryKey: ["routing-rules", mailboxId] });
+		},
+	});
+	const remove = useMutation({
+		mutationFn: deleteInboxRule,
+		onSuccess: () =>
+			client.invalidateQueries({ queryKey: ["routing-rules", mailboxId] }),
+	});
+	function show(rule: InboxRule | null) {
+		setEditing(rule);
+		const items = storedArray<RuleCondition>(rule?.conditions);
+		setConditions(
+			items.length
+				? items
+				: rule
+					? [
+							{
+								field: rule.matchField,
+								operator: rule.matchOperator,
+								value: rule.matchValue || rule.pattern,
+								negate: false,
+							},
+						]
+					: [freshCondition()],
+		);
+		setMode(rule?.conditionMode ?? "all");
+		setLabels([
+			...new Set([
+				...storedArray<string>(rule?.labelIds),
+				...(rule?.folderId ? [rule.folderId] : []),
+			]),
+		]);
+		setCategory(rule?.category ?? "");
+		setDestination(
+			rule?.action === "spam" || rule?.action === "trash"
+				? rule.action
+				: "keep",
+		);
+		setSkip(rule?.skipInbox || !!rule?.folderId || false);
+		setEnabled(rule?.enabled ?? true);
+		setPriority(rule?.priority ?? 10);
+		save.reset();
+		setOpen(true);
+	}
+	function editCondition(index: number, patch: Partial<RuleCondition>) {
+		setConditions((current) =>
+			current.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+		);
+	}
+	const fields = [
+		{ value: "sender", label: t("smart.sender") },
+		{ value: "recipient", label: t("smart.recipient") },
+		{ value: "title", label: t("rules.field.title") },
+		{ value: "content", label: t("rules.field.content") },
+		{ value: "email", label: t("rules.field.email") },
+	];
+	return (
+		<section className="space-y-4">
+			<div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+				<div className="min-w-0 flex-1">
+					<h2 className="text-xl font-semibold">{t("rules.mailboxTitle")}</h2>
+					<p className="mt-1 text-sm text-neutral-500">
+						{t("smart.inboxHelp")}
+					</p>
+				</div>
+				<Button disabled={!mailboxId} onClick={() => show(null)}>
+					<Plus className="h-4 w-4" />
+					{t("rules.new")}
+				</Button>
+			</div>
+			<div className="space-y-2 rounded-3xl bg-white p-4">
+				{!rules.data?.rules.length && (
+					<p className="text-sm text-neutral-500">{t("rules.none")}</p>
+				)}
+				{rules.data?.rules.map((rule) => (
+					<div
+						key={rule.id}
+						className="flex items-center gap-2 rounded-xl bg-neutral-50 p-2"
+					>
+						<button
+							type="button"
+							className="min-h-11 min-w-0 flex-1 text-left"
+							onClick={() => show(rule)}
+						>
+							<span className="block truncate text-sm font-medium">
+								{rule.matchValue || rule.pattern}
+							</span>
+							<span className="block truncate text-xs text-neutral-500">
+								{rule.enabled ? t("smart.enabled") : t("smart.off")} ·{" "}
+								{rule.category
+									? t(
+											rule.category === "primary"
+												? "smart.primary"
+												: rule.category === "social"
+													? "smart.social"
+													: "smart.promotions",
+										)
+									: rule.action === "spam"
+										? t("navigation.spam")
+										: rule.action === "trash"
+											? t("navigation.trash")
+											: t("smart.labels")}{" "}
+								· {rule.priority}
+							</span>
+						</button>
+						<Button
+							variant="ghost"
+							className="min-h-11 min-w-11"
+							aria-label={t("rules.delete")}
+							disabled={remove.isPending}
+							onClick={() => remove.mutate(rule.id)}
+						>
+							<Trash2 className="h-4 w-4" />
+						</Button>
+					</div>
+				))}
+				{(rules.isError || remove.isError) && (
+					<p role="alert" className="text-sm text-red-600">
+						{t("smart.failed")}
+					</p>
+				)}
+			</div>
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+					<DialogHeader>
+						<DialogTitle>
+							{editing ? t("rules.update") : t("rules.new")}
+						</DialogTitle>
+						<DialogDescription>
+							{t("rules.dialogDescription")}
+						</DialogDescription>
+					</DialogHeader>
+					<form
+						className="space-y-4"
+						onSubmit={(event) => {
+							event.preventDefault();
+							save.mutate();
+						}}
+					>
+						<label className="grid gap-2 text-sm">
+							{t("rules.matchLabel")}
+							<RoutingRuleSelect
+								value={mode}
+								onChange={(event) =>
+									setMode(event.target.value as "all" | "any")
+								}
+							>
+								<option value="all">{t("smart.all")}</option>
+								<option value="any">{t("smart.any")}</option>
+							</RoutingRuleSelect>
+						</label>
+						{conditions.map((condition, index) => (
+							<fieldset
+								key={index}
+								className="space-y-2 rounded-xl border border-neutral-200 p-3"
+							>
+								<legend className="px-1 text-xs text-neutral-500">
+									{index + 1}
+								</legend>
+								<div className="grid grid-cols-2 gap-2">
+									<label className="grid gap-1 text-xs">
+										{t("rules.fieldLabel")}
+										<RoutingRuleSelect
+											value={condition.field}
+											onChange={(event) =>
+												editCondition(index, {
+													field: event.target.value as RuleCondition["field"],
+												})
+											}
+										>
+											{fields.map((field) => (
+												<option key={field.value} value={field.value}>
+													{field.label}
+												</option>
+											))}
+										</RoutingRuleSelect>
+									</label>
+									<label className="grid gap-1 text-xs">
+										{t("rules.matchLabel")}
+										<RoutingRuleSelect
+											value={condition.operator}
+											onChange={(event) =>
+												editCondition(index, {
+													operator: event.target
+														.value as RuleCondition["operator"],
+												})
+											}
+										>
+											<option value="contains">
+												{t("rules.operatorOption.contains")}
+											</option>
+											<option value="exact">
+												{t("rules.operatorOption.exact")}
+											</option>
+											<option value="starts_with">
+												{t("routing.operator.starts_with")}
+											</option>
+											<option value="ends_with">
+												{t("routing.operator.ends_with")}
+											</option>
+										</RoutingRuleSelect>
+									</label>
+								</div>
+								<label className="grid gap-1 text-xs">
+									{t("rules.valueLabel")}
+									<Input
+										className="min-h-11 text-base"
+										required
+										maxLength={500}
+										value={condition.value}
+										onChange={(event) =>
+											editCondition(index, { value: event.target.value })
+										}
+									/>
+								</label>
+								<div className="flex items-center gap-2">
+									<label className="flex min-h-11 flex-1 items-center gap-2 text-sm">
+										<input
+											type="checkbox"
+											checked={condition.negate}
+											onChange={(event) =>
+												editCondition(index, { negate: event.target.checked })
+											}
+										/>
+										{t("smart.except")}
+									</label>
+									<Button
+										type="button"
+										variant="ghost"
+										aria-label={t("smart.removeCondition")}
+										disabled={conditions.length === 1}
+										onClick={() =>
+											setConditions((current) =>
+												current.filter((_, i) => i !== index),
+											)
+										}
+									>
+										<Trash2 className="h-4 w-4" />
+									</Button>
+								</div>
+							</fieldset>
+						))}
+						<Button
+							type="button"
+							variant="outline"
+							disabled={conditions.length >= 12}
+							onClick={() =>
+								setConditions((current) => [...current, freshCondition()])
+							}
+						>
+							<Plus className="h-4 w-4" />
+							{t("smart.addCondition")}
+						</Button>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<label className="grid gap-1 text-sm">
+								{t("smart.category")}
+								<RoutingRuleSelect
+									value={category}
+									onChange={(event) =>
+										setCategory(event.target.value as typeof category)
+									}
+								>
+									<option value="">{t("smart.keep")}</option>
+									<option value="primary">{t("smart.primary")}</option>
+									<option value="promotions">{t("smart.promotions")}</option>
+									<option value="social">{t("smart.social")}</option>
+								</RoutingRuleSelect>
+							</label>
+							<label className="grid gap-1 text-sm">
+								{t("rules.destination")}
+								<RoutingRuleSelect
+									value={destination}
+									onChange={(event) => setDestination(event.target.value)}
+								>
+									<option value="keep">{t("smart.keep")}</option>
+									<option value="spam">{t("navigation.spam")}</option>
+									<option value="trash">{t("navigation.trash")}</option>
+								</RoutingRuleSelect>
+							</label>
+						</div>
+						<fieldset>
+							<legend className="text-sm font-medium">
+								{t("smart.labels")}
+							</legend>
+							<div className="max-h-44 overflow-y-auto">
+								{folders.data?.folders.map((folder) => (
+									<label
+										key={folder.id}
+										className="flex min-h-11 items-center gap-3 text-sm"
+									>
+										<input
+											type="checkbox"
+											checked={labels.includes(folder.id)}
+											onChange={(event) =>
+												setLabels((current) =>
+													event.target.checked
+														? [...current, folder.id]
+														: current.filter((id) => id !== folder.id),
+												)
+											}
+										/>
+										<span className="min-w-0 break-words">{folder.name}</span>
+									</label>
+								))}
+							</div>
+						</fieldset>
+						<label className="flex min-h-11 items-center gap-3 text-sm">
+							<input
+								type="checkbox"
+								checked={skip}
+								onChange={(event) => setSkip(event.target.checked)}
+							/>
+							{t("smart.skip")}
+						</label>
+						<label className="flex min-h-11 items-center gap-3 text-sm">
+							<input
+								type="checkbox"
+								checked={enabled}
+								onChange={(event) => setEnabled(event.target.checked)}
+							/>
+							{t("smart.enabled")}
+						</label>
+						<label className="grid gap-2 text-sm">
+							{t("smart.priority")}
+							<Input
+								className="min-h-11 text-base"
+								type="number"
+								min="-1000"
+								max="1000"
+								value={priority}
+								onChange={(event) => setPriority(Number(event.target.value))}
+							/>
+						</label>
+						{save.isError && (
+							<p role="alert" className="text-sm text-red-600">
+								{save.error.message}
+							</p>
+						)}
+						<div className="flex justify-end gap-2">
+							<Button
+								variant="outline"
+								type="button"
+								onClick={() => setOpen(false)}
+							>
+								{t("common.cancel")}
+							</Button>
+							<Button
+								type="submit"
+								disabled={
+									!mailboxId ||
+									conditions.some((condition) => !condition.value.trim()) ||
+									save.isPending
+								}
+							>
+								{save.isPending ? t("common.saving") : t("rules.saveChanges")}
+							</Button>
+						</div>
+					</form>
+				</DialogContent>
+			</Dialog>
+		</section>
+	);
 }

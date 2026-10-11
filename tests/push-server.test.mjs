@@ -67,9 +67,9 @@ async function fixture(t){
  return {database,env,tokens,keys,deliveries,request,decrypt,payload};
 }
 
-test('badge counts only unread, readable inbox/custom mail and clears when it is read',async t=>{
+test('badge counts only unread primary inbox mail and clears when it is read',async t=>{
  const f=await fixture(t);assert.equal((await app.badge(f.request(null))).status,401);
- const response=await app.badge(f.request('owner'));assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.deepEqual(await response.json(),{unreadCount:2});
+ const response=await app.badge(f.request('owner'));assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.deepEqual(await response.json(),{unreadCount:1});
  assert.deepEqual(await (await app.badge(f.request('other'))).json(),{unreadCount:1});
  f.database.db.exec("UPDATE messages SET read=1 WHERE mailbox_id='mailbox'");assert.deepEqual(await (await app.badge(f.request('owner'))).json(),{unreadCount:0});
 });
@@ -77,7 +77,7 @@ test('badge counts only unread, readable inbox/custom mail and clears when it is
 test('domain administrators never receive notifications for someone else’s personal mailbox',async t=>{
  const f=await fixture(t);assert.deepEqual(await app.getMailboxNotificationUserIds(f.env,'mailbox','owner'),['owner']);
  await app.sendPushNotifications(f.env,['owner','other'],f.payload);assert.equal(f.deliveries.length,1);assert.equal(f.deliveries[0].url,'https://web.push.apple.com/owner');
- const payload=f.decrypt(f.deliveries[0].init.body);assert.equal(payload.unreadCount,2);assert.equal(payload.title,'Invoice');assert.equal(payload.url,'/inbox/message');
+ const payload=f.decrypt(f.deliveries[0].init.body);assert.equal(payload.unreadCount,1);assert.equal(payload.title,'Invoice');assert.equal(payload.url,'/inbox/message');
  assert.match(f.deliveries[0].init.headers.Authorization,/^vapid t=/);
 });
 
@@ -87,7 +87,7 @@ test('push reaches closed apps even when there is no realtime websocket binding'
 
 test('shared mailbox push and badge counts stop immediately after an access grant is revoked',async t=>{
  const f=await fixture(t);f.database.db.exec("UPDATE mailboxes SET type='shared' WHERE id='mailbox';INSERT INTO mailbox_access(id,mailbox_id,user_id,permission,created_at) VALUES ('grant','mailbox','other','read_only',1)");
- await app.sendPushNotifications(f.env,['owner','other'],f.payload);assert.equal(f.deliveries.length,2);assert.equal(f.decrypt(f.deliveries.find(x=>x.url.endsWith('/other')).init.body).unreadCount,3);
+ await app.sendPushNotifications(f.env,['owner','other'],f.payload);assert.equal(f.deliveries.length,2);assert.equal(f.decrypt(f.deliveries.find(x=>x.url.endsWith('/other')).init.body).unreadCount,2);
  f.database.db.exec("DELETE FROM mailbox_access WHERE id='grant'");f.deliveries.length=0;
  await app.sendPushNotifications(f.env,['owner','other'],f.payload);assert.equal(f.deliveries.length,1);assert.deepEqual(await (await app.badge(f.request('other'))).json(),{unreadCount:1});
 });
@@ -118,3 +118,11 @@ test('missing VAPID server keys are reported explicitly and expired endpoints ar
  f.env.VAPID_PRIVATE_KEY=privateKey;t.mock.method(globalThis,'fetch',async()=>new Response(null,{status:410}));
  await app.sendPushNotifications(f.env,['owner'],f.payload);assert.equal(f.database.db.prepare("SELECT count(*) n FROM push_subscriptions WHERE user_id='owner'").get().n,0);
 });
+
+ test('promotions, social, spam and archived messages never trigger web push',async t=>{
+  const f=await fixture(t);
+  for(const category of ['promotions','social']){f.database.db.prepare("UPDATE messages SET category=? WHERE id='message'").run(category);await app.sendPushNotifications(f.env,['owner'],f.payload);}
+  f.database.db.exec("UPDATE messages SET category='primary',status='spam' WHERE id='message'");await app.sendPushNotifications(f.env,['owner'],f.payload);
+  f.database.db.exec("UPDATE messages SET status='archived' WHERE id='message'");await app.sendPushNotifications(f.env,['owner'],f.payload);
+  assert.equal(f.deliveries.length,0);
+ });

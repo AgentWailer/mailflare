@@ -1,0 +1,725 @@
+import assert from "node:assert/strict";
+import test, { after } from "node:test";
+import { build } from "esbuild";
+import {
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+	readdirSync,
+	readFileSync,
+	mkdirSync,
+} from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+const dir = mkdtempSync(
+	join(process.cwd(), "node_modules", "mailflare-smart-test-"),
+);
+after(() => rmSync(dir, { recursive: true, force: true }));
+writeFileSync(
+	join(dir, "headers.mjs"),
+	"export async function cookies(){return {get:()=>undefined};}",
+);
+await build({
+	stdin: {
+		contents: `
+ export {SqliteDatabase} from './server/runtime/sqlite-database.ts';
+ export {applyMigrations} from './server/runtime/migrate.ts';
+ export {createSession} from './src/lib/auth/session.ts';
+ export {classifyIncomingMail,resolveClefDecision} from './src/lib/mail-sorting/classifier.ts';
+ export {shouldNotifyMail,isPrimaryInboxMail} from './src/lib/mail-sorting/categories.ts';
+ export {getUnreadBadgeCount} from './src/lib/push/badge.ts';
+ export {parseNewMessageEvent,showBrowserNewMessageNotification} from './src/hooks/message-realtime-utils.ts';
+ export {GET as list} from './src/app/api/messages/route.ts';
+ export {GET as counts} from './src/app/api/messages/counts/route.ts';
+ export {GET as getOrganization,POST as organize} from './src/app/api/mail-organization/route.ts';
+ export {GET as getSettings,POST as settings} from './src/app/api/settings/mail-sorting/route.ts';
+ export {POST as createRule} from './src/app/api/routing-rules/route.ts';
+ export {resolveInboxRuleDestination,matchesRule} from './src/lib/email/routing.ts';
+ export {exportDatabaseRecords,restoreDatabaseRecords} from './src/lib/backups/export.ts';
+ export {getDb} from './src/db/index.ts';
+ export {resolveRoutineMail} from './src/lib/mail-sorting/routine.ts';
+ export {requireSessionUser} from './src/lib/api/auth.ts';
+ export {emailGet,emailSet} from './src/lib/jmap/emails.ts';
+ export {mailboxGet} from './src/lib/jmap/mailboxes.ts';
+ export {processInboundMessage} from './src/lib/email/inbound.ts';
+`,
+		resolveDir: process.cwd(),
+	},
+	outfile: join(dir, "app.mjs"),
+	bundle: true,
+	platform: "node",
+	format: "esm",
+	packages: "external",
+	tsconfig: "tsconfig.json",
+	alias: {
+		"next/headers": join(dir, "headers.mjs"),
+		"next/server": "next/server.js",
+		"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
+	},
+	logLevel: "silent",
+});
+const app = await import(pathToFileURL(join(dir, "app.mjs")).href);
+const answers = (choice, p = 0.95, action = 0.01, security = 0.01) => ({
+	category: {
+		type: "choice",
+		choice,
+		probabilities: Object.fromEntries(
+			["primary", "promotions", "social", "spam"].map((k) => [
+				k,
+				k === choice ? p : (1 - p) / 3,
+			]),
+		),
+	},
+	action: { type: "noul", noul: action },
+	security: { type: "noul", noul: security },
+});
+async function fixture(t) {
+	const DB = new app.SqliteDatabase(":memory:");
+	t.after(() => {
+		DB.db.close();
+		delete globalThis.__mailflareNodeEnv;
+	});
+	await app.applyMigrations(DB, join(process.cwd(), "drizzle/migrations"));
+	DB.db
+		.exec(`INSERT INTO users(id,email,password_hash,name,role,created_at) VALUES ('owner','owner@example.test','hash','Owner','user',1),('other','other@example.test','hash','Other','admin',1);
+ INSERT INTO domains(id,user_id,hostname,zone_id,status,created_at) VALUES ('domain','owner','example.test','manual','active',1);
+ INSERT INTO mailboxes(id,user_id,domain_id,local_part,type,created_at) VALUES ('box','owner','domain','owner','personal',1),('otherbox','other','domain','other','personal',1);
+ INSERT INTO folders(id,user_id,mailbox_id,name,created_at) VALUES ('work','owner','box','Work',1),('follow','owner','box','Follow up',1),('foreign','other','otherbox','Private',1);
+ INSERT INTO messages(id,user_id,mailbox_id,direction,from_addr,to_addr,status,category,read,created_at) VALUES
+ ('primary','owner','box','inbound','sam@example.test','owner@example.test','received','primary',0,10),
+ ('promotion','owner','box','inbound','sales@example.test','owner@example.test','received','promotions',0,9),
+ ('social','owner','box','inbound','linkedin@example.test','owner@example.test','received','social',0,8),
+ ('spam','owner','box','inbound','scam@example.test','owner@example.test','spam','primary',0,7),
+ ('foreign','other','otherbox','inbound','sam@example.test','other@example.test','received','primary',0,6);`);
+	const env = {
+		DB,
+		MAILFLARE_RUNTIME: "node",
+		AI: {
+			run: async () => ({
+				answers: answers("promotions"),
+				usage: { input_tokens: 500 },
+			}),
+		},
+	};
+	globalThis.__mailflareNodeEnv = env;
+	const tokens = {};
+	for (const id of ["owner", "other"])
+		tokens[id] = await app.createSession(env, id);
+	const request = (path, body, user = "owner") =>
+		new Request("https://mailflare.test" + path, {
+			method: body ? "POST" : "GET",
+			headers: {
+				Authorization: "Bearer " + tokens[user],
+				"Content-Type": "application/json",
+			},
+			...(body ? { body: JSON.stringify(body) } : {}),
+		});
+	return {
+		DB,
+		env,
+		request,
+		db: app.getDb(env),
+		input: {
+			mailboxId: "box",
+			userId: "owner",
+			sender: "sales@example.test",
+			recipient: "owner@example.test",
+			subject: "Offer",
+			text: "Buy now",
+			spamScore: 0,
+		},
+	};
+}
+test("conservative CLEF decisions protect personal/security mail and require correlated spam", () => {
+	assert.equal(
+		app.resolveClefDecision(answers("promotions"), 0.9, 0).category,
+		"promotions",
+	);
+	assert.equal(
+		app.resolveClefDecision(answers("social"), 0.9, 0).category,
+		"social",
+	);
+	for (const value of [
+		answers("promotions", 0.8),
+		answers("social", 0.99, 0.6),
+		answers("promotions", 0.99, 0.01, 0.3),
+		{},
+		answers("spam", 0.99),
+	])
+		assert.equal(app.resolveClefDecision(value, 0.9, 0).category, "primary");
+	assert.equal(
+		app.resolveClefDecision(answers("spam", 0.99), 0.9, 50).spam,
+		true,
+	);
+	const invalid = answers("promotions");
+	invalid.category.probabilities.primary = NaN;
+	assert.equal(app.resolveClefDecision(invalid, 0.9, 0).source, "fallback");
+});
+test("AI usage is capped atomically; failure, disabled and observation modes leave mail in inbox", async (t) => {
+	const f = await fixture(t);
+	f.DB.db.exec(
+		"INSERT INTO mailbox_sorting_settings(mailbox_id,mode,daily_limit,threshold) VALUES('box','active',1,.9)",
+	);
+	const result = await Promise.all([
+		app.classifyIncomingMail(f.env, f.input),
+		app.classifyIncomingMail(f.env, f.input),
+	]);
+	assert.deepEqual(result.map((x) => x.category).sort(), [
+		"primary",
+		"promotions",
+	]);
+	assert.equal(
+		f.DB.db.prepare("SELECT requests FROM mail_sorting_usage").get().requests,
+		1,
+	);
+	f.DB.db.exec(
+		"UPDATE mailbox_sorting_settings SET daily_limit=10,mode='observe'",
+	);
+	const observed = await app.classifyIncomingMail(f.env, f.input);
+	assert.equal(observed.category, "primary");
+	assert.equal(observed.suggestedCategory, "promotions");
+	f.DB.db.exec("UPDATE mailbox_sorting_settings SET mode='off'");
+	assert.equal(
+		(await app.classifyIncomingMail(f.env, f.input)).reason,
+		"disabled",
+	);
+	f.DB.db.exec("UPDATE mailbox_sorting_settings SET mode='active'");
+	f.env.AI.run = async () => {
+		throw new Error("outage");
+	};
+	assert.equal(
+		(await app.classifyIncomingMail(f.env, f.input)).category,
+		"primary",
+	);
+});
+test("multiple labels share one message, remain in inbox, count once and preserve existing labels in bulk changes", async (t) => {
+	const f = await fixture(t);
+	assert.equal(
+		(
+			await app.organize(
+				f.request("/api/mail-organization", {
+					mailboxId: "box",
+					messageIds: ["primary"],
+					labelIds: ["work", "follow"],
+				}),
+			)
+		).status,
+		200,
+	);
+	for (const label of ["work", "follow"])
+		assert.deepEqual(
+			(
+				await (
+					await app.list(
+						f.request(
+							"/api/messages?mailboxId=box&folderId=" +
+								label +
+								"&status=received",
+						),
+					)
+				).json()
+			).messages.map((x) => x.id),
+			["primary"],
+		);
+	const main = await (
+		await app.list(
+			f.request(
+				"/api/messages?mailboxId=box&status=received&direction=inbound",
+			),
+		)
+	).json();
+	assert.deepEqual(
+		main.messages.map((x) => x.id),
+		["primary"],
+	);
+	assert.equal(main.messages[0].labels.length, 2);
+	const result = await (
+		await app.counts(f.request("/api/messages/counts?mailboxId=box"))
+	).json();
+	assert.equal(result.counts.folders.inbox.unread, 1);
+	assert.equal(result.counts.folders.promotions.unread, 1);
+	assert.equal(result.counts.folders.social.unread, 1);
+	assert.equal(result.counts.customFolders.work.total, 1);
+	assert.equal(result.counts.mailboxes[0].total, 4);
+	await app.organize(
+		f.request("/api/mail-organization", {
+			mailboxId: "box",
+			messageIds: ["primary", "promotion"],
+			addLabelIds: ["work"],
+		}),
+	);
+	assert.equal(
+		f.DB.db
+			.prepare(
+				"SELECT count(*) n FROM message_labels WHERE message_id='primary'",
+			)
+			.get().n,
+		2,
+	);
+	await app.organize(
+		f.request("/api/mail-organization", {
+			mailboxId: "box",
+			messageIds: ["primary"],
+			skipInbox: true,
+		}),
+	);
+	assert.equal(
+		(
+			await (
+				await app.list(f.request("/api/messages?mailboxId=box&status=received"))
+			).json()
+		).messages.length,
+		0,
+	);
+	assert.equal(
+		(
+			await (
+				await app.list(
+					f.request(
+						"/api/messages?mailboxId=box&folderId=follow&status=received",
+					),
+				)
+			).json()
+		).messages.length,
+		1,
+	);
+});
+test("authorization rejects foreign labels/messages and readonly writers without partial writes", async (t) => {
+	const f = await fixture(t);
+	for (const body of [
+		{ messageIds: ["primary"], labelIds: ["foreign"] },
+		{ messageIds: ["primary", "foreign"], labelIds: ["work"] },
+	])
+		assert.equal(
+			(
+				await app.organize(
+					f.request("/api/mail-organization", { mailboxId: "box", ...body }),
+				)
+			).status,
+			404,
+		);
+	assert.equal(
+		f.DB.db.prepare("SELECT count(*) n FROM message_labels").get().n,
+		0,
+	);
+	assert.equal(
+		(
+			await app.getOrganization(
+				f.request(
+					"/api/mail-organization?mailboxId=box&messageId=primary",
+					undefined,
+					"other",
+				),
+			)
+		).status,
+		404,
+	);
+	f.DB.db.exec(
+		"UPDATE mailboxes SET type='shared' WHERE id='box';INSERT INTO mailbox_access(id,mailbox_id,user_id,permission,created_at) VALUES('grant','box','other','read_only',1)",
+	);
+	assert.equal(
+		(
+			await app.organize(
+				f.request(
+					"/api/mail-organization",
+					{ mailboxId: "box", messageIds: ["primary"], category: "social" },
+					"other",
+				),
+			)
+		).status,
+		404,
+	);
+	const csrf = new Request("https://mailflare.test/api/mail-organization", {
+		method: "POST",
+		headers: { Origin: "https://attacker.test" },
+		body: "{}",
+	});
+	assert.equal((await app.organize(csrf)).status, 403);
+});
+test("remembered sender corrections take precedence over AI and settings are mailbox scoped", async (t) => {
+	const f = await fixture(t);
+	await app.organize(
+		f.request("/api/mail-organization", {
+			mailboxId: "box",
+			messageIds: ["promotion"],
+			category: "primary",
+			rememberSender: true,
+		}),
+	);
+	let calls = 0;
+	f.env.AI.run = async () => {
+		calls++;
+		return { answers: answers("promotions") };
+	};
+	const result = await app.classifyIncomingMail(f.env, f.input);
+	assert.equal(result.category, "primary");
+	assert.equal(result.source, "override");
+	assert.equal(calls, 0);
+	assert.equal(
+		(
+			await app.getSettings(
+				f.request(
+					"/api/settings/mail-sorting?mailboxId=box",
+					undefined,
+					"other",
+				),
+			)
+		).status,
+		404,
+	);
+	assert.equal(
+		(
+			await app.settings(
+				f.request("/api/settings/mail-sorting", {
+					mailboxId: "box",
+					mode: "active",
+					dailyLimit: 10001,
+					threshold: 0.9,
+				}),
+			)
+		).status,
+		400,
+	);
+});
+test("AND/OR/exception filters assign multiple labels and skip inbox before AI", async (t) => {
+	const f = await fixture(t);
+	const conditions = [
+		{ field: "sender", operator: "contains", value: "linkedin", negate: false },
+		{ field: "title", operator: "contains", value: "security", negate: true },
+	];
+	const response = await app.createRule(
+		f.request("/api/routing-rules", {
+			mailboxId: "box",
+			matchField: "sender",
+			matchOperator: "contains",
+			matchValue: "linkedin",
+			conditions,
+			conditionMode: "all",
+			labelIds: ["work", "follow"],
+			category: "social",
+			destination: "keep",
+			priority: 20,
+		}),
+	);
+	assert.equal(response.status, 200);
+	const result = await app.resolveInboxRuleDestination(f.db, {
+		mailboxId: "box",
+		toAddress: "owner@example.test",
+		fromAddress: "digest@linkedin.test",
+		subject: "Your weekly summary",
+	});
+	assert.equal(result.category, "social");
+	assert.equal(result.labelIds.length, 2);
+	assert.equal(result.matched, true);
+	assert.equal(
+		(
+			await app.resolveInboxRuleDestination(f.db, {
+				mailboxId: "box",
+				toAddress: "owner@example.test",
+				fromAddress: "digest@linkedin.test",
+				subject: "Security alert",
+			})
+		).matched,
+		undefined,
+	);
+	assert.equal(
+		app.matchesRule(
+			{
+				pattern: "unused",
+				conditions: JSON.stringify(conditions),
+				conditionMode: "any",
+			},
+			{
+				fromAddress: "sam@example.test",
+				toAddress: "owner@example.test",
+				subject: "Weekly",
+			},
+		),
+		true,
+	);
+});
+test("promotions/social/spam/archive stay silent and only primary contributes to badge", async (t) => {
+	const f = await fixture(t);
+	assert.equal(
+		await app.getUnreadBadgeCount(f.db, {
+			id: "owner",
+			role: "user",
+			email: "owner@example.test",
+		}),
+		1,
+	);
+	for (const category of ["promotions", "social"])
+		assert.equal(app.shouldNotifyMail({ status: "received", category }), false);
+	for (const status of ["spam", "trash", "archived"])
+		assert.equal(app.shouldNotifyMail({ status, category: "primary" }), false);
+	const event = app.parseNewMessageEvent(
+		JSON.stringify({
+			type: "new_message",
+			silent: true,
+			messageId: "promotion",
+			mailboxId: "box",
+			from: "sales@example.test",
+		}),
+	);
+	assert.equal(event.silent, true);
+	let notices = 0;
+	globalThis.Notification = class {
+		constructor() {
+			notices++;
+		}
+		static permission = "granted";
+	};
+	t.after(() => delete globalThis.Notification);
+	await app.showBrowserNewMessageNotification(event);
+	assert.equal(notices, 0);
+});
+test("new backup roundtrip retains labels/settings; legacy backup rebuilds old folder membership", async (t) => {
+	const f = await fixture(t);
+	await app.organize(
+		f.request("/api/mail-organization", {
+			mailboxId: "box",
+			messageIds: ["primary"],
+			labelIds: ["work", "follow"],
+		}),
+	);
+	f.DB.db.exec(
+		"INSERT INTO mailbox_sorting_settings(mailbox_id,mode) VALUES('box','observe')",
+	);
+	const backup = await app.exportDatabaseRecords(f.env.DB);
+	await app.restoreDatabaseRecords(f.env.DB, backup.buffer);
+	assert.equal(
+		f.DB.db.prepare("SELECT count(*) n FROM message_labels").get().n,
+		2,
+	);
+	assert.equal(
+		f.DB.db.prepare("SELECT mode FROM mailbox_sorting_settings").get().mode,
+		"observe",
+	);
+	const legacy = JSON.parse(new TextDecoder().decode(backup));
+	for (const table of [
+		"message_labels",
+		"mailbox_sorting_settings",
+		"mail_sorting_overrides",
+		"mail_sorting_usage",
+	]) {
+		delete legacy.tables[table];
+		legacy.includedTables = legacy.includedTables.filter(
+			(name) => name !== table,
+		);
+	}
+	for (const message of legacy.tables.messages) {
+		delete message.category;
+		delete message.sorting_decision;
+		if (message.id === "primary") message.folder_id = "work";
+	}
+	for (const rule of legacy.tables.routing_rules) {
+		for (const field of [
+			"conditions",
+			"condition_mode",
+			"label_ids",
+			"category",
+			"skip_inbox",
+		])
+			delete rule[field];
+	}
+	await app.restoreDatabaseRecords(
+		f.env.DB,
+		new TextEncoder().encode(JSON.stringify(legacy)).buffer,
+	);
+	assert.equal(
+		f.DB.db.prepare("SELECT category FROM messages WHERE id='primary'").get()
+			.category,
+		"primary",
+	);
+	assert.deepEqual(
+		f.DB.db
+			.prepare(
+				"SELECT folder_id FROM message_labels WHERE message_id='primary'",
+			)
+			.all(),
+		[{ folder_id: "work" }],
+	);
+});
+
+test("JMAP reads and writes multiple labels and exposes promotions/social as separate mailboxes", async (t) => {
+	const f = await fixture(t);
+	await app.organize(
+		f.request("/api/mail-organization", {
+			mailboxId: "box",
+			messageIds: ["primary"],
+			labelIds: ["work", "follow"],
+		}),
+	);
+	const { user } = await app.requireSessionUser(
+		f.env,
+		f.request("/api/messages"),
+	);
+	const ctx = {
+		env: f.env,
+		db: f.db,
+		auth: { user, userId: "owner", mailboxIds: null },
+		accountId: "owner",
+		origin: "https://mailflare.test",
+		createdIds: {},
+	};
+	const emails = await app.emailGet(ctx, { ids: ["primary", "promotion"] });
+	assert.deepEqual(
+		Object.keys(emails.list[0].mailboxIds).sort(),
+		["box~f~follow", "box~f~work", "box~inbox"].sort(),
+	);
+	assert.equal(emails.list[1].mailboxIds["box~c~promotions"], true);
+	const mailboxes = await app.mailboxGet(ctx, {});
+	assert.equal(
+		mailboxes.list.find((row) => row.id === "box~c~promotions").totalEmails,
+		1,
+	);
+	assert.equal(
+		mailboxes.list.find((row) => row.id === "box~f~follow").totalEmails,
+		1,
+	);
+	const changed = await app.emailSet(ctx, {
+		update: {
+			primary: {
+				mailboxIds: {
+					"box~f~work": true,
+					"box~f~follow": true,
+					"box~c~social": true,
+				},
+			},
+		},
+	});
+	assert.equal(changed.updated.primary, null);
+	assert.equal(
+		f.DB.db.prepare("SELECT category FROM messages WHERE id='primary'").get()
+			.category,
+		"social",
+	);
+	const denied = await app.emailSet(ctx, {
+		update: { primary: { mailboxIds: { "box~f~foreign": true } } },
+	});
+	assert.equal(denied.notUpdated.primary.type, "invalidProperties");
+	assert.equal(
+		f.DB.db
+			.prepare(
+				"SELECT count(*) n FROM message_labels WHERE message_id='primary'",
+			)
+			.get().n,
+		2,
+	);
+});
+test("inbound mail is classified before realtime delivery; spam and social refresh silently", async (t) => {
+	const f = await fixture(t);
+	f.DB.db.exec("UPDATE users SET spam_protection_enabled=0 WHERE id='owner'");
+	const events = [];
+	let aiCalls = 0;
+	f.env.REALTIME = {
+		getByName: () => ({
+			fetch: async (_url, init) => {
+				events.push(JSON.parse(init.body));
+				return new Response();
+			},
+		}),
+	};
+	f.env.AI.run = async () => {
+		aiCalls++;
+		return { answers: answers("social") };
+	};
+	f.env.BUCKET = {
+		get: async () => ({
+			arrayBuffer: async () =>
+				new TextEncoder().encode(
+					"From: updates@linkedin.test\r\nTo: owner@example.test\r\nSubject: Network digest\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nYour network updates.",
+				).buffer,
+		}),
+	};
+	await app.processInboundMessage(f.env, {
+		from: "updates@linkedin.test",
+		to: "owner@example.test",
+		rawR2Key: "synthetic/social.eml",
+	});
+	const mail = f.DB.db
+		.prepare(
+			"SELECT id,category,status FROM messages WHERE raw_r2_key='synthetic/social.eml'",
+		)
+		.get();
+	assert.equal(mail.category, "social");
+	assert.equal(events.at(-1).silent, true);
+	assert.equal(events.at(-1).messageId, mail.id);
+	assert.equal(aiCalls, 1);
+	await app.processInboundMessage(f.env, {
+		from: "updates@linkedin.test",
+		to: "owner@example.test",
+		rawR2Key: "synthetic/social.eml",
+	});
+	assert.equal(aiCalls, 1);
+	assert.equal(events.length, 1);
+});
+test("backup works before smart inbox migration and its older document restores after upgrading", async (t) => {
+	const migrationDir = join(dir, "pre-smart");
+	mkdirSync(migrationDir);
+	for (const name of readdirSync("drizzle/migrations").filter(
+		(name) => name.endsWith(".sql") && name !== "0061_smart_inbox.sql",
+	))
+		writeFileSync(
+			join(migrationDir, name),
+			readFileSync(join("drizzle/migrations", name)),
+		);
+	const DB = new app.SqliteDatabase(":memory:");
+	t.after(() => DB.db.close());
+	await app.applyMigrations(DB, migrationDir);
+	const backup = await app.exportDatabaseRecords(DB);
+	await app.restoreDatabaseRecords(DB, backup.buffer);
+	await app.applyMigrations(DB, join(process.cwd(), "drizzle/migrations"));
+	await app.restoreDatabaseRecords(DB, backup.buffer);
+	assert.equal(
+		DB.db.prepare("SELECT count(*) n FROM message_labels").get().n,
+		0,
+	);
+});
+
+test("bulk shortcuts spare AI calls while excluding security, personal messages and transactions", async (t) => {
+	const f = await fixture(t);
+	let calls = 0;
+	f.env.AI.run = async () => {
+		calls++;
+		return { answers: answers("social") };
+	};
+	const input = {
+		...f.input,
+		headers: { "List-Unsubscribe": "<https://example.test/unsubscribe>" },
+		subject: "Nur heute: 40% Rabatt",
+		text: "Jetzt kaufen und sparen",
+	};
+	assert.equal(
+		(await app.classifyIncomingMail(f.env, input)).category,
+		"promotions",
+	);
+	assert.equal(calls, 0);
+	assert.equal(
+		app.resolveRoutineMail({
+			...input,
+			subject: "Dein Netzwerk auf LinkedIn wächst",
+			sender: "digest@linkedin.com",
+		}).category,
+		"social",
+	);
+	for (const subject of [
+		"Security alert: your network",
+		"Neue Anmeldung: 40% Rabatt",
+		"Nachricht von Anna",
+		"Rechnung: 40% Rabatt",
+	])
+		assert.equal(
+			app.resolveRoutineMail({
+				...input,
+				subject,
+				sender: "digest@linkedin.com",
+			}),
+			null,
+		);
+	assert.equal(app.resolveRoutineMail({ ...input, headers: {} }), null);
+});
+
+ test('primary membership counts read mail correctly and ignores snoozed mail',()=>{
+  const message={status:'received',direction:'inbound',category:'primary',read:true};assert.equal(app.isPrimaryInboxMail(message),true);assert.equal(app.shouldNotifyMail(message),false);assert.equal(app.isPrimaryInboxMail({...message,category:'social'}),false);assert.equal(app.isPrimaryInboxMail({...message,snoozedUntil:new Date(Date.now()+3600000).toISOString()}),false);
+ });

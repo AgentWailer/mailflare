@@ -10,6 +10,7 @@ export const SYSTEM_ROLES: SystemRole[] = ["inbox", "sent", "drafts", "archive",
 
 export function encodeMailboxRef(ref: MailboxRef): string {
 	if (ref.kind === "account") return ref.mailboxId;
+	if (ref.kind === "category") return `${ref.mailboxId}${SEP}c${SEP}${ref.category}`;
 	if (ref.kind === "role") return `${ref.mailboxId}${SEP}${ref.role}`;
 	return `${ref.mailboxId}${SEP}f${SEP}${ref.folderId}`;
 }
@@ -20,6 +21,7 @@ export function decodeMailboxRef(id: string): MailboxRef | null {
 	if (parts.length === 2 && (SYSTEM_ROLES as string[]).includes(parts[1])) {
 		return { kind: "role", mailboxId: parts[0], role: parts[1] as SystemRole };
 	}
+	if(parts.length === 3 && parts[1] === "c" && (parts[2] === "promotions" || parts[2] === "social")) return {kind:"category",mailboxId:parts[0],category:parts[2]};
 	if (parts.length === 3 && parts[1] === "f" && parts[2]) return { kind: "folder", mailboxId: parts[0], folderId: parts[2] };
 	return null;
 }

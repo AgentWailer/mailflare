@@ -7,6 +7,8 @@ const REFRESH_DEBOUNCE_MS = 150;
 const emptyCounts: MessageCounts = {
 	folders: {
 		inbox: { total: 0, unread: 0 },
+		promotions: { total: 0, unread: 0 },
+		social: { total: 0, unread: 0 },
 		starred: { total: 0, unread: 0 },
 		snoozed: { total: 0, unread: 0 },
 		sent: { total: 0, unread: 0 },
@@ -57,14 +59,15 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 		}
 		function onMessageCountsDelta(event: Event) {
 			const detail = (event as CustomEvent<MessageCountsDelta>).detail;
-			if (!detail?.inboxUnreadDelta) return;
+			const delta=detail?.inboxUnreadDelta;
+			if(typeof delta!=="number" || !Number.isFinite(delta) || !delta)return;
 			setCounts((current) => ({
 				...current,
 				folders: {
 					...current.folders,
 					inbox: {
 						...current.folders.inbox,
-						unread: Math.max(0, current.folders.inbox.unread + detail.inboxUnreadDelta),
+						unread: Math.max(0, current.folders.inbox.unread + delta),
 					},
 				},
 			}));

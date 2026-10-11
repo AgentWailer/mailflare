@@ -1,16 +1,19 @@
+import { validLabelIds } from "@/lib/mail-sorting/labels";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
 import { folders, routingRules } from "@/db/schema";
-import { requireUser } from "@/lib/auth/cookies";
+import { requireSessionUser } from "@/lib/api/auth";
 import { newId } from "@/lib/ids";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { routingRuleSchema } from "@/lib/validators";
 
 export async function GET(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const {user,error} = await requireSessionUser(env,request);
+ if(error)return error;
 	const url = new URL(request.url);
 	const mailboxId = url.searchParams.get("mailboxId");
 	if (!mailboxId) {
@@ -32,8 +35,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
-	const parsed = routingRuleSchema.safeParse(await request.json());
+	const {user,error} = await requireSessionUser(env,request);
+ if(error)return error;
+	if(!hasValidSessionMutationOrigin(request)) return NextResponse.json({error:"Invalid origin"},{status:403});
+	const parsed = routingRuleSchema.safeParse(await request.json().catch(()=>null));
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 	}
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
 	const systemAction = destination === "spam" || destination === "trash" ? destination : null;
 	const folderId = destination.startsWith("folder:") ? destination.slice("folder:".length) : null;
 
-	if (!systemAction && !folderId) {
+	if (!systemAction && !folderId && destination !== "keep" && !parsed.data.category && !parsed.data.labelIds.length && !parsed.data.skipInbox) {
 		return NextResponse.json({ error: "Destination is required" }, { status: 400 });
 	}
 
@@ -64,6 +69,8 @@ export async function POST(request: Request) {
 		}
 	}
 
+	const labelIds = [...new Set(parsed.data.labelIds)];
+ if((await validLabelIds(db, parsed.data.mailboxId,labelIds)).length!==labelIds.length) return NextResponse.json({error:"Label not found"},{status:404});
 	const id = newId("rule");
 	await db.insert(routingRules).values({
 		id,
@@ -79,6 +86,9 @@ export async function POST(request: Request) {
 		folderId,
 		forwardTo: null,
 		priority: parsed.data.priority,
+ enabled:parsed.data.enabled,
+ conditions:JSON.stringify(parsed.data.conditions),conditionMode:parsed.data.conditionMode,
+ labelIds:JSON.stringify(labelIds),category:parsed.data.category??null,skipInbox:parsed.data.skipInbox,
 	});
 
 	return NextResponse.json({ id, ...parsed.data });

@@ -1,5 +1,7 @@
 "use client";
 
+import { MailOrganizationButton } from "@/components/messages/mail-organization-button";
+
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Cloud, ExternalLink } from "lucide-react";
@@ -265,6 +267,7 @@ export default function MessageDetailPage() {
                   ? formatScheduledSendTime(scheduledAt, t)
                   : formatUserDate(message.createdAt, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
               </p>
+              {message.mailboxId && <MailOrganizationButton messageIds={[message.id]} mailboxId={message.mailboxId} />}
               <ThreadMessageActions
                 message={currentThreadMessage}
                 mailboxId={message.mailboxId}

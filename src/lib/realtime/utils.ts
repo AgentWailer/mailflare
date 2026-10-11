@@ -62,6 +62,6 @@ export async function notifyUsersOfNewMessage(
 				body: JSON.stringify(payload),
 			});
 		}) : []),
-		...(payload.type === "agent_draft" ? [] : [sendPushNotifications(env, userIds, payload)]),
+		...((payload.type === "agent_draft" || payload.silent) ? [] : [sendPushNotifications(env, userIds, payload)]),
 	]);
 }

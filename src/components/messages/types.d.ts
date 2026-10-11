@@ -59,6 +59,8 @@ export type MessageListVisibility = {
 };
 
 export type BulkMessageToolbarProps = {
+	messageIds?: string[];
+	mailboxId?: string;
 	selectedCount: number;
 	hasUnreadSelection: boolean;
 	hideSelectedCount?: boolean;

@@ -1,3 +1,7 @@
+import { classifyIncomingMail } from "@/lib/mail-sorting/classifier";
+import { shouldNotifyMail } from "@/lib/mail-sorting/categories";
+import { messageLabels } from "@/db/schema";
+import { prepareSpamContent } from "@/lib/spam/tokenizer";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messages, outboundJobs, users } from "@/db/schema";
@@ -66,7 +70,7 @@ export async function processInboundMessage(
 	if (stored) {
 		try {
 			const [existing] = await db.select().from(messages).where(eq(messages.id, stored.id)).limit(1);
-			if (existing && Date.now() - existing.createdAt.getTime() < 30 * 60_000) await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: existing.id, ownerUserId: decision.mailbox.userId, sender: existing.fromAddr, headers: payload.headers, status: existing.status, folderId: existing.folderId, spamVerdict: existing.spamVerdict, spamAnalysisError: existing.spamAnalysisError });
+			if (existing && Date.now() - existing.createdAt.getTime() < 30 * 60_000) await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: existing.id, ownerUserId: decision.mailbox.userId, sender: existing.fromAddr, headers: payload.headers, status: existing.category === "primary" ? existing.status : "archived", folderId: existing.folderId, spamVerdict: existing.spamVerdict, spamAnalysisError: existing.spamAnalysisError });
 		} catch (error) { console.error("Auto-draft recovery failed", error); }
 		return;
 	}
@@ -124,10 +128,15 @@ export async function processInboundMessage(
 			fingerprint: spamAnalysis?.fingerprint ?? "",
 		};
 	}
-	const status = destination.status === "received" && spamAnalysis?.verdict === "spam"
+	let status = destination.status === "received" && spamAnalysis?.verdict === "spam"
 		? "spam"
 		: destination.status;
-	const folderId = status === "spam" ? null : destination.folderId;
+	const sorting = destination.matched ? {category: destination.category ?? "primary", source: "rule", reason: "mailbox_rule"}
+ : status !== "received" ? {category: "primary" as const, source: "rule", reason: status}
+ : await classifyIncomingMail(env, {mailboxId:decision.mailbox.mailboxId,userId:decision.mailbox.userId,sender:fromAddr,recipient:payload.to,subject:parsed.subject,text:prepareSpamContent(parsed).visibleText,spamScore:spamAnalysis?.score??0,headers:payload.headers});
+ if ("spam" in sorting && sorting.spam) status = "spam";
+ const category = sorting.category;
+ const folderId = status === "spam" ? null : destination.folderId;
 	const contact = await upsertContactFromAddress(env, {
 		userId: decision.mailbox.userId,
 		address: fromAddr,
@@ -157,6 +166,8 @@ export async function processInboundMessage(
 			userId: decision.mailbox.userId,
 			mailboxId: decision.mailbox.mailboxId,
 			folderId,
+			category,
+			sortingDecision: JSON.stringify(sorting),
 			direction: "inbound",
 			providerMessageId: parsed.messageId,
 			fromAddr,
@@ -178,6 +189,7 @@ export async function processInboundMessage(
 			spamAnalysisError,
 		}).onConflictDoNothing().returning({ id: messages.id });
 		if (!inserted.length) return;
+		if (destination.labelIds?.length) await db.insert(messageLabels).values(destination.labelIds.map(folderId=>({messageId,folderId}))).onConflictDoNothing();
 
 		await storeMessageAttachments(env, messageId, parsed.attachments);
 		if (spamAnalysis) {
@@ -198,7 +210,7 @@ export async function processInboundMessage(
 		throw error;
 	}
 
-	if (status === "received") {
+	if (shouldNotifyMail({status,folderId,category})) {
 		try {
 			await sendMailboxAutoReply(env, {
 				mailboxId: decision.mailbox.mailboxId,
@@ -213,7 +225,7 @@ export async function processInboundMessage(
 		}
 	}
 
-	if (status !== "spam") {
+	{
 		const notificationUserIds = await getMailboxNotificationUserIds(
 			env,
 			decision.mailbox.mailboxId,
@@ -221,6 +233,7 @@ export async function processInboundMessage(
 		);
 		await notifyUsersOfNewMessage(env, notificationUserIds, {
 			type: "new_message",
+			silent: !shouldNotifyMail({status,folderId,category}),
 			messageId,
 			mailboxId: decision.mailbox.mailboxId,
 			from: fromAddr,
@@ -239,7 +252,7 @@ export async function processInboundMessage(
 		spamVerdict: spamAnalysis?.verdict,
 	});
 	try {
-		await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: messageId, ownerUserId: decision.mailbox.userId, sender: fromAddr, headers: payload.headers, status, folderId, spamVerdict: spamAnalysis?.verdict, spamAnalysisError });
+		await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: messageId, ownerUserId: decision.mailbox.userId, sender: fromAddr, headers: payload.headers, status: category === "primary" ? status : "archived", folderId, spamVerdict: spamAnalysis?.verdict, spamAnalysisError });
 	} catch (error) { console.error("Auto-draft scheduling failed", error); }
 }
 

@@ -1,8 +1,10 @@
+import { validLabelIds } from "@/lib/mail-sorting/labels";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { folders, routingRules } from "@/db/schema";
-import { requireUser } from "@/lib/auth/cookies";
+import { requireSessionUser } from "@/lib/api/auth";
 import { getEnv } from "@/lib/cloudflare";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { routingRuleSchema } from "@/lib/validators";
@@ -11,8 +13,10 @@ import type { RoutingRuleRouteParams } from "./types";
 export async function PATCH(request: Request, { params }: RoutingRuleRouteParams) {
 	const { id } = await params;
 	const env = getEnv();
-	const user = await requireUser(env, request);
-	const parsed = routingRuleSchema.safeParse(await request.json());
+	const {user,error} = await requireSessionUser(env,request);
+ if(error)return error;
+	if(!hasValidSessionMutationOrigin(request)) return NextResponse.json({error:"Invalid origin"},{status:403});
+	const parsed = routingRuleSchema.safeParse(await request.json().catch(()=>null));
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 	}
@@ -30,7 +34,7 @@ export async function PATCH(request: Request, { params }: RoutingRuleRouteParams
 	const destination = parsed.data.destination ?? (parsed.data.folderId ? `folder:${parsed.data.folderId}` : "");
 	const systemAction = destination === "spam" || destination === "trash" ? destination : null;
 	const folderId = destination.startsWith("folder:") ? destination.slice("folder:".length) : null;
-	if (!systemAction && !folderId) {
+	if (!systemAction && !folderId && destination !== "keep" && !parsed.data.category && !parsed.data.labelIds.length && !parsed.data.skipInbox) {
 		return NextResponse.json({ error: "Destination is required" }, { status: 400 });
 	}
 	if (folderId) {
@@ -44,6 +48,8 @@ export async function PATCH(request: Request, { params }: RoutingRuleRouteParams
 		}
 	}
 
+	const labelIds = [...new Set(parsed.data.labelIds)];
+ if((await validLabelIds(db, parsed.data.mailboxId,labelIds)).length!==labelIds.length) return NextResponse.json({error:"Label not found"},{status:404});
 	await db
 		.update(routingRules)
 		.set({
@@ -55,6 +61,9 @@ export async function PATCH(request: Request, { params }: RoutingRuleRouteParams
 			folderId,
 			forwardTo: null,
 			priority: parsed.data.priority,
+ enabled:parsed.data.enabled,
+ conditions:JSON.stringify(parsed.data.conditions),conditionMode:parsed.data.conditionMode,
+ labelIds:JSON.stringify(labelIds),category:parsed.data.category??null,skipInbox:parsed.data.skipInbox,
 		})
 		.where(eq(routingRules.id, id));
 
@@ -62,9 +71,11 @@ export async function PATCH(request: Request, { params }: RoutingRuleRouteParams
 }
 
 export async function DELETE(request: Request, { params }: RoutingRuleRouteParams) {
+ if(!hasValidSessionMutationOrigin(request)) return NextResponse.json({error:"Invalid origin"},{status:403});
 	const { id } = await params;
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const {user,error} = await requireSessionUser(env,request);
+ if(error)return error;
 	const db = getDb(env);
 	const [rule] = await db.select().from(routingRules).where(eq(routingRules.id, id)).limit(1);
 	if (!rule?.mailboxId) {

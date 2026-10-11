@@ -18,7 +18,7 @@ export async function applySpamFeedback(env: CloudflareEnv, user: SessionUser, m
 	const [previous] = await db.select().from(spamFeedback).where(eq(spamFeedback.messageId, messageId)).limit(1);
 	const status = classification === "spam" ? "spam" : "received";
 	if (previous?.classification === classification) {
-		await db.update(messages).set({ status, folderId: null }).where(eq(messages.id, messageId));
+		await db.update(messages).set({ status, folderId: null, ...(classification === "ham" ? {category:"primary" as const} : {}) }).where(eq(messages.id, messageId));
 		return true;
 	}
 
@@ -41,7 +41,7 @@ export async function applySpamFeedback(env: CloudflareEnv, user: SessionUser, m
 	if (previous) addCounts(previous.classification, -1);
 	addCounts(classification, 1);
 	statements.push(env.DB.prepare(`INSERT INTO spam_feedback (message_id, mailbox_id, actor_user_id, classification, training_tokens, reputation_keys, tokenizer_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(message_id) DO UPDATE SET actor_user_id = excluded.actor_user_id, classification = excluded.classification, updated_at = excluded.updated_at`).bind(messageId, message.mailboxId, user.id, classification, JSON.stringify(tokens), JSON.stringify(keys), TOKENIZER_VERSION, now, now));
-	statements.push(env.DB.prepare("UPDATE messages SET status = ?, folder_id = NULL WHERE id = ?").bind(status, messageId));
+	statements.push(env.DB.prepare("UPDATE messages SET status = ?, folder_id = NULL, category = CASE WHEN ? = 'received' THEN 'primary' ELSE category END WHERE id = ?").bind(status, status, messageId));
 	await env.DB.batch(statements);
 	await createAuditLog(env, {
 		actorUserId: user.id,

@@ -1,3 +1,4 @@
+import { getMessageLabels, validLabelIds } from "@/lib/mail-sorting/labels";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { messages } from "@/db/schema";
 import { newId } from "@/lib/ids";
@@ -10,13 +11,28 @@ import { deleteMessageWithObjects } from "@/lib/email/message-cleanup";
 import { LIMITS, KEYWORD_FLAGGED, KEYWORD_SEEN } from "./constants";
 import { JmapError, invalidArguments } from "./errors";
 import { decodeBlobId, decodeMailboxRef, roleToStatus } from "./ids";
-import { buildEmailObject, loadAttachmentsByMessage, resolveHeaderProperty } from "./email-objects";
-import { importFlags, parseReceivedAt, resolveDraftsMailbox } from "./email-import-utils";
+import {
+	buildEmailObject,
+	loadAttachmentsByMessage,
+	resolveHeaderProperty,
+} from "./email-objects";
+import {
+	importFlags,
+	parseReceivedAt,
+	resolveDraftsMailbox,
+} from "./email-import-utils";
 import { filterToSql, mailboxRefCondition, sortToSql } from "./email-query";
 import { getEmailState } from "./state";
 import { listAccessibleMailboxIdSet, listJmapMailboxes } from "./access";
 import { deleteUpload, readUpload, storeRawDraftMime } from "./blobs";
-import type { Comparator, EmailAddressObject, Filter, JmapContext, JmapMethodHandler, JmapSetError, MailboxRef } from "./types";
+import type {
+	Comparator,
+	EmailAddressObject,
+	Filter,
+	JmapContext,
+	JmapMethodHandler,
+	JmapSetError,
+} from "./types";
 import type { AttachmentContent } from "@/lib/email/attachment-types";
 
 type MessageRow = typeof messages.$inferSelect;
@@ -72,47 +88,95 @@ async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 
 async function scope(ctx: JmapContext) {
 	const ids = Array.from(await listAccessibleMailboxIdSet(ctx));
-	return { ids, condition: ids.length ? inArray(messages.mailboxId, ids) : ctx.auth.mailboxIds ? sql`1 = 0` : eq(messages.userId, ctx.auth.userId) };
+	return {
+		ids,
+		condition: ids.length
+			? inArray(messages.mailboxId, ids)
+			: ctx.auth.mailboxIds
+				? sql`1 = 0`
+				: eq(messages.userId, ctx.auth.userId),
+	};
 }
 
-export async function loadMessages(ctx: JmapContext, ids: string[]): Promise<MessageRow[]> {
+export async function loadMessages(
+	ctx: JmapContext,
+	ids: string[],
+): Promise<MessageRow[]> {
 	if (ids.length === 0) return [];
 	const { condition } = await scope(ctx);
-	return ctx.db.select().from(messages).where(and(condition, inArray(messages.id, ids)));
+	return ctx.db
+		.select()
+		.from(messages)
+		.where(and(condition, inArray(messages.id, ids)));
 }
 
 export const emailGet: JmapMethodHandler = async (ctx, args) => {
 	const ids = args.ids as string[] | null | undefined;
-	if (!ids) throw new JmapError("requestTooLarge", "Email/get needs an explicit list of ids");
-	if (ids.length > LIMITS.maxObjectsInGet) throw new JmapError("requestTooLarge");
+	if (!ids)
+		throw new JmapError(
+			"requestTooLarge",
+			"Email/get needs an explicit list of ids",
+		);
+	if (ids.length > LIMITS.maxObjectsInGet)
+		throw new JmapError("requestTooLarge");
 	const properties = args.properties as string[] | null | undefined;
-	const fetchBodies = !!(args.fetchTextBodyValues || args.fetchHTMLBodyValues || args.fetchAllBodyValues);
+	const fetchBodies = !!(
+		args.fetchTextBodyValues ||
+		args.fetchHTMLBodyValues ||
+		args.fetchAllBodyValues
+	);
 	const maxBodyValueBytes = Number(args.maxBodyValueBytes ?? 0);
 
 	const rows = await loadMessages(ctx, ids);
-	const attachments = await loadAttachmentsByMessage(ctx, rows.map((row) => row.id));
+	const attachments = await loadAttachmentsByMessage(
+		ctx,
+		rows.map((row) => row.id),
+	);
+	const labels = await getMessageLabels(
+		ctx.db,
+		rows.map((row) => row.id),
+	);
 	const found = new Set<string>();
 	const list = rows.map((row) => {
 		found.add(row.id);
-		const full = buildEmailObject(row, attachments.get(row.id) ?? [], { fetchBodies, maxBodyValueBytes });
+		const full = buildEmailObject(row, attachments.get(row.id) ?? [], {
+			fetchBodies,
+			maxBodyValueBytes,
+			labelIds: labels
+				.filter((label) => label.messageId === row.id)
+				.map((label) => label.id),
+		});
 		if (!properties) return full;
 		const picked: Record<string, unknown> = { id: row.id };
 		for (const key of properties) {
-			if (key.startsWith("header:")) picked[key] = resolveHeaderProperty(row, key);
-			else if (key in full) picked[key] = (full as Record<string, unknown>)[key];
+			if (key.startsWith("header:"))
+				picked[key] = resolveHeaderProperty(row, key);
+			else if (key in full)
+				picked[key] = (full as Record<string, unknown>)[key];
 		}
 		return picked;
 	});
-	return { accountId: ctx.accountId, state: await getEmailState(ctx), list, notFound: ids.filter((id) => !found.has(id)) };
+	return {
+		accountId: ctx.accountId,
+		state: await getEmailState(ctx),
+		list,
+		notFound: ids.filter((id) => !found.has(id)),
+	};
 };
 
 export const emailQuery: JmapMethodHandler = async (ctx, args) => {
 	const { ids: accessibleIds, condition } = await scope(ctx);
-	const filter = filterToSql(args.filter as Filter | null | undefined, new Set(accessibleIds));
+	const filter = filterToSql(
+		args.filter as Filter | null | undefined,
+		new Set(accessibleIds),
+	);
 	const where = filter ? and(condition, filter) : condition;
 	const order = sortToSql(args.sort as Comparator[] | null | undefined);
 	const collapse = !!args.collapseThreads;
-	const limit = Math.min(Math.max(Number(args.limit ?? LIMITS.maxQueryLimit), 0), LIMITS.maxQueryLimit);
+	const limit = Math.min(
+		Math.max(Number(args.limit ?? LIMITS.maxQueryLimit), 0),
+		LIMITS.maxQueryLimit,
+	);
 	let position = Number(args.position ?? 0);
 
 	// Anchors are resolved by materialising the ordered id list up to a bound;
@@ -127,7 +191,11 @@ export const emailQuery: JmapMethodHandler = async (ctx, args) => {
 	let ordered = allRows.map((row) => row.id);
 	if (collapse) {
 		const seen = new Set<string>();
-		ordered = allRows.filter((row) => (seen.has(row.thread) ? false : (seen.add(row.thread), true))).map((row) => row.id);
+		ordered = allRows
+			.filter((row) =>
+				seen.has(row.thread) ? false : (seen.add(row.thread), true),
+			)
+			.map((row) => row.id);
 	}
 	if (args.anchor) {
 		const index = ordered.indexOf(String(args.anchor));
@@ -148,7 +216,10 @@ export const emailQuery: JmapMethodHandler = async (ctx, args) => {
 };
 
 export const emailChanges: JmapMethodHandler = async () => {
-	return { type: "cannotCalculateChanges", description: "Email change history is not kept; run Email/query again." };
+	return {
+		type: "cannotCalculateChanges",
+		description: "Email change history is not kept; run Email/query again.",
+	};
 };
 
 export const emailQueryChanges: JmapMethodHandler = async () => {
@@ -156,12 +227,35 @@ export const emailQueryChanges: JmapMethodHandler = async () => {
 };
 
 /** Where a patched `mailboxIds` puts the message: exactly one JMAP mailbox is supported. */
-function targetFromMailboxIds(row: MessageRow, patch: Record<string, unknown>, accessible: Set<string>): { status?: string; folderId?: string | null } | { error: Record<string, unknown> } | null {
+function targetFromMailboxIds(
+	row: MessageRow,
+	patch: Record<string, unknown>,
+	accessible: Set<string>,
+	labelIds: string[],
+):
+	| {
+			status?: string;
+			folderId?: string | null;
+			labelIds?: string[];
+			category?: "primary" | "promotions" | "social";
+	  }
+	| { error: Record<string, unknown> }
+	| null {
 	let ids: string[] | null = null;
 	if (patch.mailboxIds && typeof patch.mailboxIds === "object") {
-		ids = Object.entries(patch.mailboxIds as Record<string, boolean>).filter(([, on]) => on).map(([id]) => id);
+		ids = Object.entries(patch.mailboxIds as Record<string, boolean>)
+			.filter(([, on]) => on)
+			.map(([id]) => id);
 	} else {
-		const current = new Set(Object.keys(buildEmailObject(row, [], { fetchBodies: false, maxBodyValueBytes: 0 }).mailboxIds));
+		const current = new Set(
+			Object.keys(
+				buildEmailObject(row, [], {
+					fetchBodies: false,
+					maxBodyValueBytes: 0,
+					labelIds,
+				}).mailboxIds,
+			),
+		);
 		let touched = false;
 		for (const [key, value] of Object.entries(patch)) {
 			if (!key.startsWith("mailboxIds/")) continue;
@@ -173,17 +267,63 @@ function targetFromMailboxIds(row: MessageRow, patch: Record<string, unknown>, a
 		if (touched) ids = Array.from(current);
 	}
 	if (!ids) return null;
-	if (ids.length !== 1) return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "A message belongs to exactly one mailbox" } };
-	const ref: MailboxRef | null = decodeMailboxRef(ids[0]);
-	if (!ref || !accessible.has(ref.mailboxId)) return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Unknown mailbox" } };
-	if (ref.mailboxId !== row.mailboxId) return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Messages cannot move between accounts' mailboxes" } };
-	if (ref.kind === "account") return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Choose a folder or system mailbox" } };
-	if (ref.kind === "folder") return { status: row.direction === "outbound" && row.status !== "draft" ? "sent" : "received", folderId: ref.folderId };
-	if (ref.role === "sent" && row.direction === "inbound") return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Received mail cannot be moved to Sent" } };
-	return { status: roleToStatus(ref.role), folderId: null };
+	const refs = ids.map(decodeMailboxRef);
+	const invalid = {
+		error: {
+			type: "invalidProperties",
+			properties: ["mailboxIds"],
+			description:
+				"Choose labels and at most one category/system mailbox within the same account",
+		},
+	};
+	if (
+		!refs.length ||
+		refs.some(
+			(ref) =>
+				!ref ||
+				!accessible.has(ref.mailboxId) ||
+				ref.mailboxId !== row.mailboxId ||
+				ref.kind === "account",
+		)
+	)
+		return invalid;
+	const destinations = refs.filter((ref) => ref && ref.kind !== "folder");
+	if (destinations.length > 1) return invalid;
+	const labels = refs.flatMap((ref) =>
+		ref?.kind === "folder" ? [ref.folderId] : [],
+	);
+	const destination = destinations[0];
+	if (destination?.kind === "category")
+		return {
+			status: "received",
+			folderId: null,
+			labelIds: labels,
+			category: destination.category,
+		};
+	if (destination?.kind === "role") {
+		if (destination.role === "sent" && row.direction === "inbound")
+			return invalid;
+		return {
+			status: roleToStatus(destination.role),
+			folderId: null,
+			labelIds: labels,
+			...(destination.role === "inbox" ? { category: "primary" as const } : {}),
+		};
+	}
+	return {
+		status:
+			row.direction === "outbound" && row.status !== "draft"
+				? "sent"
+				: "archived",
+		folderId: null,
+		labelIds: labels,
+	};
 }
 
-function keywordsFromPatch(patch: Record<string, unknown>): { read?: boolean; starred?: boolean } {
+function keywordsFromPatch(patch: Record<string, unknown>): {
+	read?: boolean;
+	starred?: boolean;
+} {
 	const result: { read?: boolean; starred?: boolean } = {};
 	const apply = (keyword: string, value: unknown) => {
 		if (keyword === KEYWORD_SEEN) result.read = !!value;
@@ -195,30 +335,64 @@ function keywordsFromPatch(patch: Record<string, unknown>): { read?: boolean; st
 		result.starred = !!map[KEYWORD_FLAGGED];
 	}
 	for (const [key, value] of Object.entries(patch)) {
-		if (key.startsWith("keywords/")) apply(key.slice("keywords/".length), value);
+		if (key.startsWith("keywords/"))
+			apply(key.slice("keywords/".length), value);
 	}
 	return result;
 }
 
 /** Drafts are the only thing a client creates; everything else is a flag or a move. */
-async function createDraft(ctx: JmapContext, value: Record<string, unknown>, accessible: Set<string>) {
+async function createDraft(
+	ctx: JmapContext,
+	value: Record<string, unknown>,
+	accessible: Set<string>,
+) {
 	const target = resolveDraftsMailbox(value.mailboxIds, accessible);
 	if ("error" in target) return target;
 	const from = (value.from as EmailAddressObject[] | undefined)?.[0]?.email;
-	if (!from) return { error: { type: "invalidProperties", properties: ["from"] } };
+	if (!from)
+		return { error: { type: "invalidProperties", properties: ["from"] } };
 	let sender: { fromAddr: string; mailboxId: string };
 	try {
-		sender = await getAuthorizedSenderAddress(ctx.env, { userId: ctx.auth.userId, from, mailboxId: target.mailboxId });
+		sender = await getAuthorizedSenderAddress(ctx.env, {
+			userId: ctx.auth.userId,
+			from,
+			mailboxId: target.mailboxId,
+		});
 	} catch (error) {
-		return { error: { type: "forbidden", description: error instanceof Error ? error.message : "Cannot send from that address" } };
+		return {
+			error: {
+				type: "forbidden",
+				description:
+					error instanceof Error
+						? error.message
+						: "Cannot send from that address",
+			},
+		};
 	}
 	const addressList = (list: unknown) =>
-		Array.isArray(list) ? joinEmailAddressList((list as EmailAddressObject[]).map((item) => (item.name ? `"${item.name.replace(/"/g, '\\"')}" <${item.email}>` : item.email))) : "";
-	const bodyValues = (value.bodyValues ?? {}) as Record<string, { value: string }>;
-	const partText = (parts: unknown) => (Array.isArray(parts) && parts[0]?.partId ? bodyValues[parts[0].partId]?.value ?? "" : "");
+		Array.isArray(list)
+			? joinEmailAddressList(
+					(list as EmailAddressObject[]).map((item) =>
+						item.name
+							? `"${item.name.replace(/"/g, '\\"')}" <${item.email}>`
+							: item.email,
+					),
+				)
+			: "";
+	const bodyValues = (value.bodyValues ?? {}) as Record<
+		string,
+		{ value: string }
+	>;
+	const partText = (parts: unknown) =>
+		Array.isArray(parts) && parts[0]?.partId
+			? (bodyValues[parts[0].partId]?.value ?? "")
+			: "";
 	const text = partText(value.textBody);
 	const html = partText(value.htmlBody);
-	const references = Array.isArray(value.references) ? (value.references as string[]).join(" ") : null;
+	const references = Array.isArray(value.references)
+		? (value.references as string[]).join(" ")
+		: null;
 
 	const id = await insertDraft(ctx, {
 		mailboxId: sender.mailboxId,
@@ -229,24 +403,49 @@ async function createDraft(ctx: JmapContext, value: Record<string, unknown>, acc
 		subject: typeof value.subject === "string" ? value.subject : null,
 		textBody: text || null,
 		htmlBody: html || null,
-		inReplyTo: Array.isArray(value.inReplyTo) ? (value.inReplyTo as string[])[0] ?? null : null,
+		inReplyTo: Array.isArray(value.inReplyTo)
+			? ((value.inReplyTo as string[])[0] ?? null)
+			: null,
 		references,
 	});
 
 	const uploads: AttachmentContent[] = [];
-	for (const part of (value.attachments as Array<{ blobId?: string; name?: string; type?: string; disposition?: string; cid?: string }> | undefined) ?? []) {
+	for (const part of (value.attachments as
+		| Array<{
+				blobId?: string;
+				name?: string;
+				type?: string;
+				disposition?: string;
+				cid?: string;
+		  }>
+		| undefined) ?? []) {
 		const blob = part.blobId ? decodeBlobId(part.blobId) : null;
 		if (!blob || blob.kind !== "up") continue;
 		const upload = await readUpload(ctx, blob.id);
 		if (!upload) continue;
-		uploads.push({ filename: part.name ?? upload.name ?? "attachment", type: part.type ?? upload.type, content: upload.content, disposition: part.disposition === "inline" ? ("inline" as const) : ("attachment" as const), contentId: part.cid ?? null });
+		uploads.push({
+			filename: part.name ?? upload.name ?? "attachment",
+			type: part.type ?? upload.type,
+			content: upload.content,
+			disposition:
+				part.disposition === "inline"
+					? ("inline" as const)
+					: ("attachment" as const),
+			contentId: part.cid ?? null,
+		});
 	}
 	if (uploads.length) {
 		try {
 			await storeMessageAttachments(ctx.env, id, uploads);
 		} catch (error) {
 			await ctx.db.delete(messages).where(eq(messages.id, id));
-			return { error: { type: "tooLarge", description: error instanceof Error ? error.message : "Attachments rejected" } };
+			return {
+				error: {
+					type: "tooLarge",
+					description:
+						error instanceof Error ? error.message : "Attachments rejected",
+				},
+			};
 		}
 	}
 	return { id };
@@ -254,9 +453,14 @@ async function createDraft(ctx: JmapContext, value: Record<string, unknown>, acc
 
 export const emailSet: JmapMethodHandler = async (ctx, args) => {
 	const oldState = await getEmailState(ctx);
-	if (args.ifInState && args.ifInState !== oldState) return { type: "stateMismatch" };
+	if (args.ifInState && args.ifInState !== oldState)
+		return { type: "stateMismatch" };
 	const accessible = await listAccessibleMailboxIdSet(ctx);
-	const writable = new Set((await listJmapMailboxes(ctx)).filter((row) => row.permission !== "read_only").map((row) => row.id));
+	const writable = new Set(
+		(await listJmapMailboxes(ctx))
+			.filter((row) => row.permission !== "read_only")
+			.map((row) => row.id),
+	);
 	const created: Record<string, unknown> = {};
 	const notCreated: Record<string, unknown> = {};
 	const updated: Record<string, null> = {};
@@ -264,7 +468,9 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 	const destroyed: string[] = [];
 	const notDestroyed: Record<string, unknown> = {};
 
-	for (const [creationId, value] of Object.entries((args.create ?? {}) as Record<string, Record<string, unknown>>)) {
+	for (const [creationId, value] of Object.entries(
+		(args.create ?? {}) as Record<string, Record<string, unknown>>,
+	)) {
 		const result = await createDraft(ctx, value, writable);
 		if ("error" in result) {
 			notCreated[creationId] = result.error;
@@ -272,12 +478,23 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 		}
 		ctx.createdIds[creationId] = result.id;
 		const [row] = await loadMessages(ctx, [result.id]);
-		created[creationId] = row ? buildEmailObject(row, [], { fetchBodies: false, maxBodyValueBytes: 0 }) : { id: result.id };
+		created[creationId] = row
+			? buildEmailObject(row, [], { fetchBodies: false, maxBodyValueBytes: 0 })
+			: { id: result.id };
 	}
 
-	const updates = Object.entries((args.update ?? {}) as Record<string, Record<string, unknown>>);
-	const rows = await loadMessages(ctx, updates.map(([id]) => id));
+	const updates = Object.entries(
+		(args.update ?? {}) as Record<string, Record<string, unknown>>,
+	);
+	const rows = await loadMessages(
+		ctx,
+		updates.map(([id]) => id),
+	);
 	const byId = new Map(rows.map((row) => [row.id, row]));
+	const updateLabels = await getMessageLabels(
+		ctx.db,
+		rows.map((row) => row.id),
+	);
 	for (const [id, patch] of updates) {
 		const row = byId.get(id);
 		if (!row || !row.mailboxId) {
@@ -288,7 +505,14 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			notUpdated[id] = { type: "forbidden" };
 			continue;
 		}
-		const move = targetFromMailboxIds(row, patch, accessible);
+		const move = targetFromMailboxIds(
+			row,
+			patch,
+			accessible,
+			updateLabels
+				.filter((label) => label.messageId === row.id)
+				.map((label) => label.id),
+		);
 		if (move && "error" in move) {
 			notUpdated[id] = move.error;
 			continue;
@@ -300,8 +524,33 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 		if (move) {
 			if (move.status !== undefined) set.status = move.status;
 			if (move.folderId !== undefined) set.folderId = move.folderId;
+			if (move.category) set.category = move.category;
+			if (move.labelIds) {
+				if (
+					(await validLabelIds(ctx.db, row.mailboxId, move.labelIds)).length !==
+					move.labelIds.length
+				) {
+					notUpdated[id] = {
+						type: "invalidProperties",
+						properties: ["mailboxIds"],
+					};
+					continue;
+				}
+				const changes = [
+					ctx.env.DB.prepare(
+						"DELETE FROM message_labels WHERE message_id=?",
+					).bind(id),
+					...move.labelIds.map((folderId) =>
+						ctx.env.DB.prepare(
+							"INSERT INTO message_labels(message_id,folder_id) VALUES(?,?)",
+						).bind(id, folderId),
+					),
+				];
+				await ctx.env.DB.batch(changes);
+			}
 		}
-		if (Object.keys(set).length) await ctx.db.update(messages).set(set).where(eq(messages.id, id));
+		if (Object.keys(set).length)
+			await ctx.db.update(messages).set(set).where(eq(messages.id, id));
 		updated[id] = null;
 	}
 
@@ -320,12 +569,27 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			notDestroyed[id] = { type: "forbidden" };
 			continue;
 		}
-		if (row.status === "trash" || row.status === "draft") await deleteMessageWithObjects(ctx.env, ctx.db, row.id, row.rawR2Key);
-		else await ctx.db.update(messages).set({ status: "trash", folderId: null }).where(eq(messages.id, id));
+		if (row.status === "trash" || row.status === "draft")
+			await deleteMessageWithObjects(ctx.env, ctx.db, row.id, row.rawR2Key);
+		else
+			await ctx.db
+				.update(messages)
+				.set({ status: "trash", folderId: null })
+				.where(eq(messages.id, id));
 		destroyed.push(id);
 	}
 
-	return { accountId: ctx.accountId, oldState, newState: await getEmailState(ctx), created, updated, destroyed, notCreated, notUpdated, notDestroyed };
+	return {
+		accountId: ctx.accountId,
+		oldState,
+		newState: await getEmailState(ctx),
+		created,
+		updated,
+		destroyed,
+		notCreated,
+		notUpdated,
+		notDestroyed,
+	};
 };
 
 /**
@@ -336,30 +600,77 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
  * columns the rest of Mailflare reads, including `providerMessageId`, which is
  * what lets a client find its own draft again with a Message-ID header filter.
  */
-async function importEmail(ctx: JmapContext, value: Record<string, unknown>, writable: Set<string>): Promise<{ id: string } | { error: JmapSetError }> {
+async function importEmail(
+	ctx: JmapContext,
+	value: Record<string, unknown>,
+	writable: Set<string>,
+): Promise<{ id: string } | { error: JmapSetError }> {
 	const target = resolveDraftsMailbox(value.mailboxIds, writable);
 	if ("error" in target) return target;
 
-	const blob = typeof value.blobId === "string" ? decodeBlobId(value.blobId) : null;
-	if (!blob || blob.kind !== "up") return { error: { type: "blobNotFound", description: "blobId must name an upload from this account" } };
+	const blob =
+		typeof value.blobId === "string" ? decodeBlobId(value.blobId) : null;
+	if (!blob || blob.kind !== "up")
+		return {
+			error: {
+				type: "blobNotFound",
+				description: "blobId must name an upload from this account",
+			},
+		};
 	const upload = await readUpload(ctx, blob.id);
-	if (!upload) return { error: { type: "blobNotFound", description: "No such upload" } };
-	if (upload.content.byteLength === 0) return { error: { type: "invalidEmail", description: "The blob is empty" } };
-	if (upload.content.byteLength > LIMITS.maxSizeUpload) return { error: { type: "tooLarge", description: "The message exceeds maxSizeUpload" } };
+	if (!upload)
+		return { error: { type: "blobNotFound", description: "No such upload" } };
+	if (upload.content.byteLength === 0)
+		return {
+			error: { type: "invalidEmail", description: "The blob is empty" },
+		};
+	if (upload.content.byteLength > LIMITS.maxSizeUpload)
+		return {
+			error: {
+				type: "tooLarge",
+				description: "The message exceeds maxSizeUpload",
+			},
+		};
 
 	let parsed: Awaited<ReturnType<typeof parseRawMime>>;
 	try {
 		parsed = await parseRawMime(upload.content);
 	} catch (error) {
-		return { error: { type: "invalidEmail", description: error instanceof Error ? error.message : "The blob is not a MIME message" } };
+		return {
+			error: {
+				type: "invalidEmail",
+				description:
+					error instanceof Error
+						? error.message
+						: "The blob is not a MIME message",
+			},
+		};
 	}
-	if (!parsed.fromAddr) return { error: { type: "invalidEmail", description: "The message has no From header" } };
+	if (!parsed.fromAddr)
+		return {
+			error: {
+				type: "invalidEmail",
+				description: "The message has no From header",
+			},
+		};
 
 	let sender: { fromAddr: string; mailboxId: string };
 	try {
-		sender = await getAuthorizedSenderAddress(ctx.env, { userId: ctx.auth.userId, from: parsed.fromAddr, mailboxId: target.mailboxId });
+		sender = await getAuthorizedSenderAddress(ctx.env, {
+			userId: ctx.auth.userId,
+			from: parsed.fromAddr,
+			mailboxId: target.mailboxId,
+		});
 	} catch (error) {
-		return { error: { type: "forbidden", description: error instanceof Error ? error.message : "Cannot send from that address" } };
+		return {
+			error: {
+				type: "forbidden",
+				description:
+					error instanceof Error
+						? error.message
+						: "Cannot send from that address",
+			},
+		};
 	}
 
 	const flags = importFlags(value.keywords);
@@ -392,14 +703,24 @@ async function importEmail(ctx: JmapContext, value: Record<string, unknown>, wri
 	try {
 		rawR2Key = await storeRawDraftMime(ctx, id, upload.content);
 		await ctx.db.update(messages).set({ rawR2Key }).where(eq(messages.id, id));
-		if (parsed.attachments.length) await storeMessageAttachments(ctx.env, id, parsed.attachments);
+		if (parsed.attachments.length)
+			await storeMessageAttachments(ctx.env, id, parsed.attachments);
 	} catch (error) {
 		try {
 			await deleteMessageWithObjects(ctx.env, ctx.db, id, rawR2Key);
 		} catch (cleanupError) {
-			console.error(`Failed to clean up rejected Email/import draft ${id}`, cleanupError);
+			console.error(
+				`Failed to clean up rejected Email/import draft ${id}`,
+				cleanupError,
+			);
 		}
-		return { error: { type: "tooLarge", description: error instanceof Error ? error.message : "Attachments rejected" } };
+		return {
+			error: {
+				type: "tooLarge",
+				description:
+					error instanceof Error ? error.message : "Attachments rejected",
+			},
+		};
 	}
 	// The bytes belong to the message now, so release the upload.
 	try {
@@ -414,10 +735,16 @@ async function importEmail(ctx: JmapContext, value: Record<string, unknown>, wri
 
 export const emailImport: JmapMethodHandler = async (ctx, args) => {
 	const oldState = await getEmailState(ctx);
-	if (args.ifInState && args.ifInState !== oldState) return { type: "stateMismatch" };
+	if (args.ifInState && args.ifInState !== oldState)
+		return { type: "stateMismatch" };
 	const emails = (args.emails ?? {}) as Record<string, Record<string, unknown>>;
-	if (Object.keys(emails).length > LIMITS.maxObjectsInSet) throw new JmapError("requestTooLarge");
-	const writable = new Set((await listJmapMailboxes(ctx)).filter((row) => row.permission !== "read_only").map((row) => row.id));
+	if (Object.keys(emails).length > LIMITS.maxObjectsInSet)
+		throw new JmapError("requestTooLarge");
+	const writable = new Set(
+		(await listJmapMailboxes(ctx))
+			.filter((row) => row.permission !== "read_only")
+			.map((row) => row.id),
+	);
 	const created: Record<string, unknown> = {};
 	const notCreated: Record<string, unknown> = {};
 
@@ -430,23 +757,50 @@ export const emailImport: JmapMethodHandler = async (ctx, args) => {
 		ctx.createdIds[creationId] = result.id;
 		const [row] = await loadMessages(ctx, [result.id]);
 		if (!row) {
-			notCreated[creationId] = { type: "serverFail", description: "The imported message could not be read back" };
+			notCreated[creationId] = {
+				type: "serverFail",
+				description: "The imported message could not be read back",
+			};
 			continue;
 		}
 		// The same values Email/get would answer, so the client can act on them straight away.
-		const object = buildEmailObject(row, (await loadAttachmentsByMessage(ctx, [row.id])).get(row.id) ?? [], { fetchBodies: false, maxBodyValueBytes: 0 });
-		created[creationId] = { id: object.id, blobId: object.blobId, threadId: object.threadId, size: object.size };
+		const object = buildEmailObject(
+			row,
+			(await loadAttachmentsByMessage(ctx, [row.id])).get(row.id) ?? [],
+			{ fetchBodies: false, maxBodyValueBytes: 0 },
+		);
+		created[creationId] = {
+			id: object.id,
+			blobId: object.blobId,
+			threadId: object.threadId,
+			size: object.size,
+		};
 	}
 
-	return { accountId: ctx.accountId, oldState, newState: await getEmailState(ctx), created, notCreated };
+	return {
+		accountId: ctx.accountId,
+		oldState,
+		newState: await getEmailState(ctx),
+		created,
+		notCreated,
+	};
 };
 
-export const emailUnsupported = (method: string): JmapMethodHandler => async () => ({ type: "unknownMethod", description: `${method} is not supported` });
+export const emailUnsupported =
+	(method: string): JmapMethodHandler =>
+	async () => ({
+		type: "unknownMethod",
+		description: `${method} is not supported`,
+	});
 
 /** Thread/get: every message sharing a thread key, oldest first. */
 export const threadGet: JmapMethodHandler = async (ctx, args) => {
 	const ids = args.ids as string[] | null | undefined;
-	if (!ids) throw new JmapError("requestTooLarge", "Thread/get needs an explicit list of ids");
+	if (!ids)
+		throw new JmapError(
+			"requestTooLarge",
+			"Thread/get needs an explicit list of ids",
+		);
 	const { condition } = await scope(ctx);
 	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
 	const rows = await ctx.db
@@ -455,7 +809,8 @@ export const threadGet: JmapMethodHandler = async (ctx, args) => {
 		.where(and(condition, inArray(threadKey, ids)))
 		.orderBy(asc(messages.createdAt));
 	const grouped = new Map<string, string[]>();
-	for (const row of rows) grouped.set(row.thread, [...(grouped.get(row.thread) ?? []), row.id]);
+	for (const row of rows)
+		grouped.set(row.thread, [...(grouped.get(row.thread) ?? []), row.id]);
 	return {
 		accountId: ctx.accountId,
 		state: await getEmailState(ctx),
@@ -464,16 +819,26 @@ export const threadGet: JmapMethodHandler = async (ctx, args) => {
 	};
 };
 
-export const threadChanges: JmapMethodHandler = async () => ({ type: "cannotCalculateChanges" });
+export const threadChanges: JmapMethodHandler = async () => ({
+	type: "cannotCalculateChanges",
+});
 
 /** SearchSnippet/get: the subject and a body excerpt around the first match, with <mark> tags. */
 export const searchSnippetGet: JmapMethodHandler = async (ctx, args) => {
 	const ids = (args.emailIds as string[]) ?? [];
-	const filter = (args.filter ?? {}) as { text?: string; subject?: string; body?: string };
+	const filter = (args.filter ?? {}) as {
+		text?: string;
+		subject?: string;
+		body?: string;
+	};
 	const term = (filter.text ?? filter.body ?? filter.subject ?? "").trim();
 	const rows = await loadMessages(ctx, ids);
 	const found = new Set<string>();
-	const escape = (value: string) => value.replace(/[&<>]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]!);
+	const escape = (value: string) =>
+		value.replace(
+			/[&<>]/g,
+			(char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]!,
+		);
 	const highlight = (value: string | null) => {
 		if (!value) return null;
 		if (!term) return escape(value);
@@ -486,11 +851,20 @@ export const searchSnippetGet: JmapMethodHandler = async (ctx, args) => {
 		let excerpt: string | null = null;
 		if (term) {
 			const index = body.toLowerCase().indexOf(term.toLowerCase());
-			if (index >= 0) excerpt = highlight(body.slice(Math.max(index - 80, 0), index + 160));
+			if (index >= 0)
+				excerpt = highlight(body.slice(Math.max(index - 80, 0), index + 160));
 		}
-		return { emailId: row.id, subject: highlight(row.subject), preview: excerpt };
+		return {
+			emailId: row.id,
+			subject: highlight(row.subject),
+			preview: excerpt,
+		};
 	});
-	return { accountId: ctx.accountId, list, notFound: ids.filter((id) => !found.has(id)) };
+	return {
+		accountId: ctx.accountId,
+		list,
+		notFound: ids.filter((id) => !found.has(id)),
+	};
 };
 
 export { count, desc, mailboxRefCondition, invalidArguments };

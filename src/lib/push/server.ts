@@ -1,6 +1,7 @@
+import { shouldNotifyMail } from "@/lib/mail-sorting/categories";
 import { and, eq, gt, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import { pushSubscriptions, sessions, users } from "@/db/schema";
+import { messages, pushSubscriptions, sessions, users } from "@/db/schema";
 import type { NewMessageNotification } from "@/lib/realtime/types";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { getUnreadBadgeCount } from "./badge";
@@ -268,6 +269,10 @@ async function deliverPushNotifications(
 	if (!config || uniqueUserIds.length === 0) return result;
 
 	const db = getDb(env);
+	if (payload) {
+  const [message] = await db.select().from(messages).where(and(eq(messages.id,payload.messageId),eq(messages.mailboxId,payload.mailboxId))).limit(1);
+  if (payload.silent || !message || !shouldNotifyMail(message) || (message.snoozedUntil && message.snoozedUntil > new Date())) return result;
+ }
 	const subscriptions = await db
 		.select({
 			id: pushSubscriptions.id,

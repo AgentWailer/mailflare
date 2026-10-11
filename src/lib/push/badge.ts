@@ -4,7 +4,7 @@ import { messages } from "@/db/schema";
 import type { SessionUser } from "@/lib/auth/types";
 import { listAccessibleMailboxIds } from "@/lib/mailboxes/access";
 
-/** All readable inboxes and custom folders, excluding spam, trash and snoozed mail. */
+/** Relevant unread inbox mail, excluding spam, trash and snoozed mail. */
 export async function getUnreadBadgeCount(db: AppDatabase, user: SessionUser): Promise<number> {
 	const mailboxIds = await listAccessibleMailboxIds(db, user);
 	if (mailboxIds.length === 0) return 0;
@@ -13,6 +13,8 @@ export async function getUnreadBadgeCount(db: AppDatabase, user: SessionUser): P
 		eq(messages.direction, "inbound"),
 		eq(messages.status, "received"),
 		eq(messages.read, false),
+		eq(messages.category, "primary"),
+		isNull(messages.folderId),
 		or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date())),
 	));
 	return row?.unread ?? 0;

@@ -1,3 +1,4 @@
+import { MailSortingSettings } from "@/components/settings/mail-sorting-settings";
 import { getServerTranslator } from "@/lib/i18n/server";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { InboxThreadingSettings } from "@/components/settings/inbox-threading-settings";
@@ -73,6 +74,7 @@ export default async function SettingsInboxPage() {
 					<p className="mt-1 text-sm text-neutral-500">{t("settingsPage.inbox.handlingDescription")}</p>
 				</div>
 				<div className="divide-y divide-neutral-100 rounded-3xl bg-white p-6">
+					<div className="py-6 first:pt-0 last:pb-0"><MailSortingSettings /></div>
 					<div className="py-6 first:pt-0 last:pb-0">
 						<div className="mb-4">
 							<h3 className="text-base font-semibold text-neutral-900">{t("settingsPage.inbox.spamProtection")}</h3>

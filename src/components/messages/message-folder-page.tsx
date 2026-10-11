@@ -1,4 +1,5 @@
 "use client";
+import { isPrimaryInboxMail } from "@/lib/mail-sorting/categories";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -79,7 +80,7 @@ function MessageListRow({
 	async function runRowAction(action: RowMessageAction) {
 		const previousRead = read;
 		const previousThreadUnread = threadUnread;
-		const unreadDelta = action === "read" ? -1 : action === "unread" ? 1 : 0;
+		const unreadDelta = isPrimaryInboxMail(rowMessage) && (message.threadMessageIds?.length??1)===1 ? action === "read" && !read ? -1 : action === "unread" && read ? 1 : 0 : 0;
 		if (action === "read") setRead(true);
 		if (action === "unread") setRead(false);
 		// Grouped rows derive their unread styling from the thread count, so it must change with the row.
@@ -108,11 +109,11 @@ function MessageListRow({
 			const previousThreadUnread = threadUnread;
 			setRead(true);
 			if (previousThreadUnread !== undefined) setThreadUnread(Math.max(0, previousThreadUnread - 1));
-			if (message.direction === "inbound") dispatchMessageCountsDelta({ inboxUnreadDelta: -1 });
+			if (isPrimaryInboxMail(message)) dispatchMessageCountsDelta({ inboxUnreadDelta: -1 });
 			void runBulkMessageAction([message.id], "read", false).catch(() => {
 				setRead(false);
 				setThreadUnread(previousThreadUnread);
-				if (message.direction === "inbound") dispatchMessageCountsDelta({ inboxUnreadDelta: 1 });
+				if (isPrimaryInboxMail(message)) dispatchMessageCountsDelta({ inboxUnreadDelta: 1 });
 			});
 		}
 		navigation.onNavigate(event, !read);
@@ -158,6 +159,7 @@ function MessageListRow({
 							}`}
 					>
 						{message.subject ?? t("list.noSubject")}
+						{message.labels?.slice(0,2).map(label=><span key={label.id} className="ml-2 inline-block max-w-24 truncate rounded bg-neutral-100 px-1.5 align-bottom text-[11px] font-normal text-neutral-600">{label.name}</span>)}
 					</span>
 					<span className="mt-0.5 block truncate text-xs leading-5 text-neutral-500">
 						{preview}
@@ -220,6 +222,7 @@ function MessageListRow({
 			</span>
 			<span className="truncate text-neutral-700">
 				<span className={unread ? "font-semibold text-neutral-900" : ""}>
+					{rowMessage.labels?.slice(0,2).map(label=><span key={label.id} className="mr-2 inline-block max-w-24 truncate rounded bg-neutral-100 px-1.5 align-bottom text-[11px] font-normal text-neutral-600">{label.name}</span>)}
 					{rowMessage.subject ?? t("list.noSubject")}
 				</span>
 				<span className="text-neutral-500"> - {getMessagePreview(rowMessage, config.folder, t)}</span>
@@ -326,6 +329,8 @@ export function MessageFolderPage({
 		[selectedMessages],
 	);
 	const hasUnreadSelection = selectedMessages.some((message) => !message.read);
+	const selectionMailboxIds = [...new Set(messages.filter(message=>selectedIds.includes(message.id)).map(message=>message.mailboxId))];
+ const selectionMailboxId = selectionMailboxIds.length === 1 ? selectionMailboxIds[0] ?? undefined : undefined;
 	const allVisibleSelected = messages.length > 0 && messages.every((message) => selectedIds.includes(message.id));
 	// In conversation view a row stands for every message of its thread in this
 	// folder, so actions and drags carry all of them.
@@ -414,7 +419,7 @@ export function MessageFolderPage({
 			));
 			setSelectedMessages((current) => current.map((message) => ({ ...message, read: readValue })));
 			const inboxUnreadDelta = changedMessages
-				.filter((message) => message.direction === "inbound")
+				.filter((message) => isPrimaryInboxMail(message) && (message.threadMessageIds?.length??1)===1)
 				.reduce((total, message) => total + (readValue ? (message.read ? 0 : -1) : (message.read ? 1 : 0)), 0);
 			if (inboxUnreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta });
 		}
@@ -425,7 +430,7 @@ export function MessageFolderPage({
 			if (readValue !== null) {
 				updateMessages(previousMessages);
 				const inboxUnreadDelta = changedMessages
-					.filter((message) => message.direction === "inbound")
+					.filter((message) => isPrimaryInboxMail(message) && (message.threadMessageIds?.length??1)===1)
 					.reduce((total, message) => total + (readValue ? (message.read ? 0 : 1) : (message.read ? -1 : 0)), 0);
 				if (inboxUnreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta });
 			}
@@ -450,6 +455,8 @@ export function MessageFolderPage({
 					</Tooltip>
 					{selectedIds.length > 0 && !compact ? (
 						<BulkMessageToolbar
+							messageIds={expandSelectedIds(selectedIds)}
+							mailboxId={selectionMailboxId}
 							selectedCount={selectedIds.length}
 							hasUnreadSelection={hasUnreadSelection}
 							onAction={runSelectedAction}

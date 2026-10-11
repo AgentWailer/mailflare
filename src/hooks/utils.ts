@@ -28,9 +28,10 @@ export function getMessageQueryParams(
 	const params = new URLSearchParams();
 	params.set("timeZone", getUserTimeZone());
 
-	if (folder === "inbox") {
+	if (folder === "inbox" || folder === "promotions" || folder === "social") {
 		params.set("direction", "inbound");
 		params.set("status", "received");
+		if(!folderId) params.set("category",folder === "inbox" ? "primary" : folder);
 	}
 	if (folder === "starred") params.set("starred", "true");
 	if (folder === "snoozed") params.set("snoozed", "true");

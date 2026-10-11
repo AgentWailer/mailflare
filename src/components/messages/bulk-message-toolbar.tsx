@@ -1,5 +1,6 @@
 "use client";
 
+import { MailOrganizationButton } from "./mail-organization-button";
 import { Archive, ArchiveRestore, ChevronDown, Folder, FolderInput, Inbox, Mail, MailOpen, MoreVertical, ShieldAlert, ShieldCheck, Trash2, Undo2, X } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useLanguage } from "@/components/language-provider";
@@ -16,6 +17,8 @@ const menuLabelClass = "mt-1 px-3 pb-1 pt-2 text-sm font-medium text-neutral-500
 const menuContentClass = "z-[130] max-h-[min(24rem,var(--radix-dropdown-menu-content-available-height))] w-54 overflow-y-auto rounded-xl border border-neutral-200 bg-white p-2 shadow-lg";
 
 export function BulkMessageToolbar({
+	messageIds,
+	mailboxId,
 	selectedCount,
 	hasUnreadSelection,
 	hideSelectedCount = false,
@@ -46,13 +49,14 @@ export function BulkMessageToolbar({
 	const { selectedMailbox } = useSelectedMailbox();
 	const folders = useMailboxFolders(selectedMailbox?.id);
 	return (
-		<div className="flex min-w-0 items-center gap-2 text-neutral-600 w-full">
+		<div className="flex min-w-0 items-center gap-1 md:gap-2 text-neutral-600 w-full">
 			{!hideSelectedCount && (
 				<span className="mr-2 text-sm font-medium text-neutral-800">
-					{t("common.selectedCount", { count: selectedCount })}
+					<span className="md:hidden" aria-label={t("common.selectedCount", {count:selectedCount})}>{selectedCount}</span><span className="max-md:hidden">{t("common.selectedCount", { count: selectedCount })}</span>
 				</span>
 			)}
 			<span className="flex-1 md:hidden" />
+			{messageIds?.length && (mailboxId || selectedMailbox) && <MailOrganizationButton messageIds={messageIds} mailboxId={mailboxId ?? selectedMailbox!.id} onSaved={onClearSelection} />}
 			<Tooltip label={archive.label} className="max-md:hidden">
 				<Button variant="ghost" size="sm" onClick={() => onAction(archive.action as BulkMessageAction)} disabled={pending} aria-label={archive.label}>
 					<archive.Icon className="h-4 w-4" />

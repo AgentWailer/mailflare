@@ -108,7 +108,7 @@ export async function updateMessageStatusForUser(
 	if (!access?.canManage) return false;
 	if (status === "spam") return applySpamFeedback(env, user, messageId, "spam");
 	if (status === "received" && message.status === "spam") return applySpamFeedback(env, user, messageId, "ham");
-	await db.update(messages).set({ status }).where(eq(messages.id, messageId));
+	await db.update(messages).set({ status, ...(status === "received" ? {category:"primary" as const,folderId:null} : {}) }).where(eq(messages.id, messageId));
 	await createAuditLog(env, {
 		actorUserId: user.id,
 		mailboxId: message.mailboxId,

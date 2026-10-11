@@ -6,7 +6,10 @@ export function getMessageFolder(row: MessageCountRow): CountableFolder {
 	if (row.status === "trash") return "trash";
 	if (row.status === "spam") return "spam";
 	if (row.status === "archived") return "archived";
-	if (row.direction === "inbound" && row.status === "received" && !row.folderId) return "inbox";
+	if (row.direction === "inbound" && row.status === "received" ) {
+		if(row.category === "promotions" || row.category === "social") return row.category;
+		if(!row.folderId) return "inbox";
+	}
 	if (row.direction === "outbound" && row.status === "sent") return "sent";
 	if (row.direction === "outbound" && row.status === "draft") return "drafts";
 	return null;
@@ -15,6 +18,8 @@ export function getMessageFolder(row: MessageCountRow): CountableFolder {
 export function createEmptyFolderCounts(): MessageCounts["folders"] {
 	return {
 		inbox: { total: 0, unread: 0 },
+		promotions: { total: 0, unread: 0 },
+		social: { total: 0, unread: 0 },
 		starred: { total: 0, unread: 0 },
 		snoozed: { total: 0, unread: 0 },
 		sent: { total: 0, unread: 0 },

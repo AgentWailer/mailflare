@@ -13,6 +13,8 @@ import {
   FileText,
   Folder,
   Inbox,
+  Megaphone,
+  Users,
   MailPlus,
   Plus,
   Send,
@@ -59,6 +61,8 @@ import { useSidebar } from "./sidebar-state";
 const links = [
   { href: "/compose", labelKey: "navigation.compose", icon: MailPlus, primary: true },
   { href: "/inbox", labelKey: "navigation.inbox", icon: Inbox, preloadMessages: true },
+  { href: "/promotions", labelKey: "smart.promotions", icon: Megaphone, preloadMessages: true },
+  { href: "/social", labelKey: "smart.social", icon: Users, preloadMessages: true },
   { href: "/starred", labelKey: "navigation.starred", icon: Star, preloadMessages: true },
   { href: "/snoozed", labelKey: "navigation.snoozed", icon: Clock, preloadMessages: true },
   { href: "/sent", labelKey: "navigation.sent", icon: Send, preloadMessages: true },
@@ -115,6 +119,7 @@ export function DashboardNav({ className }: { className?: string }) {
     if (link.href === "/inbox") {
       return { ...link, count: getFolderNavCount("inbox", counts.folders) };
     }
+    if(link.href === "/promotions" || link.href === "/social") return {...link,count:getFolderNavCount(link.href.slice(1) as "promotions" | "social",counts.folders)};
     if (link.href === "/starred") {
       return { ...link, count: getFolderNavCount("starred", counts.folders) };
     }
@@ -251,7 +256,7 @@ export function DashboardNav({ className }: { className?: string }) {
       />
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       {!minimal && (
-        <NavSectionHeader label={t("navigation.folders")} open={foldersSectionOpen} onToggle={toggleFoldersSection}>
+        <NavSectionHeader label={t("smart.labels")} open={foldersSectionOpen} onToggle={toggleFoldersSection}>
           {selectedMailbox && (
             <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
               <DialogTrigger asChild>
