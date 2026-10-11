@@ -17,7 +17,9 @@ export function useLabelVisibility(mailboxId: string | undefined) {
 			const session = getClientSessionToken();
 			const response = await authFetch(`/api/settings/labels?${new URLSearchParams({ mailboxId: mailboxId! })}`, { signal, cache: "no-store" });
 			if (!response.ok || session !== getClientSessionToken()) throw new Error("Unable to load label visibility");
-			return await response.json() as Visibility;
+			const data = await response.json() as Visibility;
+			if (session !== getClientSessionToken()) throw new Error("Account changed while loading label visibility");
+			return data;
 		},
 	});
 	const mutation = useMutation({
@@ -27,7 +29,9 @@ export function useLabelVisibility(mailboxId: string | undefined) {
 			const session = getClientSessionToken();
 			const response = await authFetch("/api/settings/labels", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId, labelId, visible }) });
 			if (!response.ok || session !== getClientSessionToken()) throw new Error("Unable to save label visibility");
-			return await response.json() as Visibility;
+			const data = await response.json() as Visibility;
+			if (session !== getClientSessionToken()) throw new Error("Account changed while saving label visibility");
+			return data;
 		},
 		onMutate: () => client.cancelQueries({ queryKey: key }),
 		onSuccess: data => { client.setQueryData(key, data); },

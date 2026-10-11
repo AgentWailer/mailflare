@@ -92,8 +92,13 @@ and restoration of older backups to the all-visible default.
 The existing Cloudflare installation applied and verified this migration before
 the GitHub-triggered deployment on 2026-10-11.
 
-The follow-up build passed. All 73 selected function tests passed, including five
-new authenticated API/database cases. Chromium checks were rerun for composing,
+The follow-up build passed. All 75 selected function tests passed, including five
+new authenticated API/database cases and two delayed-response account-switch
+cases. A response from the previous account cannot refill the preference cache,
+including when switching accounts while its JSON body is still loading.
+Both delayed-response tests fail against the preceding implementation and pass
+with the additional guard.
+Chromium checks were rerun for composing,
 reply/forward drafts, full-page/popup/modal editors, reading layouts, category
 navigation, refresh/retry and menus. Label ordering/deletion passed at five sizes.
 The new visibility check passed at six phone/tablet/desktop sizes, including dark
