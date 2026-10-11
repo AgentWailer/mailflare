@@ -1,6 +1,9 @@
 "use client";
 
 import { MailOrganizationButton } from "@/components/messages/mail-organization-button";
+import { MessageReaderLabels } from "@/components/messages/message-reader-labels";
+import { MessageEnvelopeDetails } from "@/components/messages/message-envelope-details";
+import { MessageAiShortcuts } from "@/components/messages/message-ai-shortcuts";
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,7 +13,7 @@ import { formatUserDate } from "@/lib/time/utils";
 import { MarkAsRead } from "@/components/mark-read";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { ContactDetailsTrigger } from "@/components/contacts/contact-details";
-import { ContactAvatar } from "@/components/contacts/contact-avatar";
+import { SenderAvatar } from "@/components/messages/sender-avatar";
 import { MessageActions } from "@/components/message-actions/message-actions";
 import { MessageAttachmentViewer } from "@/components/message-attachment-viewer";
 import { MessageAttachmentCard } from "@/components/message-attachment-card";
@@ -189,6 +192,7 @@ export default function MessageDetailPage() {
       <h1 className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "pl-4 pr-6 pb-2 pt-2 text-2xl text-neutral-900")} title={message.subject ?? t("list.noSubject")}>
         {message.subject ?? t("list.noSubject")}
       </h1>
+      <div className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "px-4 pb-2")}><MessageReaderLabels message={message} /></div>
       {/* <div className="px-6">
         <div className="mx-auto w-full max-w-[640px]">
           <SpamScoreDetails
@@ -215,12 +219,12 @@ export default function MessageDetailPage() {
       <article className={clsx("px-4 py-4 md:px-6", !isAnyPanelVisible && "md:pl-12")}>
         <div className="w-full">
           <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-5 md:pl-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <ContactAvatar
+            <div className="flex min-w-0 flex-1 basis-60 items-start gap-3">
+              <SenderAvatar
                 mailboxId={message.mailboxId}
                 address={message.fromAddr}
                 name={fromName}
-                hasManagedAvatar={message.direction === "inbound"}
+                hasAvatar={message.direction === "inbound"}
                 managedAvatarUrl={message.direction === "outbound" && message.mailboxId
                   ? `/api/mailboxes/${message.mailboxId}/avatar`
                   : undefined}
@@ -228,7 +232,7 @@ export default function MessageDetailPage() {
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-neutral-900 mt-1.25 flex flex-row items-center gap-1 w-full  overflow-hidden">
-                  <b className="whitespace-nowrap">
+                  <b className="min-w-0 truncate">
                     {message.direction === "inbound" ? (
                       <ContactDetailsTrigger
                         mailboxId={message.mailboxId}
@@ -259,6 +263,7 @@ export default function MessageDetailPage() {
                     {t("message.bcc")} <RecipientList entries={bccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
                   </p>
                 )}
+                <MessageEnvelopeDetails message={message} mailboxAddress={messageMailbox ? `${messageMailbox.localPart}@${messageMailbox.hostname}` : undefined} />
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -277,6 +282,7 @@ export default function MessageDetailPage() {
               />
             </div>
           </div>
+          <div className="pb-3 md:pl-16"><MessageAiShortcuts message={message} /></div>
           {scheduledAt && <div className="pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} /></div>}
           <div className="prose max-w-none md:pl-16 text-neutral-900">
             {htmlBody ? (

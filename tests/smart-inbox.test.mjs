@@ -911,3 +911,11 @@ test('80-percent default is visible and configurable without accepting unsafe th
  for(const threshold of [.8,.85,.9])assert.equal((await app.settings(f.request('/api/settings/mail-sorting',{mailboxId:'box',mode:'active',dailyLimit:1000,threshold}))).status,200);
  assert.equal((await app.settings(f.request('/api/settings/mail-sorting',{mailboxId:'box',mode:'active',dailyLimit:1000,threshold:.79}))).status,400);
 });
+
+test('inbox contact photo metadata uses the message owner and never exposes storage keys', async t=>{
+ const f=await fixture(t);
+ f.DB.db.exec("INSERT INTO contacts(id,user_id,email,display_name,avatar_key,created_at) VALUES('photo','owner','sam@example.test','Sam','private-owner-photo',1),('foreign-photo','other','sales@example.test','Sales','private-other-photo',1)");
+ const response=await app.list(f.request('/api/messages?mailboxId=box&direction=inbound'));const text=await response.text();const rows=JSON.parse(text).messages;
+ assert.equal(rows.find(x=>x.id==='primary').fromContactHasAvatar,true);assert.equal(rows.find(x=>x.id==='promotion').fromContactHasAvatar,false);
+ assert(!text.includes('private-owner-photo'));assert(!text.includes('private-other-photo'));
+});

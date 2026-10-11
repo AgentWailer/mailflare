@@ -7,7 +7,7 @@ import { useSidebar } from "@/components/sidebar-state";
 import { useAssistantOpen } from "@/components/agent/assistant-open-state";
 import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "@/components/column-width-preferences";
 import { ResizeHandle } from "@/components/ui/resize-handle";
-import { BulkMessageSelectionPane } from "./bulk-message-selection-pane";
+import { MessageSelectionContext } from "./message-selection-context";
 import { MessageFolderPage } from "./message-folder-page";
 import { MessageDetailNavigationProvider } from "./message-detail-navigation";
 import { MessageListVisibilityContext } from "./message-list-visibility";
@@ -21,6 +21,8 @@ export function MessageSplitLayout({
 }: MessageSplitLayoutProps) {
 	const pathname = usePathname();
 	const [selectedMessages, setSelectedMessages] = useState<SelectedMessage[]>([]);
+	const [offset, setOffset] = useState(0);
+	const [unreadOnly, setUnreadOnly] = useState(false);
 	const [listWidth, setListWidth] = useState(360);
 	const [listHeight, setListHeight] = useState(280);
 	const [widthReady, setWidthReady] = useState(false);
@@ -79,9 +81,11 @@ export function MessageSplitLayout({
 	useEffect(() => () => setForcedMinimal(false), [setForcedMinimal]);
 	useEffect(() => { if (below || !twoColumnReading) setForcedMinimal(false); }, [below, twoColumnReading, setForcedMinimal]);
 
-	if (!selectedMessageId) return children;
+	const selection = { selectedMessages, setSelectedMessages, offset, setOffset, unreadOnly, setUnreadOnly };
+	if (!selectedMessageId) return <MessageSelectionContext.Provider value={selection}>{children}</MessageSelectionContext.Provider>;
 
 	return (
+		<MessageSelectionContext.Provider value={selection}>
 		<div ref={containerRef} data-reading-layout={readingLayout} className="h-full min-h-0 overflow-hidden lg:grid lg:transition-[grid-template-columns,grid-template-rows] lg:ease-in-out motion-reduce:transition-none" style={{ gridTemplateColumns: twoColumnReading && !below ? `${listVisible ? renderedListWidth : 0}px minmax(0,1fr)` : "minmax(0,1fr)", gridTemplateRows: twoColumnReading && below ? `${listVisible ? renderedListHeight : 0}px minmax(0,1fr)` : "minmax(0,1fr)", transitionDuration: widthReady ? "300ms" : "0ms" }}>
 			{twoColumnReading && (
 			<aside className={`relative hidden min-h-0 min-w-0 overflow-hidden bg-white lg:block ${listVisible ? below ? "border-b border-neutral-200" : "border-r border-neutral-200" : "pointer-events-none"}`} aria-hidden={!listVisible} inert={!listVisible}>
@@ -90,7 +94,7 @@ export function MessageSplitLayout({
 					config={config}
 					compact={!below}
 					selectedMessageId={selectedMessageId}
-					selection={{ selectedMessages, setSelectedMessages }}
+					selection={selection}
 				/>
 				</div>
 				<ResizeHandle
@@ -115,18 +119,11 @@ export function MessageSplitLayout({
 			<MessageListVisibilityContext.Provider value={{ visible: listVisible, toggle: () => { const visible = !manualListVisible; setManualListVisible(visible); saveMessageListVisible(visible); }, singleColumn: !twoColumnReading, backHref: config.hrefPrefix, backLabel: config.titleKey ? t(config.titleKey) : config.title }}>
 			<MessageDetailNavigationProvider config={config}>
 			<section className="min-h-0 min-w-0 overflow-hidden bg-white flex flex-col h-full">
-				{twoColumnReading && selectedMessages.length > 0 ? (
-					<BulkMessageSelectionPane
-						folder={config.folder}
-						selectedMessages={selectedMessages}
-						onClearSelection={() => setSelectedMessages([])}
-					/>
-				) : (
-					children
-				)}
+				{children}
 			</section>
 			</MessageDetailNavigationProvider>
 			</MessageListVisibilityContext.Provider>
 		</div>
+		</MessageSelectionContext.Provider>
 	);
 }

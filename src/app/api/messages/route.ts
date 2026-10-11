@@ -7,7 +7,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getDb } from "@/db";
 import { messages, outboundJobs } from "@/db/schema";
-import { getContactDisplayNameMap } from "@/lib/contacts/service";
+import { getContactDisplayNameMap, getContactAvatarMap } from "@/lib/contacts/service";
 import { getFirstEmailAddressEntry, normalizeEmailAddress } from "@/lib/email/address";
 import { getMailboxAccessLevel, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
@@ -184,16 +184,11 @@ export async function GET(request: Request) {
 	);
 	const contactMapsByUserId = new Map(
 		await Promise.all(
-			Array.from(new Set(rows.map((message) => message.userId))).map(async (userId) => [
-				userId,
-				await getContactDisplayNameMap(
-					env,
-					userId,
-					rows
-						.filter((message) => message.userId === userId)
-						.flatMap((message) => [message.fromAddr, getFirstEmailAddressEntry(message.toAddr)]),
-				),
-			] as const),
+			Array.from(new Set(rows.map((message) => message.userId))).map(async (userId) => {
+				const addresses = rows.filter(message => message.userId === userId).flatMap(message => [message.fromAddr, getFirstEmailAddressEntry(message.toAddr)]);
+				const [names, avatars] = await Promise.all([getContactDisplayNameMap(env, userId, addresses), getContactAvatarMap(env, userId, addresses)]);
+				return [userId, { names, avatars }] as const;
+			}),
 		),
 	);
 	// `Message.textBody`/`htmlBody` are optional on the wire type and the
@@ -210,10 +205,13 @@ export async function GET(request: Request) {
 		labelsByKey.set(messageId, assigned);
 	}
 	const enrichedRows = rows.map(({ rawR2Key: _rawR2Key, ...message }) => {
-		const contactMap = contactMapsByUserId.get(message.userId);
+		const contactMap = contactMapsByUserId.get(message.userId)?.names;
+		const avatarMap = contactMapsByUserId.get(message.userId)?.avatars;
 		const accountName = message.mailboxId ? mailboxNameMap.get(message.mailboxId) : null;
 		return {
 			...message,
+			fromContactHasAvatar: avatarMap?.get(normalizeEmailAddress(message.fromAddr)) ?? false,
+			toContactHasAvatar: avatarMap?.get(normalizeEmailAddress(getFirstEmailAddressEntry(message.toAddr))) ?? false,
 			labels: labelsByKey.get(groupByThread ? message.threadId ?? message.id : message.id) ?? [],
 			snippet: message.snippet,
 			...(scheduledAtByMessageId.has(message.id) ? { scheduledAt: scheduledAtByMessageId.get(message.id) } : {}),

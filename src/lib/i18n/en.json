@@ -2128,5 +2128,14 @@
 	"rules.forwardUnavailable": "The server cannot check forwarding destinations. An administrator must check the Cloudflare Email Routing configuration and API permissions.",
 	"rules.forwardLoop": "This address delivers to the same mailbox. Choose a different destination to prevent a forwarding loop.",
 	"rules.forwardConflict": "Forwarding cannot be combined with Spam or Trash. Choose a label or archive instead.",
-	"rules.futureOnly": "Applies to new emails. Existing emails will not be changed or forwarded."
+	"rules.futureOnly": "Applies to new emails. Existing emails will not be changed or forwarded.",
+	"message.details": "Message details",
+	"message.details.mailbox": "Mailbox",
+	"message.details.date": "Date",
+	"message.ai.summary": "AI summary",
+	"message.ai.translate": "Translate into English",
+	"message.ai.summaryPrompt": "Read email {id} and its conversation. Summarize the key points and outstanding tasks in English. Do not change any messages.",
+	"message.ai.translatePrompt": "Read email {id} and translate its contents into English. Preserve numbers, names and links. Do not modify the original message.",
+	"message.categories.primary": "Primary",
+	"message.categories.social": "Social"
 }

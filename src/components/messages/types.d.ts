@@ -59,6 +59,7 @@ export type MessageListVisibility = {
 };
 
 export type BulkMessageToolbarProps = {
+	compact?: boolean;
 	messageIds?: string[];
 	mailboxId?: string;
 	selectedCount: number;
@@ -71,9 +72,13 @@ export type BulkMessageToolbarProps = {
 	folder?: MessageFolder;
 };
 
-export type SelectedMessage = Pick<Message, "id" | "read">;
+export type SelectedMessage = Pick<Message, "id" | "read"> & { messageIds?: string[]; mailboxId?: string | null };
 
 export type MessageSelectionControl = {
+	offset?: number;
+	setOffset?: Dispatch<SetStateAction<number>>;
+	unreadOnly?: boolean;
+	setUnreadOnly?: Dispatch<SetStateAction<boolean>>;
 	selectedMessages: SelectedMessage[];
 	setSelectedMessages: Dispatch<SetStateAction<SelectedMessage[]>>;
 };

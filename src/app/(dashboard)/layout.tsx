@@ -13,7 +13,7 @@ import { MailboxSelector } from "@/components/mailbox-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AgentPanel } from "@/components/agent/agent-panel";
 import { useAssistantFullSize } from "@/components/agent/use-assistant-full-size";
-import { AssistantOpenContext } from "@/components/agent/assistant-open-state";
+import { AssistantOpenContext, AssistantRequestContext } from "@/components/agent/assistant-open-state";
 import { Button } from "@/components/ui/button";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { SidebarProvider } from "@/components/sidebar-state";
@@ -73,9 +73,11 @@ export default function DashboardLayout({
                     </header>
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                       <AssistantOpenContext.Provider value={assistantVisible}>
+                        <AssistantRequestContext.Provider value={assistantEnabled ? (request) => { window.dispatchEvent(new CustomEvent("mailflare:assistant-request", { detail: request })); setAssistantOpen(true); setAssistantFullSize(false); } : null}>
                         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
                           {children}
                         </main>
+                        </AssistantRequestContext.Provider>
                       </AssistantOpenContext.Provider>
                       <aside className={clsx(panelFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2 max-md:p-0`, assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? panelFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
                         {assistantEnabled && <AgentPanel open={assistantVisible} fullSize={panelFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}

@@ -2014,5 +2014,14 @@
 	"rules.forwardUnavailable": "Der Server kann Weiterleitungsziele nicht prüfen. Ein Administrator muss die Cloudflare-Email-Routing-Konfiguration und API-Berechtigungen prüfen.",
 	"rules.forwardLoop": "Diese Adresse führt in dasselbe Postfach. Wählen Sie ein anderes Ziel, um eine Weiterleitungsschleife zu vermeiden.",
 	"rules.forwardConflict": "Weiterleitung lässt sich nicht mit Spam oder Papierkorb kombinieren. Wählen Sie stattdessen ein Label oder Archivierung.",
-	"rules.futureOnly": "Gilt für neue E-Mails. Vorhandene E-Mails werden weder verändert noch weitergeleitet."
+	"rules.futureOnly": "Gilt für neue E-Mails. Vorhandene E-Mails werden weder verändert noch weitergeleitet.",
+	"message.details": "Nachrichtendetails",
+	"message.details.mailbox": "Postfach",
+	"message.details.date": "Datum",
+	"message.ai.summary": "KI-Zusammenfassung",
+	"message.ai.translate": "Ins Deutsche übersetzen",
+	"message.ai.summaryPrompt": "Lies die E-Mail {id} und ihre Unterhaltung. Fasse die wichtigsten Inhalte und offenen Aufgaben auf Deutsch zusammen. Ändere keine Nachrichten.",
+	"message.ai.translatePrompt": "Lies die E-Mail {id} und übersetze ihren Inhalt ins Deutsche. Behalte Zahlen, Namen und Links bei. Ändere die ursprüngliche Nachricht nicht.",
+	"message.categories.primary": "Allgemein",
+	"message.categories.social": "Soziale Netzwerke"
 }

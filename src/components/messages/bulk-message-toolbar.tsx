@@ -1,7 +1,7 @@
 "use client";
 
 import { MailOrganizationButton } from "./mail-organization-button";
-import { Archive, ArchiveRestore, ChevronDown, Folder, FolderInput, Inbox, Mail, MailOpen, MoreVertical, ShieldAlert, ShieldCheck, Trash2, Undo2, X } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, Folder, FolderInput, Inbox, Mail, MailOpen, MoreVertical, ShieldAlert, ShieldCheck, Tags, Trash2, Undo2, X } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const menuContentClass = "z-[130] max-h-[min(24rem,var(--radix-dropdown-menu-con
 
 export function BulkMessageToolbar({
 	messageIds,
+	compact = false,
 	mailboxId,
 	selectedCount,
 	hasUnreadSelection,
@@ -50,19 +51,20 @@ export function BulkMessageToolbar({
 	const folders = useMailboxFolders(selectedMailbox?.id);
 	return (
 		<div className="flex min-w-0 items-center gap-1 md:gap-2 text-neutral-600 w-full">
-			{!hideSelectedCount && (
+			{!hideSelectedCount && selectedCount > 0 && (
 				<span className="mr-2 text-sm font-medium text-neutral-800">
-					<span className="md:hidden" aria-label={t("common.selectedCount", {count:selectedCount})}>{selectedCount}</span><span className="max-md:hidden">{t("common.selectedCount", { count: selectedCount })}</span>
+					<span className={compact ? "" : "md:hidden"} aria-label={t("common.selectedCount", {count:selectedCount})}>{selectedCount}</span><span className={compact ? "hidden" : "max-md:hidden"}>{t("common.selectedCount", { count: selectedCount })}</span>
 				</span>
 			)}
-			<span className="flex-1 md:hidden" />
-			{messageIds?.length && (mailboxId || selectedMailbox) && <MailOrganizationButton messageIds={messageIds} mailboxId={mailboxId ?? selectedMailbox!.id} onSaved={onClearSelection} />}
-			<Tooltip label={archive.label} className="max-md:hidden">
+			<span className={compact ? "flex-1" : "flex-1 md:hidden"} />
+			{!!messageIds?.length && (mailboxId || selectedMailbox) && <MailOrganizationButton messageIds={messageIds} mailboxId={mailboxId ?? selectedMailbox!.id} onSaved={onClearSelection} />}
+			{!messageIds?.length && <Button variant="ghost" size="sm" disabled aria-label={t("smart.organize")}><Tags className="h-4 w-4" /></Button>}
+			<Tooltip label={archive.label} className={compact ? "hidden" : "max-md:hidden"}>
 				<Button variant="ghost" size="sm" onClick={() => onAction(archive.action as BulkMessageAction)} disabled={pending} aria-label={archive.label}>
 					<archive.Icon className="h-4 w-4" />
 				</Button>
 			</Tooltip>
-			<Tooltip label={spam.label} className="max-md:hidden">
+			<Tooltip label={spam.label} className={compact ? "hidden" : "max-md:hidden"}>
 				<Button variant="ghost" size="sm" onClick={() => onAction(spam.action as BulkMessageAction)} disabled={pending} aria-label={spam.label}>
 					<spam.Icon className="h-4 w-4" />
 				</Button>
@@ -90,11 +92,10 @@ export function BulkMessageToolbar({
 					{hasUnreadSelection ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
 				</Button>
 			</Tooltip>
-			<span className="flex-1 max-md:hidden" />
 			<DropdownMenu.Root>
-				<Tooltip label={t("common.moveSelected")} className="max-md:hidden">
+				<Tooltip label={t("common.moveSelected")} className={compact ? "hidden" : "max-md:hidden"}>
 					<DropdownMenu.Trigger asChild>
-						<Button variant="ghost" size="sm" className="max-md:hidden gap-1.5 bg-white text-xs font-medium text-neutral-700" disabled={pending} aria-label={t("common.moveSelected")}>
+						<Button variant="ghost" size="sm" className={`${compact ? "hidden" : "max-md:hidden"} gap-1.5 bg-white text-xs font-medium text-neutral-700`} disabled={pending} aria-label={t("common.moveSelected")}>
 							<FolderInput className="h-4 w-4" />
 							{t("common.moveTo")}
 							<ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
@@ -121,21 +122,25 @@ export function BulkMessageToolbar({
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>
 			</DropdownMenu.Root>
-			<Tooltip label={t("common.clearSelection")} className="max-md:hidden">
+			<Tooltip label={t("common.clearSelection")} className={compact ? "hidden" : "max-md:hidden"}>
 				<Button variant="ghost" size="sm" onClick={onClearSelection} disabled={pending} aria-label={t("common.clearSelection")}>
 					<X className="h-4 w-4" />
 				</Button>
 			</Tooltip>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger asChild>
-					<Button variant="ghost" size="sm" className="md:hidden" disabled={pending} aria-label={t("common.moreActions")}>
+					<Button variant="ghost" size="sm" className={compact ? "" : "md:hidden"} disabled={pending} aria-label={t("common.moreActions")}>
 						<MoreVertical className="h-4 w-4" />
 					</Button>
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>
-					<DropdownMenu.Content align="end" sideOffset={4} className="z-[130] min-w-44 rounded-xl border border-neutral-200 bg-white p-1 shadow-xl md:hidden">
+					<DropdownMenu.Content align="end" sideOffset={4} className={`z-[130] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto min-w-44 rounded-xl border border-neutral-200 bg-white p-1 shadow-xl ${compact ? "" : "md:hidden"}`}>
 						<DropdownMenu.Item className={menuItemClass} onSelect={() => onAction(archive.action as BulkMessageAction)}><archive.Icon className="h-4 w-4" />{archive.label}</DropdownMenu.Item>
 						<DropdownMenu.Item className={menuItemClass} onSelect={() => onAction(spam.action as BulkMessageAction)}><spam.Icon className="h-4 w-4" />{spam.label}</DropdownMenu.Item>
+						<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
+						<DropdownMenu.Label className={menuLabelClass}>{t("common.moveTo")}</DropdownMenu.Label>
+						{moveOptions.map(({ value, label, Icon }) => <DropdownMenu.Item key={value} className={menuItemClass} onSelect={() => onAction(value as BulkMessageAction)}><Icon className="h-4 w-4" />{label}</DropdownMenu.Item>)}
+						{folders.map(item => <DropdownMenu.Item key={item.id} className={menuItemClass} onSelect={() => onAction("folder", item.id)}><Folder className="h-4 w-4 shrink-0" style={{ color: item.color }} /><span className="truncate">{item.name}</span></DropdownMenu.Item>)}
 						{canDeleteForever && (
 							<DropdownMenu.Item className={`${menuItemClass} text-red-600`} onSelect={() => onAction("delete")}><Trash2 className="h-4 w-4" />{t("common.deleteForever")}</DropdownMenu.Item>
 						)}

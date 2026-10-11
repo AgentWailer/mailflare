@@ -2,9 +2,10 @@
 import { isPrimaryInboxMail } from "@/lib/mail-sorting/categories";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
-import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Trash2 } from "lucide-react";
+import { Archive, Check, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,11 +24,15 @@ import { BulkMessageToolbar } from "./bulk-message-toolbar";
 import { SwipeableRow } from "./swipeable-row";
 import { MessageListRowActions } from "./message-list-row-actions";
 import { MessageLabelChips } from "./message-label-chips";
+import { SenderAvatar } from "./sender-avatar";
+import { InboxCategoryTabs } from "./inbox-category-tabs";
+import { useMessageSelection } from "./message-selection-context";
+import { useReadingLayout } from "./use-reading-layout";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
 import { MessageNavigationProgress, useMessageNavigation } from "./message-navigation";
 import { rememberOpenedUnreadMessage } from "./message-detail-navigation-utils";
 import { useConversationView } from "./use-conversation-view";
-import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction } from "./types";
+import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction, SelectedMessage } from "./types";
 import {
 	formatMessageListTimestamp,
 	getPageRange,
@@ -77,6 +82,8 @@ function MessageListRow({
 	const preview = getMessagePreview(rowMessage, config.folder, t);
 	const href = `${config.hrefPrefix}/${message.id}`;
 	const navigation = useMessageNavigation(href, rowMessage);
+	const outbound = message.direction === "outbound";
+	const avatar = <SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-10 w-10 text-lg" : "h-7 w-7 text-xs"} />;
 
 	async function runRowAction(action: RowMessageAction) {
 		const previousRead = read;
@@ -123,7 +130,7 @@ function MessageListRow({
 	if (compact) {
 		const compactRow = (
 			<div
-				className={`group grid grid-cols-[20px_minmax(0,1fr)] gap-3 border-l-2 px-4 py-3 transition-colors ${active
+				className={`group relative grid grid-cols-[44px_minmax(0,1fr)] gap-2 border-l-2 px-3 py-3 transition-colors ${active
 					? "border-l-blue-600 bg-blue-50"
 					: selected
 						? "border-l-transparent bg-neutral-50"
@@ -136,14 +143,12 @@ function MessageListRow({
 				}}
 			>
 				<MessageNavigationProgress progress={navigation.progress} />
-				<Checkbox
-					checked={selected}
-					onChange={(event) => onSelectedChange(message.id, event.target.checked)}
-					className="mt-1 h-4 w-4 rounded border-neutral-300"
-					aria-label={t("list.selectFrom", { sender: party })}
-				/>
+				<label className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-full">
+					<input type="checkbox" checked={selected} onChange={event => onSelectedChange(message.id, event.target.checked)} className="peer sr-only" aria-label={t("list.selectFrom", { sender: party })} />
+					<span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>
+				</label>
 				<Link href={href} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className="min-w-0">
-					<span className="flex items-baseline justify-between gap-3">
+					<span className="flex items-baseline justify-between gap-2">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{party}
 
@@ -159,11 +164,11 @@ function MessageListRow({
 						className={`mt-1 flex min-w-0 items-center gap-1.5 text-sm ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
 							}`}
 					>
-						<MessageLabelChips labels={message.labels} />
 						<span className="min-w-0 truncate">{message.subject ?? t("list.noSubject")}</span>
 					</span>
-					<span className="mt-0.5 block truncate text-xs leading-5 text-neutral-500">
-						{preview}
+					<span className="mt-0.5 flex min-w-0 items-center justify-between gap-2 text-xs leading-5 text-neutral-500">
+						<span className="min-w-0 flex-1 truncate">{preview}</span>
+						<MessageLabelChips labels={message.labels} compact />
 					</span>
 				</Link>
 			</div>
@@ -190,7 +195,7 @@ function MessageListRow({
 	}
 
 	const className =
-		`group relative grid min-h-12 w-full grid-cols-[24px_32px_minmax(160px,80px)_1fr_auto] items-center gap-3 px-6 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
+		`group relative grid min-h-12 w-full grid-cols-[24px_32px_minmax(160px,190px)_minmax(0,1fr)_auto] items-center gap-2 px-4 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
 		} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`;
 	const content = (
 		<>
@@ -214,8 +219,9 @@ function MessageListRow({
 			{(config.folder !== "inbox" || message.direction !== "inbound") && (
 				<Icon className="h-4 w-4 text-neutral-300" />
 			)}
-			<span className={clsx(unread && "font-semibold", getMessagePartyClassName(rowMessage, config.folder))}>
-				{party}
+			<span className="flex min-w-0 items-center gap-2">
+				{avatar}
+				<span className={clsx(unread && "font-semibold", getMessagePartyClassName(rowMessage, config.folder))}>{party}</span>
 
 				{(message.threadCount ?? 1) > 1 && (
 					<span className="ml-2 text-xs text-neutral-500">{message.threadCount}</span>
@@ -290,17 +296,25 @@ export function MessageFolderPage({
 	selection,
 }: MessageFolderPageProps) {
 	const { t } = useLanguage();
+	const router = useRouter();
+	const [readingLayout] = useReadingLayout();
+	const sharedSelection = useMessageSelection();
+	selection ??= sharedSelection ?? undefined;
 	const title = config.titleKey ? t(config.titleKey) : config.title;
 	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
 	const { query } = useMailSearch();
 	const isMobile = useIsMobile();
-	const [offset, setOffset] = useState(0);
+	const [internalOffset, setInternalOffset] = useState(0);
+	const offset = selection?.offset ?? internalOffset;
+	const setOffset = selection?.setOffset ?? setInternalOffset;
 	const [internalSelectedMessages, setInternalSelectedMessages] = useState<
-		Array<{ id: string; read: boolean }>
+		SelectedMessage[]
 	>([]);
 	const [pendingBulkAction, setPendingBulkAction] = useState(false);
 	const [emptyingFolder, setEmptyingFolder] = useState(false);
-	const [unreadOnly, setUnreadOnly] = useState(false);
+	const [internalUnreadOnly, setInternalUnreadOnly] = useState(false);
+	const unreadOnly = selection?.unreadOnly ?? internalUnreadOnly;
+	const setUnreadOnly = selection?.setUnreadOnly ?? setInternalUnreadOnly;
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
 	const { messages, isLoading, total, limit, updateMessages } = useMessages(config.folder, selectedMailbox?.id, {
@@ -330,23 +344,30 @@ export function MessageFolderPage({
 		[selectedMessages],
 	);
 	const hasUnreadSelection = selectedMessages.some((message) => !message.read);
-	const selectionMailboxIds = [...new Set(messages.filter(message=>selectedIds.includes(message.id)).map(message=>message.mailboxId))];
+	const selectionMailboxIds = [...new Set(selectedMessages.map(message => message.mailboxId ?? messages.find(row => row.id === message.id)?.mailboxId))];
  const selectionMailboxId = selectionMailboxIds.length === 1 ? selectionMailboxIds[0] ?? undefined : undefined;
 	const allVisibleSelected = messages.length > 0 && messages.every((message) => selectedIds.includes(message.id));
 	// In conversation view a row stands for every message of its thread in this
 	// folder, so actions and drags carry all of them.
 	const rowMessageIds = (message: Message) => message.threadMessageIds ?? [message.id];
 	const expandSelectedIds = (ids: string[]) =>
-		ids.flatMap((id) => rowMessageIds(messages.find((message) => message.id === id) ?? { id } as Message));
+		ids.flatMap((id) => selectedMessages.find(message => message.id === id)?.messageIds ?? rowMessageIds(messages.find((message) => message.id === id) ?? { id } as Message));
 
+	const selectionScope = JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped]);
+	const previousScope = useRef(selectionScope);
+	const previousOffset = useRef(offset);
 	useEffect(() => {
+		if (previousScope.current === selectionScope) return;
+		previousScope.current = selectionScope;
 		setOffset(0);
 		setSelectedMessages([]);
-	}, [query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped]);
+	}, [selectionScope, setSelectedMessages, setOffset]);
 
 	useEffect(() => {
+		if (previousOffset.current === offset) return;
+		previousOffset.current = offset;
 		setSelectedMessages([]);
-	}, [offset]);
+	}, [offset, setSelectedMessages]);
 
 	useEffect(() => {
 		if (mailboxesLoading) return;
@@ -366,8 +387,11 @@ export function MessageFolderPage({
 		setSelectedMessages((current) => {
 			if (!selected) return current.filter((item) => item.id !== messageId);
 			if (current.some((item) => item.id === messageId)) return current;
-			return [...current, { id: message.id, read: message.read && !(message.threadUnread ?? 0) }];
+			return [...current, { id: message.id, read: message.read && !(message.threadUnread ?? 0), messageIds: rowMessageIds(message), mailboxId: message.mailboxId }];
 		});
+		// Match the split layout's desktop breakpoint; on phones (including
+		// landscape) checkboxes must leave the list available for multi-selection.
+		if (selected && window.matchMedia("(min-width: 1024px)").matches && readingLayout !== "off" && message.id !== selectedMessageId && config.folder !== "drafts") router.push(`${config.hrefPrefix}/${message.id}`);
 	}
 
 	function toggleAllVisible(selected: boolean) {
@@ -379,10 +403,12 @@ export function MessageFolderPage({
 
 			const next = new Map(current.map((message) => [message.id, message]));
 			for (const message of messages) {
-				next.set(message.id, { id: message.id, read: message.read && !(message.threadUnread ?? 0) });
+				next.set(message.id, { id: message.id, read: message.read && !(message.threadUnread ?? 0), messageIds: rowMessageIds(message), mailboxId: message.mailboxId });
 			}
 			return Array.from(next.values());
 		});
+		const last = messages.at(-1);
+		if (selected && last && window.matchMedia("(min-width: 1024px)").matches && readingLayout !== "off" && config.folder !== "drafts") router.push(`${config.hrefPrefix}/${last.id}`);
 	}
 
 	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
@@ -454,7 +480,7 @@ export function MessageFolderPage({
 							aria-label={t("list.selectAll")}
 						/>
 					</Tooltip>
-					{selectedIds.length > 0 && !compact ? (
+					{selectedIds.length > 0 || (!compact && !isMobile) ? (
 						<BulkMessageToolbar
 							messageIds={expandSelectedIds(selectedIds)}
 							mailboxId={selectionMailboxId}
@@ -462,7 +488,8 @@ export function MessageFolderPage({
 							hasUnreadSelection={hasUnreadSelection}
 							onAction={runSelectedAction}
 							onClearSelection={() => setSelectedMessages([])}
-							pending={pendingBulkAction}
+							pending={pendingBulkAction || selectedIds.length === 0}
+							compact={compact}
 							folder={config.folderId ? undefined : config.folder}
 						/>
 					) : (
@@ -471,7 +498,7 @@ export function MessageFolderPage({
 						)
 					)}
 				</div>
-				{(selectedIds.length === 0 || compact) && (
+			{selectedIds.length === 0 && (
 					<div className="flex shrink-0 items-center gap-2 text-neutral-500">
 						{!compact && <span className="hidden whitespace-nowrap text-xs text-neutral-500 sm:inline">
 							{t("list.range", { start: pageRange.start, end: pageRange.end, total: pageRange.total })}
@@ -535,6 +562,7 @@ export function MessageFolderPage({
 					</div>
 				)}
 			</div>
+			{!config.folderId && ["inbox", "promotions", "social"].includes(config.folder) && <InboxCategoryTabs folder={config.folder} compact={compact} />}
 
 			<div className="min-h-0 flex-1 divide-y divide-neutral-100 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
 				{messages.map((message) => (

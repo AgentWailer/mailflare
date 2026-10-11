@@ -13,6 +13,7 @@ import { useCompose } from "@/components/compose/compose-context";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { AgentTurnView } from "./agent-turn";
+import type { MessageAssistantRequest } from "./assistant-open-state";
 import { ConversationSkeleton } from "./conversation-skeleton";
 import { QueuedAgentMessages } from "./queued-messages";
 import { SendReview } from "./send-review";
@@ -55,7 +56,18 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 	const stickToBottomRef = useRef(true);
 	const selectedConversationRef = useRef<string | null>(null);
 	const mailboxId = selectedMailbox?.id;
-	const selectedMessageId = pathname.match(/^\/(?:inbox|sent|archived|spam|trash|starred|snoozed|folders\/[^/]+)\/([^/]+)/)?.[1] ?? null;
+	const selectedMessageId = pathname.match(/^\/(?:inbox|promotions|social|all|sent|archived|spam|trash|starred|snoozed|folders\/[^/]+)\/([^/]+)/)?.[1] ?? null;
+	useEffect(() => {
+		const onRequest = (event: Event) => {
+			const request = (event as CustomEvent<MessageAssistantRequest>).detail;
+			if (!request || request.mailboxId !== mailboxId) return;
+			setInput(request.prompt);
+			setView("chat");
+			requestAnimationFrame(() => inputRef.current?.focus());
+		};
+		window.addEventListener("mailflare:assistant-request", onRequest);
+		return () => window.removeEventListener("mailflare:assistant-request", onRequest);
+	}, [mailboxId]);
 	const welcomePrompts = selectedMessageId ? [
 		{ label: t("agent.welcome.sumThis"), detail: t("agent.welcome.sumThisDetail"), prompt: `Read the thread containing email ${selectedMessageId} and summarize its key points.`, icon: FileText },
 		{ label: t("agent.welcome.reply"), detail: t("agent.welcome.replyDetail"), prompt: `Read the thread containing email ${selectedMessageId} and draft a reply.`, icon: PenLine },

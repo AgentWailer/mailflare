@@ -18,6 +18,7 @@ export function ContactAvatar({
 	name,
 	hasManagedAvatar = false,
 	managedAvatarUrl,
+	fallbackAvatarUrl,
 	className,
 }: ContactAvatarProps) {
 	const [managedAvatar, setManagedAvatar] = useState(hasManagedAvatar);
@@ -55,8 +56,8 @@ export function ContactAvatar({
 			setAvatarUrl(getManagedContactAvatarUrl(mailboxId, address, avatarVersion));
 			return;
 		}
-		setAvatarUrl(null);
-	}, [address, avatarVersion, mailboxId, managedAvatar, managedAvatarUrl]);
+		setAvatarUrl(fallbackAvatarUrl ?? null);
+	}, [address, avatarVersion, mailboxId, managedAvatar, managedAvatarUrl, fallbackAvatarUrl]);
 
 	return (
 		<span
