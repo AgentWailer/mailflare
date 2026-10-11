@@ -257,7 +257,7 @@ export function DashboardNav({ className }: { className?: string }) {
               <DialogTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700 md:h-7 md:w-7"
                   aria-label={t("navigation.createFolder")}
                 >
                   <Plus className="h-4 w-4" />
@@ -275,6 +275,7 @@ export function DashboardNav({ className }: { className?: string }) {
                     <Label htmlFor="folderName">{t("navigation.folderName")}</Label>
                     <Input
                       id="folderName"
+                      className="h-11 text-base md:h-10 md:text-sm"
                       value={newFolderName}
                       onChange={(event) => setNewFolderName(event.target.value)}
                       placeholder={t("navigation.folderExample")}
@@ -297,7 +298,7 @@ export function DashboardNav({ className }: { className?: string }) {
                           aria-label={t(folderColorKeys[option.value])}
                           title={t(folderColorKeys[option.value])}
                           onClick={() => setNewFolderColor(option.value)}
-                          className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${
+                          className={`h-11 w-11 rounded-full border-2 transition-transform hover:scale-110 md:h-8 md:w-8 ${
                             newFolderColor === option.value
                               ? "border-neutral-900 ring-2 ring-neutral-300 ring-offset-2"
                               : "border-transparent"
@@ -309,6 +310,7 @@ export function DashboardNav({ className }: { className?: string }) {
                   </div>
                   <Button
                     type="submit"
+                    className="h-11 w-full md:h-10 md:w-auto"
                     disabled={addingFolder || !newFolderName.trim()}
                   >
                     {addingFolder ? t("navigation.creating") : t("navigation.createFolder")}
