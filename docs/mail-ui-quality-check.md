@@ -64,6 +64,43 @@ node tests/browser/reading-pane.mjs
 node tests/browser/message-action-menus.mjs
 ```
 
+## Unread consistency and initial desktop preview (2026-10-11)
+
+Marking a message read now reconciles mailbox counters, including quiet reader
+updates and changes from another browser tab. Stale counter requests cannot replace
+newer state; returning to the app also refreshes counts. The reader navigation shows
+the message's chronological position rather than a historical unread count. A
+production D1 audit found zero unread inbox messages when the old UI displayed seven.
+
+On desktop screens of at least 1024 px, an enabled reading pane automatically opens
+the first message of the current list. This respects mailbox, search, unread filter,
+pagination and conversation settings, and shares the list's cached request. Navigation
+replaces the empty preview history entry. Existing selections survive refresh and
+new arrivals; empty or failed lists retain their overview. Phones and smaller tablets
+start with the list, and drafts and disabled reading panes do not auto-open messages.
+The effect rechecks the saved layout before navigation, preventing a hydration race
+from opening a message when the stored preference is off.
+
+The production build and focused ESLint passed. All 22 selected function tests passed
+(eight preview, eight read-sync and six refresh cases). The Chromium reading-pane
+suite passed eight composer layouts, five real floating-reply flows, eight reader/list
+layouts, four initial-preview scenarios, assistant handoff, legacy disabled-layout
+preservation and three refresh/retry scenarios. Desktop category changes retain the
+preview without HTML document reloads. Reply fixtures now return valid account and
+identity responses instead of draft responses for unrelated authentication routes.
+Type checking retains the same 17 pre-existing diagnostics.
+
+Firefox/WebKit binaries remain unavailable: runtime network policy revision 4 does
+not include the two Playwright download hosts saved in the configuration draft.
+Applying that draft is still required before downloading those engines. Chromium
+viewport and keyboard simulations do not certify physical iPhone/iPad Safari or
+Home Screen status-bar behavior; those device checks remain outstanding.
+
+```sh
+node --test tests/initial-message-preview.test.mjs tests/message-read-sync.test.mjs tests/mail-list-refresh.test.mjs
+node tests/browser/reading-pane.mjs
+```
+
 ## Unread counter and reader navigation consistency
 
 A read-only production aggregate check on 2026-10-11 found zero unread primary

@@ -13,6 +13,7 @@ import { MessageDetailNavigationProvider } from "./message-detail-navigation";
 import { MessageListVisibilityContext } from "./message-list-visibility";
 import { readInitialMessageListVisible, saveMessageListVisible } from "./message-list-visibility-utils";
 import { useReadingLayout } from "./use-reading-layout";
+import { useInitialMessagePreview } from "./use-initial-message-preview";
 import type { MessageSplitLayoutProps, SelectedMessage } from "./types";
 
 export function MessageSplitLayout({
@@ -45,6 +46,7 @@ export function MessageSplitLayout({
 	const selectedMessageId = pathname.startsWith(detailPrefix)
 		? pathname.slice(detailPrefix.length).split("/")[0]
 		: undefined;
+	useInitialMessagePreview({ config, readingLayout, selectedMessageId, offset, unreadOnly });
 	const renderedListWidth = Math.max(250, Math.min(listWidth, (containerWidth || 1000) - 280));
 	const renderedListHeight = Math.max(96, Math.min(listHeight, (containerHeight || 700) - 180));
 
