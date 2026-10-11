@@ -7,6 +7,11 @@ import {build} from 'esbuild';
 const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE || 'playwright');
 const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','mailflare-reading-browser-'));
 const write=(name,value)=>writeFileSync(join(dir,name),value);
+async function assertComposeAboveFooter(page) {
+ const button=page.locator('[data-mobile-compose]'),bounds=await button.boundingBox(),footer=await page.locator('.fork-source').boundingBox();
+ assert(bounds&&footer&&bounds.y+bounds.height<=footer.y-15,'the entire compose button stays above the source footer with a touch-safe gap');
+ assert(await button.evaluate(el=>{const r=el.getBoundingClientRect();return [8,r.height/2,r.height-8].every(y=>el.contains(document.elementFromPoint(r.x+r.width/2,r.y+y)));}),'the top, centre and bottom of the compose button are reachable');
+}
 const de=JSON.parse(readFileSync(join(root,'public/locales/de.json'),'utf8'));
 write('mailbox.ts',`const mailbox={id:'box',domainId:'domain',localPart:'owner',hostname:'example.test',displayName:'Owner',permission:'full_access'};export const useSelectedMailbox=()=>({selectedMailbox:mailbox,mailboxes:[mailbox],isLoading:false});`);
 write('sidebar.ts',`const setForcedMinimal=(value)=>{window.__forcedMinimal=value};export const useSidebar=()=>({userId:'owner',setForcedMinimal,mobile:window.matchMedia('(max-width:767px)').matches,mobileOpen:false,toggle:()=>window.__menuOpened=true});`);
@@ -51,7 +56,8 @@ try{
    await searchInput.fill('Cloudflare');assert.equal(await searchInput.inputValue(),'Cloudflare');await page.getByRole('button',{name:de['search.clear'],exact:true}).click();assert.equal(await searchInput.inputValue(),'');
    await page.getByRole('button',{name:de['account.openMenu'],exact:true}).click();const assistant=page.getByRole('button',{name:de['agent.assistant.open'],exact:true});assert(await assistant.isVisible());await assistant.click();assert.equal(await page.evaluate(()=>window.__assistantOpened),true);
    const theme=page.locator('.mail-mobile-header button[aria-pressed]');await theme.click();assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('dark')),!dark);await theme.click();
-   const compose=page.locator('[data-mobile-compose]');assert(await compose.isVisible());await compose.click();await page.locator('[data-composer-open]').waitFor();assert.equal(await compose.count(),0);await page.locator('[data-composer-open]').click();assert(await compose.isVisible());
+   const compose=page.locator('[data-mobile-compose]');assert(await compose.isVisible());await assertComposeAboveFooter(page);await compose.click();await page.locator('[data-composer-open]').waitFor();assert.equal(await compose.count(),0);await page.locator('[data-composer-open]').click();await assertComposeAboveFooter(page);
+   await page.setViewportSize({width:viewport.width,height:viewport.height-200});await page.locator('.mail-mobile-list-scroll').evaluate(el=>{el.scrollTop=el.scrollHeight;});await assertComposeAboveFooter(page);const lastRow=await page.locator('a[href="/inbox/msg-24"]').boundingBox();assert(lastRow.y+lastRow.height<=(await compose.boundingBox()).y,'the last message can scroll completely above the compose button');await page.setViewportSize(viewport);await page.locator('.mail-mobile-list-scroll').evaluate(el=>{el.scrollTop=0;});
    const star=page.locator('[data-mobile-star]').first();const before=new URL(page.url()).pathname;await star.click();await page.waitForFunction(()=>document.querySelector('[data-mobile-star]')?.getAttribute('aria-pressed')==='true');assert.equal(await star.getAttribute('aria-pressed'),'true');assert.equal(starRequests.length,1);assert.equal(new URL(page.url()).pathname,before);
   }else{assert.equal(await page.locator('[data-mobile-compose]').isVisible(),false);}
   const tabs=page.locator('[data-inbox-categories]');assert.equal(await tabs.getByRole('link',{name:de['message.categories.primary'],exact:true}).getAttribute('aria-current'),'page');assert.equal(await tabs.getByRole('link',{name:de['smart.promotions'],exact:true}).getAttribute('href'),'/promotions');assert.equal(await tabs.getByRole('link',{name:de['message.categories.social'],exact:true}).getAttribute('href'),'/social');assert.equal(await page.locator('[data-message-importance]').count(),0);
