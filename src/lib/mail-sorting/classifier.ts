@@ -1,4 +1,5 @@
-import { resolveRoutineMail, resolveUnavailableSorting, isProtectedRoutineMail } from "./routine";
+import { resolveRoutineMail, resolveUnavailableSorting, isProtectedRoutineMail, isAccountSecurityNotice } from "./routine";
+import { analyzeAuthentication } from "@/lib/spam/analyzers/authentication";
 import { getSortingExamples } from "./learning";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -96,7 +97,7 @@ export function resolveClefDecision(
 export function applySortingMode(decision: SortingDecision, mode: "active" | "observe" | "off"): SortingDecision {
 	return {
 		...decision,
-		policyVersion: 2,
+		policyVersion: 3,
 		...(mode === "observe" ? {
 			suggestedCategory: decision.spam ? "spam" : decision.suggestedCategory ?? decision.category,
 			category: "primary" as const,
@@ -137,6 +138,10 @@ export async function classifyIncomingMail(
 		mode = config.mode;
 		const finalize = (decision: SortingDecision) => applySortingMode(decision, config.mode);
 		if (config.mode === "off") return finalize({ ...fallback, reason: "disabled" });
+		const securityNotice = isAccountSecurityNotice(input);
+		// Read only authentication results from Cloudflare's receiver, never trust a From name.
+		const authentication = analyzeAuthentication(input.headers).map((signal) => signal.id);
+		const failedSecurityAuthentication = securityNotice && authentication.some((id) => id.endsWith("_failed"));
 		const [override] = await db
 			.select()
 			.from(mailSortingOverrides)
@@ -150,8 +155,8 @@ export async function classifyIncomingMail(
 		if (override && isMailCategory(override.category) &&
 			(override.category === "primary" || !isProtectedRoutineMail(input)))
 			return finalize({ category: override.category, suggestedCategory: override.category, source: "override", reason: "sender_override" });
-		if (isProtectedRoutineMail(input) && input.spamScore < 40)
-			return finalize({ category: "primary", source: "rule", reason: "protected_transaction_or_conversation" });
+		if (isProtectedRoutineMail(input) && input.spamScore < 40 && !failedSecurityAuthentication)
+			return finalize({ category: "primary", source: "rule", reason: securityNotice ? "protected_account_security" : "protected_transaction_or_conversation" });
 		const routine = resolveRoutineMail(input);
 		if (routine) return finalize(routine);
 		if (!env.AI) return finalize(resolveUnavailableSorting(input, "unavailable"));
@@ -172,6 +177,8 @@ export async function classifyIncomingMail(
 			model: "clef-flash",
 			state: {
 				sender,
+				authentication,
+				spamScore: input.spamScore,
 				userCorrections: corrections,
 				recipient: input.recipient.slice(0, 300),
 				subject: input.subject?.slice(0, 400),
@@ -200,7 +207,7 @@ export async function classifyIncomingMail(
 				security: {
 					type: "noul",
 					instructions:
-						"Is this a genuine account security notice, login alert, password reset or other important security event, rather than an offer or newsletter?",
+						"Is this a genuine account security notice, login alert, password reset or other important security event, rather than an offer or newsletter? German subjects such as Sicherheitswarnung and Passwortänderung describe security events. Successful receiver DMARC/DKIM authentication supports legitimacy; a request to review a login alone is not evidence of phishing. Failed authentication and concrete deception suggest phishing, regardless of the sender's display name or subject.",
 				},
 			},
 		};

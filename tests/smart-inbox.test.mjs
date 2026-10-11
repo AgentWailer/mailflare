@@ -896,6 +896,70 @@ test('remembered bulk senders cannot override transactions, security or personal
  assert.equal((await app.classifyIncomingMail(f.env,{...f.input,sender:'uber@uber.com',subject:'Gutschein'})).category,'promotions');
 });
 
+test('German account security events survive wrong CLEF spam answers, sender learning and unavailable AI', async t => {
+ const f = await fixture(t);
+ f.DB.db.exec("INSERT INTO mail_sorting_overrides(mailbox_id,sender,category) VALUES ('box','no-reply@accounts.google.com','promotions')");
+ let calls = 0;
+ f.env.AI.run = async () => { calls++; return { answers: answers('spam', .8914, .0614, .0581) }; };
+ const input = { ...f.input, sender: '"Google" <no-reply@accounts.google.com>', headers: {
+  'Authentication-Results': 'mx.cloudflare.net; dmarc=pass header.from=accounts.google.com; dkim=pass',
+  'List-Unsubscribe': '<https://accounts.google.com/preferences>',
+ }, text: 'Neue Anmeldung auf einem Apple iPhone. Prüfe die Aktivität in deinem Google-Konto.' };
+ for (const subject of ['Sicherheitswarnung', 'Sicherheitswarnung für owner@example.test', 'SICHERHEITSWARNUNG',
+  'Sicherheitsmeldung', 'Anmeldebenachrichtigung', 'Passwortänderung', 'Passwort zurücksetzen',
+  'Verdächtige Aktivität', 'Security alert', 'New sign-in', 'Password changed']) {
+  const result = await app.classifyIncomingMail(f.env, { ...input, subject });
+  assert.equal(result.category, 'primary', subject);
+  assert.equal(result.reason, 'protected_account_security', subject);
+  assert.equal(result.policyVersion, 3);
+  assert.equal(app.resolveRoutineMail({ ...input, subject }), null);
+ }
+ assert.equal(calls, 0);
+ delete f.env.AI;
+ assert.equal((await app.classifyIncomingMail(f.env, { ...input, subject: 'Sicherheitswarnung' })).category, 'primary');
+ f.DB.db.exec("INSERT INTO mailbox_sorting_settings(mailbox_id,mode,daily_limit,threshold) VALUES ('box','observe',0,.8)");
+ assert.equal((await app.classifyIncomingMail(f.env, { ...input, subject: 'Sicherheitswarnung' })).reason, 'observation');
+ f.DB.db.exec("UPDATE mailbox_sorting_settings SET mode='off'");
+ assert.equal((await app.classifyIncomingMail(f.env, { ...input, subject: 'Sicherheitswarnung' })).reason, 'disabled');
+});
+
+test('security wording does not bypass spam evidence or protect security product marketing', async t => {
+ const f = await fixture(t);
+ let calls = 0, request;
+ f.env.AI.run = async (_model, input) => { calls++; request = input; return { answers: answers('spam', .99) }; };
+ const suspicious = { ...f.input, sender: '"Google" <no-reply@accounts.google.com>', subject: 'Sicherheitswarnung', spamScore: 60,
+  headers: { 'Authentication-Results': 'mx.cloudflare.net; dmarc=fail; dkim=fail; spf=fail' } };
+ assert.equal((await app.classifyIncomingMail(f.env, suspicious)).spam, true);
+ assert.deepEqual(request.state.authentication, ['dmarc_failed', 'dkim_failed', 'spf_failed']);
+ assert.equal(request.state.spamScore, 60);
+ // Failures from the receiver prevent the subject shortcut even below the spam threshold.
+ assert.notEqual((await app.classifyIncomingMail(f.env, { ...suspicious, spamScore: 20 })).reason, 'protected_account_security');
+ assert.equal(calls, 2);
+ // Sender-injected Authentication-Results from another server are excluded from AI evidence.
+ await app.classifyIncomingMail(f.env, { ...suspicious, headers: { 'Authentication-Results': 'attacker.test; dmarc=pass; dkim=pass' } });
+ assert.deepEqual(request.state.authentication, []);
+ f.env.AI.run = async () => ({ answers: answers('promotions') });
+ for (const subject of ['Sicherheitstipps: unser Newsletter', 'Security software sale', 'Passwortmanager: 40% Rabatt']) {
+  const result = await app.classifyIncomingMail(f.env, { ...f.input, subject, text: 'Jetzt kaufen und sparen' });
+  assert.equal(result.category, 'promotions', subject);
+ }
+});
+
+test('authenticated Google security alerts are stored in primary and delivered with normal notifications', async t => {
+ const f = await fixture(t), events = [];
+ let calls = 0;
+ f.env.AI.run = async () => { calls++; return { answers: answers('spam', .8914, .0614, .0581) }; };
+ f.env.REALTIME = { getByName: () => ({ fetch: async (_url, init) => { events.push(JSON.parse(init.body)); return new Response(); } }) };
+ f.env.BUCKET = { get: async () => ({ arrayBuffer: async () => new TextEncoder().encode(
+  'From: Google <no-reply@accounts.google.com>\r\nTo: owner@example.test\r\nSubject: Sicherheitswarnung\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nNeue Anmeldung auf einem Apple iPhone.').buffer }) };
+ await app.processInboundMessage(f.env, { from: 'no-reply@accounts.google.com', to: 'owner@example.test',
+  rawR2Key: 'synthetic/security.eml', headers: { 'Authentication-Results': 'mx.cloudflare.net; dmarc=pass; dkim=pass' } });
+ const row = f.DB.db.prepare("SELECT category,status,sorting_decision FROM messages WHERE raw_r2_key='synthetic/security.eml'").get();
+ assert.equal(row.category, 'primary'); assert.equal(row.status, 'received');
+ assert.equal(JSON.parse(row.sorting_decision).reason, 'protected_account_security');
+ assert.equal(calls, 0); assert.equal(events.length, 1); assert.equal(events[0].silent, false);
+});
+
 test('AI failures quarantine non-personal list mail in Promotions while off and observe stay respected',async t=>{
  const f=await fixture(t),input={...f.input,headers:{'List-Unsubscribe':'<https://example.test/unsub>'},subject:'Weekly newsletter'};
  delete f.env.AI;const result=await app.classifyIncomingMail(f.env,input);assert.equal(result.category,'promotions');assert.equal(result.fallbackReason,'unavailable');assert.equal(app.shouldNotifyMail({status:'received',category:result.category}),false);

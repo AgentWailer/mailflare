@@ -3,6 +3,11 @@ import type { SortingDecision } from "./categories";
 
 type RoutineInput = { sender: string; subject?: string | null; text?: string | null; headers?: Record<string, string> };
 
+/** Account events include German compounds; a boundary after "Sicherheit" misses "Sicherheitswarnung". */
+export function isAccountSecurityNotice(input: Pick<RoutineInput, "subject">): boolean {
+	return /(?:^|[^\p{L}\p{N}])(?:sicherheits(?:warnung|meldung|benachrichtigung|hinweis)|anmelde(?:warnung|benachrichtigung)|(?:neue|ungewöhnliche|verdächtige)\s+anmeldung|(?:ungewöhnliche|verdächtige)\s+aktivität|passwort(?:änderung|änderungen)|passwort\s+(?:zurücksetzen|geändert)|security\s+(?:alert|warning|notice)|(?:new|unusual|suspicious)\s+(?:sign[ -]?in|login|activity)|password\s+(?:reset|changed|change))(?:$|[^\p{L}\p{N}])/iu.test(input.subject ?? "");
+}
+
 export function isBulkMail(input: Pick<RoutineInput, "headers">): boolean {
 	return Object.entries(input.headers ?? {}).some(([key, value]) =>
 		key.toLowerCase() === "list-unsubscribe" || key.toLowerCase() === "list-id" ||
@@ -14,8 +19,8 @@ export function isBulkMail(input: Pick<RoutineInput, "headers">): boolean {
 export function isProtectedRoutineMail(input: RoutineInput): boolean {
 	const subject = input.subject?.toLowerCase() ?? "";
 	const text = input.text?.toLowerCase().slice(0, 6000) ?? "";
-	return /^(re|aw|fw|fwd|wg):/.test(subject.trim()) ||
-		/\b(security|sicherheit|anmeldung|login|password|passwort|invoice|rechnung|receipt|quittung|beleg|belege|abrechnung|payment|zahlung|zahlungsbestätigung|bestelldaten|bestellung|bestellbestätigung|order confirmation)\b|message from|nachricht von|sent you a message|hat dir eine nachricht/.test(subject) ||
+	return isAccountSecurityNotice(input) || /^(re|aw|fw|fwd|wg):/.test(subject.trim()) ||
+		/\b(anmeldung|login|invoice|rechnung|receipt|quittung|beleg|belege|abrechnung|payment|zahlung|zahlungsbestätigung|bestelldaten|bestellung|bestellbestätigung|order confirmation)\b|message from|nachricht von|sent you a message|hat dir eine nachricht/.test(subject) ||
 		Object.keys(input.headers ?? {}).some((key) => key.toLowerCase() === "in-reply-to") ||
 		/\b(rechnungsnummer|belegnummer|bestellnummer|bestelldetails|invoice number|receipt number|order number|order confirmation|verification code|bestätigungscode|password reset|passwort zurücksetzen)\b/.test(text);
 }
