@@ -14,6 +14,7 @@ export type InboxRule = {
 	action: "store" | "forward" | "reject" | "spam" | "trash";
 	folderId: string | null;
 	priority: number;
+	forwardTo: string | null;
 };
 
 export type InboxRuleInput = {
@@ -24,7 +25,11 @@ export type InboxRuleInput = {
 	matchValue: string;
 	destination: string;
 	priority: number;
+	forwardTo?: string;
+	sourceMessageId?: string;
 };
+
+export type InboxRuleSource = { id: string; mailboxId: string; fromAddr: string; subject?: string | null };
 
 export type InboxRulesResponse = {
 	rules: InboxRule[];

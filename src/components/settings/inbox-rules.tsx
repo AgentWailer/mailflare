@@ -6,6 +6,7 @@ import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getEmailAddress } from "@/lib/email/address";
 import {
 	Dialog,
 	DialogContent,
@@ -25,6 +26,7 @@ import type {
 	InboxRule,
 	InboxRuleInput,
 	RuleCondition,
+	InboxRuleSource,
 } from "./inbox-rules-types";
 const freshCondition = (): RuleCondition => ({
 	field: "sender",
@@ -40,15 +42,17 @@ function storedArray<T>(value: string | undefined): T[] {
 		return [];
 	}
 }
-export function InboxRules() {
+export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRuleSource; onClose?: () => void} = {}) {
 	const { t } = useLanguage();
 	const { selectedMailbox } = useSelectedMailbox();
-	const mailboxId = selectedMailbox?.id ?? "";
+	const mailboxId = sourceMessage?.mailboxId ?? selectedMailbox?.id ?? "";
 	const client = useQueryClient();
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState(!!sourceMessage);
+	const [step, setStep] = useState<"criteria" | "actions">("criteria");
+	const criteriaStep = !!sourceMessage && step === "criteria";
 	const [editing, setEditing] = useState<InboxRule | null>(null);
 	const [conditions, setConditions] = useState<RuleCondition[]>([
-		freshCondition(),
+		sourceMessage ? {field:"sender",operator:"exact",value:getEmailAddress(sourceMessage.fromAddr),negate:false} : freshCondition(),
 	]);
 	const [mode, setMode] = useState<"all" | "any">("all");
 	const [labels, setLabels] = useState<string[]>([]);
@@ -59,6 +63,9 @@ export function InboxRules() {
 	const [skip, setSkip] = useState(false);
 	const [enabled, setEnabled] = useState(true);
 	const [priority, setPriority] = useState(10);
+	const [forward, setForward] = useState(false);
+	const [forwardTo, setForwardTo] = useState("");
+	function changeOpen(next: boolean) { setOpen(next); if (!next) onClose?.(); }
 	const folders = useQuery({
 		queryKey: ["folders", mailboxId],
 		enabled: !!mailboxId,
@@ -74,6 +81,8 @@ export function InboxRules() {
 			const first = conditions[0];
 			const input: InboxRuleInput = {
 				mailboxId,
+				...(sourceMessage ? {sourceMessageId:sourceMessage.id} : {}),
+				...(forward ? {forwardTo:forwardTo.trim()} : {}),
 				matchField: first.field,
 				matchOperator: first.operator,
 				matchValue: first.value,
@@ -87,11 +96,11 @@ export function InboxRules() {
 				destination,
 			};
 			return editing
-				? updateInboxRule(editing.id, input)
-				: createInboxRule(input);
+				? updateInboxRule(editing.id, input, t)
+				: createInboxRule(input, t);
 		},
 		onSuccess: () => {
-			setOpen(false);
+			changeOpen(false);
 			client.invalidateQueries({ queryKey: ["routing-rules", mailboxId] });
 		},
 	});
@@ -133,6 +142,8 @@ export function InboxRules() {
 		setSkip(rule?.skipInbox || !!rule?.folderId || false);
 		setEnabled(rule?.enabled ?? true);
 		setPriority(rule?.priority ?? 10);
+		setForward(!!rule?.forwardTo);
+		setForwardTo(rule?.forwardTo ?? "");
 		save.reset();
 		setOpen(true);
 	}
@@ -150,6 +161,7 @@ export function InboxRules() {
 	];
 	return (
 		<section className="space-y-4">
+			{!sourceMessage && <>
 			<div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
 				<div className="min-w-0 flex-1">
 					<h2 className="text-xl font-semibold">{t("rules.mailboxTitle")}</h2>
@@ -181,7 +193,7 @@ export function InboxRules() {
 							</span>
 							<span className="block truncate text-xs text-neutral-500">
 								{rule.enabled ? t("smart.enabled") : t("smart.off")} ·{" "}
-								{rule.category
+								{rule.forwardTo ? `${t("rules.forward")} · ${rule.forwardTo}` : rule.category
 									? t(
 											rule.category === "primary"
 												? "smart.primary"
@@ -214,23 +226,31 @@ export function InboxRules() {
 					</p>
 				)}
 			</div>
-			<Dialog open={open} onOpenChange={setOpen}>
+			</>}
+			<Dialog open={open} onOpenChange={changeOpen}>
 				<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
 					<DialogHeader>
 						<DialogTitle>
-							{editing ? t("rules.update") : t("rules.new")}
+							{sourceMessage ? t("rules.fromMessage") : editing ? t("rules.update") : t("rules.new")}
 						</DialogTitle>
 						<DialogDescription>
-							{t("rules.dialogDescription")}
+							{sourceMessage ? t(criteriaStep ? "rules.criteriaHelp" : "rules.actionsHelp") : t("rules.dialogDescription")}
 						</DialogDescription>
 					</DialogHeader>
 					<form
 						className="space-y-4"
 						onSubmit={(event) => {
 							event.preventDefault();
+							if (criteriaStep) { setStep("actions"); return; }
 							save.mutate();
 						}}
 					>
+						{(!sourceMessage || criteriaStep) && <>
+						{sourceMessage && <div className="flex flex-wrap gap-2">
+							<Button type="button" variant="outline" className="min-h-11" onClick={() => setConditions([{field:"sender",operator:"exact",value:getEmailAddress(sourceMessage.fromAddr),negate:false}])}>{t("rules.exactSender")}</Button>
+							<Button type="button" variant="outline" className="min-h-11" onClick={() => setConditions([{field:"sender",operator:"ends_with",value:"@"+getEmailAddress(sourceMessage.fromAddr).split("@").at(-1),negate:false}])}>{t("rules.senderDomain")}</Button>
+							{sourceMessage.subject && <Button type="button" variant="outline" className="min-h-11" disabled={conditions.length>=12} onClick={() => setConditions(current=>[...current,{field:"title",operator:"contains",value:sourceMessage.subject!.slice(0,500),negate:false}])}>{t("rules.addSubject")}</Button>}
+						</div>}
 						<label className="grid gap-2 text-sm">
 							{t("rules.matchLabel")}
 							<RoutingRuleSelect
@@ -345,10 +365,13 @@ export function InboxRules() {
 							<Plus className="h-4 w-4" />
 							{t("smart.addCondition")}
 						</Button>
+						</>}
+						{!criteriaStep && <>
 						<div className="grid gap-3 sm:grid-cols-2">
 							<label className="grid gap-1 text-sm">
 								{t("smart.category")}
 								<RoutingRuleSelect
+									aria-label={t("smart.category")}
 									value={category}
 									onChange={(event) =>
 										setCategory(event.target.value as typeof category)
@@ -363,14 +386,26 @@ export function InboxRules() {
 							<label className="grid gap-1 text-sm">
 								{t("rules.destination")}
 								<RoutingRuleSelect
+									aria-label={t("rules.destination")}
 									value={destination}
-									onChange={(event) => setDestination(event.target.value)}
+									onChange={(event) => { setDestination(event.target.value); if (event.target.value !== "keep") setForward(false); }}
 								>
 									<option value="keep">{t("smart.keep")}</option>
 									<option value="spam">{t("navigation.spam")}</option>
 									<option value="trash">{t("navigation.trash")}</option>
 								</RoutingRuleSelect>
 							</label>
+						</div>
+						<div>
+							<label className="flex min-h-11 items-center gap-3 text-sm">
+								<input type="checkbox" checked={forward} disabled={destination !== "keep"} onChange={event=>setForward(event.target.checked)} />
+								{t("rules.forward")}
+							</label>
+							{forward && <label className="mb-4 grid gap-2 text-sm">
+								{t("settings.forwarding.destination")}
+								<Input className="min-h-11 text-base" type="email" required maxLength={254} value={forwardTo} onChange={event=>setForwardTo(event.target.value)} placeholder="destination@example.com" />
+								<span className="text-xs leading-5 text-neutral-500">{t("rules.forwardHelp")}</span>
+							</label>}
 						</div>
 						<fieldset>
 							<legend className="text-sm font-medium">
@@ -425,28 +460,34 @@ export function InboxRules() {
 								onChange={(event) => setPriority(Number(event.target.value))}
 							/>
 						</label>
+						{sourceMessage && <p className="text-sm text-neutral-500">{t("rules.futureOnly")}</p>}
+						</>}
 						{save.isError && (
 							<p role="alert" className="text-sm text-red-600">
 								{save.error.message}
 							</p>
 						)}
-						<div className="flex justify-end gap-2">
+						<div className="flex flex-wrap justify-end gap-2 border-t border-neutral-100 pt-4">
+							{sourceMessage && !criteriaStep && <Button type="button" variant="outline" className="min-h-11" onClick={()=>setStep("criteria")}>{t("rules.backToCriteria")}</Button>}
 							<Button
 								variant="outline"
 								type="button"
-								onClick={() => setOpen(false)}
+								onClick={() => changeOpen(false)}
+								className="min-h-11"
 							>
 								{t("common.cancel")}
 							</Button>
 							<Button
 								type="submit"
+								className="min-h-11"
 								disabled={
 									!mailboxId ||
 									conditions.some((condition) => !condition.value.trim()) ||
 									save.isPending
+									|| (!criteriaStep && !!sourceMessage && !labels.length && !category && !skip && !forward && destination === "keep")
 								}
 							>
-								{save.isPending ? t("common.saving") : t("rules.saveChanges")}
+								{criteriaStep ? t("rules.chooseActions") : save.isPending ? t("common.saving") : sourceMessage ? t("rules.createFilter") : t("rules.saveChanges")}
 							</Button>
 						</div>
 					</form>

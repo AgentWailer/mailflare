@@ -2,6 +2,14 @@ import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
 import { authFetch } from "@/lib/auth/client";
 import type { InboxRule, InboxRuleInput, InboxRulesResponse, RuleFoldersResponse } from "./inbox-rules-types";
 
+function ruleError(error: unknown, t: Translator): string {
+	if (error === "forwarding_unverified") return t("rules.forwardUnverified");
+	if (error === "forwarding_unavailable") return t("rules.forwardUnavailable");
+	if (error === "forwarding_loop") return t("rules.forwardLoop");
+	if (error === "forwarding_status_conflict") return t("rules.forwardConflict");
+	return typeof error === "string" ? error : t("smart.failed");
+}
+
 export async function fetchInboxRules(mailboxId: string): Promise<InboxRulesResponse> {
 	const params = new URLSearchParams({ mailboxId });
 	const response = await authFetch(`/api/routing-rules?${params.toString()}`);
@@ -14,25 +22,25 @@ export async function fetchRuleFolders(mailboxId: string): Promise<RuleFoldersRe
 	return (await response.json()) as RuleFoldersResponse;
 }
 
-export async function createInboxRule(input: InboxRuleInput) {
+export async function createInboxRule(input: InboxRuleInput, t: Translator = defaultTranslator) {
 	const response = await authFetch("/api/routing-rules", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(input),
 	});
 	const data = (await response.json()) as { error?: string };
-	if (!response.ok) throw new Error(data.error ?? "Failed to create rule");
+	if (!response.ok) throw new Error(ruleError(data.error, t));
 	return data;
 }
 
-export async function updateInboxRule(ruleId: string, input: InboxRuleInput) {
+export async function updateInboxRule(ruleId: string, input: InboxRuleInput, t: Translator = defaultTranslator) {
 	const response = await authFetch(`/api/routing-rules/${ruleId}`, {
 		method: "PATCH",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(input),
 	});
 	const data = (await response.json()) as { error?: string };
-	if (!response.ok) throw new Error(data.error ?? "Failed to update rule");
+	if (!response.ok) throw new Error(ruleError(data.error, t));
 	return data;
 }
 

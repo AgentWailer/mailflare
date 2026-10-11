@@ -3,6 +3,7 @@ import { getAccountForwardingDestination, MAILFLARE_FORWARDED_HEADER } from "@/l
 import { resolveIncomingMail } from "@/lib/email/incoming";
 import type { InboundQueueMessage } from "@/lib/email/inbound";
 import type { IntakeActions, IntakeInput, IntakeResult } from "@/lib/email/intake-types";
+import { forwardMatchingMailboxRules } from "./rule-forwarding";
 
 /**
  * What the Worker `email` handler does, for runtimes that hand us the whole
@@ -28,8 +29,15 @@ export async function intakeIncomingMail(env: CloudflareEnv, input: IntakeInput,
 
 	const alreadyForwarded = input.headers[MAILFLARE_FORWARDED_HEADER.toLowerCase()] === "1" || input.headers[MAILFLARE_FORWARDED_HEADER] === "1";
 	if (!alreadyForwarded) {
-		const destination = await getAccountForwardingDestination(env, input.to);
-		if (destination) await actions.forward?.(destination, { [MAILFLARE_FORWARDED_HEADER]: "1" });
+		const forwardedByRules = decision?.mailbox && actions.forward ? await forwardMatchingMailboxRules(env, {
+			mailboxId: decision.mailbox.mailboxId, ...input,
+		}, actions.forward) : [];
+		if (forwardedByRules.length) {
+			forwardedTo = forwardedByRules[0];
+		} else {
+			const destination = await getAccountForwardingDestination(env, input.to);
+			if (destination && await actions.forward?.(destination, { [MAILFLARE_FORWARDED_HEADER]: "1" })) forwardedTo = destination;
+		}
 	}
 
 	const rawR2Key = `inbound/${Date.now()}-${newId()}.eml`;

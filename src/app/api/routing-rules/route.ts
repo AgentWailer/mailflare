@@ -9,6 +9,8 @@ import { requireSessionUser } from "@/lib/api/auth";
 import { newId } from "@/lib/ids";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { routingRuleSchema } from "@/lib/validators";
+import { hasRuleSourceMessage } from "@/lib/email/mailbox-rule-validation";
+import { RuleForwardingError, validateRuleForwardingTarget } from "@/lib/email/rule-forwarding";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -49,12 +51,19 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}
 	const mailbox = access.mailbox;
+	if (!(await hasRuleSourceMessage(db, mailbox.id, parsed.data.sourceMessageId))) return NextResponse.json({error:"Source message not found"},{status:404});
 
 	const destination = parsed.data.destination ?? (parsed.data.folderId ? `folder:${parsed.data.folderId}` : "");
 	const systemAction = destination === "spam" || destination === "trash" ? destination : null;
 	const folderId = destination.startsWith("folder:") ? destination.slice("folder:".length) : null;
+	if (parsed.data.forwardTo) {
+		if (systemAction) return NextResponse.json({error:"forwarding_status_conflict"},{status:400});
+		try { if (parsed.data.enabled) await validateRuleForwardingTarget(env, db, mailbox, parsed.data.forwardTo); }
+		catch (error) { return NextResponse.json({error:error instanceof RuleForwardingError ? error.code : "forwarding_unavailable"},{status:error instanceof RuleForwardingError && error.code !== "forwarding_unavailable" ? 400 : 503}); }
+	}
+	if (parsed.data.action === "forward" && !parsed.data.forwardTo) return NextResponse.json({error:"forwarding_unverified"},{status:400});
 
-	if (!systemAction && !folderId && destination !== "keep" && !parsed.data.category && !parsed.data.labelIds.length && !parsed.data.skipInbox) {
+	if (!systemAction && !folderId && destination !== "keep" && !parsed.data.category && !parsed.data.labelIds.length && !parsed.data.skipInbox && !parsed.data.forwardTo) {
 		return NextResponse.json({ error: "Destination is required" }, { status: 400 });
 	}
 
@@ -81,10 +90,11 @@ export async function POST(request: Request) {
 		matchField: parsed.data.matchField,
 		matchOperator: parsed.data.matchOperator,
 		matchValue: parsed.data.matchValue.trim(),
-		action: systemAction ?? "store",
+		action: parsed.data.forwardTo ? "forward" : systemAction ?? "store",
 		mailboxId: mailbox.id,
 		folderId,
-		forwardTo: null,
+		forwardTo: parsed.data.forwardTo ?? null,
+		keepCopy: !!parsed.data.forwardTo,
 		priority: parsed.data.priority,
  enabled:parsed.data.enabled,
  conditions:JSON.stringify(parsed.data.conditions),conditionMode:parsed.data.conditionMode,

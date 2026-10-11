@@ -1,9 +1,11 @@
 "use client";
 
 import { createElement, useEffect, useState } from "react";
-import { Ban, FileCode2, Forward, Mail, MailOpen, MoreVertical, Reply, ReplyAll, Star } from "lucide-react";
+import { Ban, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Reply, ReplyAll, Star } from "lucide-react";
 import { useCompose } from "@/components/compose/compose-context";
 import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
+import { InboxRules } from "@/components/settings/inbox-rules";
+import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { getOwnAddressForMessage } from "@/app/(dashboard)/inbox/[messageId]/utils";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MessageActionMenuContent } from "@/components/messages/message-action-menu-content";
@@ -36,6 +38,10 @@ export function ThreadMessageActions({
 	const [starred, setStarred] = useState(message.starred);
 	const [moreOpen, setMoreOpen] = useState(false);
 	const [sourceOpen, setSourceOpen] = useState(false);
+	const [filterOpen, setFilterOpen] = useState(false);
+	const { selectedMailbox, mailboxes } = useSelectedMailbox();
+	const filterMailbox = selectedMailbox?.id === mailboxId ? selectedMailbox : mailboxes.find(box => box.id === mailboxId);
+	const canCreateFilter = message.direction === "inbound" && !!mailboxId && filterMailbox?.permission === "full_access";
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const canReplyAll = hasAdditionalRecipients(message, ownAddresses);
@@ -197,6 +203,9 @@ export function ThreadMessageActions({
 					<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => { setMoreOpen(false); setSourceOpen(true); }}>
 						<FileCode2 className="h-4 w-4" /> {t("message.showOriginal")}
 					</DropdownMenu.Item>
+					{canCreateFilter && <DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => { setMoreOpen(false); setFilterOpen(true); }}>
+						<ListFilter className="h-4 w-4" /> {t("rules.filterSimilar")}
+					</DropdownMenu.Item>}
 					<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
 					<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100" onSelect={() => void onMessageAction(message.read ? "unread" : "read")}>
 						{message.read ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
@@ -218,6 +227,7 @@ export function ThreadMessageActions({
 				</MessageActionMenuContent>
 			</DropdownMenu.Root>
 			<MessageSourceDialog messageId={message.id} open={sourceOpen} onOpenChange={setSourceOpen} />
+			{filterOpen && mailboxId && <InboxRules sourceMessage={{id:message.id,mailboxId,fromAddr:message.fromAddr,subject:message.subject}} onClose={()=>setFilterOpen(false)} />}
 				</>
 			)}
 		</div>

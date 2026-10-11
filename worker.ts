@@ -22,6 +22,7 @@ import { processAgentDraftJob } from "./src/lib/agent/jobs/utils";
 import { runAgentMaintenance } from "./src/lib/agent/maintenance";
 import { runTrashRetention } from "./src/lib/email/trash-retention";
 import { runDriveTrashRetention } from "./src/lib/drive/retention";
+import { forwardMatchingMailboxRules } from "./src/lib/email/rule-forwarding";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
@@ -80,9 +81,13 @@ export default {
 			}
 
 			if (message.headers.get(MAILFLARE_FORWARDED_HEADER) !== "1") {
-				const forwardingDestination = await getAccountForwardingDestination(env, message.to);
-				if (forwardingDestination) {
-					await forwardMessage(message, forwardingDestination);
+				const forwardedByRules = decision?.mailbox ? await forwardMatchingMailboxRules(env, {
+					mailboxId: decision.mailbox.mailboxId, from: message.from, to: message.to, raw,
+					headers: Object.fromEntries(message.headers),
+				}, destination => forwardMessage(message, destination)) : [];
+				if (!forwardedByRules.length) {
+					const forwardingDestination = await getAccountForwardingDestination(env, message.to);
+					if (forwardingDestination) await forwardMessage(message, forwardingDestination);
 				}
 			}
 			const rawR2Key = await storeRawToR2(env, message.from, message.to, raw);

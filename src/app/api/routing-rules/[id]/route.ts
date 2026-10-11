@@ -9,6 +9,8 @@ import { getEnv } from "@/lib/cloudflare";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { routingRuleSchema } from "@/lib/validators";
 import type { RoutingRuleRouteParams } from "./types";
+import { hasRuleSourceMessage } from "@/lib/email/mailbox-rule-validation";
+import { RuleForwardingError, validateRuleForwardingTarget } from "@/lib/email/rule-forwarding";
 
 export async function PATCH(request: Request, { params }: RoutingRuleRouteParams) {
 	const { id } = await params;
@@ -23,18 +25,25 @@ export async function PATCH(request: Request, { params }: RoutingRuleRouteParams
 
 	const db = getDb(env);
 	const [rule] = await db.select().from(routingRules).where(eq(routingRules.id, id)).limit(1);
-	if (!rule?.mailboxId || rule.mailboxId !== parsed.data.mailboxId) {
+	if (rule?.scope !== "mailbox" || !rule.mailboxId || rule.mailboxId !== parsed.data.mailboxId) {
 		return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 	}
 	const access = await getMailboxAccessLevel(db, user, rule.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 	}
+	if (!(await hasRuleSourceMessage(db, rule.mailboxId, parsed.data.sourceMessageId))) return NextResponse.json({error:"Source message not found"},{status:404});
 
 	const destination = parsed.data.destination ?? (parsed.data.folderId ? `folder:${parsed.data.folderId}` : "");
 	const systemAction = destination === "spam" || destination === "trash" ? destination : null;
 	const folderId = destination.startsWith("folder:") ? destination.slice("folder:".length) : null;
-	if (!systemAction && !folderId && destination !== "keep" && !parsed.data.category && !parsed.data.labelIds.length && !parsed.data.skipInbox) {
+	if (parsed.data.forwardTo) {
+		if (systemAction) return NextResponse.json({error:"forwarding_status_conflict"},{status:400});
+		try { if (parsed.data.enabled) await validateRuleForwardingTarget(env, db, access.mailbox, parsed.data.forwardTo); }
+		catch (error) { return NextResponse.json({error:error instanceof RuleForwardingError ? error.code : "forwarding_unavailable"},{status:error instanceof RuleForwardingError && error.code !== "forwarding_unavailable" ? 400 : 503}); }
+	}
+	if (parsed.data.action === "forward" && !parsed.data.forwardTo) return NextResponse.json({error:"forwarding_unverified"},{status:400});
+	if (!systemAction && !folderId && destination !== "keep" && !parsed.data.category && !parsed.data.labelIds.length && !parsed.data.skipInbox && !parsed.data.forwardTo) {
 		return NextResponse.json({ error: "Destination is required" }, { status: 400 });
 	}
 	if (folderId) {
@@ -57,9 +66,10 @@ export async function PATCH(request: Request, { params }: RoutingRuleRouteParams
 			matchField: parsed.data.matchField,
 			matchOperator: parsed.data.matchOperator,
 			matchValue: parsed.data.matchValue.trim(),
-			action: systemAction ?? "store",
+			action: parsed.data.forwardTo ? "forward" : systemAction ?? "store",
 			folderId,
-			forwardTo: null,
+			forwardTo: parsed.data.forwardTo ?? null,
+			keepCopy: !!parsed.data.forwardTo,
 			priority: parsed.data.priority,
  enabled:parsed.data.enabled,
  conditions:JSON.stringify(parsed.data.conditions),conditionMode:parsed.data.conditionMode,
@@ -78,7 +88,7 @@ export async function DELETE(request: Request, { params }: RoutingRuleRouteParam
  if(error)return error;
 	const db = getDb(env);
 	const [rule] = await db.select().from(routingRules).where(eq(routingRules.id, id)).limit(1);
-	if (!rule?.mailboxId) {
+	if (rule?.scope !== "mailbox" || !rule.mailboxId) {
 		return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 	}
 	const access = await getMailboxAccessLevel(db, user, rule.mailboxId);

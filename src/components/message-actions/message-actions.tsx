@@ -2,12 +2,14 @@
 
 import { createElement, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Ban, BellOff, Clock, FileCode2, Forward, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
+import { Archive, Ban, BellOff, Clock, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MessageActionMenuContent } from "@/components/messages/message-action-menu-content";
 import { useLanguage } from "@/components/language-provider";
 import { useCompose } from "@/components/compose/compose-context";
 import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
+import { InboxRules } from "@/components/settings/inbox-rules";
+import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { MessageSnoozeDialog } from "./message-snooze-dialog";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { useHotkeys, useShortcuts } from "@/components/shortcuts";
@@ -60,6 +62,10 @@ export function MessageActions({
 	const [moreOpen, setMoreOpen] = useState(false);
 	const [sourceOpen, setSourceOpen] = useState(false);
 	const [snoozeOpen, setSnoozeOpen] = useState(false);
+	const [filterOpen, setFilterOpen] = useState(false);
+	const { selectedMailbox, mailboxes } = useSelectedMailbox();
+	const filterMailbox = selectedMailbox?.id === mailboxId ? selectedMailbox : mailboxes.find(box => box.id === mailboxId);
+	const canCreateFilter = direction === "inbound" && !!mailboxId && filterMailbox?.permission === "full_access";
 
 	const runAction = useCallback(async (action: BulkMessageAction) => {
 		setMoreOpen(false);
@@ -454,6 +460,9 @@ export function MessageActions({
 							<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
 						</>
 					)}
+					{canCreateFilter && <DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100" onSelect={() => { setMoreOpen(false); setFilterOpen(true); }}>
+						<ListFilter className="h-4 w-4" /> {t("rules.filterSimilar")}
+					</DropdownMenu.Item>}
 					<DropdownMenu.Item
 						className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
 						onSelect={() => { setMoreOpen(false); setSourceOpen(true); }}
@@ -481,6 +490,7 @@ export function MessageActions({
 
 			<MessageSourceDialog messageId={messageId} open={sourceOpen} onOpenChange={setSourceOpen} />
 			<MessageSnoozeDialog messageId={messageId} open={snoozeOpen} onOpenChange={setSnoozeOpen} />
+			{filterOpen && mailboxId && <InboxRules sourceMessage={{id:messageId,mailboxId,fromAddr:senderAddress,subject:subject ?? messageMeta?.subject}} onClose={()=>setFilterOpen(false)} />}
 
 			<span className="flex-1" />
 		</div>

@@ -297,11 +297,18 @@ export async function resolveInboxRuleDestination(
 		)
 		.orderBy(desc(routingRules.priority), asc(routingRules.createdAt));
 
+	const combinedLabels = new Set<string>();
+	let category: MailCategory | undefined;
+	let folderId: string | null = null;
+	let skipInbox = false;
+	let systemStatus: "spam" | "trash" | undefined;
+	let matched = false;
 	for (const rule of rules) {
 		if (!matchesRule(rule, input)) continue;
 
 		if (rule.action === "spam" || rule.action === "trash") {
-			return { status: rule.action, folderId: null, matched: true };
+			systemStatus ??= rule.action;
+			matched = true;
 		}
 
 		let requested: string[] = [];
@@ -316,19 +323,22 @@ export async function resolveInboxRuleDestination(
 		const labelIds = await validLabelIds(db, input.mailboxId, [
 			...new Set(requested),
 		]);
-		const category = isMailCategory(rule.category) ? rule.category : undefined;
-		if (!labelIds.length && !category && !rule.skipInbox) continue;
-		return {
-			status: rule.skipInbox && !rule.folderId ? "archived" : "received",
-			folderId: rule.folderId
-				? await getRuleFolderId(db, rule.folderId, input.mailboxId)
-				: null,
-			labelIds,
-			category,
-			matched: true,
-		};
+		const ruleCategory = isMailCategory(rule.category) ? rule.category : undefined;
+		if (!labelIds.length && !ruleCategory && !rule.skipInbox && rule.action !== "forward") continue;
+		matched = true;
+		for (const id of labelIds) combinedLabels.add(id);
+		category ??= ruleCategory;
+		if (!folderId && rule.folderId) folderId = await getRuleFolderId(db, rule.folderId, input.mailboxId);
+		skipInbox ||= rule.skipInbox;
 	}
 
+	if (matched) return {
+		status: systemStatus ?? (skipInbox && !folderId ? "archived" : "received"),
+		folderId: systemStatus ? null : folderId,
+		labelIds: [...combinedLabels],
+		category,
+		matched: true,
+	};
 	return { status: "received", folderId: null };
 }
 
