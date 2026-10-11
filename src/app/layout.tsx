@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { ForkSource } from "@/components/fork-source";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
@@ -8,7 +9,7 @@ import { sidebarBootstrapScript } from "@/components/sidebar-state-utils";
 import { themeBootstrapScript } from "@/components/theme-utils";
 import "./globals.css";
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
 	title: "Mailflare",
 	description: "Multi-tenant email on Cloudflare",
 	icons: { icon: "/api/branding/icon", apple: "/icon-192.png" },
@@ -33,6 +34,11 @@ export const metadata: Metadata = {
 	},
 };
 
+export async function generateMetadata(): Promise<Metadata> {
+	const dark = (await cookies()).get("mailflare-theme-color")?.value === "dark";
+	return { ...metadata, appleWebApp: { capable: true, title: "Mailflare", statusBarStyle: dark ? "black-translucent" : "default" } };
+}
+
 export const viewport: Viewport = {
 	width: "device-width",
 	initialScale: 1,
@@ -43,8 +49,9 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
 	const locale = await getRequestLocale();
 	const messages = locale === DEFAULT_LOCALE ? undefined : await loadServerMessages(locale);
+	const dark = (await cookies()).get("mailflare-theme-color")?.value === "dark";
 	return (
-		<html lang={locale} dir={getDirection(locale)} suppressHydrationWarning>
+		<html lang={locale} dir={getDirection(locale)} className={dark ? "dark" : "light"} style={{ colorScheme: dark ? "dark" : "light", backgroundColor: dark ? "#202124" : "#f6f8fc" }} suppressHydrationWarning>
 			<head>
 				<script dangerouslySetInnerHTML={{ __html: sidebarBootstrapScript }} />
 				<script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />

@@ -2046,5 +2046,7 @@
 	"labels.hierarchyDescription": "Haupt- und Unterlabels lassen sich hier zuordnen. Beim Löschen eines Hauptlabels bleiben seine Unterlabels erhalten.",
 	"labels.new": "Neues Label",
 	"labels.create": "Label erstellen",
-	"labels.duplicate": "Ein Label mit diesem Namen existiert bereits. Wähle es aus oder verwende einen anderen Namen."
+	"labels.duplicate": "Ein Label mit diesem Namen existiert bereits. Wähle es aus oder verwende einen anderen Namen.",
+	"message.originalColors": "Originalfarben",
+	"message.adaptColors": "Dunkel anpassen"
 }

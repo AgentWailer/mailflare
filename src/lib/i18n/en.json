@@ -2160,5 +2160,7 @@
 	"labels.hierarchyDescription": "Assign parent labels here. Deleting a parent keeps its sublabels.",
 	"labels.new": "New label",
 	"labels.create": "Create label",
-	"labels.duplicate": "A label with this name already exists. Select it or use another name."
+	"labels.duplicate": "A label with this name already exists. Select it or use another name.",
+	"message.originalColors": "Original colors",
+	"message.adaptColors": "Adapt to dark mode"
 }

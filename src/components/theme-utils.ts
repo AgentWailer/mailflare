@@ -7,6 +7,9 @@ export const THEME_CHANGED_EVENT = "mailflare:theme-changed";
 // iOS may apply the Apple status-bar style only when the app starts again.
 function syncThemeChrome(dark: boolean): void {
 	document.documentElement.style.colorScheme = dark ? "dark" : "light";
+	document.documentElement.style.backgroundColor = dark ? "#202124" : "#f6f8fc";
+	// Persist the resolved color for the next native iOS app launch, before client JS runs.
+	try { document.cookie = `mailflare-theme-color=${dark ? "dark" : "light"}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`; } catch { /* Private browsing can reject cookies. */ }
 	for (const [name, content] of [
 		["theme-color", dark ? "#202124" : "#f6f8fc"],
 		["apple-mobile-web-app-status-bar-style", dark ? "black-translucent" : "default"],

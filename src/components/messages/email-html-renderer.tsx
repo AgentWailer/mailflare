@@ -4,6 +4,7 @@ import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
 import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
+import { createEmailTheme } from "./email-theme";
 
 const BASE_STYLE = `
 :host { display:block; min-width:0; isolation:isolate; contain:paint; }
@@ -12,6 +13,7 @@ const BASE_STYLE = `
 .email-quote-toggle > summary::-webkit-details-marker { display:none; }
 .email-quote-toggle > summary::before { content:'•••'; }
 .email-quote-content { display:flow-root; }
+@media (max-width:1023px), (hover:none) and (pointer:coarse) { .email-quote-toggle > summary { width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; } }
 `;
 
 export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = false }: {
@@ -21,7 +23,9 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 	const host = useRef<HTMLDivElement>(null);
 	const [allowedSource, setAllowedSource] = useState<string | null>(null);
 	const [hasRemote, setHasRemote] = useState(false);
+	const [originalColorsSource, setOriginalColorsSource] = useState<string | null>(null);
 	const allowRemote = allowedSource === html;
+	const originalColors = originalColorsSource === html;
 	useEffect(() => {
 		if (!host.current) return;
 		host.current.dir = document.documentElement.dir || "ltr";
@@ -52,13 +56,26 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		root.addEventListener("click", navigate);
 		return () => root.removeEventListener("click", navigate);
 	}, [html, allowRemote, preserveLeadingQuote]);
+	useEffect(() => {
+		const root = host.current?.shadowRoot;
+		if (!root) return;
+		const theme = createEmailTheme(root);
+		const synchronize = () => theme.setDark(!originalColors && document.documentElement.classList.contains("dark"));
+		const observer = new MutationObserver(synchronize);
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+		synchronize();
+		return () => { observer.disconnect(); theme.restore(); };
+	}, [html, allowRemote, preserveLeadingQuote, originalColors]);
 	return <div className={`min-w-0 max-w-full ${className ?? ""}`}>
-		{hasRemote && <div className="mb-2 flex justify-end">
-			<button type="button" aria-pressed={allowRemote} className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+		<div className="mb-2 flex flex-wrap justify-end gap-2">
+			<button type="button" aria-pressed={originalColors} className="email-presentation-action hidden items-center rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:inline-flex" onClick={() => setOriginalColorsSource(originalColors ? null : html)}>{t(originalColors ? "message.adaptColors" : "message.originalColors")}</button>
+			{hasRemote &&
+			<button type="button" aria-pressed={allowRemote} className="email-presentation-action rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
 				onClick={() => setAllowedSource(allowRemote ? null : html)}>
 				{allowRemote ? t("message.blockRemote") : t("message.allowRemote")}
 			</button>
-		</div>}
+			}
+		</div>
 		<div className="max-w-full overflow-x-auto" ref={host} />
 	</div>;
 }

@@ -64,6 +64,59 @@ node tests/browser/reading-pane.mjs
 node tests/browser/message-action-menus.mjs
 ```
 
+## Dark message presentation and footer removal (2026-10-11)
+
+HTML message colors now follow the selected app theme inside the existing sanitized
+shadow renderer. Bright surfaces become dark, neutral text becomes light, links
+retain a readable color, and borders remain visible. Already dark surfaces and
+saturated buttons are preserved when suitable. Text contrast is checked against
+the effective background; a red button with black text stays readable. Pure CSS
+gradients are normalized, while photos and remote background images are not
+inverted. Transparent logos retain their original canvas. Images containing baked-in
+text remain images. Unusual sender designs can use the per-message Original colors
+control. This changes presentation only, without AI requests or stored-mail changes.
+
+Theme toggles preserve the current shadow tree, expanded quotes and remote-content
+permission. Returning to light mode restores the original inline style attributes
+exactly. Transparent text remains transparent. Original-color and remote-content
+controls, plus quote expanders, have 44 px touch targets on small/coarse screens.
+
+The persistent source/license footer is hidden in application views. The full source
+offer is available in the profile menu and remains visible on public/authentication
+pages. Compose popups no longer have an internal source footer; readers use the full
+viewport, the floating compose button retains its bottom touch gap, and safe-area
+padding remains. This supersedes the earlier internal-footer layout described above.
+
+Theme changes also persist a non-secret resolved-color cookie. Server-rendered HTML
+and Apple status-bar metadata use that value before client JavaScript runs on the
+next app launch. Local production-preview requests with light and dark cookies both
+returned 200 and the correct initial HTML class and Apple metadata. iOS may keep the
+previous native status-bar style until the Home Screen app fully restarts; dynamic
+metadata alone does not guarantee a live native color change.
+
+The production build and focused ESLint checks passed. The same 17 pre-existing
+TypeScript diagnostics remain. All 33 selected sanitizer, refine-editor and compose
+network tests passed. The new Chromium theme script passed at 320, 390, 768, 820 and
+1440 px, including repeated light/dark/original-color toggles, contrast, important
+sender styles, legacy table backgrounds, image preservation, exact restoration,
+quote state, remote permissions and switching messages. The full reading-pane script
+passed again with eight compose layouts, five actual reply flows, eight reader/list
+layouts and three refresh scenarios. It verifies that the footer is hidden, the
+source offer is reachable in the profile menu, and Send/AI remain reachable.
+
+Firefox/WebKit remain unrun: their binaries are absent, and the required download
+hosts are still absent from the running network policy. Both host additions are
+confirmed saved in the environment configuration draft. Reusable QA startup
+instructions were also saved. Saving the draft does not apply/publish it. The user
+must save/apply and publish the environment changes before the blocked browser
+installation can be retried. Native iPhone/iPad verification remains outstanding.
+
+```sh
+node --test tests/email-html.test.mjs tests/refine-editor.test.mjs tests/compose-network-errors.test.mjs
+node tests/browser/email-theme.mjs
+node tests/browser/reading-pane.mjs
+```
+
 Viewport emulation and synthetic `visualViewport` events do not reproduce native
 iOS keyboard or Home Screen status-bar behavior. On iOS, changing status-bar metadata
 may take effect only after closing and reopening the installed app. A physical

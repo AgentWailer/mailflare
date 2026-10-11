@@ -39,6 +39,7 @@ html, body {
 
 @media (max-width: 1023px), (hover: none) and (pointer: coarse) {
 	:is(.label-group-toggle, .label-actions-trigger) { min-width: 44px; min-height: 44px; }
+	.email-presentation-action { min-height: 44px; }
 	/* Keep iOS from zooming the page whenever an editable field receives focus. */
 	input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select, [contenteditable="true"] {
 		font-size: 16px;
@@ -57,12 +58,8 @@ html, body {
 	}
 
 	.compose-touch-backdrop { display: block; overscroll-behavior: none; touch-action: none; }
-	.compose-source-offer { display: block; }
-	.fork-source[inert] { visibility: hidden; }
-	.compose-source-offer .fork-source,
-	body:has(.mail-mobile-shell) .compose-source-offer .fork-source { position: static; height: auto; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--background); }
 	.compose-popup .compose-header { padding-top: env(safe-area-inset-top); }
-	.compose-minimized { bottom: calc(var(--mail-source-footer-height, 0px) + env(safe-area-inset-bottom, 0px)); }
+	.compose-minimized { bottom: env(safe-area-inset-bottom, 0px); }
 	.compose-page-container { padding: 8px; overflow: hidden; }
 	.compose-page-title { display: none; }
 	.compose-page { min-height: 0; max-height: var(--compose-viewport-height, 100%); }
@@ -510,35 +507,22 @@ button {
 .dark .hover\:bg-\[\#e6ecf6\]:hover { background-color: #3c4043; }
 /* Soft shadows turn dark */
 .dark .shadow-neutral-200, .dark .shadow-neutral-300 { --tw-shadow-color: rgb(0 0 0 / 0.6); }
-/* HTML emails assume a white background: keep them on light "paper" inside the dark theme */
-.dark .email-body {
-	color-scheme: light;
-	/* background: #fff; */
-	/* color: #202124; */
-	border-radius: 0.75rem;
-	padding: 1rem;
-}
+/* The source offer is reachable through the profile menu without a persistent app footer. */
+body:has(.mail-mobile-shell, [data-app-profile]) .fork-source { display: none; }
 
 /* On phones the settings/admin body is already white and padded, so white cards drop their own side padding to line up with the page header. */
 @media (max-width: 1023px) {
-	/* The source footer must fit inside the viewport rather than scrolling the entire app. */
-	body:has(.mail-mobile-shell) { --mail-source-footer-height: 32px; height: 100dvh; overflow: hidden; }
+	body:has(.mail-mobile-shell) { height: 100dvh; overflow: hidden; }
 	.mail-mobile-shell {
 		position: fixed;
 		top: 0;
 		left: 0;
 		width: 100%;
-		height: calc(100dvh - var(--mail-source-footer-height) - env(safe-area-inset-bottom, 0px));
+		height: 100dvh;
 		padding-top: env(safe-area-inset-top, 0px);
 		padding-left: env(safe-area-inset-left, 0px);
 		padding-right: env(safe-area-inset-right, 0px);
-	}
-	body:has(.mail-mobile-shell) .fork-source {
-		position: fixed;
-		inset: auto 0 0;
-		height: calc(var(--mail-source-footer-height) + env(safe-area-inset-bottom, 0px));
-		padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-		background: var(--background);
+		padding-bottom: env(safe-area-inset-bottom, 0px);
 	}
 }
 @media (max-width: 767px) {
@@ -555,7 +539,7 @@ button {
 	.mail-mobile-main { border-radius: 0; }
 	.mail-mobile-header [role="search"] { background-color: transparent; }
 	.mail-mobile-list-toolbar { height: 44px; border-bottom: 0; }
-	.mail-mobile-list-scroll { padding-bottom: calc(var(--mail-source-footer-height) + 5rem + env(safe-area-inset-bottom, 0px)); }
+	.mail-mobile-list-scroll { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
 	.dark .mail-mobile-shell,
 	.dark .mail-mobile-main,
 	.dark .mail-mobile-list { background-color: #101112; }

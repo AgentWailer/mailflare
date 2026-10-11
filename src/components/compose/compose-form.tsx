@@ -20,7 +20,6 @@ import { RecipientInput } from "./recipient-input";
 import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleSendMenu } from "./schedule-send-menu";
-import { ForkSource } from "@/components/fork-source";
 import { useComposeScrollLock } from "./use-compose-scroll-lock";
 import { useComposeViewport } from "./use-compose-viewport";
 import {
@@ -733,7 +732,6 @@ export function ComposeForm({
 						</>
 					}
 				/>
-				{mode === "popup" && <div className="compose-source-offer hidden shrink-0"><ForkSource /></div>}
 				</div>
 			</form>
 		</>
