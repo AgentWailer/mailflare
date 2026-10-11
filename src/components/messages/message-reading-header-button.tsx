@@ -22,7 +22,13 @@ export function MessageReadingHeaderButton({ assistantVisible }: MessageReadingH
 	}
 
 	return (
-		<Tooltip label={label} className={singleColumn ? "inline-flex" : "hidden lg:inline-flex"}>
+		<>
+		<Tooltip label={t("message.nav.backTo", { folder: backLabel })} className="inline-flex lg:hidden">
+			<button type="button" data-message-back onClick={() => router.push(backHref)} aria-label={t("message.nav.backTo", { folder: backLabel })} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100">
+				<ArrowLeft size={20} />
+			</button>
+		</Tooltip>
+		<Tooltip label={label} className="hidden lg:inline-flex">
 			<button
 				type="button"
 				className={clsx(!singleColumn && assistantVisible ? "opacity-40" : !singleColumn && !visible ? "opacity-60 hover:opacity-100" : "", (singleColumn || !assistantVisible) && "hover:bg-neutral-100 hover:text-neutral-900", "relative z-10 shrink-0 rounded-full p-2 text-neutral-600 duration-200")}
@@ -34,5 +40,6 @@ export function MessageReadingHeaderButton({ assistantVisible }: MessageReadingH
 				{singleColumn ? <ArrowLeft size={18} /> : <Columns2 size={18} />}
 			</button>
 		</Tooltip>
+		</>
 	);
 }

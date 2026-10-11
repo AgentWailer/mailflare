@@ -23,6 +23,7 @@ import { PreviousMessage } from "@/components/previous-message";
 import { ConversationThread } from "@/components/messages/conversation-thread";
 import { MessageDetailNavigation } from "@/components/messages/message-detail-navigation";
 import { MessageReadingHeaderButton } from "@/components/messages/message-reading-header-button";
+import { MessageReaderToolbar } from "@/components/messages/message-reader-toolbar";
 import { ScheduledSendBanner } from "@/components/messages/scheduled-send-banner";
 import { formatScheduledSendTime } from "@/components/messages/scheduled-send-utils";
 import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
@@ -104,14 +105,17 @@ export default function MessageDetailPage() {
   }, [messageId]);
 
   if (loading) {
-    return <MessageDetailSkeleton />;
+    return <><MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantVisible} /></MessageReaderToolbar><div className="min-h-0 flex-1 overflow-y-auto"><MessageDetailSkeleton /></div></>;
   }
 
   if (!data?.message) {
     return (
+      <>
+      <MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantVisible} /></MessageReaderToolbar>
       <p className="px-6 py-4 text-sm text-neutral-500">
         {data?.error ?? t("message.notFound")}
       </p>
+      </>
     );
   }
 
@@ -156,7 +160,7 @@ export default function MessageDetailPage() {
   );
   return (<>
 
-    <div className={clsx("flex py-2 h-12 items-center px-2 border-b sticky top-0 bg-white z-40 gap-3", scrolled ? "border-neutral-200" : "border-transparent")}>
+    <MessageReaderToolbar scrolled={scrolled}>
       <MessageReadingHeaderButton assistantVisible={assistantVisible} />
       {/* <div className="min-w-0 flex-1" /> */}
       {/* <div className="flex items-center flex-row gap-6">
@@ -184,9 +188,9 @@ export default function MessageDetailPage() {
         bodyHtml={body?.htmlBody}
       />
       <MessageDetailNavigation messageId={message.id} unread={message.direction === "inbound" && !message.read} />
-    </div>
+    </MessageReaderToolbar>
 
-    <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
+    <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
       {!message.read && <MarkAsRead messageId={message.id} />}
 
       <h1 className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "pl-4 pr-6 pb-2 pt-2 text-2xl text-neutral-900")} title={message.subject ?? t("list.noSubject")}>

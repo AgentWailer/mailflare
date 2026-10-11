@@ -53,6 +53,7 @@ export function MessageActions({
 	const { t } = useLanguage();
 	const router = useRouter();
 	const isMobile = useIsMobile();
+	const iconSize = isMobile ? 20 : 16;
 	const { openDraftComposer } = useCompose();
 	const { shortcutsEnabled } = useShortcuts();
 	const [pendingAction, setPendingAction] = useState<
@@ -259,7 +260,7 @@ export function MessageActions({
 	const moveActions = getMoveMessageActions(status, direction);
 
 	return (
-		<div className="flex flex-wrap items-center gap-3 text-neutral-600 flex-1 min-w-0">
+		<div className="flex flex-wrap items-center gap-3 text-neutral-600 flex-1 min-w-0 max-md:flex-nowrap max-md:justify-end max-md:gap-1">
 			{error && <span className="text-xs text-red-600">{error}</span>}
 
 			{isMobile && (
@@ -268,16 +269,18 @@ export function MessageActions({
 						type="button"
 						variant="ghost"
 						size="roundedSM"
-						aria-label={t("message.reply")}
-						disabled={disabled}
-						onClick={() => handleReply("reply")}
+						className="h-11 w-11"
+						aria-label={t("common.archive")}
+						disabled={disabled || status === "archived"}
+						onClick={() => runAction("archive")}
 					>
-						<Reply size={iconSize} />
+						<Archive size={iconSize} />
 					</Button>
 					<Button
 						variant="ghost"
 						size="roundedSM"
 						aria-label={trashLabel}
+						className="h-11 w-11"
 						disabled={disabled}
 						onClick={onTrashClick}
 					>
@@ -286,11 +289,12 @@ export function MessageActions({
 					<Button
 						variant="ghost"
 						size="roundedSM"
-						aria-label={t("common.reportSpam")}
-						disabled={disabled || status === "spam" || direction !== "inbound"}
-						onClick={() => runAction("spam")}
+						className="h-11 w-11"
+						aria-label={read ? t("common.markUnread") : t("common.markRead")}
+						disabled={disabled}
+						onClick={() => runAction(markAction)}
 					>
-						<ShieldAlert size={iconSize} />
+						{read ? <Mail size={iconSize} /> : <MailOpen size={iconSize} />}
 					</Button>
 				</>
 			)}
@@ -408,6 +412,12 @@ export function MessageActions({
 				<MessageActionMenuContent>
 					{isMobile && (
 						<>
+							<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100" onSelect={() => { setMoreOpen(false); void handleReply("reply"); }}>
+								<Reply className="h-4 w-4" /> {t("message.reply")}
+							</DropdownMenu.Item>
+							<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100" disabled={status === "spam" || direction !== "inbound"} onSelect={() => void runAction("spam")}>
+								<ShieldAlert className="h-4 w-4" /> {t("common.reportSpam")}
+							</DropdownMenu.Item>
 							<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" disabled={status === "archived"} onSelect={() => void runAction("archive")}>
 								<Archive className="h-4 w-4" />
 								{t("common.archive")}
@@ -492,10 +502,7 @@ export function MessageActions({
 			<MessageSnoozeDialog messageId={messageId} open={snoozeOpen} onOpenChange={setSnoozeOpen} />
 			{filterOpen && mailboxId && <InboxRules sourceMessage={{id:messageId,mailboxId,fromAddr:senderAddress,subject:subject ?? messageMeta?.subject}} onClose={()=>setFilterOpen(false)} />}
 
-			<span className="flex-1" />
+			<span className="flex-1 max-md:hidden" />
 		</div>
 	);
 }
-
-
-const iconSize = 16;
