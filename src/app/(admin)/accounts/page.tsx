@@ -18,6 +18,7 @@ import { List, ListRow } from "@/components/ui/list";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { defaultTranslator } from "@/lib/i18n/utils";
 import { AccountAliases } from "./account-aliases";
+import { AccountStatus } from "@/components/accounts/account-status";
 import type { Account, AccountAliasDraft, AccountResponse, Domain } from "./types";
 
 async function fetchAccounts(): Promise<AccountResponse> {
@@ -98,13 +99,13 @@ export default function AccountsPage() {
 
 	return <div className="space-y-6">
 		<div className="flex items-center justify-between gap-4"><div><h1 className="text-2xl md:text-3xl font-medium text-neutral-900">{t("accounts.title")}</h1><p className="mt-2 text-sm text-neutral-500">{t("accounts.description")}</p>{seats && seats.limit !== null && <p className={`mt-1 text-sm ${seatsFull ? "text-amber-700" : "text-neutral-500"}`}>{t("accounts.seatsUsed", { used: seats.used, limit: seats.limit })}{seatsFull ? ` ${t("accounts.seatsFull")}` : ""}</p>}</div>{!teamRequired && canManage && <Button disabled={seatsFull} className={mobilePrimaryActionClass} onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />{t("accounts.new")}</Button>}</div>
-		<div className="relative">{teamRequired && <LicenseRequiredOverlay required="Pro or Team"><div className="min-h-48 rounded-3xl bg-white" /></LicenseRequiredOverlay>}<List>
+		<div className="relative">{teamRequired && <LicenseRequiredOverlay required="Pro or Team"><div className="min-h-48 rounded-3xl bg-white" /></LicenseRequiredOverlay>}<List className="min-w-0 grid-cols-1">
 			{loading && <p className="text-sm text-neutral-500">{t("common.loading")}</p>}
 			{accounts.map((account) => {
 				const locked = !currentUser?.isPrimaryAdmin && account.role === "admin" && account.id !== currentUser?.id;
 				const row = <>
 					<span style={getAvatarColorStyle(account.email)} className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold duration-200">{account.name.charAt(0).toUpperCase()}{account.hasAvatar && <ProgressiveAvatarImage src={`/api/accounts/${account.id}/avatar`} alt="" className="absolute inset-0 h-full w-full object-cover" />}</span>
-					<span className="min-w-0"><span className="flex items-center gap-2"><span className="truncate font-semibold text-neutral-900">{account.name}</span><span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${account.isPrimaryAdmin ? "bg-amber-100 text-amber-800" : "bg-neutral-100 text-neutral-600"}`}>{account.isPrimaryAdmin ? t("accounts.primaryAdmin") : t(account.role === "admin" ? "accounts.role.admin" : "accounts.role.user")}</span></span><span className="block truncate text-sm text-neutral-500">{account.email}</span></span>
+					<span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="min-w-0 max-w-full truncate font-semibold text-neutral-900">{account.name}</span><span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${account.isPrimaryAdmin ? "bg-amber-100 text-amber-800" : "bg-neutral-100 text-neutral-600"}`}>{account.isPrimaryAdmin ? t("accounts.primaryAdmin") : t(account.role === "admin" ? "accounts.role.admin" : "accounts.role.user")}</span><AccountStatus disabled={account.disabled} /></span><span className="mt-1 block truncate text-sm text-neutral-500">{account.email}</span></span>
 				</>;
 				if (locked) {
 					return <ListRow key={account.id} aria-disabled="true" title={t("accounts.lockedAdmin")} className="cursor-not-allowed opacity-50">{row}</ListRow>;

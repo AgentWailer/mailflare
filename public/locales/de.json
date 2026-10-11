@@ -1974,5 +1974,21 @@
 	"smart.reasonBulkReview": "Aus dem Posteingang aussortiert: unklare Werbung oder Spam. Zur Prüfung unter Werbung abgelegt.",
 	"smart.learningCount": "Bis zu {count} bestätigte Beispiele stehen für die nächste KI-Entscheidung bereit.",
 	"smart.clearLearning": "Lernbeispiele zurücksetzen",
-	"smart.clearLearningConfirm": "Lernbeispiele dieses Postfachs löschen? E-Mails und ausdrücklich gemerkte Absender-Regeln bleiben erhalten."
+	"smart.clearLearningConfirm": "Lernbeispiele dieses Postfachs löschen? E-Mails und ausdrücklich gemerkte Absender-Regeln bleiben erhalten.",
+	"accounts.status.enabled": "Aktiviert",
+	"accounts.status.disabled": "Deaktiviert",
+	"account.delete.title": "Konto löschen",
+	"account.delete.button": "Konto endgültig löschen",
+	"account.delete.summary": "Entfernen Sie dieses Benutzerkonto. Seine Postfächer und Dateien bleiben beim Hauptadministrator erhalten.",
+	"account.delete.confirmTitle": "Dieses Konto endgültig löschen?",
+	"account.delete.for": "Konto: {email}",
+	"account.delete.keepAssets": "Postfächer, E-Mails, Anhänge, Labels, Routing-Regeln, Domains und Drive-Dateien werden dem Hauptadministrator übertragen.",
+	"account.delete.removePrivateData": "Persönliche Kontakte, Kalendereinträge, Buchungsseiten, Vorlagen, KI-Chats und Kontoeinstellungen werden endgültig gelöscht.",
+	"account.delete.revokeAccess": "Sitzungen, API-Schlüssel, Benachrichtigungen und Zugriffsrechte dieses Kontos werden widerrufen. Geplante Sendungen und von diesem Konto geprüfte automatische Entwürfe werden gestoppt. Öffentliche Links zu seinen Drive-Dateien werden deaktiviert.",
+	"account.delete.confirmEmail": "Zur Bestätigung die E-Mail-Adresse des Kontos eingeben",
+	"account.delete.deleting": "Wird gelöscht…",
+	"account.delete.done": "Konto gelöscht. Postfächer und Dateien wurden erhalten.",
+	"account.delete.failed": "Das Konto konnte nicht gelöscht werden.",
+	"account.delete.cleanupPending": "Konto gelöscht. Die Bereinigung von Profilbildern steht noch aus; siehe Administrationsprotokoll.",
+	"account.delete.primaryProtected": "Der Hauptadministrator kann nicht gelöscht werden. Übertragen Sie diese Rolle zuerst auf ein anderes aktiviertes Konto."
 }

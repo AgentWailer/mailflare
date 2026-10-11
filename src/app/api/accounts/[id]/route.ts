@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { updateManagedAccountSchema } from "@/lib/validators";
@@ -10,6 +10,8 @@ import { canManageUsers, isPrimaryAdmin } from "@/lib/auth/admin";
 import type { AccountRouteParams } from "./types";
 import { selectAccountById, updateAccountCredentials } from "./utils";
 import { deleteUserSessions } from "@/lib/auth/session";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
+import { deleteManagedAccount } from "./delete";
 
 export async function GET(request: Request, { params }: AccountRouteParams) {
 	const access = await requireTeamAdmin(request);
@@ -37,6 +39,8 @@ export async function GET(request: Request, { params }: AccountRouteParams) {
 			editable: isPrimaryAdmin(actor) || (canManageUsers(actor) && account.role === "user" && !account.isPrimaryAdmin),
 			canChangeRole: isPrimaryAdmin(actor),
 			canTransferPrimary: isPrimaryAdmin(actor) && !account.isPrimaryAdmin && !account.disabled,
+			deletable: account.id !== actor.id && !account.isPrimaryAdmin
+				&& (isPrimaryAdmin(actor) || (canManageUsers(actor) && account.role === "user")),
 		},
 	});
 }
@@ -74,7 +78,7 @@ export async function PATCH(request: Request, { params }: AccountRouteParams) {
 	}
 	await updateAccountCredentials(db, id, { name: parsed.data.name, password: parsed.data.password ?? null });
 	// A password set by an admin is a reset: whoever held the old one is signed out.
-	if (parsed.data.password) await deleteUserSessions(access.env, id);
+	if (parsed.data.password || (parsed.data.disabled && !account.isPrimaryAdmin)) await deleteUserSessions(access.env, id);
 	// The primary admin always stays an enabled admin; only a transfer can move the role.
 	const role = account.isPrimaryAdmin ? "admin" : actorIsPrimary ? parsed.data.role : account.role;
 	const disabled = account.isPrimaryAdmin ? false : parsed.data.disabled;
@@ -87,4 +91,33 @@ export async function PATCH(request: Request, { params }: AccountRouteParams) {
 		...(parsed.data.forwardingEmail !== undefined ? { forwardingEmail: parsed.data.forwardingEmail } : {}),
 	}).where(eq(users.id, id));
 	return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: Request, { params }: AccountRouteParams) {
+	const access = await requireTeamAdmin(request);
+	if (access.error) return access.error;
+	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+	const actor = access.user!;
+	if (!canManageUsers(actor)) return NextResponse.json({ error: "You do not have permission to delete accounts" }, { status: 403 });
+	const { id } = await params;
+	const db = getDb(access.env);
+	const account = await selectAccountById(db, id);
+	if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });
+	if (account.isPrimaryAdmin || id === actor.id) return NextResponse.json({ error: "The primary admin and your own account cannot be deleted" }, { status: 409 });
+	if (!isPrimaryAdmin(actor) && account.role === "admin") return NextResponse.json({ error: "Only the primary admin can delete admin accounts" }, { status: 403 });
+	const body = await request.json().catch(() => null) as { confirmEmail?: unknown } | null;
+	if (typeof body?.confirmEmail !== "string" || body.confirmEmail.trim().toLowerCase() !== account.email.toLowerCase()) {
+		return NextResponse.json({ error: "Enter the account email to confirm deletion" }, { status: 400 });
+	}
+	const [successor] = await db.select({ id: users.id }).from(users).where(and(
+		eq(users.isPrimaryAdmin, true), eq(users.role, "admin"), eq(users.disabled, false),
+	)).limit(1);
+	if (!successor || successor.id === id) return NextResponse.json({ error: "No enabled primary administrator is available to retain this account's assets" }, { status: 409 });
+	try {
+		const result = await deleteManagedAccount(access.env, { id, email: account.email, actorId: actor.id, successorId: successor.id });
+		return NextResponse.json({ ok: true, ...result });
+	} catch (error) {
+		console.error("Account deletion failed", error);
+		return NextResponse.json({ error: "The account could not be deleted. Reload its details and try again." }, { status: 409 });
+	}
 }

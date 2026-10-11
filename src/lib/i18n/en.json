@@ -2088,5 +2088,21 @@
 	"smart.reasonBulkReview": "Kept out of the inbox: uncertain advertising or spam. Filed under Promotions for review.",
 	"smart.learningCount": "Up to {count} confirmed examples are available for the next AI decision.",
 	"smart.clearLearning": "Clear learned examples",
-	"smart.clearLearningConfirm": "Clear learned examples for this mailbox? Emails and explicit sender rules will be kept."
+	"smart.clearLearningConfirm": "Clear learned examples for this mailbox? Emails and explicit sender rules will be kept.",
+	"accounts.status.enabled": "Enabled",
+	"accounts.status.disabled": "Disabled",
+	"account.delete.title": "Delete account",
+	"account.delete.button": "Delete account permanently",
+	"account.delete.summary": "Remove this login account. Its mailboxes and files will be retained by the primary administrator.",
+	"account.delete.confirmTitle": "Delete this account permanently?",
+	"account.delete.for": "Account: {email}",
+	"account.delete.keepAssets": "Mailboxes, emails, attachments, labels, routing rules, domains and Drive files are transferred to the primary administrator.",
+	"account.delete.removePrivateData": "Personal contacts, calendar entries, booking pages, templates, AI chats and account settings are permanently deleted.",
+	"account.delete.revokeAccess": "Sessions, API keys, notifications and this account’s access permissions are revoked. Scheduled sends and automatic drafts reviewed by this account are cancelled. Public links to its Drive files are disabled.",
+	"account.delete.confirmEmail": "Enter the account email to confirm",
+	"account.delete.deleting": "Deleting…",
+	"account.delete.done": "Account deleted. Mailboxes and files have been retained.",
+	"account.delete.failed": "The account could not be deleted.",
+	"account.delete.cleanupPending": "Account deleted. Profile image cleanup is still pending; see the administration audit log.",
+	"account.delete.primaryProtected": "The primary administrator cannot be deleted. Transfer that role to another enabled account first."
 }

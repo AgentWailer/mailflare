@@ -13,6 +13,7 @@ import {
 	fetchMailboxOptions,
 	isIdentityMailbox,
 	SELECTED_MAILBOX_STORAGE_KEY,
+	MAILBOXES_CHANGED_EVENT,
 } from "./mailbox-provider-utils";
 import {
 	AUTH_SESSION_CHANGED_EVENT,
@@ -144,6 +145,26 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 		} else {
 			localStorage.removeItem(SELECTED_MAILBOX_STORAGE_KEY);
 		}
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		let revision = 0;
+		async function refreshMailboxes() {
+			const currentRevision = ++revision;
+			const sessionToken = getClientSessionToken();
+			clearMailboxesCache();
+			try {
+				const items = await fetchMailboxOptions();
+				if (cancelled || revision !== currentRevision || sessionToken !== getClientSessionToken()) return;
+				setMailboxes(items);
+				setSelectedMailboxState((current) => items.find((item) => item.id === current?.id) ?? items.find((item) => item.isPrimary) ?? items[0] ?? null);
+			} catch {
+				// A later navigation can retry; keep the currently usable mailbox list.
+			}
+		}
+		window.addEventListener(MAILBOXES_CHANGED_EVENT, refreshMailboxes);
+		return () => { cancelled = true; window.removeEventListener(MAILBOXES_CHANGED_EVENT, refreshMailboxes); };
 	}, []);
 
 	return (

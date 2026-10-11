@@ -7,6 +7,7 @@ let mailboxesRequest: Promise<MailboxOption[]> | null = null;
 let mailboxesRequestSessionToken: string | null = null;
 let cacheGeneration = 0;
 export const SELECTED_MAILBOX_STORAGE_KEY = "selected-mailbox-id";
+export const MAILBOXES_CHANGED_EVENT = "mailflare:mailboxes-changed";
 
 /**
  * The primary mailbox is the one at the account address; it is the only mailbox

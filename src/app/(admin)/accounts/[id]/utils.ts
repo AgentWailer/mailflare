@@ -1,5 +1,6 @@
 import { authFetch } from "@/lib/auth/client";
 import { appendOptimizedAvatar } from "@/lib/avatar-upload-client";
+import { clearMailboxesCache, MAILBOXES_CHANGED_EVENT } from "@/components/mailbox-provider-utils";
 import type {
 	AccountDetail,
 	AccountDetailResponse,
@@ -127,6 +128,19 @@ export async function saveManagedAccount(account: ManagedAccount): Promise<void>
 	});
 	const data = (await response.json()) as { error?: string };
 	if (!response.ok) throw new Error(data.error ?? "Unable to update account");
+}
+
+export async function deleteManagedAccount(accountId: string, confirmEmail: string): Promise<{ cleanupPending?: boolean }> {
+	const response = await authFetch(`/api/accounts/${accountId}`, {
+		method: "DELETE",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ confirmEmail }),
+	});
+	const data = await response.json() as { error?: string; cleanupPending?: boolean };
+	if (!response.ok) throw new Error(data.error ?? "Unable to delete account");
+	clearMailboxesCache();
+	if (typeof window !== "undefined") window.dispatchEvent(new Event(MAILBOXES_CHANGED_EVENT));
+	return data;
 }
 
 export type TransferCandidate = {

@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
 import { Label } from "@/components/ui/label";
+import { AccountStatus } from "@/components/accounts/account-status";
+import { DeleteAccountDialog } from "@/components/accounts/delete-account-dialog";
 import type { ManagedAccount } from "./types";
 import {
 	fetchManagedAccount,
@@ -112,6 +114,7 @@ export default function AccountDetailsPage() {
 				<div className="flex items-center justify-between gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
 					<div className="space-y-1">
 						<Label htmlFor="account-enabled" className="font-semibold text-neutral-900">{t("account.enabled")}</Label>
+						<div><AccountStatus disabled={account.disabled} /></div>
 						<p id="account-enabled-description" className="text-xs leading-5 text-neutral-500">
 							{account.isPrimaryAdmin ? t("account.primaryAlwaysEnabled") : t("account.allowSignIn")}
 						</p>
@@ -131,6 +134,8 @@ export default function AccountDetailsPage() {
 				)}
 			</section>
 			{message && <p className="text-sm text-neutral-500">{message}</p>}
+			{account.deletable && <DeleteAccountDialog accountId={account.id} email={account.email} />}
+			{account.isPrimaryAdmin && <p className="text-sm text-neutral-500">{t("account.delete.primaryProtected")}</p>}
 		</div>
 	);
 }

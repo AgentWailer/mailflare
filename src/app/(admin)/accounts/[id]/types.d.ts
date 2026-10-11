@@ -17,6 +17,8 @@ export type ManagedAccount = {
 	canChangeRole: boolean;
 	/** Whether the signed-in admin may hand the primary role to this account. */
 	canTransferPrimary: boolean;
+	/** Server-authorized deletion, excluding the actor and the primary admin. */
+	deletable: boolean;
 	/** Only ever set client-side when an admin types a new password; never returned by the API. */
 	newPassword?: string;
 };
