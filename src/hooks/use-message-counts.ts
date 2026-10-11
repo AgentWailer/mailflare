@@ -43,6 +43,8 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 			try {
 				const nextCounts = await fetchMessageCounts(mailboxId, force);
 				if (!cancelled && currentRequest === requestNumber) setCounts(nextCounts ?? emptyCounts);
+			} catch {
+				// Retain the last counts when a mobile connection temporarily drops.
 			} finally {
 				if (!cancelled && currentRequest === requestNumber) setIsLoading(false);
 			}

@@ -37,7 +37,7 @@ html, body {
 	animation: refine-preview-reveal 900ms ease-out both;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px), (hover: none) and (pointer: coarse) {
 	/* Keep iOS from zooming the page whenever an editable field receives focus. */
 	input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select, [contenteditable="true"] {
 		font-size: 16px;
@@ -57,6 +57,11 @@ html, body {
 
 	.compose-popup .compose-header { padding-top: env(safe-area-inset-top); }
 	.compose-minimized { bottom: calc(var(--mail-source-footer-height, 0px) + env(safe-area-inset-bottom, 0px)); }
+	.compose-page-container { padding: 8px; overflow: hidden; }
+	.compose-page-title { display: none; }
+	.compose-page { min-height: 0; max-height: var(--compose-viewport-height, 100%); }
+	:is(.compose-popup, .compose-page) :is(.compose-header, .compose-toolbar) button { min-width: 44px; min-height: 44px; }
+	.message-action-menu [role="menuitem"] { min-height: 44px; font-size: 16px; }
 	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 

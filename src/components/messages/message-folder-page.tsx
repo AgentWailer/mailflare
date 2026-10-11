@@ -26,6 +26,7 @@ import { MessageListRowActions } from "./message-list-row-actions";
 import { MessageLabelChips } from "./message-label-chips";
 import { SenderAvatar } from "./sender-avatar";
 import { InboxCategoryTabs } from "./inbox-category-tabs";
+import { MessageRefreshButton } from "./message-refresh-button";
 import { useMessageSelection } from "./message-selection-context";
 import { useReadingLayout } from "./use-reading-layout";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
@@ -319,7 +320,7 @@ export function MessageFolderPage({
 	const setUnreadOnly = selection?.setUnreadOnly ?? setInternalUnreadOnly;
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const { messages, isLoading, total, limit, updateMessages } = useMessages(config.folder, selectedMailbox?.id, {
+	const { messages, isLoading, isRefreshing, error, total, limit, updateMessages, refresh } = useMessages(config.folder, selectedMailbox?.id, {
 		query,
 		limit: pageSize,
 		offset,
@@ -338,6 +339,7 @@ export function MessageFolderPage({
 	const mailboxAddress = getMailboxAddress(selectedMailbox);
 	const currentAccountName = selectedMailbox?.displayName ?? selectedMailbox?.localPart;
 	const pageRange = getPageRange(offset, messages.length, total);
+	const hasCategoryTabs = !config.folderId && ["inbox", "promotions", "social"].includes(config.folder);
 	const selectedMessages = selection?.selectedMessages ?? internalSelectedMessages;
 	const setSelectedMessages =
 		selection?.setSelectedMessages ?? setInternalSelectedMessages;
@@ -482,6 +484,7 @@ export function MessageFolderPage({
 							aria-label={t("list.selectAll")}
 						/>
 					</Tooltip>
+					{!hasCategoryTabs && <MessageRefreshButton onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
 					{selectedIds.length > 0 || (!compact && !isMobile) ? (
 						<BulkMessageToolbar
 							messageIds={expandSelectedIds(selectedIds)}
@@ -564,7 +567,8 @@ export function MessageFolderPage({
 					</div>
 				)}
 			</div>
-			{!config.folderId && ["inbox", "promotions", "social"].includes(config.folder) && <InboxCategoryTabs folder={config.folder} compact={compact} />}
+			{hasCategoryTabs && <InboxCategoryTabs folder={config.folder} compact={compact} onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
+			{error && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("list.loadFailed")}</p>}
 
 			<div className="mail-mobile-list-scroll min-h-0 flex-1 md:divide-y divide-neutral-100 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
 				{messages.map((message) => (
@@ -583,7 +587,7 @@ export function MessageFolderPage({
 						dragMessageIds={expandSelectedIds(selectedIds.includes(message.id) ? selectedIds : [message.id])}
 					/>
 				))}
-				{!isLoading && messages.length === 0 && (
+				{!isLoading && !error && messages.length === 0 && (
 					<p className="px-6 py-4 text-sm text-neutral-500">
 						{hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
 					</p>

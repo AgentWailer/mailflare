@@ -133,6 +133,8 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
       router.push(link.href!);
     } catch {
       setNavigationProgress(null);
+      // Opening the folder must still work when its optional prefetch fails.
+      router.push(link.href!);
     } finally {
       window.clearInterval(timer);
     }

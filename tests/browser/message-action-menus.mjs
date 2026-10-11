@@ -6,7 +6,9 @@ import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs
 import {createServer} from 'node:http';
 import {join} from 'node:path';
 import {build} from 'esbuild';
-const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE || 'playwright');
+const browserName=process.env.MAILFLARE_BROWSER || 'chromium';
+assert(['chromium','firefox','webkit'].includes(browserName),'unsupported browser engine');
+const browserType=(await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE || 'playwright'))[browserName];
 const root=process.cwd();
 const dir=mkdtempSync(join(root,'node_modules','mailflare-menu-browser-'));
 const baselineRef=process.argv.find(arg=>arg.startsWith('--baseline-ref='))?.slice('--baseline-ref='.length);
@@ -38,11 +40,11 @@ try {
  server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;const content=assets[path];res.writeHead(content?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(content||'Not found');});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const origin='http://127.0.0.1:'+server.address().port;
- browser=await chromium.launch({headless:true,...(process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),args:['--no-sandbox']});
- const sizes=baselineRef?[{width:390,height:844}]:[{width:320,height:700},{width:375,height:667},{width:390,height:844},{width:430,height:932},{width:844,height:390},{width:1440,height:900}];
+ browser=await browserType.launch({headless:true,...(browserName==='chromium'&&process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),...(browserName==='chromium'?{args:['--no-sandbox']}: {})});
+ const sizes=baselineRef?[{width:390,height:844}]:[{width:320,height:700},{width:375,height:667},{width:390,height:844},{width:430,height:932},{width:768,height:1024},{width:820,height:1180},{width:844,height:390},{width:1440,height:900}];
  for(const size of sizes){
-  const mobile=size.width<768;
-  const page=await browser.newPage({viewport:size,hasTouch:mobile});
+  const mobile=size.width<768,touch=size.width<1024;
+  const page=await browser.newPage({viewport:size,hasTouch:touch});
   const errors=[],actions=[],filters=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/api/**',route=>{const request=route.request(),path=new URL(request.url()).pathname;if(path==='/api/messages/bulk')actions.push(request.postDataJSON());if(path==='/api/auth/accounts')return route.fulfill({contentType:'application/json',body:JSON.stringify({accounts:[]})});if(path==='/api/messages/counts')return route.fulfill({contentType:'application/json',body:JSON.stringify({counts:{folders:{},customFolders:{},mailboxes:[]}})});if(path==='/api/folders')return route.fulfill({contentType:'application/json',body:JSON.stringify({folders:[{id:'work',name:'Work'},{id:'follow',name:'Follow up'}]})});if(path==='/api/routing-rules'){if(request.method()==='POST'){const input=request.postDataJSON();if(input.forwardTo==='unverified@example.net')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'forwarding_unverified'})});filters.push(input);return route.fulfill({contentType:'application/json',body:JSON.stringify({id:'new-filter'})});}return route.fulfill({contentType:'application/json',body:JSON.stringify({rules:[]})});}return route.fulfill({contentType:path.endsWith('/source')?'message/rfc822':'application/json',body:path.endsWith('/source')?'From: sender@example.test\r\nTo: owner@example.test\r\nSubject: Test\r\n\r\nHello':JSON.stringify({ok:true})});});
@@ -62,7 +64,7 @@ try {
   const items=menu.getByRole('menuitem');assert(await items.count()>=7);
   for(const item of await items.all()){
    await item.scrollIntoViewIfNeeded();const itemBounds=await item.boundingBox(),menuBounds=await menu.boundingBox();assert(itemBounds.x>=menuBounds.x&&itemBounds.x+itemBounds.width<=menuBounds.x+menuBounds.width);assert(itemBounds.y>=menuBounds.y&&itemBounds.y+itemBounds.height<=menuBounds.y+menuBounds.height);
-   if(mobile){assert(itemBounds.height>=44);assert.equal(await item.evaluate(el=>getComputedStyle(el).fontSize),'16px');}
+   if(touch){assert(itemBounds.height>=44);assert.equal(await item.evaluate(el=>getComputedStyle(el).fontSize),'16px');}
    assert(await item.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const box=el.getBoundingClientRect();return [...range.getClientRects()].every(rect=>rect.left>=box.left-1&&rect.right<=box.right+1);}),await item.textContent());
   }
   if(size.width===390)await page.screenshot({path:'/tmp/mailflare-message-menu-mobile.png'});
@@ -85,6 +87,6 @@ try {
   // Keep an open menu within the available area when orientation/viewport changes.
   await trigger.scrollIntoViewIfNeeded();await open(trigger);await checkBounds();const resized={width:size.height,height:size.width};await page.setViewportSize(resized);await page.waitForTimeout(100);const b=await menu.boundingBox();assert(b.x>=11&&b.y>=11&&b.x+b.width<=resized.width-11&&b.y+b.height<=resized.height-11);await page.keyboard.press('Escape');
   if(mobile){await page.setViewportSize(size);await page.goto(origin+'/?status=archived');const archivedTrigger=page.getByTestId('header-actions').getByRole('button',{name:de['common.moreActions'],exact:true});await open(archivedTrigger);const archivedItem=menu.getByRole('menuitem',{name:de['common.archive'],exact:true});assert.equal(await archivedItem.getAttribute('aria-disabled'),'true');await archivedItem.click({force:true});assert.equal(actions.length,1);await page.keyboard.press('Escape');}
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({viewport:size,theme:size.width===390?'dark':'light',headerAndThreadMenus:true,allItemsReachable:true,touchTargets:mobile?'44px':'desktop',dismissalAndFocus:true,singleAction:true,orientationChange:true}));await page.close();
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({viewport:size,theme:size.width===390?'dark':'light',headerAndThreadMenus:true,allItemsReachable:true,touchTargets:touch?'44px':'desktop',dismissalAndFocus:true,singleAction:true,orientationChange:true}));await page.close();
  }
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}

@@ -146,7 +146,8 @@ export async function fetchMessageCounts(mailboxId?: string | null, force = fals
 		const params = new URLSearchParams();
 		if (mailboxId) params.set("mailboxId", mailboxId);
 		const query = params.toString();
-		const res = await authFetch(`/api/messages/counts${query ? `?${query}` : ""}`);
+		const res = await authFetch(`/api/messages/counts${query ? `?${query}` : ""}`, { cache: force ? "no-store" : "default" });
+		if (!res.ok) throw new Error(`Message counts request failed (${res.status})`);
 		const data = (await res.json()) as { counts?: MessageCounts };
 		const counts = data.counts;
 		if (
@@ -173,8 +174,11 @@ export async function fetchMessageList(params: URLSearchParams, force = false): 
 	if (!force && messageListRequests.has(key)) return messageListRequests.get(key) ?? {};
 
 	const requestGeneration = messageCacheGeneration;
-	const request = authFetch(`/api/messages?${key}`)
-		.then((res) => res.json())
+	const request = authFetch(`/api/messages?${key}`, { cache: force ? "no-store" : "default" })
+		.then((res) => {
+			if (!res.ok) throw new Error(`Message request failed (${res.status})`);
+			return res.json();
+		})
 		.then((data) => {
 			const response = data as MessageListResponse;
 			if (requestGeneration === messageCacheGeneration) {
@@ -183,11 +187,15 @@ export async function fetchMessageList(params: URLSearchParams, force = false): 
 			return response;
 		})
 		.finally(() => {
-			if (requestGeneration === messageCacheGeneration) {
+			if (messageListRequests.get(key) === request) {
 				messageListRequests.delete(key);
 			}
 		});
 
 	messageListRequests.set(key, request);
 	return request;
+}
+
+export function getCachedMessageList(params: URLSearchParams): MessageListResponse | undefined {
+	return messageListCache.get(params.toString());
 }

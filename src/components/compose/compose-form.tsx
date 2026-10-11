@@ -71,7 +71,7 @@ export function ComposeForm({
 	const [refineActive, setRefineActive] = useState(false);
 	const [draftSaveFailed, setDraftSaveFailed] = useState(false);
 	const frameRef = useRef<HTMLFormElement | null>(null);
-	useComposeViewport(frameRef, mode === "popup" && !minimized);
+	useComposeViewport(frameRef, !minimized, mode);
 	const [loading, setLoading] = useState(false);
 	const [loadingDraft, setLoadingDraft] = useState(false);
 	const [deletingDraft, setDeletingDraft] = useState(false);
@@ -523,7 +523,7 @@ export function ComposeForm({
 				: modalMode
 				? "compose-popup fixed left-1/2 top-1/2 z-50 flex h-[86dvh] w-[min(860px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
 				: "compose-popup fixed bottom-0 right-8 z-40 flex h-[min(520px,calc(100dvh-88px))] w-[min(560px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"
-			: "relative flex h-full min-h-0 md:min-h-[560px] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm";
+			: "compose-page relative flex h-full min-h-0 md:min-h-[560px] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm";
 
 	return (
 		<>
