@@ -2036,5 +2036,12 @@
 	"message.ai.summaryPrompt": "Lies die E-Mail {id} und ihre Unterhaltung. Fasse die wichtigsten Inhalte und offenen Aufgaben auf Deutsch zusammen. Ändere keine Nachrichten.",
 	"message.ai.translatePrompt": "Lies die E-Mail {id} und übersetze ihren Inhalt ins Deutsche. Behalte Zahlen, Namen und Links bei. Ändere die ursprüngliche Nachricht nicht.",
 	"message.categories.primary": "Allgemein",
-	"message.categories.social": "Soziale Netzwerke"
+	"message.categories.social": "Soziale Netzwerke",
+	"labels.parent": "Übergeordnetes Label",
+	"labels.topLevel": "Kein Hauptlabel",
+	"labels.createChild": "Unterlabel erstellen",
+	"labels.expand": "Unterlabels von {name} anzeigen",
+	"labels.collapse": "Unterlabels von {name} einklappen",
+	"labels.parentFailed": "Das Label konnte nicht verschoben werden. Bitte erneut versuchen.",
+	"labels.hierarchyDescription": "Haupt- und Unterlabels lassen sich hier zuordnen. Beim Löschen eines Hauptlabels bleiben seine Unterlabels erhalten."
 }

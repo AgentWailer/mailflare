@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ const CANCEL_DISTANCE = 6;
 // Press and hold an item, then drag it. A ghost follows the pointer and a blue line marks where
 // it will land; nothing moves until you let go. Lists can hand items to each other through the
 // `before` row between them.
-export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled = true, initialItemAfter, renderItem }: ReorderableListProps) {
+export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled = true, initialItemAfter, renderItem, renderAfterItem }: ReorderableListProps) {
 	const [stored, setStored] = useState<ReorderableLayout>({});
 	const [drag, setDrag] = useState<ReorderableDrag | null>(null);
 	const [target, setTarget] = useState<ReorderableDropTarget | null>(null);
@@ -45,7 +45,7 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
 		if (!container) return;
 
 		function locate(y: number): ReorderableDropTarget | null {
-			const rows = Array.from(container!.querySelectorAll<HTMLElement>("[data-reorder-id], [data-reorder-boundary]"));
+			const rows = Array.from(container!.querySelectorAll<HTMLElement>("[data-reorder-id], [data-reorder-boundary]")).filter(row => row.dataset.reorderScope === storageKey);
 			if (rows.length === 0) return null;
 			const current = latest.current.layout;
 			const hit = rows.find((row) => { const rect = row.getBoundingClientRect(); return y >= rect.top && y <= rect.bottom; })
@@ -136,9 +136,9 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
 				const shown = list.hidden ? [] : list.visibleIds ? list.visibleIds(ordered) : ordered;
 				return (
 					<div key={list.id} className="contents">
-						{list.before && <div data-reorder-boundary={list.id}>{list.before}</div>}
+						{list.before && <div data-reorder-scope={storageKey} data-reorder-boundary={list.id}>{list.before}</div>}
 						{shown.map((id) => (
-							<div key={id} data-reorder-id={id} data-reorder-list={list.id}
+							<Fragment key={id}><div data-reorder-scope={storageKey} data-reorder-id={id} data-reorder-list={list.id}
 								onPointerDown={(event) => startHold(event, id)}
 								onPointerMove={moveHold}
 								onPointerUp={cancelHold}
@@ -148,7 +148,8 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
 								onClickCapture={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}
 								className={cn("shrink-0", dragId === id && "opacity-40")}>
 								{nodes.get(id)}
-							</div>
+							</div>{renderAfterItem?.(list.items.find(item => item.id === id)!)}
+							</Fragment>
 						))}
 					</div>
 				);

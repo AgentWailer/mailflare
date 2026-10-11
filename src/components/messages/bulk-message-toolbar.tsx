@@ -114,7 +114,7 @@ export function BulkMessageToolbar({
 								{folders.map((item) => (
 									<DropdownMenu.Item key={item.id} className={menuItemClass} onSelect={() => onAction("folder", item.id)}>
 										<Folder className="h-4 w-4 shrink-0" style={{ color: item.color }} />
-										<span className="truncate">{item.name}</span>
+										<span className="truncate">{item.path ?? item.name}</span>
 									</DropdownMenu.Item>
 								))}
 							</>
@@ -140,7 +140,7 @@ export function BulkMessageToolbar({
 						<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
 						<DropdownMenu.Label className={menuLabelClass}>{t("common.moveTo")}</DropdownMenu.Label>
 						{moveOptions.map(({ value, label, Icon }) => <DropdownMenu.Item key={value} className={menuItemClass} onSelect={() => onAction(value as BulkMessageAction)}><Icon className="h-4 w-4" />{label}</DropdownMenu.Item>)}
-						{folders.map(item => <DropdownMenu.Item key={item.id} className={menuItemClass} onSelect={() => onAction("folder", item.id)}><Folder className="h-4 w-4 shrink-0" style={{ color: item.color }} /><span className="truncate">{item.name}</span></DropdownMenu.Item>)}
+						{folders.map(item => <DropdownMenu.Item key={item.id} className={menuItemClass} onSelect={() => onAction("folder", item.id)}><Folder className="h-4 w-4 shrink-0" style={{ color: item.color }} /><span className="truncate">{item.path ?? item.name}</span></DropdownMenu.Item>)}
 						{canDeleteForever && (
 							<DropdownMenu.Item className={`${menuItemClass} text-red-600`} onSelect={() => onAction("delete")}><Trash2 className="h-4 w-4" />{t("common.deleteForever")}</DropdownMenu.Item>
 						)}

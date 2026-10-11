@@ -24,6 +24,7 @@ export type ReorderableItemActions = {
 };
 
 export type ReorderableListProps = {
+	renderAfterItem?: (item: ReorderableItem) => ReactNode;
 	renderItem?: (item: ReorderableItem, actions: ReorderableItemActions) => ReactNode;
 	lists: ReorderableListSpec[];
 	/** localStorage key for the saved layout. */

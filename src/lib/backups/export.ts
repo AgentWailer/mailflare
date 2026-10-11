@@ -90,6 +90,8 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
  for(const table of BACKUP_TABLES) if(!availableTables.has(table) && document.tables[table]?.length) throw new Error(`Apply pending database migrations before restoring ${table}.`);
  const restoreTables = BACKUP_TABLES.filter(table=>availableTables.has(table));
  const messageColumns = new Set((await db.prepare("PRAGMA table_info(messages)").all<{name:string}>()).results.map(row=>row.name));
+	const folderColumns = new Set((await db.prepare("PRAGMA table_info(folders)").all<{ name: string }>()).results.map((column) => column.name));
+	if (!folderColumns.has("parent_id") && document.tables.folders?.some(row => row.parent_id)) throw new Error("Apply pending database migrations before restoring nested labels.");
 	const userColumns = new Set((await db.prepare("PRAGMA table_info(users)").all<{ name: string }>()).results.map((column) => column.name));
 	const bookingColumns = bookingTable ? new Set((await db.prepare("PRAGMA table_info(booking_events)").all<{ name: string }>()).results.map((column) => column.name)) : null;
 	for (const table of [...restoreTables].reverse()) await db.prepare(`DELETE FROM ${table}`).run();
@@ -97,9 +99,16 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 		if(table === "message_labels") await db.prepare("DELETE FROM message_labels").run();
 		const rows = document.tables[table] ?? [];
 		for (let index = 0; index < rows.length; index += INSERT_BATCH_SIZE) {
-			const columns = table === "users" ? userColumns : table === "messages" ? messageColumns : table === "routing_rules" ? new Set((await db.prepare("PRAGMA table_info(routing_rules)").all<{name:string}>()).results.map(row=>row.name)) : table === "booking_events" ? bookingColumns : null;
-			const statements = rows.slice(index, index + INSERT_BATCH_SIZE).map((row) => createInsertStatement(db, table, row, columns));
+			const columns = table === "folders" ? folderColumns : table === "users" ? userColumns : table === "messages" ? messageColumns : table === "routing_rules" ? new Set((await db.prepare("PRAGMA table_info(routing_rules)").all<{name:string}>()).results.map(row=>row.name)) : table === "booking_events" ? bookingColumns : null;
+			const statements = rows.slice(index, index + INSERT_BATCH_SIZE).map((row) => createInsertStatement(db, table, table === "folders" && folderColumns.has("parent_id") ? { ...row, parent_id: null } : row, columns));
 			if (statements.length > 0) await db.batch(statements);
+		}
+		// Restore all labels before their self-references, regardless of backup row order.
+		if (table === "folders" && folderColumns.has("parent_id")) {
+			const nested = rows.filter(row => row.parent_id);
+			for (let index = 0; index < nested.length; index += INSERT_BATCH_SIZE) {
+				await db.batch(nested.slice(index, index + INSERT_BATCH_SIZE).map(row => db.prepare("UPDATE folders SET parent_id = ? WHERE id = ?").bind(row.parent_id, row.id)));
+			}
 		}
 	}
 	if(availableTables.has("message_labels")) await db.prepare("INSERT OR IGNORE INTO message_labels(message_id,folder_id) SELECT id,folder_id FROM messages WHERE folder_id IS NOT NULL").run();

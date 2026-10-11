@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getLabelPath } from "@/lib/folders/hierarchy";
 import { authFetch } from "@/lib/auth/client";
 import type { CustomFolder } from "@/components/dashboard-nav-types";
 
@@ -26,8 +27,7 @@ export function useMailboxFolders(mailboxId: string | undefined): CustomFolder[]
 
 	useEffect(() => {
 		let timer: ReturnType<typeof setTimeout> | undefined;
-		const reload = (event: Event) => {
-			if (event.type === LABELS_CHANGED_EVENT) setFetched(null);
+		const reload = () => {
 			clearTimeout(timer);
 			timer = setTimeout(() => setRevision((value) => value + 1), 150);
 		};
@@ -45,9 +45,10 @@ export function useMailboxFolders(mailboxId: string | undefined): CustomFolder[]
 		let cancelled = false;
 		const generation = cacheGeneration;
 		authFetch(`/api/folders?${new URLSearchParams({ mailboxId }).toString()}`)
-			.then((response) => response.json() as Promise<{ folders?: CustomFolder[] }>)
+			.then((response) => { if (!response.ok) throw new Error("Unable to load labels"); return response.json() as Promise<{ folders?: CustomFolder[] }>; })
 			.then((data) => {
-				const folders = data.folders ?? [];
+				const labels = data.folders ?? [];
+				const folders = labels.map(folder => ({ ...folder, path: getLabelPath(folder, labels) }));
 				if (cancelled || generation !== cacheGeneration) return;
 				cache.set(mailboxId, folders);
 				setFetched({ mailboxId, folders });

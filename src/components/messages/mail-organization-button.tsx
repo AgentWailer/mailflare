@@ -199,7 +199,7 @@ export function MailOrganizationButton({
 												)
 											}
 										/>
-										<span className="min-w-0 break-words">{folder.name}</span>
+										<span className="min-w-0 break-words">{folder.path ?? folder.name}</span>
 									</label>
 								))}
 							</div>

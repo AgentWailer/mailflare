@@ -1,3 +1,6 @@
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import { folders } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { requireSessionUser } from "@/lib/api/auth";
@@ -34,4 +37,33 @@ export async function DELETE(request: Request, context: { params: Promise<{ fold
 		env.DB.prepare(`DELETE FROM folders WHERE id = ? AND mailbox_id = ?`).bind(folderId, mailboxId),
 	]);
 	return NextResponse.json({ ok: true });
+}
+
+const parentSchema = z.object({ mailboxId: z.string().min(1).max(128), parentId: z.string().min(1).max(128).nullable() }).strict();
+
+/** Change hierarchy only; labels on messages and filter targets keep their IDs. */
+export async function PATCH(request: Request, context: { params: Promise<{ folderId: string }> }) {
+ const env = getEnv();
+ const { user, error } = await requireSessionUser(env, request);
+ if (error) return error;
+ const parsed = parentSchema.safeParse(await request.json().catch(() => null));
+ if (!parsed.success) return NextResponse.json({ error: "Invalid parent label" }, { status: 400 });
+ const { mailboxId, parentId } = parsed.data;
+ const { folderId } = await context.params;
+ const db = getDb(env);
+ const access = await getMailboxFolderAccess(db, user, mailboxId);
+ if (!access?.canManage || !(await getFolderForMailbox(db, folderId, mailboxId)) || (parentId && !(await getFolderForMailbox(db, parentId, mailboxId)))) {
+  return NextResponse.json({ error: "Label not found" }, { status: 404 });
+ }
+ if (parentId === folderId) return NextResponse.json({ error: "Label cannot contain itself" }, { status: 400 });
+ try {
+  // The database trigger checks the complete ancestor chain within this atomic write,
+  // including concurrent moves that would otherwise create a cycle.
+  await db.update(folders).set({ parentId }).where(and(eq(folders.id, folderId), eq(folders.mailboxId, mailboxId)));
+ } catch (error) {
+  const detail = String(error) + String((error as { cause?: unknown }).cause ?? "");
+  if (detail.includes("Invalid label parent")) return NextResponse.json({ error: "Invalid label parent" }, { status: 400 });
+  throw error;
+ }
+ return NextResponse.json({ ok: true });
 }

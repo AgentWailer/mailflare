@@ -194,6 +194,7 @@ export const folders = sqliteTable(
 			.notNull()
 			.references(() => mailboxes.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
+		parentId: text("parent_id").references((): AnySQLiteColumn => folders.id, { onDelete: "set null" }),
 		color: text("color").notNull().default("#2563eb"),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
@@ -203,6 +204,7 @@ export const folders = sqliteTable(
 		uniqueIndex("folders_mailbox_name_idx").on(t.mailboxId, t.name),
 		index("folders_user_idx").on(t.userId),
 		index("folders_mailbox_idx").on(t.mailboxId),
+		index("folders_parent_idx").on(t.parentId),
 	],
 );
 

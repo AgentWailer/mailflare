@@ -203,6 +203,7 @@ export const updateMailboxSchema = z.object({
 });
 
 export const folderSchema = z.object({
+	parentId: z.string().min(1).max(128).nullable().optional(),
 	mailboxId: z.string().min(1),
 	name: z.string().trim().min(1).max(80),
 	color: z.enum(FOLDER_COLOR_VALUES).default(DEFAULT_FOLDER_COLOR),

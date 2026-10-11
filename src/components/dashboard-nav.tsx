@@ -12,7 +12,6 @@ import {
   CalendarClock,
   Clock,
   FileText,
-  Folder,
   Inbox,
   Megaphone,
   Users,
@@ -49,11 +48,11 @@ import type { NavLink } from "./components-nav-types";
 import type { CustomFolder } from "./dashboard-nav-types";
 import {
   getFolderNavCount,
-  moveMessagesToCustomFolder,
   moveMessagesToCategory,
   moveMessagesToSystemFolder,
 } from "./dashboard-nav-utils";
-import { LabelActions } from "./label-actions";
+import { revealLabel, SidebarLabelTree } from "./sidebar-label-tree";
+import { getLabelPath } from "@/lib/folders/hierarchy";
 import { notifyLabelsChanged } from "./messages/use-mailbox-folders";
 import { useLabelVisibility } from "./messages/use-label-visibility";
 import { ReorderableList } from "./reorderable-list";
@@ -101,6 +100,7 @@ export function DashboardNav({ className }: { className?: string }) {
   const canManageLabels = !!selectedMailbox && (!selectedMailbox.permission || selectedMailbox.permission === "full_access");
   const [folderState, setFolderState] = useState<{ mailboxId: string; folders: CustomFolder[] } | null>(null);
   const folders = folderState?.mailboxId === selectedMailbox?.id ? folderState?.folders ?? [] : [];
+  const [newFolderParentId, setNewFolderParentId] = useState<string>("");
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderColor, setNewFolderColor] =
     useState<FolderColor>(DEFAULT_FOLDER_COLOR);
@@ -214,12 +214,15 @@ export function DashboardNav({ className }: { className?: string }) {
           mailboxId: selectedMailbox.id,
           name: newFolderName,
           color: newFolderColor,
+          parentId: newFolderParentId || null,
         }),
       });
       if (!response.ok) throw new Error("Unable to create label");
       const folder = (await response.json()) as CustomFolder;
+      revealLabel(selectedMailbox.id, folder, folders);
       setFolderState(previous => previous?.mailboxId !== selectedMailbox.id ? previous : { ...previous, folders: [...previous.folders, folder].sort((a, b) => a.name.localeCompare(b.name)) });
       setNewFolderName("");
+      setNewFolderParentId("");
       setNewFolderColor(DEFAULT_FOLDER_COLOR);
       setFolderDialogOpen(false);
       notifyLabelsChanged();
@@ -237,7 +240,7 @@ export function DashboardNav({ className }: { className?: string }) {
     try {
       const response = await authFetch(`/api/folders/${encodeURIComponent(deletingLabel.id)}?${new URLSearchParams({ mailboxId: selectedMailbox.id })}`, { method: "DELETE" });
       if (!response.ok) { setDeleteError(true); return; }
-      setFolderState(previous => previous?.mailboxId !== selectedMailbox.id ? previous : { ...previous, folders: previous.folders.filter(item => item.id !== deletingLabel.id) });
+      setFolderState(previous => previous?.mailboxId !== selectedMailbox.id ? previous : { ...previous, folders: previous.folders.filter(item => item.id !== deletingLabel.id).map(item => item.parentId === deletingLabel.id ? { ...item, parentId: null } : item) });
       if (isActiveHref(`/folders/${deletingLabel.id}`)) router.replace("/all");
       setDeletingLabel(null);
       notifyLabelsChanged();
@@ -272,6 +275,7 @@ export function DashboardNav({ className }: { className?: string }) {
                 <button
                   type="button"
                   className="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700 md:h-7 md:w-7"
+                  onClick={() => { setNewFolderParentId(""); setFolderCreateError(false); }}
                   aria-label={t("navigation.createFolder")}
                 >
                   <Plus className="h-4 w-4" />
@@ -296,6 +300,13 @@ export function DashboardNav({ className }: { className?: string }) {
                       placeholder={t("navigation.folderExample")}
                       autoFocus
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="folderParent">{t("labels.parent")}</Label>
+                    <select id="folderParent" value={newFolderParentId} onChange={event => setNewFolderParentId(event.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 text-base text-neutral-900">
+                      <option value="">{t("labels.topLevel")}</option>
+                      {folders.map(folder => <option key={folder.id} value={folder.id}>{getLabelPath(folder, folders)}</option>)}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>{t("navigation.color")}</Label>
@@ -342,40 +353,9 @@ export function DashboardNav({ className }: { className?: string }) {
           {folders.length ? <Link href="/settings/inbox#labels" className="text-blue-700">{t("labels.visibility.allHidden")}</Link> : t("navigation.noFolders")}
         </div>
       )}
-      <ReorderableList
-        key={selectedMailbox?.id ?? "none"}
-        storageKey={`mailflare:nav:layout:folders:${selectedMailbox?.id ?? "none"}`}
-        fallbackStorageKey="mailflare:nav:layout:folders"
-        renderItem={(item, actions) => minimal ? item.node : (
-          <div className="flex items-start">
-            <div className="min-w-0 flex-1">{item.node}</div>
-            <LabelActions name={folders.find((folder) => folder.id === item.id)?.name ?? ""} actions={actions} canDelete={canManageLabels}
-              onDelete={() => { setDeleteError(false); setDeletingLabel(folders.find((folder) => folder.id === item.id) ?? null); }} />
-          </div>
-        )}
-        enabled={!minimal}
-        lists={[{
-          id: "folders",
-          items: visibleFolders.map((folder) => ({
-            id: folder.id,
-            node: (
-              <NavItem
-                wrap
-                link={{
-                  href: `/folders/${folder.id}`,
-                  label: folder.name,
-                  icon: Folder,
-                  preloadMessages: true,
-                  iconColor: folder.color,
-                  count: counts.customFolders[folder.id]?.unread,
-                  onMessageDrop: (messageIds: string[]) =>
-                    void moveMessagesToCustomFolder(messageIds, folder.id),
-                }}
-              />
-            ),
-          })),
-        }]}
-      />
+      <SidebarLabelTree key={selectedMailbox?.id ?? "none"} mailboxId={selectedMailbox?.id ?? "none"} folders={folders} hiddenIds={hiddenLabelIds} counts={counts.customFolders} canManage={canManageLabels}
+        onDelete={folder => { setDeleteError(false); setDeletingLabel(folder); }}
+        onCreateChild={folder => { setNewFolderParentId(folder.id); setNewFolderName(""); setFolderCreateError(false); setFolderDialogOpen(true); }} />
       <Dialog open={!!deletingLabel} onOpenChange={(open) => { if (!open && !deleting) setDeletingLabel(null); }}>
         <DialogContent>
           <DialogHeader>

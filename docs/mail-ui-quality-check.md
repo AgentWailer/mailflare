@@ -111,3 +111,52 @@ Firefox/WebKit and physical iOS checks remain unrun for the reasons above. The
 new visibility and existing label-action browser scripts also accept
 `MAILFLARE_BROWSER=firefox` or `MAILFLARE_BROWSER=webkit` once those engines are
 installed. No actual external email was sent during these checks.
+
+## Follow-up: nested labels
+
+Labels now have an optional parent in the same mailbox. Existing labels remain
+at the top level. The sidebar displays expandable groups, remembers expansion
+locally per mailbox, and keeps ordering separate for each group of siblings.
+Creating a sublabel expands its ancestors so the new label is immediately visible.
+Settings → Inbox → Labels controls both personal visibility and parent assignment.
+Readonly delegates retain their personal visibility controls but cannot change the
+shared hierarchy. Label names retain their existing mailbox-wide uniqueness.
+
+Hidden parents do not implicitly hide their visible children. Deleting a parent
+promotes its immediate children to the top level; descendants, messages, attachments
+and the children's label assignments remain. Message label/move menus include the
+full label path. Failed metadata refreshes retain the last loaded labels.
+
+Migration `0064_nested_labels.sql` adds `folders.parent_id`, a self-reference with
+`ON DELETE SET NULL`, an index, and database guards for mailbox boundaries and
+cycles. Atomic guards reject concurrent reciprocal moves. There are no new tables;
+the existing backup table/group/type lists already include `folders`. Restore inserts
+all labels before restoring their parent relationships, so backup row order does
+not matter. Older backups remain restorable. A nested backup presented to an older
+schema is rejected before existing data is deleted.
+
+The production build passed. All 82 selected function tests passed, including seven
+new hierarchy/access/deletion/backup cases and the existing compose/refine/refresh/
+account-scope/visibility tests. The existing Chromium compose/reader/refresh, message
+menus, flat-label actions and visibility scripts were rerun successfully. The new
+nested-label script passed at 320, 390, 768, 820, 1024 and 1440 px, including dark
+mode, expansion across reloads, sibling ordering, creating a child of a collapsed
+parent, moving labels, retry after failed moves, excluding descendants from parent
+choices, readonly controls, keeping visible children of hidden parents, deleting a
+parent, last-label hit testing and no horizontal overflow. Touch group/menu controls
+have 44 px targets. Actual application components are used with controlled API
+responses; these remain Chromium tests rather than physical device certification.
+
+ESLint passes for the new hierarchy/API/settings/sidebar application files. The
+pre-existing state-in-effect error in `ReorderableList` and unused-argument warning
+in the backup module remain. Type checking still reports the same 17 pre-existing
+diagnostics. Firefox/WebKit and native iOS limitations described above remain.
+
+Run the additional checks with:
+
+```sh
+node --test tests/nested-labels.test.mjs tests/label-visibility.test.mjs tests/label-visibility-client.test.mjs
+node tests/browser/nested-labels.mjs
+node tests/browser/label-visibility.mjs
+node tests/browser/label-actions.mjs
+```
