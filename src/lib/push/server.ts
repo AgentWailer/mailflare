@@ -1,7 +1,9 @@
 import { and, eq, gt, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import { pushSubscriptions, sessions } from "@/db/schema";
+import { pushSubscriptions, sessions, users } from "@/db/schema";
 import type { NewMessageNotification } from "@/lib/realtime/types";
+import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getUnreadBadgeCount } from "./badge";
 
 type VapidConfig = {
 	publicKey: string;
@@ -247,9 +249,23 @@ export async function sendPushNotifications(
 	userIds: string[],
 	payload: NewMessageNotification,
 ): Promise<void> {
+	await deliverPushNotifications(env, userIds, payload);
+}
+
+export async function sendPushTestNotification(env: CloudflareEnv, userId: string, endpoint: string) {
+	return deliverPushNotifications(env, [userId], null, endpoint);
+}
+
+async function deliverPushNotifications(
+	env: CloudflareEnv,
+	userIds: string[],
+	payload: NewMessageNotification | null,
+	endpoint?: string,
+): Promise<{ sent: number; failed: number }> {
 	const config = parseVapidConfig(env);
 	const uniqueUserIds = [...new Set(userIds)];
-	if (!config || uniqueUserIds.length === 0) return;
+	const result = { sent: 0, failed: 0 };
+	if (!config || uniqueUserIds.length === 0) return result;
 
 	const db = getDb(env);
 	const subscriptions = await db
@@ -258,40 +274,55 @@ export async function sendPushNotifications(
 			endpoint: pushSubscriptions.endpoint,
 			p256dh: pushSubscriptions.p256dh,
 			auth: pushSubscriptions.auth,
+			user: users,
 		})
 		.from(pushSubscriptions)
 		.innerJoin(sessions, eq(pushSubscriptions.sessionId, sessions.id))
+		.innerJoin(users, eq(sessions.userId, users.id))
 		.where(
 			and(
 				inArray(pushSubscriptions.userId, uniqueUserIds),
 				gt(sessions.expiresAt, new Date()),
+				eq(pushSubscriptions.userId, users.id),
+				eq(users.disabled, false),
+				...(endpoint ? [eq(pushSubscriptions.endpoint, endpoint)] : []),
 			),
 		);
 
-	const title = (payload.subject || "New email").slice(0, 180);
-	const sender = (payload.fromName ?? payload.from).slice(0, 240);
-	const notificationPayload = JSON.stringify({
-		title,
-		body: `From ${sender}`,
-		icon: "/icon-192.png",
-		badge: "/icon-96.png",
-		tag: payload.messageId,
-		url: `/inbox/${payload.messageId}`,
-	});
+	const unreadCounts = new Map<string, Promise<number>>();
 
 	await Promise.allSettled(
 		subscriptions.map(async (subscription) => {
 			if (!isSupportedPushEndpoint(subscription.endpoint)) return;
 			try {
+				if (payload && !(await getMailboxAccessLevel(db, subscription.user, payload.mailboxId))?.canRead) return;
+				let unreadCount = unreadCounts.get(subscription.user.id);
+				if (!unreadCount) {
+					unreadCount = getUnreadBadgeCount(db, subscription.user);
+					unreadCounts.set(subscription.user.id, unreadCount);
+				}
+				const notificationPayload = JSON.stringify({
+					title: payload ? (payload.subject || "New email").slice(0, 180) : "Mailflare",
+					body: payload ? `From ${(payload.fromName ?? payload.from).slice(0, 240)}` : "Push notifications are working.",
+					icon: "/icon-192.png",
+					badge: "/icon-96.png",
+					tag: payload?.messageId ?? "mailflare-push-test",
+					url: payload ? `/inbox/${payload.messageId}` : "/settings/inbox",
+					unreadCount: await unreadCount,
+				});
 				const response = await sendSubscriptionPush(config, subscription, notificationPayload);
+				if (response.ok) result.sent++;
+				else result.failed++;
 				if (response.status === 404 || response.status === 410) {
 					await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscription.id));
 				} else if (!response.ok) {
 					console.warn(`Web Push delivery failed (${response.status}) for subscription ${subscription.id}`);
 				}
 			} catch (error) {
+				result.failed++;
 				console.warn(`Web Push delivery failed for subscription ${subscription.id}`, error);
 			}
 		}),
 	);
+	return result;
 }

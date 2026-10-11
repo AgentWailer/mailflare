@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth/session";
 import { getEnv } from "@/lib/cloudflare";
 import { newId } from "@/lib/ids";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import {
 	getVapidPublicKey,
 	hasValidPushKeys,
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
 	const env = getEnv();
 	const auth = await requireSessionUser(env, request);
 	if (auth.error) return auth.error;
+	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	if (!getVapidPublicKey(env)) {
 		return NextResponse.json({ error: "Push notifications are not configured" }, { status: 503 });
 	}
@@ -78,6 +80,7 @@ export async function DELETE(request: Request) {
 	const env = getEnv();
 	const auth = await requireSessionUser(env, request);
 	if (auth.error) return auth.error;
+	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Invalid push subscription" }, { status: 400 });
 

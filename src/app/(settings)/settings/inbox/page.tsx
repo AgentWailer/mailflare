@@ -60,9 +60,9 @@ export default async function SettingsInboxPage() {
 							<h3 className="text-base font-semibold text-neutral-900">{t("settingsPage.inbox.notifications")}</h3>
 							<p className="mt-1 text-sm text-neutral-500">{t("settingsPage.inbox.notificationsDescription")}</p>
 						</div>
-						<BrowserNotificationSettings />
+						<PushNotificationSettings />
 						<div className="mt-4">
-							<PushNotificationSettings />
+							<BrowserNotificationSettings />
 						</div>
 					</div>
 				</div>

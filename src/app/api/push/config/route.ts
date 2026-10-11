@@ -9,5 +9,5 @@ export async function GET(request: Request) {
 	if (auth.error) return auth.error;
 
 	const publicKey = getVapidPublicKey(env);
-	return NextResponse.json({ enabled: !!publicKey, publicKey });
+	return NextResponse.json({ enabled: !!publicKey, publicKey }, { headers: { "Cache-Control": "private, no-store" } });
 }

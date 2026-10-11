@@ -30,10 +30,26 @@ export function browserSupportsPush(): boolean {
 	);
 }
 
+export function needsHomeScreenInstallation(): boolean {
+	if (typeof window === "undefined") return false;
+	const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+	const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone;
+	return ios && !standalone;
+}
+
 export async function registerMailflareServiceWorker(): Promise<ServiceWorkerRegistration> {
 	if (!("serviceWorker" in navigator)) throw new Error("Service workers are not supported by this browser");
 	const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-	return registration;
+	// A first install can still be activating when subscribe() is called.
+	return registration.active ? registration : navigator.serviceWorker.ready;
+}
+
+function matchesServerKey(subscription: PushSubscription, publicKey: string): boolean {
+	const key = subscription.options?.applicationServerKey;
+	if (!key) return false;
+	const current = new Uint8Array(key);
+	const expected = decodeBase64Url(publicKey);
+	return current.length === expected.length && current.every((byte, index) => byte === expected[index]);
 }
 
 async function loadPushConfig(): Promise<PushConfigResponse> {
@@ -67,23 +83,28 @@ export async function getPushState(): Promise<{
 	configured: boolean;
 	permission: NotificationPermission | "unsupported";
 	subscribed: boolean;
+	syncFailed: boolean;
 }> {
 	if (!browserSupportsPush()) {
-		return { supported: false, configured: false, permission: "unsupported", subscribed: false };
+		return { supported: false, configured: false, permission: "unsupported", subscribed: false, syncFailed: false };
 	}
 	const [config, registration] = await Promise.all([
 		loadPushConfig(),
 		registerMailflareServiceWorker(),
 	]);
 	const subscription = await registration.pushManager.getSubscription();
-	if (subscription && config.enabled && Notification.permission === "granted") {
-		await saveSubscription(subscription);
+	let subscribed = !!subscription && !!config.publicKey && matchesServerKey(subscription, config.publicKey) && Notification.permission === "granted";
+	let syncFailed = false;
+	if (subscription && subscribed && config.enabled) {
+		try { await saveSubscription(subscription); }
+		catch { subscribed = false; syncFailed = true; }
 	}
 	return {
 		supported: true,
 		configured: config.enabled && !!config.publicKey,
 		permission: Notification.permission,
-		subscribed: !!subscription && Notification.permission === "granted",
+		subscribed,
+		syncFailed,
 	};
 }
 
@@ -97,6 +118,10 @@ export async function enablePushNotifications(): Promise<void> {
 
 	const registration = await registerMailflareServiceWorker();
 	let subscription = await registration.pushManager.getSubscription();
+	if (subscription && !matchesServerKey(subscription, config.publicKey)) {
+		if (!(await subscription.unsubscribe())) throw new Error("Failed to replace the old push subscription");
+		subscription = null;
+	}
 	if (!subscription) {
 		subscription = await registration.pushManager.subscribe({
 			userVisibleOnly: true,
@@ -106,6 +131,7 @@ export async function enablePushNotifications(): Promise<void> {
 
 	try {
 		await saveSubscription(subscription);
+		window.dispatchEvent(new Event("mailflare:messages-changed"));
 	} catch (error) {
 		await subscription.unsubscribe().catch(() => false);
 		throw error;
@@ -125,15 +151,29 @@ export async function disablePushNotifications(): Promise<void> {
 		redirectOnUnauthorized: false,
 	});
 	if (!response.ok) throw new Error("Failed to disable push notifications");
-	await subscription.unsubscribe();
+	if (!(await subscription.unsubscribe())) throw new Error("Failed to unsubscribe this device");
 }
 
 export async function hasActivePushSubscription(): Promise<boolean> {
-	if (!("serviceWorker" in navigator) || Notification.permission !== "granted") return false;
+	if (!browserSupportsPush() || Notification.permission !== "granted") return false;
 	const [registration, config] = await Promise.all([
 		navigator.serviceWorker.getRegistration("/"),
 		loadPushConfig(),
 	]);
-	if (!config.enabled) return false;
-	return !!(await registration?.pushManager.getSubscription());
+	if (!config.enabled || !config.publicKey) return false;
+	const subscription = await registration?.pushManager.getSubscription();
+	return !!subscription && matchesServerKey(subscription, config.publicKey);
+}
+
+export async function sendTestPushNotification(): Promise<void> {
+	const registration = await registerMailflareServiceWorker();
+	const subscription = await registration.pushManager.getSubscription();
+	if (!subscription) throw new Error("No push subscription for this device");
+	const response = await authFetch("/api/push/test", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ endpoint: subscription.endpoint }),
+		redirectOnUnauthorized: false,
+	});
+	if (!response.ok) throw new Error("Push test could not be delivered");
 }

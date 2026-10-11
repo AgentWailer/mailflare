@@ -6,6 +6,7 @@ import { clearMailboxClientState } from "@/components/mailbox-provider-utils";
 import { BrandingProvider } from "@/components/branding-provider";
 import { NewMessagePopup } from "@/components/new-message-popup";
 import { PwaServiceWorker } from "@/components/pwa-service-worker";
+import { AppBadgeSync } from "@/components/app-badge-sync";
 import { ThemeSync } from "@/components/theme-sync";
 import { useMessagePolling } from "@/hooks/use-message-polling";
 import { clearMessageClientState } from "@/hooks/utils";
@@ -47,6 +48,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 		<QueryClientProvider client={client}>
 			<BrandingProvider>
 				<PwaServiceWorker />
+				<AppBadgeSync />
 				{children}
 				<ThemeSync />
 				{realtime.notification && (
