@@ -28,6 +28,9 @@ export function getMessageQueryParams(
 	const params = new URLSearchParams();
 	params.set("timeZone", getUserTimeZone());
 
+	// All incoming mail, regardless of category, label, status or snooze state.
+	if (folder === "all") params.set("direction", "inbound");
+
 	if (folder === "inbox" || folder === "promotions" || folder === "social") {
 		params.set("direction", "inbound");
 		params.set("status", "received");

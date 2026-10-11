@@ -20,6 +20,8 @@ export type ReorderableListProps = {
 	lists: ReorderableListSpec[];
 	/** localStorage key for the saved layout. */
 	storageKey: string;
+	/** Position new items after an existing item when upgrading a saved layout. */
+	initialItemAfter?: Record<string, string>;
 	/** Hold-to-reorder is switched off when false (e.g. the collapsed icon rail). */
 	enabled?: boolean;
 };

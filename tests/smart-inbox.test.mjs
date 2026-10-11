@@ -31,6 +31,9 @@ await build({
  export {parseNewMessageEvent,showBrowserNewMessageNotification} from './src/hooks/message-realtime-utils.ts';
  export {GET as list} from './src/app/api/messages/route.ts';
  export {GET as counts} from './src/app/api/messages/counts/route.ts';
+ export {GET as navigation} from './src/app/api/messages/navigation/route.ts';
+ export {getMessageQueryParams} from './src/hooks/utils.ts';
+ export {resolveLayout} from './src/components/reorderable-list-utils.ts';
  export {GET as getOrganization,POST as organize} from './src/app/api/mail-organization/route.ts';
  export {GET as getSettings,POST as settings} from './src/app/api/settings/mail-sorting/route.ts';
  export {POST as createRule} from './src/app/api/routing-rules/route.ts';
@@ -130,6 +133,60 @@ async function fixture(t) {
 		},
 	};
 }
+test("all incoming mail includes every category, labels, archive, snooze and trash without duplicates", async (t) => {
+	const f = await fixture(t);
+	f.DB.db.exec(`
+		INSERT INTO messages(id,user_id,mailbox_id,direction,from_addr,to_addr,status,category,read,created_at,folder_id,snoozed_until) VALUES
+		('archived','owner','box','inbound','sam@example.test','owner@example.test','archived','primary',1,5,NULL,NULL),
+		('trashed','owner','box','inbound','sam@example.test','owner@example.test','trash','primary',0,4,NULL,NULL),
+		('snoozed','owner','box','inbound','sam@example.test','owner@example.test','received','primary',0,3,NULL,4102444800),
+		('filed','owner','box','inbound','sam@example.test','owner@example.test','received','primary',0,2,'work',NULL),
+		('sent','owner','box','outbound','owner@example.test','sam@example.test','sent','primary',0,1,NULL,NULL),
+		('draft','owner','box','outbound','owner@example.test','sam@example.test','draft','primary',0,1,NULL,NULL),
+		('template','owner','box','inbound','owner@example.test','sam@example.test','template','primary',0,1,NULL,NULL);
+		INSERT INTO message_labels(message_id,folder_id) VALUES('primary','work'),('primary','follow');
+	`);
+	const expected = ['primary','promotion','social','spam','archived','trashed','snoozed','filed'];
+	const params = app.getMessageQueryParams('all','box',{limit:3,offset:0});
+	for (const key of ['status','category','folderId','snoozed']) assert.equal(params.has(key),false);
+	const first = await (await app.list(f.request('/api/messages?' + params))).json();
+	assert.equal(first.total,8);
+	assert.deepEqual(first.messages.map(x=>x.id),expected.slice(0,3));
+	params.set('offset','3');
+	params.set('limit','100');
+	const rest = await (await app.list(f.request('/api/messages?' + params))).json();
+	assert.deepEqual(rest.messages.map(x=>x.id),expected.slice(3));
+	const nav = await (await app.navigation(f.request('/api/messages/navigation?folder=all&mailboxId=box'))).json();
+	assert.deepEqual(nav.messages.map(x=>x.id),expected);
+	assert.equal(nav.messages.find(x=>x.id==='archived').unread,false);
+	const counts = (await (await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json()).counts;
+	assert.deepEqual(counts.folders.all,{total:8,unread:7});
+	assert.equal(counts.folders.inbox.unread,1);
+	assert.equal(await app.getUnreadBadgeCount(f.db,{id:'owner',email:'owner@example.test',role:'user'}),1);
+	const searched = app.getMessageQueryParams('all','box',{query:'from:scam@example.test',read:'unread'});
+	assert.deepEqual((await (await app.list(f.request('/api/messages?' + searched))).json()).messages.map(x=>x.id),['spam']);
+	// No mailbox selected still respects access; an explicit foreign mailbox is rejected.
+	const unscoped = app.getMessageQueryParams('all');
+	assert.deepEqual((await (await app.list(f.request('/api/messages?' + unscoped))).json()).messages.map(x=>x.id),expected);
+	assert.deepEqual((await (await app.navigation(f.request('/api/messages/navigation?folder=all'))).json()).messages.map(x=>x.id),expected);
+	assert.equal((await app.list(f.request('/api/messages?direction=inbound&mailboxId=otherbox'))).status,404);
+	assert.equal((await app.navigation(f.request('/api/messages/navigation?folder=all&mailboxId=otherbox'))).status,404);
+	assert.equal((await app.counts(f.request('/api/messages/counts?mailboxId=otherbox'))).status,404);
+	assert.equal((await app.navigation(new Request('https://mailflare.test/api/messages/navigation?folder=all'))).status,401);
+	// Reading a message updates the aggregate without changing membership.
+	f.DB.db.exec("UPDATE messages SET read=1 WHERE id='spam'");
+	assert.deepEqual((await (await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json()).counts.folders.all,{total:8,unread:6});
+});
+
+test("All mail starts beneath Starred in saved layouts and preserves subsequent user placement", () => {
+	const defaults = {main:['/inbox','/starred','/all','/snoozed'],more:['/spam','/trash']};
+	const anchors = {'/all':'/starred'};
+	assert.deepEqual(app.resolveLayout(defaults,{},anchors),defaults);
+	assert.deepEqual(app.resolveLayout(defaults,{main:['/snoozed','/starred','/inbox'],more:['/trash','/spam']},anchors),{main:['/snoozed','/starred','/all','/inbox'],more:['/trash','/spam']});
+	const moved = {main:['/all','/inbox','/starred','/snoozed'],more:['/spam','/trash']};
+	assert.deepEqual(app.resolveLayout(defaults,moved,anchors),moved);
+});
+
 test("conservative CLEF decisions protect personal/security mail and require correlated spam", () => {
 	assert.equal(
 		app.resolveClefDecision(answers("promotions"), 0.9, 0).category,

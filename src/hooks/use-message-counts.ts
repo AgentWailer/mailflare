@@ -10,6 +10,7 @@ const emptyCounts: MessageCounts = {
 		promotions: { total: 0, unread: 0 },
 		social: { total: 0, unread: 0 },
 		starred: { total: 0, unread: 0 },
+		all: { total: 0, unread: 0 },
 		snoozed: { total: 0, unread: 0 },
 		sent: { total: 0, unread: 0 },
 		scheduled: { total: 0, unread: 0 },

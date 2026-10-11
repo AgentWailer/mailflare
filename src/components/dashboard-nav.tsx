@@ -16,6 +16,7 @@ import {
   Megaphone,
   Users,
   MailPlus,
+  Mails,
   Plus,
   Send,
   ShieldAlert,
@@ -64,6 +65,7 @@ const links = [
   { href: "/promotions", labelKey: "smart.promotions", icon: Megaphone, preloadMessages: true },
   { href: "/social", labelKey: "smart.social", icon: Users, preloadMessages: true },
   { href: "/starred", labelKey: "navigation.starred", icon: Star, preloadMessages: true },
+  { href: "/all", labelKey: "navigation.allMail", icon: Mails, preloadMessages: true },
   { href: "/snoozed", labelKey: "navigation.snoozed", icon: Clock, preloadMessages: true },
   { href: "/sent", labelKey: "navigation.sent", icon: Send, preloadMessages: true },
   { href: "/scheduled", labelKey: "navigation.scheduled", icon: CalendarClock, preloadMessages: true },
@@ -122,6 +124,9 @@ export function DashboardNav({ className }: { className?: string }) {
     if(link.href === "/promotions" || link.href === "/social") return {...link,count:getFolderNavCount(link.href.slice(1) as "promotions" | "social",counts.folders)};
     if (link.href === "/starred") {
       return { ...link, count: getFolderNavCount("starred", counts.folders) };
+    }
+    if (link.href === "/all") {
+      return { ...link, count: getFolderNavCount("all", counts.folders) };
     }
     if (link.href === "/snoozed") {
       return { ...link, count: getFolderNavCount("snoozed", counts.folders) };
@@ -243,6 +248,7 @@ export function DashboardNav({ className }: { className?: string }) {
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       <ReorderableList
         storageKey="mailflare:nav:layout"
+        initialItemAfter={{ "/all": "/starred" }}
         enabled={!minimal}
         lists={[
           { id: "main", items: mainLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })) },

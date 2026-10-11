@@ -2,6 +2,7 @@
 	"navigation.compose": "Verfassen",
 	"navigation.inbox": "Posteingang",
 	"navigation.starred": "Markiert",
+	"navigation.allMail": "Alle E-Mails",
 	"navigation.snoozed": "Zurückgestellt",
 	"navigation.sent": "Gesendet",
 	"navigation.drafts": "Entwürfe",

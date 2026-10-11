@@ -21,6 +21,7 @@ export function createEmptyFolderCounts(): MessageCounts["folders"] {
 		promotions: { total: 0, unread: 0 },
 		social: { total: 0, unread: 0 },
 		starred: { total: 0, unread: 0 },
+		all: { total: 0, unread: 0 },
 		snoozed: { total: 0, unread: 0 },
 		sent: { total: 0, unread: 0 },
 		scheduled: { total: 0, unread: 0 },
@@ -40,6 +41,10 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 		const weight = row.total ?? 1;
 		const folder = getMessageFolder(row);
 		const unread = row.direction === "inbound" && !row.read;
+		if (row.direction === "inbound" && row.status !== "template") {
+			folders.all.total += weight;
+			if (unread) folders.all.unread += weight;
+		}
 		if (row.starred) {
 			folders.starred.total += weight;
 			if (unread) folders.starred.unread += weight;

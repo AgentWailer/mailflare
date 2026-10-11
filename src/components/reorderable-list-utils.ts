@@ -4,7 +4,7 @@ import type { ReorderableLayout } from "./reorderable-list-types";
  * Saved placement first (dropping ids that no longer exist or repeat), then any item the
  * layout has never seen goes at the end of its default list.
  */
-export function resolveLayout(defaults: ReorderableLayout, stored: ReorderableLayout): ReorderableLayout {
+export function resolveLayout(defaults: ReorderableLayout, stored: ReorderableLayout, initialItemAfter?: Record<string, string>): ReorderableLayout {
 	const known = new Set(Object.values(defaults).flat());
 	const placed = new Set<string>();
 	const layout: ReorderableLayout = {};
@@ -12,7 +12,13 @@ export function resolveLayout(defaults: ReorderableLayout, stored: ReorderableLa
 		layout[listId] = (stored[listId] ?? []).filter((id) => known.has(id) && !placed.has(id) && !!placed.add(id));
 	}
 	for (const [listId, ids] of Object.entries(defaults)) {
-		for (const id of ids) if (!placed.has(id)) layout[listId].push(id);
+		for (const id of ids) {
+			if (placed.has(id)) continue;
+			const anchor = initialItemAfter?.[id];
+			const index = anchor ? layout[listId].indexOf(anchor) : -1;
+			if (index >= 0) layout[listId].splice(index + 1, 0, id);
+			else layout[listId].push(id);
+		}
 	}
 	return layout;
 }

@@ -1,6 +1,6 @@
 import { labelCondition } from "@/lib/mail-sorting/labels";
 import { NextResponse } from "next/server";
-import { and, desc, eq, gt, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, ne, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
 import { getDb } from "@/db";
@@ -11,7 +11,7 @@ import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
 
-const folders: MessageFolder[] = ["inbox", "promotions", "social", "starred", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
+const folders: MessageFolder[] = ["inbox", "promotions", "social", "starred", "all", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -48,6 +48,8 @@ export async function GET(request: Request) {
 			if(folder === "inbox") conditions.push(isNull(messages.folderId));
 			conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
 		}
+	} else if (folder === "all") {
+		conditions.push(eq(messages.direction, "inbound"), ne(messages.status, "template"));
 	} else if (folder === "starred") {
 		conditions.push(eq(messages.starred, true));
 	} else if (folder === "snoozed") {

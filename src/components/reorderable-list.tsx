@@ -13,7 +13,7 @@ const CANCEL_DISTANCE = 6;
 // Press and hold an item, then drag it. A ghost follows the pointer and a blue line marks where
 // it will land; nothing moves until you let go. Lists can hand items to each other through the
 // `before` row between them.
-export function ReorderableList({ lists, storageKey, enabled = true }: ReorderableListProps) {
+export function ReorderableList({ lists, storageKey, enabled = true, initialItemAfter }: ReorderableListProps) {
 	const [stored, setStored] = useState<ReorderableLayout>({});
 	const [drag, setDrag] = useState<ReorderableDrag | null>(null);
 	const [target, setTarget] = useState<ReorderableDropTarget | null>(null);
@@ -24,7 +24,7 @@ export function ReorderableList({ lists, storageKey, enabled = true }: Reorderab
 
 	useEffect(() => { setStored(readStorage<ReorderableLayout>(storageKey, {})); }, [storageKey]);
 
-	const layout = resolveLayout(Object.fromEntries(lists.map((list) => [list.id, list.items.map((item) => item.id)])), stored);
+	const layout = resolveLayout(Object.fromEntries(lists.map((list) => [list.id, list.items.map((item) => item.id)])), stored, initialItemAfter);
 	const nodes = new Map(lists.flatMap((list) => list.items.map((item) => [item.id, item.node] as const)));
 	useEffect(() => { latest.current.layout = layout; latest.current.target = target; });
 

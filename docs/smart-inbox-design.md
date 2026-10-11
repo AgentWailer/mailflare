@@ -12,6 +12,8 @@ Implemented 2026-10-11. Applies to new incoming mail. Existing messages and fold
 
 ## Delivery and notifications
 
+“All mail” (`/all`) appears directly below Starred and collects every stored incoming message in the selected mailbox, including Promotions, Social, labels, archived, snoozed, Spam and Trash. It shows each message once regardless of how many labels it has and supports search, pagination and conversation navigation. Sent mail, drafts and composer templates are excluded. Its unread count does not affect the Primary-only notification or app badge policy. This is a view over existing messages; it does not move or reclassify mail.
+
 Local spam protection and explicit mailbox filters precede AI sorting. A matching filter provides the final category/labels without an AI call. Otherwise a remembered sender overrides AI. Narrow deterministic shortcuts handle unsubscribe-marked discount campaigns and LinkedIn digests, excluding security, transaction and direct-message subjects. Remaining mail uses Workers AI `@cf/cloudflare/clef-flash`.
 
 CLEF is queried for category (choice), personal action and genuine security notice (noul). Personal action probability ≥0.50 or security probability ≥0.20 keeps mail in Primary. Promotions/Social require their category probability ≥ the configured threshold and Primary probability ≤0.10. AI-only spam classification requires probability ≥0.98 plus local spam score ≥40. Uncertain, malformed, unavailable, over-budget or timed-out results remain Primary. These thresholds are conservative routing policies, not measured accuracy guarantees. Default classification timeout: eight seconds. Observe mode records the proposal while retaining Primary delivery.

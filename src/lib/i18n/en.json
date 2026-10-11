@@ -2,6 +2,7 @@
 	"navigation.compose": "Compose",
 	"navigation.inbox": "Inbox",
 	"navigation.starred": "Starred",
+	"navigation.allMail": "All mail",
 	"navigation.snoozed": "Snoozed",
 	"navigation.sent": "Sent",
 	"navigation.scheduled": "Scheduled",

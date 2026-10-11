@@ -1,4 +1,4 @@
-import { Megaphone, Users, Archive, Clock, CalendarClock, MailOpen, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
+import { Megaphone, Users, Archive, Clock, CalendarClock, Mails, MailOpen, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
 import type { MessageFolderConfig } from "./types";
 
 export const inboxFolderConfig: MessageFolderConfig = {
@@ -22,6 +22,17 @@ export const starredFolderConfig: MessageFolderConfig = {
 	hrefPrefix: "/starred",
 	icon: Star,
 	badgeVariant: "outline",
+};
+
+export const allMailFolderConfig: MessageFolderConfig = {
+	folder: "all",
+	title: "All mail",
+	titleKey: "navigation.allMail",
+	emptyTextKey: "folder.empty.inbox",
+	emptyText: "No emails",
+	hrefPrefix: "/all",
+	icon: Mails,
+	showRowBadge: false,
 };
 
 export const snoozedFolderConfig: MessageFolderConfig = {
