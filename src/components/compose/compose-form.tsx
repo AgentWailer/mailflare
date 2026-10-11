@@ -519,7 +519,7 @@ export function ComposeForm({
 	const frameClass =
 		mode === "popup"
 			? minimized
-				? "fixed bottom-0 right-4 z-40 flex h-11 md:right-8 md:h-9 w-[min(260px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"
+				? "compose-minimized fixed bottom-0 right-4 z-40 flex h-11 md:right-8 md:h-9 w-[min(260px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"
 				: modalMode
 				? "compose-popup fixed left-1/2 top-1/2 z-50 flex h-[86dvh] w-[min(860px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
 				: "compose-popup fixed bottom-0 right-8 z-40 flex h-[min(520px,calc(100dvh-88px))] w-[min(560px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"

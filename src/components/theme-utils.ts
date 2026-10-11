@@ -3,6 +3,25 @@ export type ThemePreference = "light" | "dark" | "system";
 export const THEME_STORAGE_KEY = "mailflare-theme";
 export const THEME_CHANGED_EVENT = "mailflare:theme-changed";
 
+// Safari uses these document colors for its browser chrome and standalone app.
+// iOS may apply the Apple status-bar style only when the app starts again.
+function syncThemeChrome(dark: boolean): void {
+	document.documentElement.style.colorScheme = dark ? "dark" : "light";
+	for (const [name, content] of [
+		["theme-color", dark ? "#202124" : "#f6f8fc"],
+		["apple-mobile-web-app-status-bar-style", dark ? "black-translucent" : "default"],
+	]) {
+		const existing = [...document.querySelectorAll<HTMLMetaElement>(`meta[name="${name}"]`)];
+		if (!existing.length) {
+			const meta = document.createElement("meta");
+			meta.name = name;
+			document.head.appendChild(meta);
+			existing.push(meta);
+		}
+		for (const meta of existing) meta.content = content;
+	}
+}
+
 // Runs in <head> before paint, so the first frame already has the right theme (same approach as the
 // sidebar width). Keep it in sync with resolveTheme/applyTheme below.
 export const themeBootstrapScript = `(() => {
@@ -12,6 +31,7 @@ export const themeBootstrapScript = `(() => {
 		const dark = preference === "dark" || (preference === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
 		document.documentElement.classList.toggle("dark", dark);
 		document.documentElement.classList.toggle("light", !dark);
+		(${syncThemeChrome.toString()})(dark);
 	} catch {}
 })();`;
 
@@ -40,6 +60,7 @@ export function applyTheme(preference: ThemePreference): void {
 	const dark = resolveTheme(preference) === "dark";
 	document.documentElement.classList.toggle("dark", dark);
 	document.documentElement.classList.toggle("light", !dark);
+	syncThemeChrome(dark);
 }
 
 export function saveThemePreference(preference: ThemePreference): void {

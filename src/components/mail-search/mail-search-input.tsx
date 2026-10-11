@@ -5,12 +5,14 @@ import { useLanguage } from "@/components/language-provider";
 import { HeaderSearch } from "@/components/header-search";
 import { useMailSearch } from "./mail-search-context";
 import { useShortcuts } from "@/components/shortcuts";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
 export function MailSearchInput() {
 	const { t } = useLanguage();
 	const { input: query, setQuery } = useMailSearch();
 	const { openCommandPalette, shortcutsEnabled, shortcutsPreferenceLoading } = useShortcuts();
-	const showShortcutHints = shortcutsEnabled && !shortcutsPreferenceLoading;
+	const isMobile = useIsMobile();
+	const showShortcutHints = !isMobile && shortcutsEnabled && !shortcutsPreferenceLoading;
 
 	return (
 		<HeaderSearch

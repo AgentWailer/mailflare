@@ -501,10 +501,7 @@ export function MessageFolderPage({
 					)}
 				</div>
 			{selectedIds.length === 0 && (
-					<div className="flex shrink-0 items-center gap-2 text-neutral-500">
-						{!compact && <span className="hidden whitespace-nowrap text-xs text-neutral-500 sm:inline">
-							{t("list.range", { start: pageRange.start, end: pageRange.end, total: pageRange.total })}
-						</span>}
+					<div className="flex shrink-0 items-center gap-1 text-neutral-500 sm:gap-2">
 						<Tooltip label={t("list.previousPage")}>
 							<Button
 								variant="ghost"
@@ -516,6 +513,9 @@ export function MessageFolderPage({
 								<ChevronLeft className="h-4 w-4" />
 							</Button>
 						</Tooltip>
+						<span data-message-range aria-live="polite" aria-atomic="true" className="whitespace-nowrap text-[11px] tabular-nums sm:text-xs">
+							{t("list.range", { start: pageRange.start, end: pageRange.end, total: pageRange.total })}
+						</span>
 						<Tooltip label={t("list.nextPage")}>
 							<Button
 								variant="ghost"
