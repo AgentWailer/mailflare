@@ -1,4 +1,4 @@
-import { labelCondition, getMessageLabels } from "@/lib/mail-sorting/labels";
+import { labelCondition, getMessageLabels, getConversationLabels } from "@/lib/mail-sorting/labels";
 import { isMailCategory } from "@/lib/mail-sorting/categories";
 import { NextResponse } from "next/server";
 import { eq, desc, and, or, count, isNull, isNotNull, inArray, lte, gt, notInArray, ne, sql, sum } from "drizzle-orm";
@@ -199,13 +199,22 @@ export async function GET(request: Request) {
 	// `Message.textBody`/`htmlBody` are optional on the wire type and the
 	// reading pane loads them from /api/messages/[id]/thread, so they are
 	// neither selected nor sent here.
-	const labels = await getMessageLabels(db,rows.map(row=>row.id));
+	const labels = groupByThread
+		? (await getConversationLabels(db, rows.map(row => row.threadId ?? row.id), where))
+			.map(({ threadKey, ...label }) => ({ messageId: threadKey, ...label }))
+		: await getMessageLabels(db, rows.map(row => row.id));
+	const labelsByKey = new Map<string, Array<{ id: string; name: string; color: string }>>();
+	for (const { messageId, ...label } of labels) {
+		const assigned = labelsByKey.get(messageId) ?? [];
+		assigned.push(label);
+		labelsByKey.set(messageId, assigned);
+	}
 	const enrichedRows = rows.map(({ rawR2Key: _rawR2Key, ...message }) => {
 		const contactMap = contactMapsByUserId.get(message.userId);
 		const accountName = message.mailboxId ? mailboxNameMap.get(message.mailboxId) : null;
 		return {
 			...message,
-			labels: labels.filter(label=>label.messageId===message.id).map(({messageId: _messageId,...label})=>label),
+			labels: labelsByKey.get(groupByThread ? message.threadId ?? message.id : message.id) ?? [],
 			snippet: message.snippet,
 			...(scheduledAtByMessageId.has(message.id) ? { scheduledAt: scheduledAtByMessageId.get(message.id) } : {}),
 			fromContactName:

@@ -22,6 +22,7 @@ import { setMessageDragData } from "@/lib/messages/drag-utils";
 import { BulkMessageToolbar } from "./bulk-message-toolbar";
 import { SwipeableRow } from "./swipeable-row";
 import { MessageListRowActions } from "./message-list-row-actions";
+import { MessageLabelChips } from "./message-label-chips";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
 import { MessageNavigationProgress, useMessageNavigation } from "./message-navigation";
 import { rememberOpenedUnreadMessage } from "./message-detail-navigation-utils";
@@ -155,11 +156,11 @@ function MessageListRow({
 						</span>
 					</span>
 					<span
-						className={`mt-1 block truncate text-sm ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
+						className={`mt-1 flex min-w-0 items-center gap-1.5 text-sm ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
 							}`}
 					>
-						{message.subject ?? t("list.noSubject")}
-						{message.labels?.slice(0,2).map(label=><span key={label.id} className="ml-2 inline-block max-w-24 truncate rounded bg-neutral-100 px-1.5 align-bottom text-[11px] font-normal text-neutral-600">{label.name}</span>)}
+						<MessageLabelChips labels={message.labels} />
+						<span className="min-w-0 truncate">{message.subject ?? t("list.noSubject")}</span>
 					</span>
 					<span className="mt-0.5 block truncate text-xs leading-5 text-neutral-500">
 						{preview}
@@ -220,12 +221,12 @@ function MessageListRow({
 					<span className="ml-2 text-xs text-neutral-500">{message.threadCount}</span>
 				)}
 			</span>
-			<span className="truncate text-neutral-700">
-				<span className={unread ? "font-semibold text-neutral-900" : ""}>
-					{rowMessage.labels?.slice(0,2).map(label=><span key={label.id} className="mr-2 inline-block max-w-24 truncate rounded bg-neutral-100 px-1.5 align-bottom text-[11px] font-normal text-neutral-600">{label.name}</span>)}
-					{rowMessage.subject ?? t("list.noSubject")}
+			<span className="flex min-w-0 items-center gap-2 text-neutral-700">
+				<MessageLabelChips labels={rowMessage.labels} />
+				<span className="min-w-0 truncate">
+					<span className={unread ? "font-semibold text-neutral-900" : ""}>{rowMessage.subject ?? t("list.noSubject")}</span>
+					<span className="text-neutral-500"> - {getMessagePreview(rowMessage, config.folder, t)}</span>
 				</span>
-				<span className="text-neutral-500"> - {getMessagePreview(rowMessage, config.folder, t)}</span>
 			</span>
 			<time
 				dateTime={message.createdAt}
@@ -443,8 +444,8 @@ export function MessageFolderPage({
 	return (
 		<div className="flex h-full min-h-0 flex-col">
 			<div className={`flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
-				<div className="flex items-center gap-3 w-full">
-					<Tooltip label={t("list.selectAll")}>
+				<div className="flex min-w-0 flex-1 items-center gap-3">
+					<Tooltip label={t("list.selectAll")} className="shrink-0">
 						<Checkbox
 							checked={allVisibleSelected}
 							disabled={messages.length === 0}
@@ -471,10 +472,10 @@ export function MessageFolderPage({
 					)}
 				</div>
 				{(selectedIds.length === 0 || compact) && (
-					<div className="flex items-center gap-2 text-neutral-500">
-						<span className="text-xs text-neutral-500 whitespace-nowrap">
+					<div className="flex shrink-0 items-center gap-2 text-neutral-500">
+						{!compact && <span className="hidden whitespace-nowrap text-xs text-neutral-500 sm:inline">
 							{t("list.range", { start: pageRange.start, end: pageRange.end, total: pageRange.total })}
-						</span>
+						</span>}
 						<Tooltip label={t("list.previousPage")}>
 							<Button
 								variant="ghost"

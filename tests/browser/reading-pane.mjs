@@ -15,13 +15,14 @@ write('search.ts','export const useMailSearch=()=>({query:""});');
 write('loading.ts','export const usePageLoading=()=>{};');
 write('link.tsx','export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>;}');
 write('navigation.ts',`import {useSyncExternalStore} from 'react';const subscribe=(listener)=>{window.addEventListener('fixture:navigate',listener);return ()=>window.removeEventListener('fixture:navigate',listener)};export const usePathname=()=>useSyncExternalStore(subscribe,()=>location.pathname);const router={push:(href)=>{history.pushState({},'',href);window.dispatchEvent(new Event('fixture:navigate'))},refresh:()=>{}};export const useRouter=()=>router;`);
-write('messages.ts',`const messages=Array.from({length:25},(_,i)=>({id:'msg-'+i,direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender'+i+'@example.test',toAddr:'owner@example.test',subject:'Nachricht '+i,textBody:'Sample message',snippet:'Sample message',labels:[],createdAt:'2026-10-11T12:00:00Z'}));export const useMessages=()=>({messages,isLoading:false,total:25,limit:25,updateMessages:()=>{}});`);
+write('messages.ts',`const messages=Array.from({length:25},(_,i)=>({id:'msg-'+i,direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender'+i+'@example.test',toAddr:'owner@example.test',subject:'Nachricht '+i,textBody:'Sample message',snippet:'Sample message',labels:i===0?[{id:'source',name:'Aperturo',color:'#2563eb'},{id:'work',name:'Projektunterlagen und persönliche Dokumente',color:'#16a34a'},{id:'third',name:'Nachfassen',color:'#7c3aed'},{id:'fourth',name:'Wichtig',color:'#dc2626'}]:[],createdAt:'2026-10-11T12:00:00Z'}));export const useMessages=()=>({messages,isLoading:false,total:25,limit:25,updateMessages:()=>{}});`);
 write('counts.ts','export const useMessageCounts=()=>({counts:{folders:{inbox:{total:25,unread:0}},customFolders:{},mailboxes:[]}});');
 write('entry.tsx',`
  import React from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
- import {LanguageProvider} from '@/components/language-provider';import {MessageSplitLayout} from '@/components/messages/message-split-layout';import {InboxReadingLayoutSettings} from '@/components/settings/inbox-reading-layout-settings';import {inboxFolderConfig} from '@/components/messages/message-folder-configs';import {useMessageListVisibility} from '@/components/messages/message-list-visibility';import {usePathname} from 'next/navigation';import de from '../../public/locales/de.json';
+ import {LanguageProvider} from '@/components/language-provider';import {MessageSplitLayout} from '@/components/messages/message-split-layout';import {MessageFolderPage} from '@/components/messages/message-folder-page';import {InboxReadingLayoutSettings} from '@/components/settings/inbox-reading-layout-settings';import {inboxFolderConfig} from '@/components/messages/message-folder-configs';import {useMessageListVisibility} from '@/components/messages/message-list-visibility';import {usePathname} from 'next/navigation';import de from '../../public/locales/de.json';
+ function Content(){return usePathname()==='/inbox'?<MessageFolderPage config={inboxFolderConfig}/>:<Reader/>}
  function Reader(){const pathname=usePathname(),list=useMessageListVisibility();return <article data-testid="reader" style={{height:'100%',overflowY:'auto',padding:16}}><button onClick={list.toggle}>Liste ein-/ausblenden</button><h1>Geöffnete E-Mail {pathname.split('/').at(-1)}</h1>{Array.from({length:35},(_,i)=><p key={i} style={{marginBottom:16}}>Absatz {i}: Dieser Inhalt lässt sich unabhängig von der Nachrichtenliste lesen.</p>)}</article>}
- createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale="de" initialMessages={de}><div style={{height:'100dvh',display:'flex'}}><aside className="hidden lg:block" style={{width:240,flexShrink:0}}>Posteingang</aside><main style={{display:'flex',flexDirection:'column',flex:1,minWidth:0,minHeight:0}}><header style={{padding:8}}><InboxReadingLayoutSettings/></header><div style={{flex:1,minHeight:0}}><MessageSplitLayout config={inboxFolderConfig}><Reader/></MessageSplitLayout></div></main></div></LanguageProvider></QueryClientProvider>);
+ createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale="de" initialMessages={de}><div style={{height:'100dvh',display:'flex'}}><aside className="hidden lg:block" style={{width:240,flexShrink:0}}>Posteingang</aside><main style={{display:'flex',flexDirection:'column',flex:1,minWidth:0,minHeight:0}}><header style={{padding:8}}><InboxReadingLayoutSettings/></header><div style={{flex:1,minHeight:0}}><MessageSplitLayout config={inboxFolderConfig}><Content/></MessageSplitLayout></div></main></div></LanguageProvider></QueryClientProvider>);
 `);
 const cssDir=join(root,'dist/client/_next/static/css');
 const css=readFileSync(join(cssDir,readdirSync(cssDir).find(name=>name.startsWith('index.')&&name.endsWith('.css'))));
@@ -32,9 +33,22 @@ try{
  server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname,asset=assets[path]||(!path.startsWith('/api/')&&!path.endsWith('.js')&&!path.endsWith('.css')?assets['/']:null);res.writeHead(asset?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(asset||'Not found');});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
  browser=await chromium.launch({headless:true,...(process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),args:['--no-sandbox']});
- for(const viewport of [{width:1440,height:900},{width:1024,height:768},{width:390,height:844},{width:844,height:390}]){
+ for(const viewport of [{width:1440,height:900},{width:1024,height:768},{width:320,height:700},{width:390,height:844},{width:430,height:932},{width:844,height:390}]){
   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[];page.on('pageerror',error=>errors.push(error.stack));
   await page.route('**/api/**',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({messages:[],folders:[],ok:true})}));
+  const dark=viewport.width===390;
+  if(dark)await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.classList.add('dark'),{once:true}));
+  await page.goto(origin+'/inbox');
+  const labelled=page.locator('a[href="/inbox/msg-0"]'),chips=labelled.locator('[data-message-labels]');
+  await chips.waitFor();assert.equal(await chips.getByText('Aperturo',{exact:true}).count(),1);assert.equal(await chips.getByText('+2',{exact:true}).count(),1);
+  assert(await chips.getByText('Aperturo',{exact:true}).evaluate(el=>el.clientWidth>=el.scrollWidth),'the short source label stays readable');
+  assert((await chips.getAttribute('aria-label')).includes('Nachfassen, Wichtig'));
+  const cb=await chips.boundingBox(),subject=await labelled.getByText('Nachricht 0',{exact:true}).boundingBox();
+  assert(cb.x>=0&&cb.x+cb.width<=viewport.width);assert(cb.width>30&&cb.height>=20);assert(subject.width>=40&&subject.x>=cb.x+cb.width-1);
+  assert.equal(await chips.locator('[aria-hidden="true"]').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(37, 99, 235)');
+  assert.equal(await page.locator('a[href="/inbox/msg-1"] [data-message-labels]').count(),0);
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'labelled inbox has no horizontal overflow');
+  if(viewport.width===390||viewport.width===1440)await page.screenshot({path:'/tmp/mailflare-inbox-labels-'+(viewport.width===390?'mobile':'desktop')+'.png'});
   await page.goto(origin+'/inbox/msg-0');const layout=page.locator('[data-reading-layout]'),reader=page.getByTestId('reader'),list=layout.locator(':scope > aside');
 	await page.waitForFunction(()=>document.querySelector('[data-reading-layout]')?.getAttribute('data-reading-layout')==='bottom');await page.waitForTimeout(350);
   if(viewport.width>=1024){
@@ -48,7 +62,7 @@ try{
    if(viewport.width===1440)await page.screenshot({path:'/tmp/mailflare-reading-pane-desktop.png'});
    await reader.getByRole('button',{name:'Liste ein-/ausblenden'}).click();await page.waitForTimeout(350);assert.equal(await list.getAttribute('aria-hidden'),'true');assert((await reader.boundingBox()).height>rb.height);
    await reader.getByRole('button',{name:'Liste ein-/ausblenden'}).click();await page.waitForTimeout(350);
-   await page.getByLabel(de['settings.reading.title'],{exact:true}).selectOption('right');await page.waitForTimeout(350);const rightList=await list.boundingBox(),rightReader=await reader.boundingBox();assert(rightReader.x>=rightList.x+rightList.width-1);assert(Math.abs(rightReader.y-rightList.y)<1);
+   await page.getByLabel(de['settings.reading.title'],{exact:true}).selectOption('right');await page.waitForTimeout(350);const rightList=await list.boundingBox(),rightReader=await reader.boundingBox();assert(rightReader.x>=rightList.x+rightList.width-1);assert(Math.abs(rightReader.y-rightList.y)<1);assert(await list.locator('[data-message-labels]').first().isVisible());
    await page.reload();await page.waitForTimeout(350);assert.equal(await layout.getAttribute('data-reading-layout'),'right');
    await page.getByLabel(de['settings.reading.title'],{exact:true}).selectOption('bottom');await page.waitForTimeout(350);
   }else{
@@ -56,7 +70,7 @@ try{
   }
   await page.getByLabel(de['settings.reading.title'],{exact:true}).selectOption('off');await page.waitForTimeout(350);assert.equal(await layout.locator(':scope > aside').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal page overflow');assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({viewport,below:viewport.width>=1024,mobileFullscreen:viewport.width<1024,layoutPreference:true,resizing:viewport.width>=1024,noOverflow:true}));await page.close();
+  console.log(JSON.stringify({viewport,below:viewport.width>=1024,mobileFullscreen:viewport.width<1024,layoutPreference:true,visibleAssignedLabels:true,theme:dark?'dark':'light',resizing:viewport.width>=1024,noOverflow:true}));await page.close();
  }
  const page=await browser.newPage({viewport:{width:1440,height:900}});await page.addInitScript(()=>localStorage.setItem('mailflare-two-column-reading','off'));await page.route('**/api/**',route=>route.fulfill({contentType:'application/json',body:'{"messages":[]}'}));await page.goto(origin+'/inbox/msg-0');await page.waitForFunction(()=>document.querySelector('[data-reading-layout]')?.getAttribute('data-reading-layout')==='off');console.log(JSON.stringify({legacyDisabledPreferencePreserved:true}));await page.close();
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}

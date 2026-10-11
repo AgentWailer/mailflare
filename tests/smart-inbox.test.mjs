@@ -249,6 +249,30 @@ test("AI usage is capped atomically; failure, disabled and observation modes lea
 		"primary",
 	);
 });
+test("conversation rows retain labels from older visible messages without duplicates or labels from hidden mailboxes", async (t) => {
+	const f = await fixture(t);
+	f.DB.db.exec(`
+		UPDATE messages SET thread_id='shared' WHERE id IN ('primary','foreign');
+		INSERT INTO folders(id,user_id,mailbox_id,name,created_at) VALUES ('hidden','owner','box','Archived only',1);
+		INSERT INTO messages(id,user_id,mailbox_id,direction,from_addr,to_addr,status,category,read,thread_id,created_at) VALUES
+		('newest','owner','box','inbound','sam@example.test','owner@example.test','received','primary',1,'shared',30),
+		('archived','owner','box','inbound','sam@example.test','owner@example.test','archived','primary',1,'shared',20);
+		INSERT INTO message_labels(message_id,folder_id) VALUES
+		('primary','work'),('primary','follow'),('newest','follow'),('archived','hidden'),('foreign','foreign'),('primary','foreign');
+	`);
+	const query = '/api/messages?mailboxId=box&status=received&direction=inbound';
+	const grouped = await (await app.list(f.request(query+'&group=thread'))).json();
+	assert.deepEqual(grouped.messages.map(message=>message.id), ['newest']);
+	assert.deepEqual(grouped.messages[0].labels.map(label=>label.id).sort(), ['follow','work']);
+	assert.deepEqual(grouped.messages[0].threadMessageIds.sort(), ['newest','primary']);
+	const individual = await (await app.list(f.request(query))).json();
+	assert.deepEqual(individual.messages.map(message=>message.id), ['newest','primary']);
+	assert.deepEqual(individual.messages[0].labels.map(label=>label.id), ['follow']);
+	const filtered = await (await app.list(f.request(query+'&group=thread&folderId=work'))).json();
+	assert.deepEqual(filtered.messages.map(message=>message.id), ['primary']);
+	assert.deepEqual(filtered.messages[0].labels.map(label=>label.id).sort(), ['follow','work']);
+});
+
 test("multiple labels share one message, remain in inbox, count once and preserve existing labels in bulk changes", async (t) => {
 	const f = await fixture(t);
 	assert.equal(

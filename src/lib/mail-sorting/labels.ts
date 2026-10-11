@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { folders, messageLabels, messages } from "@/db/schema";
 import type { AppDatabase } from "@/db";
 export function labelCondition(folderId: string) {
@@ -35,6 +35,24 @@ export async function getMessageLabels(db: AppDatabase, ids: string[]) {
 		);
 	return rows;
 }
+/** Aggregate labels of the messages represented by each visible conversation row. */
+export async function getConversationLabels(db: AppDatabase, keys: string[], scope: SQL | undefined) {
+	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
+	const rows: Array<{ threadKey: string; id: string; name: string; color: string }> = [];
+	for (let offset = 0; offset < keys.length; offset += 80) {
+		rows.push(...await db.selectDistinct({
+			threadKey,
+			id: folders.id,
+			name: folders.name,
+			color: folders.color,
+		}).from(messageLabels)
+			.innerJoin(folders, eq(messageLabels.folderId, folders.id))
+			.innerJoin(messages, eq(messageLabels.messageId, messages.id))
+			.where(and(scope, inArray(threadKey, keys.slice(offset, offset + 80)), eq(folders.mailboxId, messages.mailboxId))));
+	}
+	return rows;
+}
+
 export async function validLabelIds(
 	db: AppDatabase,
 	mailboxId: string,
