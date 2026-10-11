@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { CardGridSkeleton } from "@/components/page-skeletons";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
-import type { DomainRoutingProps, DomainRule, DomainRuleInput } from "./types";
+import type { DomainRoutingProps, DomainRule, DomainRuleInput, DomainRuleMailbox } from "./types";
 import {
 	ACTION_LABELS,
 	MATCH_FIELD_LABELS,
@@ -302,7 +302,7 @@ export function DomainRouting({ domain }: DomainRoutingProps = {}) {
 									<option value="">{t("routing.selectMailbox")}</option>
 									{mailboxes.map((mailbox) => (
 										<option key={mailbox.id} value={mailbox.id}>
-											{mailbox.localPart}@{hostname}
+											{mailbox.localPart}@{mailbox.hostname ?? hostname}
 											{mailbox.disabled ? t("routing.disabledSuffix") : ""}
 										</option>
 									))}
@@ -385,7 +385,7 @@ function RuleSection({
 	description: string;
 	rules: DomainRule[];
 	hostname: string;
-	mailboxes: { id: string; localPart: string; displayName: string | null; disabled: boolean }[];
+	mailboxes: DomainRuleMailbox[];
 	onEdit: (rule: DomainRule) => void;
 	onDelete: (id: string) => void;
 	onToggle: (rule: DomainRule) => void;

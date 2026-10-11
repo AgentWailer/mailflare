@@ -23,6 +23,7 @@ export type DomainRule = {
 export type DomainRuleMailbox = {
 	id: string;
 	localPart: string;
+	hostname?: string;
 	displayName: string | null;
 	disabled: boolean;
 };

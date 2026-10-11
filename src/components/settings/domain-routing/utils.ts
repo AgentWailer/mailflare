@@ -94,7 +94,7 @@ export function describeRule(rule: DomainRule, mailboxes: DomainRuleMailbox[], h
 		return t(rule.keepCopy ? "routing.describe.forwardCopy" : "routing.describe.forward", { condition, to: rule.forwardTo ?? "—" });
 	}
 	const mailbox = mailboxes.find((m) => m.id === rule.mailboxId);
-	const address = mailbox ? `${mailbox.localPart}@${hostname}` : "—";
+	const address = mailbox ? `${mailbox.localPart}@${mailbox.hostname ?? hostname}` : "—";
 	return t("routing.describe.store", { condition, address });
 }
 

@@ -66,23 +66,35 @@ export async function getAdminDomain(
 }
 
 export async function listAdminDomainMailboxes(db: AppDatabase, domainId: string) {
+	const ownerId = await getDomainOwnerId(db, domainId);
+	if (!ownerId) return [];
 	return db
 		.select({
 			id: mailboxes.id,
 			localPart: mailboxes.localPart,
 			displayName: mailboxes.displayName,
 			disabled: mailboxes.disabled,
+			hostname: domains.hostname,
 		})
 		.from(mailboxes)
-		.where(eq(mailboxes.domainId, domainId))
-		.orderBy(asc(mailboxes.localPart));
+		.innerJoin(domains, eq(domains.id, mailboxes.domainId))
+		.where(eq(domains.userId, ownerId))
+		.orderBy(asc(domains.hostname), asc(mailboxes.localPart));
+}
+
+async function getDomainOwnerId(db: AppDatabase, domainId: string) {
+	const [domain] = await db.select({ ownerId: domains.userId }).from(domains).where(eq(domains.id, domainId)).limit(1);
+	return domain?.ownerId;
 }
 
 export async function assertAdminRuleMailbox(db: AppDatabase, mailboxId: string, domainId: string): Promise<boolean> {
+	const ownerId = await getDomainOwnerId(db, domainId);
+	if (!ownerId) return false;
 	const [mailbox] = await db
 		.select({ id: mailboxes.id })
 		.from(mailboxes)
-		.where(and(eq(mailboxes.id, mailboxId), eq(mailboxes.domainId, domainId)))
+		.innerJoin(domains, eq(domains.id, mailboxes.domainId))
+		.where(and(eq(mailboxes.id, mailboxId), eq(domains.userId, ownerId)))
 		.limit(1);
 	return !!mailbox;
 }

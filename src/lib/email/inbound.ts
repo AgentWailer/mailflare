@@ -131,9 +131,21 @@ export async function processInboundMessage(
 	let status = destination.status === "received" && spamAnalysis?.verdict === "spam"
 		? "spam"
 		: destination.status;
-	const sorting = destination.matched ? {category: destination.category ?? "primary", source: "rule", reason: "mailbox_rule"}
- : status !== "received" ? {category: "primary" as const, source: "rule", reason: status}
- : await classifyIncomingMail(env, {mailboxId:decision.mailbox.mailboxId,userId:decision.mailbox.userId,sender:fromAddr,recipient:payload.to,subject:parsed.subject,text:prepareSpamContent(parsed).visibleText,spamScore:spamAnalysis?.score??0,headers:payload.headers});
+	// Attaching source labels must not bypass spam and category classification.
+	const sorting = destination.matched && (destination.category || destination.folderId)
+		? { category: destination.category ?? "primary", source: "rule", reason: "mailbox_rule" }
+		: status !== "received"
+			? { category: "primary" as const, source: "rule", reason: status }
+			: await classifyIncomingMail(env, {
+				mailboxId: decision.mailbox.mailboxId,
+				userId: decision.mailbox.userId,
+				sender: fromAddr,
+				recipient: payload.to,
+				subject: parsed.subject,
+				text: prepareSpamContent(parsed).visibleText,
+				spamScore: spamAnalysis?.score ?? 0,
+				headers: payload.headers,
+			});
  if ("spam" in sorting && sorting.spam) status = "spam";
  const category = sorting.category;
  const folderId = status === "spam" ? null : destination.folderId;
