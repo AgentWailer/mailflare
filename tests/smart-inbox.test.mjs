@@ -36,7 +36,8 @@ await build({
  export {getMessageQueryParams} from './src/hooks/utils.ts';
  export {resolveLayout} from './src/components/reorderable-list-utils.ts';
  export {GET as getOrganization,POST as organize} from './src/app/api/mail-organization/route.ts';
- export {GET as getSettings,POST as settings} from './src/app/api/settings/mail-sorting/route.ts';
+ export {getSortingExamples} from './src/lib/mail-sorting/learning.ts';
+ export {GET as getSettings,POST as settings,DELETE as forgetSorting} from './src/app/api/settings/mail-sorting/route.ts';
  export {POST as createRule} from './src/app/api/routing-rules/route.ts';
  export {resolveInboxRuleDestination,matchesRule} from './src/lib/email/routing.ts';
  export {exportDatabaseRecords,restoreDatabaseRecords} from './src/lib/backups/export.ts';
@@ -198,11 +199,9 @@ test("conservative CLEF decisions protect personal/security mail and require cor
 		"social",
 	);
 	for (const value of [
-		answers("promotions", 0.8),
 		answers("social", 0.99, 0.6),
 		answers("promotions", 0.99, 0.01, 0.3),
 		{},
-		answers("spam", 0.99),
 	])
 		assert.equal(app.resolveClefDecision(value, 0.9, 0).category, "primary");
 	assert.equal(
@@ -716,7 +715,7 @@ test("backup works before smart inbox migration and its older document restores 
 	const migrationDir = join(dir, "pre-smart");
 	mkdirSync(migrationDir);
 	for (const name of readdirSync("drizzle/migrations").filter(
-		(name) => name.endsWith(".sql") && name !== "0061_smart_inbox.sql",
+		(name) => name.endsWith(".sql") && !["0061_smart_inbox.sql", "0062_mail_sorting_feedback.sql"].includes(name),
 	))
 		writeFileSync(
 			join(migrationDir, name),
@@ -818,4 +817,73 @@ test("label deletion rejects unauthenticated, foreign, mismatched and read-only 
  f.DB.db.exec(`UPDATE mailboxes SET type='shared' WHERE id='box'; INSERT INTO mailbox_access(id,mailbox_id,user_id,permission,created_at) VALUES ('grant','box','other','read_only',1);`);
  assert.equal((await app.deleteLabel(new Request(f.request('/api/folders/work?mailboxId=box',undefined,'other'),{method:'DELETE'}),context)).status,404);
  assert.equal(f.DB.db.prepare("SELECT count(*) AS n FROM folders WHERE id='work'").get().n,1);
+});
+
+
+test('two-stage decisions route known non-inbox mail despite split category probabilities',()=>{
+ const replay=(probabilities,inbox=.01)=>({category:{type:'choice',choice:Object.entries(probabilities).sort((a,b)=>b[1]-a[1])[0][0],probabilities},inbox:{type:'noul',noul:inbox},action:{type:'noul',noul:.01},security:{type:'noul',noul:.01}});
+ const uber=replay({primary:.0226,promotions:.4114,social:.0197,spam:.5463});
+ assert.equal(app.resolveClefDecision(uber,.8,0).category,'promotions');assert.equal(app.resolveClefDecision(uber,.8,0).reviewRequired,true);
+ const linkedin=replay({primary:.019,promotions:.1252,social:.8036,spam:.0522});assert.equal(app.resolveClefDecision(linkedin,.8,0).category,'social');
+ const split=replay({primary:.05,promotions:.4,social:.45,spam:.1},.2);assert.equal(app.resolveClefDecision(split,.8,0).category,'social');
+ assert.equal(app.resolveClefDecision({...split,inbox:{type:'noul',noul:.21}},.8,0).category,'primary');
+ assert.equal(app.resolveClefDecision({...split,inbox:{type:'noul',noul:.15}},.9,0).category,'primary');
+ assert.equal(app.resolveClefDecision(answers('spam',.95),.8,50).spam,true);
+ assert.equal(app.resolveClefDecision(answers('spam',.99),.8,0).category,'promotions');
+ for(const field of ['action','security'])assert.equal(app.resolveClefDecision({...uber,[field]:{type:'noul',noul:field==='action'?.6:.3}},.8,50).category,'primary');
+ for(const noul of [NaN,1.1,-.1])assert.equal(app.resolveClefDecision({...uber,inbox:{type:'noul',noul}},.8,0).reason,'invalid_model_response');
+});
+
+test('first-order vouchers and LinkedIn job alerts route correctly without capturing receipts or lookalike domains',async t=>{
+ const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('primary')};};
+ const input={...f.input,sender:'"Uber" <uber@uber.com>',subject:'Nicht mehr lange: Spare € 15 bei deinen ersten 2 Bestellungen',text:'Spare bei deinen ersten Bestellungen. Jetzt bestellen!',headers:{'List-Unsubscribe':'<https://uber.com/unsubscribe>'}};
+ assert.equal((await app.classifyIncomingMail(f.env,input)).category,'promotions');
+ assert.equal((await app.classifyIncomingMail(f.env,{...input,sender:'jobalerts-noreply@linkedin.com',subject:'Regional VP of Sales, DACH and CEE regions at monday.com',headers:{}})).category,'social');assert.equal(calls,0);
+ for(const subject of ['Dein Uber Beleg','Your Uber receipt','Uber Rechnung','Your order confirmation','Bestelldaten: Deine Bestellung','Deine Zahlungsbestätigung','Security alert','Re: Spare €15']){
+  const result=await app.classifyIncomingMail(f.env,{...input,subject});assert.equal(result.category,'primary',subject);
+ }
+ assert.equal((await app.classifyIncomingMail(f.env,{...input,subject:'Deine Fahrt',text:'Rechnungsnummer 2026-123. Gesamtbetrag €15.'})).category,'primary');
+ assert.equal(app.resolveRoutineMail({...input,sender:'jobalerts-noreply@linkedin.com.attacker.test',subject:'VP of Sales',headers:{}}),null);
+ assert.equal(app.resolveRoutineMail({...input,sender:'anna@linkedin.com',subject:'Nachricht von Anna'}),null);
+});
+
+test('confirmed category corrections persist independently, stay mailbox scoped and reach subsequent AI requests',async t=>{
+ const f=await fixture(t);f.DB.db.exec(`UPDATE messages SET from_addr='"Uber" <uber@uber.com>',subject='Spare €15 bei deinen ersten Bestellungen' WHERE id='primary'`);
+ const correction=await app.organize(f.request('/api/mail-organization',{mailboxId:'box',messageIds:['primary'],category:'promotions'}));assert.equal(correction.status,200);
+ assert.deepEqual(await app.getSortingExamples(f.env,'box'),[{sender:'uber@uber.com',subject:'Spare €15 bei deinen ersten Bestellungen',category:'promotions'}]);
+ assert.deepEqual(await app.getSortingExamples(f.env,'otherbox'),[]);
+ let request;f.env.AI.run=async(model,input)=>{request=input;return {answers:answers('promotions')};};
+ assert.equal((await app.classifyIncomingMail(f.env,{...f.input,sender:'uber@uber.com',subject:'Dein nächstes Angebot'})).learningExamples,1);
+ assert.deepEqual(request.state.userCorrections,await app.getSortingExamples(f.env,'box'));assert.equal(request.questions.inbox.type,'noul');
+ await app.organize(f.request('/api/mail-organization',{mailboxId:'box',messageIds:['primary'],category:'primary'}));assert.equal((await app.getSortingExamples(f.env,'box'))[0].category,'primary');assert.equal(f.DB.db.prepare('SELECT count(*) n FROM mail_sorting_feedback').get().n,1);
+ await app.organize(f.request('/api/mail-organization',{mailboxId:'box',messageIds:['social'],skipInbox:true}));assert.equal(f.DB.db.prepare('SELECT count(*) n FROM mail_sorting_feedback').get().n,1);
+ const backup=await app.exportDatabaseRecords(f.DB);await app.restoreDatabaseRecords(f.DB,backup.buffer);assert.equal((await app.getSortingExamples(f.env,'box')).length,1);
+ f.DB.db.exec("DELETE FROM messages WHERE id='primary'");assert.equal((await app.getSortingExamples(f.env,'box')).length,1);assert.equal(f.DB.db.prepare('SELECT message_id FROM mail_sorting_feedback').get().message_id,null);
+ assert.equal((await app.forgetSorting(new Request(f.request('/api/settings/mail-sorting',{mailboxId:'box',clearLearning:true},'other'),{method:'DELETE'}))).status,404);
+ assert.equal((await app.forgetSorting(new Request(f.request('/api/settings/mail-sorting',{mailboxId:'box',clearLearning:true}),{method:'DELETE'}))).status,200);assert.deepEqual(await app.getSortingExamples(f.env,'box'),[]);
+});
+
+test('remembered bulk senders cannot override transactions, security or personal conversations',async t=>{
+ const f=await fixture(t);f.DB.db.exec(`INSERT INTO mail_sorting_overrides(mailbox_id,sender,category) VALUES ('box','uber@uber.com','promotions')`);
+ for(const subject of ['Your Uber receipt','Dein Beleg','Bestelldaten','Order confirmation','Login alert','Nachricht von Anna']){
+  assert.equal((await app.classifyIncomingMail(f.env,{...f.input,sender:'uber@uber.com',subject})).category,'primary',subject);
+ }
+ assert.equal((await app.classifyIncomingMail(f.env,{...f.input,sender:'uber@uber.com',subject:'Gutschein'})).category,'promotions');
+});
+
+test('AI failures quarantine non-personal list mail in Promotions while off and observe stay respected',async t=>{
+ const f=await fixture(t),input={...f.input,headers:{'List-Unsubscribe':'<https://example.test/unsub>'},subject:'Weekly newsletter'};
+ delete f.env.AI;const result=await app.classifyIncomingMail(f.env,input);assert.equal(result.category,'promotions');assert.equal(result.fallbackReason,'unavailable');assert.equal(app.shouldNotifyMail({status:'received',category:result.category}),false);
+ assert.equal((await app.classifyIncomingMail(f.env,{...input,subject:'Your receipt'})).category,'primary');
+ f.DB.db.exec("INSERT INTO mailbox_sorting_settings(mailbox_id,mode,daily_limit,threshold) VALUES('box','observe',0,.8)");assert.equal((await app.classifyIncomingMail(f.env,input)).category,'primary');
+ f.DB.db.exec("UPDATE mailbox_sorting_settings SET mode='off'");assert.equal((await app.classifyIncomingMail(f.env,input)).category,'primary');
+ f.DB.db.exec("UPDATE mailbox_sorting_settings SET mode='active'");f.env.AI={run:async()=>({answers:{}})};assert.equal((await app.classifyIncomingMail(f.env,input)).fallbackReason,'daily_limit');
+ f.DB.db.exec("UPDATE mailbox_sorting_settings SET daily_limit=1000");assert.equal((await app.classifyIncomingMail(f.env,input)).fallbackReason,'invalid_model_response');
+ f.env.AI.run=async()=>{throw new Error('outage');};assert.equal((await app.classifyIncomingMail(f.env,input)).fallbackReason,'ai_error');
+});
+
+test('80-percent default is visible and configurable without accepting unsafe thresholds',async t=>{
+ const f=await fixture(t);assert.equal((await (await app.getSettings(f.request('/api/settings/mail-sorting?mailboxId=box'))).json()).settings.threshold,.8);
+ for(const threshold of [.8,.85,.9])assert.equal((await app.settings(f.request('/api/settings/mail-sorting',{mailboxId:'box',mode:'active',dailyLimit:1000,threshold}))).status,200);
+ assert.equal((await app.settings(f.request('/api/settings/mail-sorting',{mailboxId:'box',mode:'active',dailyLimit:1000,threshold:.79}))).status,400);
 });

@@ -1,3 +1,4 @@
+import { getSortingExamples } from "@/lib/mail-sorting/learning";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -19,7 +20,7 @@ const schema = z.object({
 	mailboxId: z.string().min(1),
 	mode: z.enum(["active", "observe", "off"]),
 	dailyLimit: z.number().int().min(0).max(10000),
-	threshold: z.number().min(0.85).max(0.99),
+	threshold: z.number().min(0.8).max(0.99),
 });
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
 		usage: usage ?? { requests: 0, inputTokens: 0 },
 		available: !!env.AI,
 		model: SORTING_MODEL,
+		learningExamples: (await getSortingExamples(env, mailboxId)).length,
 		overrides,
 	});
 }
@@ -88,7 +90,8 @@ export async function DELETE(request: Request) {
 	const { user, error } = await requireSessionUser(env, request);
 	if (error) return error;
 	const parsed = z
-		.object({ mailboxId: z.string().min(1), sender: z.string().min(1) })
+		.object({ mailboxId: z.string().min(1), sender: z.string().min(1).optional(), clearLearning: z.boolean().optional() })
+		.refine((value) => !!value.sender !== !!value.clearLearning)
 		.safeParse(await request.json().catch(() => null));
 	if (!parsed.success)
 		return NextResponse.json({ error: "Invalid sender" }, { status: 400 });
@@ -96,12 +99,16 @@ export async function DELETE(request: Request) {
 	const access = await getMailboxAccessLevel(db, user, parsed.data.mailboxId);
 	if (!access?.canManage)
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
+	if (parsed.data.clearLearning) {
+		await env.DB.prepare("DELETE FROM mail_sorting_feedback WHERE mailbox_id=?").bind(parsed.data.mailboxId).run();
+		return NextResponse.json({ ok: true });
+	}
 	await db
 		.delete(mailSortingOverrides)
 		.where(
 			and(
 				eq(mailSortingOverrides.mailboxId, parsed.data.mailboxId),
-				eq(mailSortingOverrides.sender, parsed.data.sender),
+				eq(mailSortingOverrides.sender, parsed.data.sender!),
 			),
 		);
 	return NextResponse.json({ ok: true });

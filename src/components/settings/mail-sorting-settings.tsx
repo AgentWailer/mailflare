@@ -13,6 +13,7 @@ type Settings = {
 type State = {
 	settings: Settings;
 	available: boolean;
+	learningExamples: number;
 	usage: { requests: number; inputTokens: number };
 	overrides: Array<{ sender: string; category: string }>;
 };
@@ -94,6 +95,16 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 			setPending(false);
 		}
 	}
+	async function clearLearning() {
+		if (!mailboxId || !window.confirm(t("smart.clearLearningConfirm"))) return;
+		setPending(true);
+		try {
+			const response = await authFetch("/api/settings/mail-sorting", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId, clearLearning: true }) });
+			if (!response.ok) throw new Error();
+			setData((current) => current ? { ...current, learningExamples: 0 } : null);
+		} catch { setNotice(t("smart.failed")); }
+		finally { setPending(false); }
+	}
 	function change(key: keyof Settings, value: string | number) {
 		setData((current) =>
 			current
@@ -140,7 +151,7 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 							<Input
 								className="min-h-11 text-base"
 								type="number"
-								min="85"
+								min="80"
 								max="99"
 								step="1"
 								value={Math.round(data.settings.threshold*100)}
@@ -151,6 +162,8 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 							/>
 						</label>
 					</div>
+					<p className="text-sm text-neutral-500">{t("smart.learningCount", { count: data.learningExamples ?? 0 })}</p>
+					{!!data.learningExamples && <Button variant="outline" disabled={pending} onClick={() => void clearLearning()}>{t("smart.clearLearning")}</Button>}
 					{!data.available && (
 						<p role="status" className="text-sm text-amber-700">
 							{t("smart.unavailable")}

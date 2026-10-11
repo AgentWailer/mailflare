@@ -891,6 +891,16 @@ export const mailSortingOverrides = sqliteTable("mail_sorting_overrides", {
  mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
  sender: text("sender").notNull(), category: text("category").notNull(),
 }, (t) => [uniqueIndex("mail_sorting_overrides_unique").on(t.mailboxId,t.sender)]);
+export const mailSortingFeedback = sqliteTable("mail_sorting_feedback", {
+ id: text("id").primaryKey(),
+ mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+ messageId: text("message_id").references(() => messages.id, { onDelete: "set null" }),
+ sender: text("sender").notNull(),
+ subject: text("subject").notNull().default(""),
+ category: text("category", { enum: ["primary", "promotions", "social"] }).notNull(),
+ correctedAt: text("corrected_at").notNull(),
+}, (t) => [uniqueIndex("mail_sorting_feedback_message_idx").on(t.mailboxId, t.messageId), index("mail_sorting_feedback_mailbox_idx").on(t.mailboxId, sql`${t.correctedAt} desc`)]);
+
 export const mailSortingUsage = sqliteTable("mail_sorting_usage", {
  mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
  day: text("day").notNull(), requests: integer("requests").notNull().default(0),
@@ -912,6 +922,7 @@ export const schema = {
 	mailboxSortingSettings,
 	mailSortingOverrides,
 	mailSortingUsage,
+	mailSortingFeedback,
 	spamTokenStats,
 	spamReputation,
 	spamFeedback,

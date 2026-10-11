@@ -1,4 +1,5 @@
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
+import type { MailCategory } from "@/lib/mail-sorting/categories";
 import type { MessageCounts, MessageFolder } from "@/hooks/types";
 import { authFetch } from "@/lib/auth/client";
 
@@ -23,4 +24,14 @@ export function moveMessagesToSystemFolder(messageIds: string[], action: "archiv
 
 export function moveMessagesToCustomFolder(messageIds: string[], folderId: string) {
 	return moveMessages({ messageIds, action: "folder", folderId });
+}
+
+
+export async function moveMessagesToCategory(messageIds: string[], category: MailCategory, mailboxId: string) {
+ const response = await authFetch("/api/mail-organization", {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ mailboxId, messageIds, category, skipInbox: false }),
+ });
+ if (!response.ok) throw new Error("Unable to categorize messages");
+ window.dispatchEvent(new Event("mailflare:messages-changed"));
 }

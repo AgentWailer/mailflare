@@ -66,7 +66,9 @@ export function MailOrganizationButton({
 				setReason(
 					decision
 						? t(
-								decision.reason === "observation"
+								decision.reviewRequired && decision.reason !== "observation"
+									? "smart.reasonBulkReview"
+									: decision.reason === "observation"
 									? "smart.reasonObserve"
 									: decision.source === "clef"
 										? "smart.reasonAi"
@@ -223,6 +225,7 @@ export function MailOrganizationButton({
 							/>
 							{t("smart.remember")}
 						</label>
+						<p className="text-xs text-neutral-500">{t("smart.learningHelp")}</p>
 						<p className="text-xs text-neutral-500">{t("smart.inboxHelp")}</p>
 						{error && (
 							<p role="alert" className="text-sm text-red-600">

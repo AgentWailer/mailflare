@@ -10,6 +10,13 @@ export type SortingDecision = {
 	probabilities?: Record<string, number>;
 	suggestedCategory?: string;
 	spam?: boolean;
+	reviewRequired?: boolean;
+	fallbackReason?: string;
+	policyVersion?: number;
+	inboxProbability?: number;
+	personalProbability?: number;
+	securityProbability?: number;
+	learningExamples?: number;
 };
 /** The same policy gates phone, browser alerts and the app badge. */
 export function isPrimaryInboxMail(message: {

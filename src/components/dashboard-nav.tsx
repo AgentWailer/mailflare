@@ -49,6 +49,7 @@ import type { CustomFolder } from "./dashboard-nav-types";
 import {
   getFolderNavCount,
   moveMessagesToCustomFolder,
+  moveMessagesToCategory,
   moveMessagesToSystemFolder,
 } from "./dashboard-nav-utils";
 import { NavSectionHeader, useSectionOpen } from "./nav-section-header";
@@ -126,9 +127,12 @@ export function DashboardNav({ className }: { className?: string }) {
   const linksWithCounts: NavLink[] = links.filter((link) => link.href !== "/scheduled" || counts.folders.scheduled.total > 0).map(({ labelKey, ...rest }): NavLink => {
     const link = { ...rest, label: t(labelKey) };
     if (link.href === "/inbox") {
-      return { ...link, count: getFolderNavCount("inbox", counts.folders) };
+      return { ...link, count: getFolderNavCount("inbox", counts.folders), onMessageDrop: canManageLabels && selectedMailbox ? (ids: string[]) => void moveMessagesToCategory(ids, "primary", selectedMailbox.id) : undefined };
     }
-    if(link.href === "/promotions" || link.href === "/social") return {...link,count:getFolderNavCount(link.href.slice(1) as "promotions" | "social",counts.folders)};
+    if (link.href === "/promotions" || link.href === "/social") {
+      const category = link.href.slice(1) as "promotions" | "social";
+      return { ...link, count: getFolderNavCount(category, counts.folders), onMessageDrop: canManageLabels && selectedMailbox ? (ids: string[]) => void moveMessagesToCategory(ids, category, selectedMailbox.id) : undefined };
+    }
     if (link.href === "/starred") {
       return { ...link, count: getFolderNavCount("starred", counts.folders) };
     }

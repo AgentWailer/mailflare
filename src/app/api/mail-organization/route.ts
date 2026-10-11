@@ -8,6 +8,8 @@ import { requireSessionUser } from "@/lib/api/auth";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { getMessageLabels, validLabelIds } from "@/lib/mail-sorting/labels";
+import { createCategoryCorrection } from "@/lib/mail-sorting/learning";
+import { newId } from "@/lib/ids";
 import { getEmailAddress } from "@/lib/email/address";
 
 const selection = z.object({
@@ -173,17 +175,18 @@ export async function POST(request: Request) {
 				category,
 				status,
 				folderId,
-				input.category || input.skipInbox !== undefined
-					? JSON.stringify({
-							category,
-							source: "manual",
-							reason: "user_correction",
-						})
+				input.category && row.direction === "inbound"
+					? JSON.stringify(createCategoryCorrection(category, row.sortingDecision, user.id))
 					: row.sortingDecision,
 				row.id,
 				input.mailboxId,
 			),
 		);
+		if (input.category && row.direction === "inbound") {
+			statements.push(env.DB.prepare(`INSERT INTO mail_sorting_feedback(id,mailbox_id,message_id,sender,subject,category,corrected_at)
+				VALUES(?,?,?,?,?,?,?) ON CONFLICT(mailbox_id,message_id) DO UPDATE SET category=excluded.category,corrected_at=excluded.corrected_at`)
+				.bind(newId("sfb"), input.mailboxId, row.id, getEmailAddress(row.fromAddr).trim().toLowerCase(), row.subject?.slice(0, 200) ?? "", input.category, new Date().toISOString()));
+		}
 		if (input.rememberSender)
 			statements.push(
 				env.DB.prepare(
