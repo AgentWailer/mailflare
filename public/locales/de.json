@@ -2049,5 +2049,9 @@
 	"labels.create": "Label erstellen",
 	"labels.duplicate": "Ein Label mit diesem Namen existiert bereits. Wähle es aus oder verwende einen anderen Namen.",
 	"message.originalColors": "Originalfarben",
-	"message.adaptColors": "Dunkel anpassen"
+	"message.adaptColors": "Dunkel anpassen",
+	"settings.externalContent.title": "Externe Inhalte automatisch laden",
+	"settings.externalContent.description": "Externe Bilder, Hintergründe und Schriftarten beim Lesen automatisch laden. Diese Einstellung gilt für dein Konto auf allen Geräten. Einzelne E-Mails kannst du weiterhin separat zulassen oder blockieren.",
+	"settings.externalContent.privacy": "Externe Inhalte können dem Absender deine IP-Adresse und den Zeitpunkt des Öffnens verraten. Für mehr Privatsphäre deaktivieren. Skripte, Formulare und eingebettete Anwendungen bleiben immer blockiert.",
+	"settings.externalContent.failed": "Die Einstellung konnte nicht geladen oder gespeichert werden. Bitte erneut versuchen."
 }

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
 import { createEmailTheme } from "./email-theme";
+import { useExternalContent } from "./use-external-content";
 
 const BASE_STYLE = `
 :host { display:block; min-width:0; isolation:isolate; contain:paint; }
@@ -21,10 +22,14 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 }) {
 	const { t } = useLanguage();
 	const host = useRef<HTMLDivElement>(null);
-	const [allowedSource, setAllowedSource] = useState<string | null>(null);
+	const preference = useExternalContent();
+	const [remoteOverride, setRemoteOverride] = useState<{ html: string; settings: typeof preference.settings; enabled: boolean } | null>(null);
 	const [hasRemote, setHasRemote] = useState(false);
 	const [originalColorsSource, setOriginalColorsSource] = useState<string | null>(null);
-	const allowRemote = allowedSource === html;
+	const allowRemote = !preference.isLoading && !preference.failed && (
+		remoteOverride?.html === html && remoteOverride.settings === preference.settings
+			? remoteOverride.enabled : preference.enabled
+	);
 	const originalColors = originalColorsSource === html;
 	useEffect(() => {
 		if (!host.current) return;
@@ -70,8 +75,8 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		<div className="mb-2 flex flex-wrap justify-end gap-2">
 			<button type="button" aria-pressed={originalColors} className="email-presentation-action hidden items-center rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:inline-flex" onClick={() => setOriginalColorsSource(originalColors ? null : html)}>{t(originalColors ? "message.adaptColors" : "message.originalColors")}</button>
 			{hasRemote &&
-			<button type="button" aria-pressed={allowRemote} className="email-presentation-action rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
-				onClick={() => setAllowedSource(allowRemote ? null : html)}>
+			<button type="button" aria-pressed={allowRemote} disabled={preference.isLoading || preference.failed} className="email-presentation-action rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+				onClick={() => setRemoteOverride({ html, settings: preference.settings, enabled: !allowRemote })}>
 				{allowRemote ? t("message.blockRemote") : t("message.allowRemote")}
 			</button>
 			}

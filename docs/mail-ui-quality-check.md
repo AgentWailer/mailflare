@@ -1,5 +1,40 @@
 # Mail UI quality check — 2026-10-11
 
+## External content preference and mobile reply icon
+
+Settings > Inbox now offers a personal, server-persisted switch for automatically
+loading remote images, backgrounds and fonts. Existing and new users default to
+allowed, as requested. The UI explains that remote resources can disclose IP address
+and opening time. Script, frame, form and other active-content sanitization remains
+unchanged. Pending or failed preference reads block remote requests. Failed writes
+retain the saved preference and expose retry; no optimistic permission is granted.
+
+All message renderers, including conversation and quoted messages, share one cached
+account preference. Changes update mounted readers, notify other tabs to refetch and
+are rechecked on focus/reconnect. Per-message overrides remain available and do not
+change other emails; changing the general preference resets those overrides. The
+mobile Reply control now uses only a reply arrow, with a 44 px target, tooltip and
+accessible name, matching Archive/Delete.
+
+Migration 0065 only adds a default-enabled column to the already backed-up users
+table; no backup table-list changes are necessary. Five SQLite-backed setting and
+migration tests passed, covering authentication, account isolation, validation,
+old/new accounts and backup restore before/after migration. Twenty existing HTML
+sanitization tests passed. Chromium preference checks passed at 390, 820 and 1440 px,
+including delayed reads, failed reads/saves, retry, reload, account switching, two
+simultaneous renderers, overrides and active-content removal. Existing theme checks
+passed at five widths, and the reading-pane suite passed its reply/composer/layout,
+preview and refresh scenarios. Production build and focused new-file ESLint passed;
+TypeScript retains its 17 existing diagnostics. Physical Safari/Home Screen checks
+remain unverified here.
+
+```sh
+node --test tests/external-content-settings.test.mjs tests/email-html.test.mjs
+node tests/browser/external-content.mjs
+node tests/browser/email-theme.mjs
+node tests/browser/reading-pane.mjs
+```
+
 ## Compact reader header
 
 Subject and assigned labels share a wrapping row. Smaller article and sender gaps

@@ -4,6 +4,7 @@ import { getServerTranslator } from "@/lib/i18n/server";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { InboxThreadingSettings } from "@/components/settings/inbox-threading-settings";
 import { RecipientAddressSettings } from "@/components/settings/recipient-address-settings";
+import { ExternalContentSettings } from "@/components/settings/external-content-settings";
 import { InboxReadingLayoutSettings } from "@/components/settings/inbox-reading-layout-settings";
 import { InboxShortcutsSettings } from "@/components/settings/inbox-shortcuts-settings";
 import { MailboxAutoReplyForm } from "@/components/settings/mailbox-auto-reply-form";
@@ -50,6 +51,7 @@ export default async function SettingsInboxPage() {
 						</div>
 						<RecipientAddressSettings />
 					</div>
+					<div className="py-6 first:pt-0 last:pb-0"><ExternalContentSettings /></div>
 					<div className="py-6 first:pt-0 last:pb-0">
 						<LabelVisibilitySettings />
 					</div>

@@ -18,6 +18,7 @@ export type SessionUser = {
 	spamProtectionEnabled: boolean;
 	trashRetentionDays: number | null;
 	showFullRecipientAddresses: boolean;
+	allowExternalContent: boolean;
 	createdByUserId: string | null;
 	createdAt: Date;
 };

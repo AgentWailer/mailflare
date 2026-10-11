@@ -265,8 +265,8 @@ export function MessageActions({
 
 			{isMobile && (
 				<>
-					<Button type="button" variant="ghost" size="roundedSM" data-mobile-reply className="h-11 shrink-0 gap-1.5 bg-blue-50 px-2 text-sm font-medium text-blue-700 hover:bg-blue-100" aria-label={t("message.reply")} disabled={disabled} onClick={() => void handleReply("reply")}>
-						<Reply size={iconSize} /><span>{t("message.reply")}</span>
+					<Button type="button" variant="ghost" size="roundedSM" data-mobile-reply className="h-11 w-11 shrink-0" title={t("message.reply")} aria-label={t("message.reply")} disabled={disabled} onClick={() => void handleReply("reply")}>
+						<Reply aria-hidden="true" size={iconSize} />
 					</Button>
 					<Button
 						type="button"

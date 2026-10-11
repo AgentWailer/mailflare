@@ -2163,5 +2163,9 @@
 	"labels.create": "Create label",
 	"labels.duplicate": "A label with this name already exists. Select it or use another name.",
 	"message.originalColors": "Original colors",
-	"message.adaptColors": "Adapt to dark mode"
+	"message.adaptColors": "Adapt to dark mode",
+	"settings.externalContent.title": "Load external content automatically",
+	"settings.externalContent.description": "Automatically load external images, backgrounds and fonts when reading. This setting applies to your account on all devices. You can still allow or block individual emails.",
+	"settings.externalContent.privacy": "External content can reveal your IP address and when you open an email to its sender. Disable it for greater privacy. Scripts, forms and embedded applications are always blocked.",
+	"settings.externalContent.failed": "Unable to load or save the setting. Please try again."
 }
