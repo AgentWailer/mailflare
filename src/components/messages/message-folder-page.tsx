@@ -31,7 +31,6 @@ import { useMessageSelection } from "./message-selection-context";
 import { useReadingLayout } from "./use-reading-layout";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
 import { MessageNavigationProgress, useMessageNavigation } from "./message-navigation";
-import { rememberOpenedUnreadMessage } from "./message-detail-navigation-utils";
 import { useConversationView } from "./use-conversation-view";
 import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction, SelectedMessage } from "./types";
 import {
@@ -97,14 +96,14 @@ function MessageListRow({
 			if (action === "read") setThreadUnread(0);
 			if (action === "unread") setThreadUnread(message.threadMessageIds.length);
 		}
-		if (unreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta: unreadDelta });
+		if (unreadDelta) dispatchMessageCountsDelta({ mailboxId: message.mailboxId, inboxUnreadDelta: unreadDelta });
 		try {
 			await onMessageAction(message.id, action);
 		} catch (error) {
 			if (action === "read" || action === "unread") {
 				setRead(previousRead);
 				setThreadUnread(previousThreadUnread);
-				if (unreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta: -unreadDelta });
+				if (unreadDelta) dispatchMessageCountsDelta({ mailboxId: message.mailboxId, inboxUnreadDelta: -unreadDelta });
 			}
 			throw error;
 		}
@@ -114,15 +113,14 @@ function MessageListRow({
 
 	function onMessageNavigate(event: MouseEvent<HTMLAnchorElement>) {
 		if (!read && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-			rememberOpenedUnreadMessage(message.id);
 			const previousThreadUnread = threadUnread;
 			setRead(true);
 			if (previousThreadUnread !== undefined) setThreadUnread(Math.max(0, previousThreadUnread - 1));
-			if (isPrimaryInboxMail(message)) dispatchMessageCountsDelta({ inboxUnreadDelta: -1 });
+			if (isPrimaryInboxMail(message)) dispatchMessageCountsDelta({ mailboxId: message.mailboxId, inboxUnreadDelta: -1 });
 			void runBulkMessageAction([message.id], "read", false).catch(() => {
 				setRead(false);
 				setThreadUnread(previousThreadUnread);
-				if (isPrimaryInboxMail(message)) dispatchMessageCountsDelta({ inboxUnreadDelta: 1 });
+				if (isPrimaryInboxMail(message)) dispatchMessageCountsDelta({ mailboxId: message.mailboxId, inboxUnreadDelta: 1 });
 			});
 		}
 		navigation.onNavigate(event, !read);
@@ -452,7 +450,7 @@ export function MessageFolderPage({
 			const inboxUnreadDelta = changedMessages
 				.filter((message) => isPrimaryInboxMail(message) && (message.threadMessageIds?.length??1)===1)
 				.reduce((total, message) => total + (readValue ? (message.read ? 0 : -1) : (message.read ? 1 : 0)), 0);
-			if (inboxUnreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta });
+			if (inboxUnreadDelta) dispatchMessageCountsDelta({ mailboxId: selectedMailbox?.id, inboxUnreadDelta });
 		}
 		try {
 			await runBulkMessageAction(expandSelectedIds(selectedIds), action, true, folderId);
@@ -463,7 +461,7 @@ export function MessageFolderPage({
 				const inboxUnreadDelta = changedMessages
 					.filter((message) => isPrimaryInboxMail(message) && (message.threadMessageIds?.length??1)===1)
 					.reduce((total, message) => total + (readValue ? (message.read ? 0 : 1) : (message.read ? -1 : 0)), 0);
-				if (inboxUnreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta });
+				if (inboxUnreadDelta) dispatchMessageCountsDelta({ mailboxId: selectedMailbox?.id, inboxUnreadDelta });
 			}
 			throw error;
 		} finally {

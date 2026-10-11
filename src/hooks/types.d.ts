@@ -108,5 +108,6 @@ export type MessageCounts = {
 };
 
 export type MessageCountsDelta = {
+	mailboxId?: string | null;
 	inboxUnreadDelta?: number;
 };

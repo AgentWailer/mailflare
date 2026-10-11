@@ -24,14 +24,12 @@ const emptyCounts: MessageCounts = {
 };
 
 export function useMessageCounts(mailboxId?: string | null, enabled = true) {
-	const [counts, setCounts] = useState<MessageCounts>(emptyCounts);
+	const key = mailboxId ?? "all";
+	const [snapshot, setSnapshot] = useState({ key, counts: emptyCounts });
 	const [isLoading, setIsLoading] = useState(enabled);
 
 	useEffect(() => {
-		if (!enabled) {
-			setIsLoading(false);
-			return;
-		}
+		if (!enabled) return;
 
 		let cancelled = false;
 		let refreshTimer: number | null = null;
@@ -42,7 +40,7 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 			setIsLoading(true);
 			try {
 				const nextCounts = await fetchMessageCounts(mailboxId, force);
-				if (!cancelled && currentRequest === requestNumber) setCounts(nextCounts ?? emptyCounts);
+				if (!cancelled && currentRequest === requestNumber) setSnapshot({ key, counts: nextCounts ?? emptyCounts });
 			} catch {
 				// Retain the last counts when a mobile connection temporarily drops.
 			} finally {
@@ -52,9 +50,11 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 
 		void loadCounts();
 		function onMessagesChanged() {
+			// Invalidate pending responses before the debounce, not when the next fetch starts.
+			requestNumber++;
 			clearMessageCountsCache();
-			if (document.visibilityState !== "visible") return;
 			if (refreshTimer) window.clearTimeout(refreshTimer);
+			if (document.visibilityState !== "visible") return;
 			refreshTimer = window.setTimeout(() => {
 				refreshTimer = null;
 				void loadCounts(true);
@@ -62,31 +62,47 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 		}
 		function onMessageCountsDelta(event: Event) {
 			const detail = (event as CustomEvent<MessageCountsDelta>).detail;
-			const delta=detail?.inboxUnreadDelta;
-			if(typeof delta!=="number" || !Number.isFinite(delta) || !delta)return;
-			setCounts((current) => ({
-				...current,
-				folders: {
-					...current.folders,
-					inbox: {
-						...current.folders.inbox,
-						unread: Math.max(0, current.folders.inbox.unread + delta),
+			if (mailboxId && detail?.mailboxId && detail.mailboxId !== mailboxId) return;
+			const delta = detail?.inboxUnreadDelta;
+			if (typeof delta !== "number" || !Number.isFinite(delta) || !delta) return;
+			requestNumber++;
+			clearMessageCountsCache();
+			setSnapshot((current) => {
+				if (current.key !== key) return current;
+				const counts = current.counts;
+				return { key, counts: {
+					...counts,
+					folders: {
+						...counts.folders,
+						inbox: {
+							...counts.folders.inbox,
+							unread: Math.max(0, counts.folders.inbox.unread + delta),
+						},
 					},
-				},
-			}));
+				}};
+			});
 		}
 		window.addEventListener("mailflare:messages-changed", onMessagesChanged);
 		window.addEventListener("mailflare:message-counts-changed", onMessagesChanged);
 		window.addEventListener("mailflare:message-counts-delta", onMessageCountsDelta);
+		function onVisible() {
+			if (document.visibilityState === "visible") onMessagesChanged();
+		}
+		window.addEventListener("focus", onVisible);
+		window.addEventListener("pageshow", onVisible);
+		document.addEventListener("visibilitychange", onVisible);
 
 		return () => {
 			cancelled = true;
 			window.removeEventListener("mailflare:messages-changed", onMessagesChanged);
 			window.removeEventListener("mailflare:message-counts-changed", onMessagesChanged);
 			window.removeEventListener("mailflare:message-counts-delta", onMessageCountsDelta);
+			window.removeEventListener("focus", onVisible);
+			window.removeEventListener("pageshow", onVisible);
+			document.removeEventListener("visibilitychange", onVisible);
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 		};
-	}, [enabled, mailboxId]);
+	}, [enabled, mailboxId, key]);
 
-	return { counts, isLoading };
+	return { counts: enabled && snapshot.key === key ? snapshot.counts : emptyCounts, isLoading: enabled && (snapshot.key !== key || isLoading) };
 }

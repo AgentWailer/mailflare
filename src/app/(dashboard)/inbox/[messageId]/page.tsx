@@ -187,7 +187,7 @@ export default function MessageDetailPage() {
         messageMeta={message}
         bodyHtml={body?.htmlBody}
       />
-      <MessageDetailNavigation messageId={message.id} unread={message.direction === "inbound" && !message.read} />
+      <MessageDetailNavigation messageId={message.id} />
     </MessageReaderToolbar>
 
     <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">

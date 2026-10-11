@@ -202,6 +202,7 @@ export function useMessagePolling(): MessageRealtimeState {
 		window.addEventListener(AUTH_SESSION_CHANGED_EVENT, restartForSessionChange);
 		window.addEventListener("storage", onStorageChange);
 		window.addEventListener("mailflare:messages-changed", onLocalMessagesChanged);
+		window.addEventListener("mailflare:message-counts-changed", onLocalMessagesChanged);
 		document.addEventListener("visibilitychange", onVisibilityChange);
 		window.addEventListener("focus", onVisibilityChange);
 		startFallbackRefresh();
@@ -212,6 +213,7 @@ export function useMessagePolling(): MessageRealtimeState {
 			window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, restartForSessionChange);
 			window.removeEventListener("storage", onStorageChange);
 			window.removeEventListener("mailflare:messages-changed", onLocalMessagesChanged);
+			window.removeEventListener("mailflare:message-counts-changed", onLocalMessagesChanged);
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 			window.removeEventListener("focus", onVisibilityChange);
 			if (leader) channel?.postMessage({ type: "status", connected: false } satisfies RealtimeChannelMessage);

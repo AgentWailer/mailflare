@@ -88,6 +88,7 @@
 	"message.nav.newer": "Neuere E-Mail",
 	"message.nav.older": "Ältere E-Mail",
 	"message.nav.unreadPosition": "{position} von {total} ungelesen",
+	"message.nav.position": "{position} von {total}",
 	"message.nav.backTo": "Zurück zu {folder}",
 	"message.nav.hideList": "E-Mail-Liste ausblenden",
 	"message.nav.showList": "E-Mail-Liste anzeigen",

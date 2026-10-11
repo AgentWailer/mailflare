@@ -115,6 +115,9 @@ export function markMessagesReadInCaches(messageIds: string[], read: boolean) {
 		});
 	}
 	for (const id of ids) setCachedMessageRead(id, read);
+	// Quiet list actions still need to reconcile every unread counter with the server.
+	clearMessageCountsCache();
+	if (typeof window !== "undefined") window.dispatchEvent(new Event("mailflare:message-counts-changed"));
 }
 
 // Caches must drop on every change, including ones made while no list is mounted

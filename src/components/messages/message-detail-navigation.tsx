@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -9,8 +9,8 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { authFetch } from "@/lib/auth/client";
 import type { MessageNavigationResponse } from "@/app/api/messages/navigation/types";
-import type { MessageDetailNavigationContextValue, MessageDetailNavigationProps, MessageDetailNavigationProviderProps, MessageDetailNavigationSnapshot, OpenedUnreadMessages } from "./message-detail-navigation-types";
-import { getMessageDetailNavigationState, takeOpenedUnreadMessage } from "./message-detail-navigation-utils";
+import type { MessageDetailNavigationContextValue, MessageDetailNavigationProps, MessageDetailNavigationProviderProps, MessageDetailNavigationSnapshot } from "./message-detail-navigation-types";
+import { getMessageDetailNavigationState } from "./message-detail-navigation-utils";
 import { useConversationView } from "./use-conversation-view";
 
 const NavigationContext = createContext<MessageDetailNavigationContextValue | null>(null);
@@ -22,63 +22,63 @@ export function MessageDetailNavigationProvider({ children, config }: MessageDet
 	const mailboxId = selectedMailbox?.id;
 	const key = `${config.folder}:${config.folderId ?? ""}:${mailboxId ?? "all"}:${grouped}`;
 	const [snapshot, setSnapshot] = useState<MessageDetailNavigationSnapshot>({ key: "", entries: [] });
-	const [openedUnread, setOpenedUnread] = useState<OpenedUnreadMessages>({ key: "", ids: new Set() });
-	const recordUnread = useCallback((messageId: string) => {
-		setOpenedUnread((current) => {
-			const ids = new Set(current.key === key ? current.ids : []);
-			ids.add(messageId);
-			return { key, ids };
-		});
-	}, [key]);
-
-	useEffect(() => {
-		const messageId = takeOpenedUnreadMessage();
-		if (messageId) recordUnread(messageId);
-	}, [recordUnread]);
-
 	useEffect(() => {
 		if (mailboxesLoading) return;
 		let cancelled = false;
+		let requestNumber = 0;
+		let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 		const params = new URLSearchParams({ folder: config.folder });
 		if (config.folderId) params.set("folderId", config.folderId);
 		if (mailboxId) params.set("mailboxId", mailboxId);
 		if (grouped) params.set("group", "thread");
-		void authFetch(`/api/messages/navigation?${params.toString()}`)
-			.then((response) => {
+		async function load() {
+			const request = ++requestNumber;
+			try {
+				const response = await authFetch(`/api/messages/navigation?${params.toString()}`, { cache: "no-store" });
 				if (!response.ok) throw new Error("Unable to load message navigation");
-				return response.json() as Promise<MessageNavigationResponse>;
-			})
-			.then((response) => {
-				if (!cancelled) setSnapshot({ key, entries: response.messages });
-			})
-			.catch(() => {
-				if (!cancelled) setSnapshot({ key, entries: [] });
-			});
-		return () => { cancelled = true; };
+				const data = await response.json() as MessageNavigationResponse;
+				if (!cancelled && request === requestNumber) setSnapshot({ key, entries: data.messages });
+			} catch { /* Retain navigation during a temporary connection failure. */ }
+		}
+		function scheduleLoad() {
+			requestNumber++;
+			clearTimeout(refreshTimer);
+			if (document.visibilityState !== "visible") return;
+			refreshTimer = setTimeout(() => { void load(); }, 150);
+		}
+		void load();
+		window.addEventListener("mailflare:messages-changed", scheduleLoad);
+		window.addEventListener("mailflare:message-counts-changed", scheduleLoad);
+		window.addEventListener("focus", scheduleLoad);
+		window.addEventListener("pageshow", scheduleLoad);
+		document.addEventListener("visibilitychange", scheduleLoad);
+		return () => {
+			cancelled = true;
+			clearTimeout(refreshTimer);
+			window.removeEventListener("mailflare:messages-changed", scheduleLoad);
+			window.removeEventListener("mailflare:message-counts-changed", scheduleLoad);
+			window.removeEventListener("focus", scheduleLoad);
+			window.removeEventListener("pageshow", scheduleLoad);
+			document.removeEventListener("visibilitychange", scheduleLoad);
+		};
 	}, [config.folder, config.folderId, grouped, key, mailboxId, mailboxesLoading]);
 
-	const unreadIds = openedUnread.key === key ? openedUnread.ids : null;
-	const entries = snapshot.key === key
-		? snapshot.entries.map((entry) => ({ ...entry, unread: entry.unread || !!unreadIds?.has(entry.id) }))
-		: [];
-	return <NavigationContext.Provider value={{ entries, hrefPrefix: config.hrefPrefix, recordUnread }}>{children}</NavigationContext.Provider>;
+	const entries = snapshot.key === key ? snapshot.entries : [];
+	return <NavigationContext.Provider value={{ entries, hrefPrefix: config.hrefPrefix }}>{children}</NavigationContext.Provider>;
 }
 
-export function MessageDetailNavigation({ messageId, unread }: MessageDetailNavigationProps) {
+export function MessageDetailNavigation({ messageId }: MessageDetailNavigationProps) {
 	const { t } = useLanguage();
 	const context = useContext(NavigationContext);
 	const router = useRouter();
-	useEffect(() => {
-		if (unread) context?.recordUnread(messageId);
-	}, [context?.recordUnread, messageId, unread]);
 	if (!context) return null;
-	const { previousId, nextId, unreadOrder, totalUnread } = getMessageDetailNavigationState(context.entries, messageId);
+	const { previousId, nextId, position, total } = getMessageDetailNavigationState(context.entries, messageId);
 
 	return (
 		<div className="ml-auto hidden shrink-0 items-center gap-2 text-neutral-500 md:flex">
-			{totalUnread > 0 && (
+			{position > 0 && (
 			<span className="mr-2 whitespace-nowrap text-xs" aria-live="polite">
-				{t("message.nav.unreadPosition", { position: unreadOrder, total: totalUnread })}
+					{t("message.nav.position", { position, total })}
 			</span>
 			)}
 			<Tooltip label={t("message.nav.newer")}>

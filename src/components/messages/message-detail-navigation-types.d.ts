@@ -9,7 +9,6 @@ export type MessageDetailNavigationProviderProps = {
 
 export type MessageDetailNavigationProps = {
 	messageId: string;
-	unread: boolean;
 };
 
 export type MessageDetailNavigationSnapshot = {
@@ -17,20 +16,14 @@ export type MessageDetailNavigationSnapshot = {
 	entries: MessageNavigationEntry[];
 };
 
-export type OpenedUnreadMessages = {
-	key: string;
-	ids: Set<string>;
-};
-
 export type MessageDetailNavigationContextValue = {
 	entries: MessageNavigationEntry[];
 	hrefPrefix: string;
-	recordUnread: (messageId: string) => void;
 };
 
 export type MessageDetailNavigationState = {
 	previousId: string | null;
 	nextId: string | null;
-	unreadOrder: number;
-	totalUnread: number;
+	position: number;
+	total: number;
 };

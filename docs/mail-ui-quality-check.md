@@ -64,6 +64,38 @@ node tests/browser/reading-pane.mjs
 node tests/browser/message-action-menus.mjs
 ```
 
+## Unread counter and reader navigation consistency
+
+A read-only production aggregate check on 2026-10-11 found zero unread primary
+inbox messages while the screenshot still displayed seven. Quiet read actions
+updated list/detail caches but did not reconcile counts. The reader separately
+retained its initial unread snapshot and explicitly kept opened messages unread,
+so its `0 of 7 unread` label was neither a current count nor a valid position.
+
+Successful read/unread cache updates now invalidate counts and notify all count
+consumers, including other browser tabs. Counter requests are invalidated before
+the refresh debounce, preventing late responses from restoring old values.
+Focus, page restoration and visibility changes reconcile server state; mailbox
+snapshots and optimistic deltas stay scoped to their mailbox. Reader arrows now
+follow the chronological list and display a message position (`12 of 29`).
+Navigation membership refreshes on message/count changes and app restoration.
+
+All seven original targeted regressions failed against the previous source and
+passed with the fix; an additional tab-forwarding test passed. The combined
+read-sync, list-refresh and account-switch suites passed 19 tests. Seven selected
+SQLite-backed inbox, label, navigation/access and JMAP checks also passed. The
+production build and focused ESLint passed; type checking retains the same 17
+existing diagnostics. The Chromium reading-pane suite passed its composer,
+reply, layout and manual-refresh scenarios on a diagnostic rerun after an
+initial intermittent timeout opening the profile source link. Native iOS and
+the previously unavailable Firefox/WebKit engines were not validated here.
+
+```sh
+node --test tests/message-read-sync.test.mjs tests/mail-list-refresh.test.mjs tests/account-switch.test.mjs
+node --test --test-name-pattern='all incoming mail|conversation rows|multiple labels|authorization|JMAP reads|primary membership' tests/smart-inbox.test.mjs
+node tests/browser/reading-pane.mjs
+```
+
 ## Dark message presentation and footer removal (2026-10-11)
 
 HTML message colors now follow the selected app theme inside the existing sanitized
