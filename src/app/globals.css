@@ -513,16 +513,16 @@ button {
 		padding-inline: 0;
 	}
 	.mail-mobile-header {
-		margin: 12px;
-		width: calc(100% - 24px);
-		height: 56px;
+		margin: 8px;
+		width: calc(100% - 16px);
+		height: 48px;
 		border-radius: 999px;
 		background: #eaf1fb;
 	}
 	.mail-mobile-main { border-radius: 0; }
 	.mail-mobile-header [role="search"] { background-color: transparent; }
-	.mail-mobile-list-toolbar { height: 48px; border-bottom: 0; }
-	.mail-mobile-list-scroll { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
+	.mail-mobile-list-toolbar { height: 44px; border-bottom: 0; }
+	.mail-mobile-list-scroll { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
 	.dark .mail-mobile-shell,
 	.dark .mail-mobile-main,
 	.dark .mail-mobile-list { background-color: #101112; }

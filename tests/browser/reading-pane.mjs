@@ -46,7 +46,7 @@ try{
   await page.goto(origin+'/inbox');
   const search=page.getByRole('search'),searchInput=page.getByRole('textbox',{name:de['search.mail'],exact:true});await page.waitForFunction(()=>document.querySelector('[role=search]')!==null).catch(error=>{throw new Error(JSON.stringify(errors)+error.message)});await search.waitFor();assert(await search.isVisible());assert(await searchInput.isVisible());
   if(viewport.width<768){
-   const capsule=await page.locator('.mail-mobile-header').boundingBox();assert.equal(capsule.height,56);assert.equal(await search.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');assert(capsule.x>=10&&capsule.x+capsule.width<=viewport.width-10);
+   const capsule=await page.locator('.mail-mobile-header').boundingBox();assert.equal(capsule.height,48);assert.equal(await search.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');assert(capsule.x>=8&&capsule.x+capsule.width<=viewport.width-8);
    await searchInput.fill('Cloudflare');assert.equal(await searchInput.inputValue(),'Cloudflare');await page.getByRole('button',{name:de['search.clear'],exact:true}).click();assert.equal(await searchInput.inputValue(),'');
    await page.getByRole('button',{name:de['account.openMenu'],exact:true}).click();const assistant=page.getByRole('button',{name:de['agent.assistant.open'],exact:true});assert(await assistant.isVisible());await assistant.click();assert.equal(await page.evaluate(()=>window.__assistantOpened),true);
    const theme=page.locator('.mail-mobile-header button[aria-pressed]');await theme.click();assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('dark')),!dark);await theme.click();
