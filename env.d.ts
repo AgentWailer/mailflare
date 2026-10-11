@@ -38,6 +38,11 @@ interface CloudflareEnv {
 	S3_ACCESS_KEY_ID?: string;
 	S3_SECRET_ACCESS_KEY?: string;
 	CF_TOKEN?: string;
+	GMAIL_OAUTH_CLIENT_ID?: string;
+	GMAIL_OAUTH_CLIENT_SECRET?: string;
+	GMAIL_OAUTH_REDIRECT_URI?: string;
+	/** Base64-encoded 32-byte AES key; keep stable to resume encrypted Google connections. */
+	GMAIL_IMPORT_ENCRYPTION_KEY?: string;
 	CF_API_KEY?: string;
 	CF_EMAIL?: string;
 	TURNSTILE_SECRET_KEY?: string;

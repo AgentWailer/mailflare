@@ -7,4 +7,10 @@ export type ImportMailboxResult = {
 export type ImportMessageInput = {
 	filename: string;
 	raw: ArrayBuffer;
+	metadata?: {
+		read: boolean; starred: boolean; direction: "inbound" | "outbound";
+		category: "primary" | "promotions" | "social";
+		date?: Date; sourceKey?: string;
+		threadId?: string;
+	};
 };

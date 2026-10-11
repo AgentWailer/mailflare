@@ -913,7 +913,29 @@ export const mailSortingUsage = sqliteTable("mail_sorting_usage", {
  inputTokens: integer("input_tokens").notNull().default(0),
 }, (t) => [uniqueIndex("mail_sorting_usage_unique").on(t.mailboxId,t.day)]);
 
+export const gmailImportConnections = sqliteTable("gmail_import_connections", {
+	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	email: text("email").notNull(), tokens: text("tokens").notNull(),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+}, t => [uniqueIndex("gmail_import_connections_user_email_idx").on(t.userId, t.email)]);
+export const gmailImportJobs = sqliteTable("gmail_import_jobs", {
+	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+	connectionId: text("connection_id").notNull().references(() => gmailImportConnections.id, { onDelete: "cascade" }),
+	status: text("status").notNull().default("paused"), cursor: text("cursor").notNull().default('{"pageToken":null,"pending":[],"loaded":false}'),
+	labelMap: text("label_map").notNull().default("{}"), processed: integer("processed").notNull().default(0),
+	imported: integer("imported").notNull().default(0), skipped: integer("skipped").notNull().default(0), total: integer("total").notNull().default(0),
+	error: text("error"), leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+}, t => [index("gmail_import_jobs_user_idx").on(t.userId, t.createdAt), uniqueIndex("gmail_import_jobs_active_idx").on(t.connectionId, t.mailboxId).where(sql`${t.status} <> 'completed'`)]);
+export const gmailOauthStates = sqliteTable("gmail_oauth_states", {
+	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	sessionHash: text("session_hash").notNull(), verifier: text("verifier").notNull(), expiresAt: integer("expires_at").notNull(),
+});
+
 export const schema = {
+	gmailImportConnections, gmailImportJobs, gmailOauthStates,
 	users,
 	domains,
 	mailboxes,

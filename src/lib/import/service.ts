@@ -29,8 +29,9 @@ export async function importMessagesToMailbox(
 				destination: input.destination,
 				filename: message.filename,
 				raw: message.raw,
+				metadata: message.metadata,
 			});
-			if (imported) {
+			if (imported.created) {
 				result.imported += 1;
 			} else {
 				result.skipped += 1;
@@ -43,7 +44,7 @@ export async function importMessagesToMailbox(
 	return result;
 }
 
-async function importMessageToMailbox(
+export async function importMessageToMailbox(
 	env: CloudflareEnv,
 	input: {
 		userId: string;
@@ -51,44 +52,49 @@ async function importMessageToMailbox(
 		destination: ImportDestination;
 		filename: string;
 		raw: ArrayBuffer;
+		metadata?: ImportMessageInput["metadata"];
 	},
-): Promise<boolean> {
+): Promise<{ id: string; created: boolean }> {
 	const parsed = await parseRawMime(input.raw);
 	const db = getDb(env);
-	const providerMessageId = parsed.messageId ?? `import:${input.filename}:${input.raw.byteLength}`;
+	const providerMessageId = parsed.messageId ?? input.metadata?.sourceKey ?? `import:${input.filename}:${input.raw.byteLength}`;
 
 	const [existing] = await db
 		.select({ id: messages.id })
 		.from(messages)
 		.where(and(eq(messages.mailboxId, input.mailboxId), eq(messages.providerMessageId, providerMessageId)))
 		.limit(1);
-	if (existing) return false;
+	if (existing) return { id: existing.id, created: false };
 
 	const messageId = newId("msg");
 	const rawR2Key = `imports/${messageId}.eml`;
 	const fromAddr = parsed.fromAddr ?? "unknown";
 	const toAddr = parsed.toAddr ?? "";
-	const createdAt = parsed.date ?? new Date();
+	const createdAt = input.metadata?.date ?? parsed.date ?? new Date();
 	const placement = getImportMessagePlacement(input.destination);
+	const direction = input.metadata?.direction ?? placement.direction;
 
 	await db.insert(messages).values({
 		id: messageId,
 		userId: input.userId,
 		mailboxId: input.mailboxId,
 		folderId: placement.folderId,
-		direction: placement.direction,
+		direction,
 		providerMessageId,
 		fromAddr,
 		toAddr,
 		ccAddr: parsed.ccAddr,
+		bccAddr: parsed.bccAddr,
 		subject: parsed.subject,
 		snippet: buildSnippet(parsed.text, parsed.html),
 		textBody: parsed.text,
 		htmlBody: parsed.html,
 		rawR2Key,
 		status: placement.status,
-		read: placement.direction === "outbound",
-		threadId: await resolveThreadId(db, {
+		read: input.metadata?.read ?? direction === "outbound",
+		starred: input.metadata?.starred ?? false,
+		category: input.metadata?.category ?? "primary",
+		threadId: input.metadata?.threadId ?? await resolveThreadId(db, {
 			mailboxId: input.mailboxId,
 			messageId: parsed.messageId,
 			inReplyTo: parsed.inReplyTo,
@@ -104,16 +110,16 @@ async function importMessageToMailbox(
 			httpMetadata: { contentType: "message/rfc822" },
 		});
 		await storeMessageAttachments(env, messageId, parsed.attachments, { validate: false });
-		const contactAddress = placement.direction === "outbound" ? toAddr : fromAddr;
+		const contactAddress = direction === "outbound" ? toAddr : fromAddr;
 		await upsertContactFromAddress(env, {
 			userId: input.userId,
 			address: contactAddress,
-			source: placement.direction === "outbound" ? "outbound" : "inbound",
+			source: direction === "outbound" ? "outbound" : "inbound",
 		});
 	} catch (error) {
 		await deleteMessageWithObjects(env, db, messageId, rawR2Key);
 		throw error;
 	}
 
-	return true;
+	return { id: messageId, created: true };
 }

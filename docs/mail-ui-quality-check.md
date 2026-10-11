@@ -1,5 +1,35 @@
 # Mail UI quality check — 2026-10-11
 
+## Gmail API import
+
+The import page now includes a Google connection and resumable import controller.
+Server-side OAuth uses readonly Gmail scope, PKCE/S256, expiring single-use state
+bound to the initiating session, origin checks and fixed HTTPS callback. Tokens are
+encrypted with AES-GCM and never returned in status responses. Imports preserve
+MIME/attachments, read/star status, delivery timestamps, Gmail conversations,
+system placement, Promotions/Social categories and multiple custom-label names.
+Google slash label paths remain full-name labels rather than native parent/child
+relationships. Progress is checkpointed per message; unique active jobs and leases
+protect concurrency. Errors retain the pending message; oversized messages are
+detected before raw download and can only be skipped explicitly. Existing emails
+are reused without overwriting current state. Label inserts respect D1 parameter
+limits and labels removed during an ongoing import.
+
+All 31 selected function tests passed, including 13 Gmail encryption/OAuth/auth/
+mapping/retry/concurrency/permissions/size/backup cases and existing IMAP batching,
+external-content and hierarchy tests. Chromium checks passed at 320, 390, 820 and
+1440 px, covering setup readiness, source selection, pause/resume, persisted progress
+after reload, retry, explicit skip, readonly controls, removal and no page overflow.
+New controls retain 44 px targets and wrap long action labels. Production build and
+focused ESLint passed; TypeScript retains 17 pre-existing diagnostics.
+
+The Worker encryption secret and callback URI were prepared without disclosing
+secret values. A real Google authorization/import remains unverified until its
+OAuth client ID and client secret are configured. Native Home Screen OAuth cookie
+behavior is not certified; initial authorization should use a normal logged-in
+browser. See [Gmail setup](gmail-import.md) for the existing-project setup and exact
+Worker binding names. Firefox/WebKit limitations documented below remain.
+
 ## External content preference and mobile reply icon
 
 Settings > Inbox now offers a personal, server-persisted switch for automatically

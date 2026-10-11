@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {createServer} from 'node:http';
+import {join} from 'node:path';
+import {build} from 'esbuild';
+const browserName=process.env.MAILFLARE_BROWSER||'chromium';assert(['chromium','firefox','webkit'].includes(browserName));
+const browserType=(await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright'))[browserName];
+const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','mailflare-gmail-browser-'));
+const de=JSON.parse(readFileSync(join(root,'public/locales/de.json'),'utf8'));
+writeFileSync(join(dir,'mailbox.ts'),"export const useSelectedMailbox=()=>({selectedMailbox:{id:'box',localPart:'owner',hostname:'example.test',permission:location.search.includes('readonly')?'read_only':'full_access'}});");
+writeFileSync(join(dir,'entry.tsx'),`import React from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {LanguageProvider} from '@/components/language-provider';import {GmailImport} from '@/components/settings/gmail-import';import de from '../../public/locales/de.json';createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale="de" initialMessages={de}><main className="p-4"><GmailImport/></main></LanguageProvider></QueryClientProvider>);`);
+let browser,server;
+try{
+ await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:join(root,'tsconfig.json'),alias:{'@':join(root,'src'),'@/components/mailbox-provider':join(dir,'mailbox.ts')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
+ const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(name=>name.startsWith('index.')&&name.endsWith('.css'))));
+ const assets={'/':Buffer.from('<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0"><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/fixture.css':css};
+ server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(assets[path]?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(assets[path]||'Not found');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+ browser=await browserType.launch({headless:true,...(browserName==='chromium'&&process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),...(browserName==='chromium'?{args:['--no-sandbox']}:{})});
+ for(const viewport of [{width:320,height:700},{width:390,height:844},{width:820,height:1180},{width:1440,height:900}]){
+  const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[],requests=[];page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>dialog.accept());
+  let configured=false,connections=[],jobs=[],hold=true,release,fail=false;
+  await page.route('**/api/**',async route=>{
+   const req=route.request(),path=new URL(req.url()).pathname;requests.push({path,method:req.method(),body:req.postDataJSON()});let body;
+   if(path==='/api/auth/me')body={user:{id:'owner'}};
+   else if(path==='/api/import/gmail')body={configured,missing:configured?[]:['GMAIL_OAUTH_CLIENT_ID','GMAIL_OAUTH_CLIENT_SECRET'],redirectUri:'https://mail.stepo-data.de/api/import/gmail/callback',connections,jobs};
+   else if(path==='/api/import/gmail/jobs'){jobs=[{id:'job',mailboxId:'box',connectionId:'google',status:'paused',processed:0,imported:0,skipped:0,total:4,error:null}];body={job:jobs[0]};}
+   else if(path==='/api/import/gmail/jobs/job'){
+    if(hold)await new Promise(resolve=>release=resolve);
+    const job=jobs[0];if(req.postDataJSON().action==='skip'){job.processed++;job.skipped++;job.status='paused';job.error=null;job.canSkip=false;}else if(fail){job.status='failed';job.error='Google rate limit reached. Wait and resume the import.';job.canSkip=true;}else{job.processed++;job.imported++;job.status=job.processed>=4?'completed':'paused';job.error=null;job.canSkip=false;}body={job};
+   }else if(path==='/api/import/gmail/connections/google'){connections=[];jobs=[];body={removed:true};}
+   else body={};
+   return route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
+  });
+  await page.goto(origin);await page.getByRole('heading',{name:de['gmail.title'],exact:true}).waitFor();await page.getByText(de['gmail.setup'],{exact:true}).waitFor();assert(await page.getByRole('button',{name:de['gmail.connect'],exact:true}).isDisabled());assert(await page.getByText('https://mail.stepo-data.de/api/import/gmail/callback',{exact:true}).isVisible());assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  configured=true;connections=[{id:'google',email:'owner@workspace.test'}];await page.getByRole('button',{name:de['gmail.checkSetup'],exact:true}).click();const start=page.getByRole('button',{name:de['gmail.start'],exact:true});await start.waitFor();await start.click();const pause=page.getByRole('button',{name:de['gmail.pause'],exact:true});await pause.waitFor();for(let i=0;i<200&&!release;i++)await page.waitForTimeout(10);assert(release);await pause.click();assert(await page.getByRole('button',{name:de['gmail.pausing'],exact:true}).isDisabled());hold=false;release();const resume=page.getByRole('button',{name:de['gmail.resume'],exact:true});await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(x=>x.textContent==='Import fortsetzen'&&!x.disabled));assert.equal(requests.filter(r=>r.path.endsWith('/jobs/job')).length,1,'pause ends after the current batch');
+  await page.reload();await resume.waitFor();await page.getByText('1 neu importiert, 0 übersprungen',{exact:true}).waitFor();fail=true;await resume.click();await page.getByText(de['gmail.interrupted'],{exact:true}).waitFor();const skip=page.getByRole('button',{name:de['gmail.skip'],exact:true});await skip.waitFor();const b=await skip.boundingBox();assert(b.height>=44&&b.x+b.width<=viewport.width);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await skip.click();fail=false;await resume.click();await page.getByText(de['gmail.completed'],{exact:true}).waitFor();assert.equal(requests.filter(r=>r.path==='/api/import/gmail/jobs').length,1,'reload/resume reuses the saved job');assert.equal(jobs[0].processed,4);assert.equal(jobs[0].skipped,1);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:`/tmp/mailflare-gmail-import-${viewport.width}.png`});await page.getByRole('button',{name:de['gmail.disconnect'],exact:true}).click();await page.waitForFunction(()=>![...document.querySelectorAll('button')].some(x=>x.textContent==='Import starten'));assert.equal(jobs.length,0);
+  connections=[{id:'google',email:'owner@workspace.test'}];await page.goto(origin+'/?readonly');await start.waitFor();assert(await start.isDisabled(),'read-only mailboxes cannot import');assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({viewport,missingSetupVisible:true,readOnlyGuard:true,pauseResume:true,reloadProgress:true,retry:true,noDuplicateJob:true,disconnect:true,noOverflow:true}));await page.close();
+ }
+}finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}
