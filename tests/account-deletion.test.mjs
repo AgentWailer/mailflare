@@ -10,7 +10,7 @@ writeFileSync(join(dir,'headers.mjs'),'export async function cookies(){return {g
 await build({stdin:{contents:`export {SqliteDatabase} from './server/runtime/sqlite-database.ts';
 export {applyMigrations} from './server/runtime/migrate.ts';export {createSession,getUserFromSession} from './src/lib/auth/session.ts';
 export {GET as getAccount,DELETE as remove,PATCH as update} from './src/app/api/accounts/[id]/route.ts';
-export {GET as listAccounts} from './src/app/api/accounts/route.ts';
+export {GET as listAccounts} from './src/app/api/accounts/route.ts';export {GET as getActivity} from './src/app/api/activity/route.ts';export {GET as getAuditLogs} from './src/app/api/audit-logs/route.ts';export {GET as getMailboxes} from './src/app/api/mailboxes/route.ts';
 export {deleteManagedAccount} from './src/app/api/accounts/[id]/delete.ts';
 export {resolveAccounts} from './src/lib/auth/accounts.ts';
 export {resolveInboundAddress} from './src/lib/email/routing.ts';
@@ -69,6 +69,9 @@ test('deletion revokes identity and preserves mail, labels, attachments, routes 
  assert.equal((await app.resolveInboundAddress(app.getDb(f.env),'sales@example.test')).mailbox.mailboxId,'box');
  assert.equal((await app.resolveInboundAddress(app.getDb(f.env),'new-address@example.test')).mailbox.mailboxId,'box');
  assert.deepEqual(f.deletedKeys,['private-avatar','private-avatar:preview']);assert(!f.deletedKeys.includes('attachment-object'));
+ const visible=await app.getActivity(f.request('primary',null,'GET'));assert.equal((await visible.json()).activities.find(x=>x.action==='account.deleted').actorEmail,'primary@example.test');
+ const auditLogs=await app.getAuditLogs(f.request('primary',null,'GET'));assert.equal((await auditLogs.json()).auditLogs.some(x=>x.action==='account.deleted'),true);
+ const mailboxResponse=await app.getMailboxes(f.request('primary',null,'GET'));assert.equal((await mailboxResponse.json()).mailboxes.find(x=>x.id==='box').permission,'full_access');
  const audit=f.scalar("SELECT metadata FROM audit_logs WHERE action='account.deleted'");assert.equal(JSON.parse(audit.metadata).assetsTransferredTo,'primary');
  assert.deepEqual(f.DB.db.prepare('PRAGMA foreign_key_check').all(),[]);
 });

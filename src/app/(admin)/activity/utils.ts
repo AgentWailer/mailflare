@@ -20,6 +20,7 @@ export function formatActivityDate(value: string): string {
 export function getActivityLabel(action: string, t: Translator = defaultTranslator): string {
 	if (action === "auth.login") return t("activity.login");
 	if (action === "auth.logout") return t("activity.logout");
+	if (action === "account.deleted") return t("activity.accountDeleted");
 	return action;
 }
 

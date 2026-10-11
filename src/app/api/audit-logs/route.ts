@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 		.leftJoin(targetUsers, eq(targetUsers.id, auditLogs.targetUserId))
 		.leftJoin(mailboxes, eq(mailboxes.id, auditLogs.mailboxId))
 		.leftJoin(domains, eq(domains.id, mailboxes.domainId))
-		.where(inArray(auditLogs.action, ["auth.login", "auth.logout"]))
+		.where(inArray(auditLogs.action, ["auth.login", "auth.logout", "account.deleted"]))
 		.orderBy(desc(auditLogs.createdAt))
 		.limit(limit);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { LogIn, LogOut } from "lucide-react";
+import { LogIn, LogOut, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +65,8 @@ export default function ActivityPage() {
             )}
             {(activity.data ?? []).map((log) => {
               const metadata = getActivityMetadata(log);
-              const Icon = log.action === "auth.logout" ? LogOut : LogIn;
+              const deleted = log.action === "account.deleted";
+              const Icon = deleted ? Trash2 : log.action === "auth.logout" ? LogOut : LogIn;
               return (
                 <tr key={log.id} className="align-top hover:bg-neutral-50/70">
                   <td className="px-5 py-4">
@@ -78,20 +79,23 @@ export default function ActivityPage() {
                     <p className="flex flex-col truncate no-font-mono">
                       <span>{log.actorEmail ?? t("activity.unknownEmail")}</span>
                     </p>
-                    <small className="text-neutral-500">
+                    {deleted ? <small className="break-all text-neutral-500">{metadata.email}</small> : <small className="text-neutral-500">
                       {metadata.city || t("activity.unknownCity")} •{" "}
                       {metadata.country || t("activity.unknownCountry")}
-                    </small>
+                    </small>}
                   </td>
                   <td className="px-5 py-4">
-                    <p className="flex flex-col truncate no-font-mono">
+                    {deleted ? <>
+                      <p className="text-sm text-neutral-700">{t("activity.assetsRetained")}</p>
+                      {(metadata.pendingAvatarCleanup || metadata.avatarCandidates) && <p className="mt-1 text-xs text-amber-700">{t("activity.avatarCleanupPending")}</p>}
+                    </> : <><p className="flex flex-col truncate no-font-mono">
                       {metadata.device ?? t("activity.unknownDevice")}
                     </p>
 
                     <small className="text-neutral-500">
                       {metadata.platform || t("activity.unknownPlatform")} •{" "}
                       {metadata.ipAddress ?? t("activity.unknownIp")}
-                    </small>
+                    </small></>}
                   </td>
                   <td className="px-5 py-4 text-sm text-neutral-500">
                     {formatActivityDate(log.createdAt)}

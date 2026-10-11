@@ -1420,10 +1420,10 @@
 	"licenses.activating": "Wird aktiviert...",
 	"licenses.activate": "Aktivieren",
 	"activity.title": "Aktivität",
-	"activity.description": "An- und Abmeldeaktivität über alle Benutzerkonten.",
+	"activity.description": "Anmeldungen, Abmeldungen und Kontolöschungen.",
 	"activity.col.activity": "Aktivität",
 	"activity.col.user": "Benutzer",
-	"activity.col.device": "Gerät",
+	"activity.col.device": "Gerät / Details",
 	"activity.col.time": "Zeit",
 	"activity.none": "Noch keine An- oder Abmeldeaktivität",
 	"activity.login": "Anmeldung",
@@ -1990,5 +1990,8 @@
 	"account.delete.done": "Konto gelöscht. Postfächer und Dateien wurden erhalten.",
 	"account.delete.failed": "Das Konto konnte nicht gelöscht werden.",
 	"account.delete.cleanupPending": "Konto gelöscht. Die Bereinigung von Profilbildern steht noch aus; siehe Administrationsprotokoll.",
-	"account.delete.primaryProtected": "Der Hauptadministrator kann nicht gelöscht werden. Übertragen Sie diese Rolle zuerst auf ein anderes aktiviertes Konto."
+	"account.delete.primaryProtected": "Der Hauptadministrator kann nicht gelöscht werden. Übertragen Sie diese Rolle zuerst auf ein anderes aktiviertes Konto.",
+	"activity.accountDeleted": "Konto gelöscht",
+	"activity.assetsRetained": "Postfächer und Dateien beim Hauptadministrator erhalten.",
+	"activity.avatarCleanupPending": "Profilbild-Bereinigung ausstehend. Die Details sind im Protokoll hinterlegt."
 }

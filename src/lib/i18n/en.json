@@ -1438,10 +1438,10 @@
 	"licenses.activating": "Activating...",
 	"licenses.activate": "Activate",
 	"activity.title": "Activity",
-	"activity.description": "Login and logout activity across user accounts.",
+	"activity.description": "Login, logout and account deletion activity.",
 	"activity.col.activity": "Activity",
 	"activity.col.user": "User",
-	"activity.col.device": "Device",
+	"activity.col.device": "Device / details",
 	"activity.col.time": "Time",
 	"activity.none": "No login or logout activity yet",
 	"activity.login": "Login",
@@ -2104,5 +2104,8 @@
 	"account.delete.done": "Account deleted. Mailboxes and files have been retained.",
 	"account.delete.failed": "The account could not be deleted.",
 	"account.delete.cleanupPending": "Account deleted. Profile image cleanup is still pending; see the administration audit log.",
-	"account.delete.primaryProtected": "The primary administrator cannot be deleted. Transfer that role to another enabled account first."
+	"account.delete.primaryProtected": "The primary administrator cannot be deleted. Transfer that role to another enabled account first.",
+	"activity.accountDeleted": "Account deleted",
+	"activity.assetsRetained": "Mailboxes and files retained by the primary administrator.",
+	"activity.avatarCleanupPending": "Profile image cleanup is pending. The details are recorded in the audit log."
 }

@@ -5,6 +5,10 @@ export type ActivityMetadata = {
 	device?: string;
 	platform?: string;
 	userAgent?: string;
+	email?: string;
+	assetsTransferredTo?: string;
+	pendingAvatarCleanup?: string[];
+	avatarCandidates?: string[];
 };
 
 export type ActivityLog = {
