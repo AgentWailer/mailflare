@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Opstellen",
+	"navigation.composeMobile": "Opstellen",
 	"navigation.inbox": "Postvak IN",
 	"navigation.starred": "Met ster",
 	"navigation.snoozed": "Uitgesteld",

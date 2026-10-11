@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Écrire",
+	"navigation.composeMobile": "Écrire",
 	"navigation.inbox": "Réception",
 	"navigation.starred": "Suivis",
 	"navigation.snoozed": "Reportés",

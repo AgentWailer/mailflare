@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Compose",
+	"navigation.composeMobile": "Compose",
 	"navigation.inbox": "Inbox",
 	"navigation.starred": "Starred",
 	"navigation.allMail": "All mail",

@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "写邮件",
+	"navigation.composeMobile": "写邮件",
 	"navigation.inbox": "收件箱",
 	"navigation.starred": "已加星标",
 	"navigation.snoozed": "已推迟",

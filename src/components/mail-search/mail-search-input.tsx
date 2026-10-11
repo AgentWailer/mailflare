@@ -14,6 +14,7 @@ export function MailSearchInput() {
 
 	return (
 		<HeaderSearch
+			mobileInline
 			value={query}
 			onChange={setQuery}
 			label={t("search.mail")}

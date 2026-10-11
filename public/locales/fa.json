@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "نوشتن",
+	"navigation.composeMobile": "نوشتن",
 	"navigation.inbox": "صندوق ورودی",
 	"navigation.starred": "ستاره‌دار",
 	"navigation.snoozed": "معوق",

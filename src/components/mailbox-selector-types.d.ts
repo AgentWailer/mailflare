@@ -10,6 +10,8 @@ export type MailboxSelectorUser = {
 
 export type MailboxSelectorProps = {
 	initialUser?: MailboxSelectorUser;
+	onToggleAssistant?: () => void;
+	assistantOpen?: boolean;
 };
 
 export type AccountAvatarProps = {

@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "메일 쓰기",
+	"navigation.composeMobile": "메일 쓰기",
 	"navigation.inbox": "받은편지함",
 	"navigation.starred": "별표편지함",
 	"navigation.snoozed": "다시 알림",

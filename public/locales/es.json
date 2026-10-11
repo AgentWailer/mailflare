@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Redactar",
+	"navigation.composeMobile": "Redactar",
 	"navigation.inbox": "Recibidos",
 	"navigation.starred": "Destacados",
 	"navigation.snoozed": "Pospuestos",

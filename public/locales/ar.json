@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "إنشاء",
+	"navigation.composeMobile": "إنشاء",
 	"navigation.inbox": "الوارد",
 	"navigation.starred": "المميزة",
 	"navigation.snoozed": "المؤجّلة",

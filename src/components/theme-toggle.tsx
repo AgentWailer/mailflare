@@ -24,7 +24,7 @@ export function ThemeToggle() {
 		<Button
 			type="button"
 			variant="ghost"
-			className="h-11 w-11 shrink-0 rounded-full px-0 text-neutral-600"
+			className="h-10 w-10 md:h-11 md:w-11 shrink-0 rounded-full px-0 text-neutral-600"
 			aria-label={label}
 			title={label}
 			aria-pressed={dark}

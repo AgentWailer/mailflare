@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Escrever",
+	"navigation.composeMobile": "Escrever",
 	"navigation.inbox": "Entrada",
 	"navigation.starred": "Com estrela",
 	"navigation.snoozed": "Adiados",

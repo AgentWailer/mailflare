@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "作成",
+	"navigation.composeMobile": "作成",
 	"navigation.inbox": "受信トレイ",
 	"navigation.starred": "スター付き",
 	"navigation.snoozed": "スヌーズ中",

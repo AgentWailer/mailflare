@@ -31,6 +31,7 @@ await build({
  export {parseNewMessageEvent,showBrowserNewMessageNotification} from './src/hooks/message-realtime-utils.ts';
  export {DELETE as deleteLabel} from './src/app/api/folders/[folderId]/route.ts';
  export {GET as list} from './src/app/api/messages/route.ts';
+ export {GET as getSenderLogo} from './src/app/api/contacts/logo/route.ts';
  export {GET as counts} from './src/app/api/messages/counts/route.ts';
  export {GET as navigation} from './src/app/api/messages/navigation/route.ts';
  export {getMessageQueryParams} from './src/hooks/utils.ts';
@@ -918,4 +919,25 @@ test('inbox contact photo metadata uses the message owner and never exposes stor
  const response=await app.list(f.request('/api/messages?mailboxId=box&direction=inbound'));const text=await response.text();const rows=JSON.parse(text).messages;
  assert.equal(rows.find(x=>x.id==='primary').fromContactHasAvatar,true);assert.equal(rows.find(x=>x.id==='promotion').fromContactHasAvatar,false);
  assert(!text.includes('private-owner-photo'));assert(!text.includes('private-other-photo'));
+});
+
+
+test("sender logos require login, mailbox access and an existing owner's contact", async (t) => {
+ const f = await fixture(t);
+ let reads=0,fetches=0;
+ f.env.BUCKET={get:async()=>{reads++;return null;},put:async()=>{}};
+ const previous=globalThis.fetch;
+ globalThis.fetch=async()=>{fetches++;return new Response(null,{status:404});};
+ t.after(()=>globalThis.fetch=previous);
+ const path='/api/contacts/logo?mailboxId=box&address=sender%40company.com';
+ assert.equal((await app.getSenderLogo(new Request('https://mailflare.test'+path))).status,401);
+ f.DB.db.exec("INSERT INTO contacts(id,user_id,email,source,created_at) VALUES('logo-owner','owner','sender@company.com','inbound',1),('logo-other','other','private@company.com','inbound',1)");
+ assert.equal((await app.getSenderLogo(f.request(path,undefined,'other'))).status,404);
+ assert.equal((await app.getSenderLogo(f.request('/api/contacts/logo?mailboxId=box&address=private%40company.com'))).status,404);
+ assert.equal((await app.getSenderLogo(f.request('/api/contacts/logo?mailboxId=box&address=x%40127.0.0.1'))).status,404);
+ assert.equal(reads,0);assert.equal(fetches,0);
+ assert.equal((await app.getSenderLogo(f.request(path))).status,404);
+ assert.equal(fetches,1);assert.equal(reads,2);
+ f.DB.db.exec("UPDATE mailboxes SET disabled=1 WHERE id='box'");
+ assert.equal((await app.getSenderLogo(f.request(path))).status,404);assert.equal(fetches,1);
 });

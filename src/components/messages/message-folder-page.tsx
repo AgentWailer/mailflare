@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
-import { Archive, Check, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Trash2 } from "lucide-react";
+import { Archive, Check, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Star, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -83,7 +83,7 @@ function MessageListRow({
 	const href = `${config.hrefPrefix}/${message.id}`;
 	const navigation = useMessageNavigation(href, rowMessage);
 	const outbound = message.direction === "outbound";
-	const avatar = <SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-10 w-10 text-lg" : "h-7 w-7 text-xs"} />;
+	const avatar = <SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-12 w-12 text-xl" : "h-7 w-7 text-xs"} />;
 
 	async function runRowAction(action: RowMessageAction) {
 		const previousRead = read;
@@ -130,12 +130,13 @@ function MessageListRow({
 	if (compact) {
 		const compactRow = (
 			<div
-				className={`group relative grid grid-cols-[44px_minmax(0,1fr)] gap-2 border-l-2 px-3 py-3 transition-colors ${active
+				className={`mail-mobile-row group relative grid grid-cols-[48px_minmax(0,1fr)] gap-3 border-l-2 px-4 py-4 transition-colors ${active
 					? "border-l-blue-600 bg-blue-50"
 					: selected
-						? "border-l-transparent bg-neutral-50"
-						: "border-l-transparent hover:bg-neutral-50"
+						? "border-l-transparent bg-blue-50"
+						: "border-l-transparent md:hover:bg-neutral-50"
 					} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+				data-selected={selected || active}
 				draggable={draggable}
 				onDragStart={(event) => {
 					if (!draggable) return;
@@ -143,11 +144,11 @@ function MessageListRow({
 				}}
 			>
 				<MessageNavigationProgress progress={navigation.progress} />
-				<label className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-full">
+				<label className="relative flex h-12 w-12 cursor-pointer items-center justify-center rounded-full">
 					<input type="checkbox" checked={selected} onChange={event => onSelectedChange(message.id, event.target.checked)} className="peer sr-only" aria-label={t("list.selectFrom", { sender: party })} />
-					<span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>
+					<span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>
 				</label>
-				<Link href={href} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className="min-w-0">
+				<Link href={href} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className="min-w-0 pb-2">
 					<span className="flex items-baseline justify-between gap-2">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{party}
@@ -161,16 +162,17 @@ function MessageListRow({
 						</span>
 					</span>
 					<span
-						className={`mt-1 flex min-w-0 items-center gap-1.5 text-sm ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
+						className={`mt-1 flex min-w-0 items-center gap-1.5 text-[15px] leading-5 ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
 							}`}
 					>
 						<span className="min-w-0 truncate">{message.subject ?? t("list.noSubject")}</span>
 					</span>
-					<span className="mt-0.5 flex min-w-0 items-center justify-between gap-2 text-xs leading-5 text-neutral-500">
+					<span className="mt-0.5 flex min-w-0 items-center justify-between gap-2 pr-10 text-sm leading-5 text-neutral-500">
 						<span className="min-w-0 flex-1 truncate">{preview}</span>
 						<MessageLabelChips labels={message.labels} compact />
 					</span>
 				</Link>
+				{config.folder !== "drafts" && <button type="button" data-mobile-star aria-label={starred ? t("list.starred") : t("list.notStarred")} aria-pressed={starred} className="absolute bottom-2 right-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100" onClick={() => { void toggleMessageStar(message.id).then(result => setStarred(result.starred)).catch(() => undefined); }}><Star className={clsx("h-6 w-6", starred ? "fill-amber-400 text-amber-400" : "text-neutral-400")} /></button>}
 			</div>
 		);
 		if (!swipeable) return compactRow;
@@ -468,8 +470,8 @@ export function MessageFolderPage({
 	}
 
 	return (
-		<div className="flex h-full min-h-0 flex-col">
-			<div className={`flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
+		<div className="mail-mobile-list flex h-full min-h-0 flex-col">
+			<div className={`mail-mobile-list-toolbar flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
 				<div className="flex min-w-0 flex-1 items-center gap-3">
 					<Tooltip label={t("list.selectAll")} className="shrink-0">
 						<Checkbox
@@ -494,7 +496,7 @@ export function MessageFolderPage({
 						/>
 					) : (
 						(compact || isMobile) && (
-							<h1 className="truncate font-semibold text-neutral-900 pl-1">{title}</h1>
+							<h1 className="truncate text-xs font-medium tracking-wide text-neutral-500 pl-1">{title}</h1>
 						)
 					)}
 				</div>
@@ -564,7 +566,7 @@ export function MessageFolderPage({
 			</div>
 			{!config.folderId && ["inbox", "promotions", "social"].includes(config.folder) && <InboxCategoryTabs folder={config.folder} compact={compact} />}
 
-			<div className="min-h-0 flex-1 divide-y divide-neutral-100 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
+			<div className="mail-mobile-list-scroll min-h-0 flex-1 md:divide-y divide-neutral-100 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
 				{messages.map((message) => (
 					<MessageListRow
 						key={message.id}

@@ -512,4 +512,20 @@ button {
 	.page-flush :is(.bg-white.p-6, .bg-white.p-5) {
 		padding-inline: 0;
 	}
+	.mail-mobile-header {
+		margin: 12px;
+		width: calc(100% - 24px);
+		height: 56px;
+		border-radius: 999px;
+		background: #eaf1fb;
+	}
+	.mail-mobile-main { border-radius: 0; }
+	.mail-mobile-header [role="search"] { background-color: transparent; }
+	.mail-mobile-list-toolbar { height: 48px; border-bottom: 0; }
+	.mail-mobile-list-scroll { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
+	.dark .mail-mobile-shell,
+	.dark .mail-mobile-main,
+	.dark .mail-mobile-list { background-color: #101112; }
+	.dark .mail-mobile-header { background-color: #25292a; }
+	.dark .mail-mobile-list .mail-mobile-row:not([data-selected="true"]) { background-color: #101112; }
 }

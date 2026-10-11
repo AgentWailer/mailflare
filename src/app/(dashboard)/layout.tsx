@@ -1,23 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import {  Sparkles } from "lucide-react";
-import { useLanguage } from "@/components/language-provider";
+import { MailHeader } from "@/components/mail-header";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ComposeProvider } from "@/components/compose/compose-context";
+import { MobileComposeButton } from "@/components/compose/mobile-compose-button";
 import { FloatingComposer } from "@/components/compose/floating-composer";
-import { MailSearchInput } from "@/components/mail-search/mail-search-input";
 import { MailSearchProvider } from "@/components/mail-search/mail-search-context";
 import { MailboxProvider } from "@/components/mailbox-provider";
-import { MailboxSelector } from "@/components/mailbox-selector";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { AgentPanel } from "@/components/agent/agent-panel";
 import { useAssistantFullSize } from "@/components/agent/use-assistant-full-size";
 import { AssistantOpenContext, AssistantRequestContext } from "@/components/agent/assistant-open-state";
-import { Button } from "@/components/ui/button";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { SidebarProvider } from "@/components/sidebar-state";
-import { SidebarAside, MobileMenuButton } from "@/components/sidebar-aside";
+import { SidebarAside } from "@/components/sidebar-aside";
 import { SidebarResizeBoundary } from "@/components/sidebar-resize-boundary";
 import { ShortcutsProvider } from "@/components/shortcuts";
 import clsx from "clsx";
@@ -29,7 +25,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { t } = useLanguage();
   const { assistantOpen, setAssistantOpen, assistantFullSize, setAssistantFullSize } = useDashboardState();
   const assistantEnabled = useAssistantAvailability();
   const assistantVisible = assistantEnabled === true && assistantOpen;
@@ -49,7 +44,7 @@ export default function DashboardLayout({
           <ComposeProvider>
             <MailSearchProvider>
               <ShortcutsProvider>
-                <div className="grid h-dvh grid-cols-[minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns] md:grid-cols-[var(--sidebar-width)_minmax(0,1fr)]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
+                <div className="mail-mobile-shell grid h-dvh grid-cols-[minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns] md:grid-cols-[var(--sidebar-width)_minmax(0,1fr)]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
                   <SidebarAside>
                     <div className="h-full">
                       <DashboardNav />
@@ -57,24 +52,11 @@ export default function DashboardLayout({
                     <SidebarResizeBoundary />
                   </SidebarAside>
                   <div className="flex min-h-0 min-w-0 flex-col">
-                    <header className="flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm max-md:gap-1 max-md:pr-2">
-                      <MobileMenuButton className="ml-2" />
-                      <MailSearchInput />
-                      {/* <Link
-                        href="/settings/account"
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-200"
-                        title="Account Settings"
-                      >
-                        <HelpCircle className="h-5 w-5" />
-                      </Link> */}
-                      {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={clsx("h-11 w-11 shrink-0 rounded-full px-0", assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600")} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? t("agent.assistant.close") : t("agent.assistant.open")} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
-                      <MailboxSelector />
-                      <ThemeToggle />
-                    </header>
+                    <MailHeader assistantEnabled={assistantEnabled} assistantOpen={assistantOpen} onToggleAssistant={() => { setAssistantOpen(current => !current); setAssistantFullSize(false); }} />
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                       <AssistantOpenContext.Provider value={assistantVisible}>
                         <AssistantRequestContext.Provider value={assistantEnabled ? (request) => { window.dispatchEvent(new CustomEvent("mailflare:assistant-request", { detail: request })); setAssistantOpen(true); setAssistantFullSize(false); } : null}>
-                        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
+                        <main className="mail-mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
                           {children}
                         </main>
                         </AssistantRequestContext.Provider>
@@ -84,6 +66,7 @@ export default function DashboardLayout({
                       </aside>
                     </div>
                   </div>
+                  <MobileComposeButton hidden={assistantVisible} />
                   <FloatingComposer />
                 </div>
               </ShortcutsProvider>

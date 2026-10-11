@@ -47,6 +47,8 @@ export function ProgressiveAvatarImage({ src, alt, className, onError }: Progres
 	return (
 		// eslint-disable-next-line @next/next/no-img-element
 		<img
+			loading="lazy"
+			decoding="async"
 			ref={imageRef}
 			src={showFull ? src : getAvatarPreviewUrl(src)}
 			alt={alt}

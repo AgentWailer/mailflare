@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Scrivi",
+	"navigation.composeMobile": "Scrivi",
 	"navigation.inbox": "In arrivo",
 	"navigation.starred": "Speciali",
 	"navigation.snoozed": "Posticipate",

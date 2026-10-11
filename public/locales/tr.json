@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Yaz",
+	"navigation.composeMobile": "Yaz",
 	"navigation.inbox": "Gelen Kutusu",
 	"navigation.starred": "Yıldızlı",
 	"navigation.snoozed": "Ertelenenler",

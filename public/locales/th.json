@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "เขียนอีเมล",
+	"navigation.composeMobile": "เขียนอีเมล",
 	"navigation.inbox": "กล่องจดหมาย",
 	"navigation.starred": "ติดดาว",
 	"navigation.snoozed": "เลื่อนเวลา",

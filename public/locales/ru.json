@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Написать",
+	"navigation.composeMobile": "Написать",
 	"navigation.inbox": "Входящие",
 	"navigation.starred": "Помеченные",
 	"navigation.snoozed": "Отложенные",

@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Rubuta",
+	"navigation.composeMobile": "Rubuta",
 	"navigation.inbox": "Saƙonni",
 	"navigation.starred": "Masu tauraro",
 	"navigation.snoozed": "Jinkirtattu",

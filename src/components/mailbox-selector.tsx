@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Check, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, UserPlus, UserRound, UsersRound } from "lucide-react";
+import { CalendarDays, Check, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -115,7 +115,7 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 	);
 }
 
-export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
+export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen = false }: MailboxSelectorProps = {}) {
 	const { t } = useLanguage();
 	const { selectedMailbox, setSelectedMailbox, mailboxes, isLoading } = useSelectedMailbox();
 	const pathname = usePathname();
@@ -312,6 +312,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							<Inbox size={18} className="text-neutral-600" />
 							{t("navigation.inbox")}
 						</Link>
+						{onToggleAssistant && <button type="button" className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc] md:hidden" onClick={() => { setOpen(false); onToggleAssistant(); }}><Sparkles size={18} className="text-neutral-600" />{t(assistantOpen ? "agent.assistant.close" : "agent.assistant.open")}</button>}
 						<Link
 							href="/calendar"
 							onClick={() => setOpen(false)}

@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Napisz",
+	"navigation.composeMobile": "Napisz",
 	"navigation.inbox": "Odebrane",
 	"navigation.starred": "Z gwiazdką",
 	"navigation.snoozed": "Odłożone",

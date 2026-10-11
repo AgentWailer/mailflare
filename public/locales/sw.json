@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Andika",
+	"navigation.composeMobile": "Andika",
 	"navigation.inbox": "Kikasha",
 	"navigation.starred": "Nyota",
 	"navigation.snoozed": "Ahirishwa",

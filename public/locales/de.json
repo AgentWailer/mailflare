@@ -1,5 +1,6 @@
 {
 	"navigation.compose": "Verfassen",
+	"navigation.composeMobile": "Schreiben",
 	"navigation.inbox": "Posteingang",
 	"navigation.starred": "Markiert",
 	"navigation.allMail": "Alle E-Mails",

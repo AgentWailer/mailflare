@@ -5,6 +5,7 @@ export type HeaderSearchProps = {
 	onChange: (value: string) => void;
 	label: string;
 	placeholder?: string;
+	mobileInline?: boolean;
 	onSubmit?: () => void;
 	trailing?: ReactNode;
 	inputProps?: Record<string, string>;
