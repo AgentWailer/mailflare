@@ -43,7 +43,7 @@ export function NewTemplateDialog({ open, onOpenChange, mailboxId, from }: NewTe
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-				<DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
+				<DialogContent data-compose-layer className="max-h-[calc(100vh-4rem)] overflow-y-auto">
 					<DialogHeader><DialogTitle>{t("template.new")}</DialogTitle></DialogHeader>
 					<form
 						className="space-y-4"

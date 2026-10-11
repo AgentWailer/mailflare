@@ -265,6 +265,9 @@ export function MessageActions({
 
 			{isMobile && (
 				<>
+					<Button type="button" variant="ghost" size="roundedSM" data-mobile-reply className="h-11 shrink-0 gap-1.5 bg-blue-50 px-2 text-sm font-medium text-blue-700 hover:bg-blue-100" aria-label={t("message.reply")} disabled={disabled} onClick={() => void handleReply("reply")}>
+						<Reply size={iconSize} /><span>{t("message.reply")}</span>
+					</Button>
 					<Button
 						type="button"
 						variant="ghost"
@@ -286,16 +289,7 @@ export function MessageActions({
 					>
 						<Trash2 size={iconSize} />
 					</Button>
-					<Button
-						variant="ghost"
-						size="roundedSM"
-						className="h-11 w-11"
-						aria-label={read ? t("common.markUnread") : t("common.markRead")}
-						disabled={disabled}
-						onClick={() => runAction(markAction)}
-					>
-						{read ? <Mail size={iconSize} /> : <MailOpen size={iconSize} />}
-					</Button>
+
 				</>
 			)}
 			{!isMobile && (

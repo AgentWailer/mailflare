@@ -2,6 +2,7 @@ export type RuleCondition={field:"email"|"sender"|"recipient"|"title"|"content";
 export type RuleFolder = {
 	id: string;
 	name: string;
+	parentId?: string | null;
 };
 
 export type InboxRule = {

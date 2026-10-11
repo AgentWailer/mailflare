@@ -33,7 +33,7 @@ export function ScheduleSendMenu({ disabled, value, onChange, mailboxId, from, o
 				<ChevronDown className="h-4 w-4" />
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Portal>
-				<DropdownMenu.Content
+				<DropdownMenu.Content data-compose-layer
 					align="start"
 					sideOffset={6}
 					className="z-[130] max-h-[var(--radix-dropdown-menu-content-available-height)] max-w-[calc(100vw-16px)] overflow-y-auto min-w-56 rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg"

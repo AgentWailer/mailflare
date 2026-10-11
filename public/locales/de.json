@@ -2043,5 +2043,8 @@
 	"labels.expand": "Unterlabels von {name} anzeigen",
 	"labels.collapse": "Unterlabels von {name} einklappen",
 	"labels.parentFailed": "Das Label konnte nicht verschoben werden. Bitte erneut versuchen.",
-	"labels.hierarchyDescription": "Haupt- und Unterlabels lassen sich hier zuordnen. Beim Löschen eines Hauptlabels bleiben seine Unterlabels erhalten."
+	"labels.hierarchyDescription": "Haupt- und Unterlabels lassen sich hier zuordnen. Beim Löschen eines Hauptlabels bleiben seine Unterlabels erhalten.",
+	"labels.new": "Neues Label",
+	"labels.create": "Label erstellen",
+	"labels.duplicate": "Ein Label mit diesem Namen existiert bereits. Wähle es aus oder verwende einen anderen Namen."
 }

@@ -16,6 +16,7 @@ await build({
 		export {applyMigrations} from './server/runtime/migrate.ts';
 		export {createSession} from './src/lib/auth/session.ts';
 		export {getDb} from './src/db/index.ts';
+		export {POST as createLabel} from './src/app/api/folders/route.ts';
 		export {POST as createRule,GET as listRules} from './src/app/api/routing-rules/route.ts';
 		export {PATCH as updateRule,DELETE as deleteRule} from './src/app/api/routing-rules/[id]/route.ts';
 		export {resolveInboxRuleDestination} from './src/lib/email/routing.ts';
@@ -176,4 +177,16 @@ test("backup and restore retain mailbox forwarding rules without new schema",asy
 	await app.restoreDatabaseRecords(f.env.DB,backup.buffer);
 	const rule=f.DB.db.prepare("SELECT action,forward_to,keep_copy,label_ids FROM routing_rules").get();
 	assert.equal(rule.action,"forward");assert.equal(rule.forward_to,verifiedTarget);assert.equal(rule.keep_copy,1);assert.equal(rule.label_ids,'["work"]');
+});
+
+
+test("a label created inside the filter flow is immediately accepted as a new rule target",async t=>{
+ const f=await fixture(t);
+ const labelResponse=await app.createLabel(f.request("POST",{mailboxId:"box",name:"Supplier invoices",parentId:"work"},"owner","/api/folders"));
+ assert.equal(labelResponse.status,200);const label=await labelResponse.json();assert.equal(label.parentId,"work");
+ const created=await app.createRule(f.request("POST",input({labelIds:["work",label.id],skipInbox:true})));
+ assert.equal(created.status,200);
+ const result=await app.resolveInboxRuleDestination(f.db,{mailboxId:"box",toAddress:"owner@example.test",fromAddress:"Sender <sender@example.org>",subject:"Information"});
+ assert.deepEqual(new Set(result.labelIds),new Set(["work",label.id]));assert.equal(result.status,"archived");
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages").get().n,3);
 });

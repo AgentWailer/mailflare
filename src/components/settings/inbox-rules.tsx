@@ -6,6 +6,8 @@ import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RuleLabelCreator } from "./rule-label-creator";
+import { getLabelPath } from "@/lib/folders/hierarchy";
 import { getEmailAddress } from "@/lib/email/address";
 import {
 	Dialog,
@@ -44,8 +46,10 @@ function storedArray<T>(value: string | undefined): T[] {
 }
 export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRuleSource; onClose?: () => void} = {}) {
 	const { t } = useLanguage();
-	const { selectedMailbox } = useSelectedMailbox();
+	const { selectedMailbox, mailboxes } = useSelectedMailbox();
 	const mailboxId = sourceMessage?.mailboxId ?? selectedMailbox?.id ?? "";
+	const ruleMailbox = selectedMailbox?.id === mailboxId ? selectedMailbox : mailboxes.find(box => box.id === mailboxId);
+	const canManageLabels = !!ruleMailbox && (!ruleMailbox.permission || ruleMailbox.permission === "full_access");
 	const client = useQueryClient();
 	const [open, setOpen] = useState(!!sourceMessage);
 	const [step, setStep] = useState<"criteria" | "actions">("criteria");
@@ -55,6 +59,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 		sourceMessage ? {field:"sender",operator:"exact",value:getEmailAddress(sourceMessage.fromAddr),negate:false} : freshCondition(),
 	]);
 	const [mode, setMode] = useState<"all" | "any">("all");
+	const [labelCreating, setLabelCreating] = useState(false);
 	const [labels, setLabels] = useState<string[]>([]);
 	const [category, setCategory] = useState<
 		"primary" | "promotions" | "social" | ""
@@ -65,7 +70,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 	const [priority, setPriority] = useState(10);
 	const [forward, setForward] = useState(false);
 	const [forwardTo, setForwardTo] = useState("");
-	function changeOpen(next: boolean) { setOpen(next); if (!next) onClose?.(); }
+	function changeOpen(next: boolean) { setLabelCreating(false); setOpen(next); if (!next) onClose?.(); }
 	const folders = useQuery({
 		queryKey: ["folders", mailboxId],
 		enabled: !!mailboxId,
@@ -110,6 +115,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 			client.invalidateQueries({ queryKey: ["routing-rules", mailboxId] }),
 	});
 	function show(rule: InboxRule | null) {
+		setLabelCreating(false);
 		setEditing(rule);
 		const items = storedArray<RuleCondition>(rule?.conditions);
 		setConditions(
@@ -242,7 +248,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 						onSubmit={(event) => {
 							event.preventDefault();
 							if (criteriaStep) { setStep("actions"); return; }
-							save.mutate();
+							if (!labelCreating) save.mutate();
 						}}
 					>
 						{(!sourceMessage || criteriaStep) && <>
@@ -428,10 +434,12 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 												)
 											}
 										/>
-										<span className="min-w-0 break-words">{folder.name}</span>
+										<span className="min-w-0 break-words">{getLabelPath(folder, folders.data?.folders ?? [])}</span>
 									</label>
 								))}
 							</div>
+							{folders.isError && <p role="alert" className="text-sm text-red-700">{t("smart.failed")}</p>}
+							{canManageLabels && <RuleLabelCreator key={mailboxId} mailboxId={mailboxId} folders={folders.data?.folders ?? []} onCreated={id => setLabels(current => [...new Set([...current, id])])} onPendingChange={setLabelCreating} />}
 						</fieldset>
 						<label className="flex min-h-11 items-center gap-3 text-sm">
 							<input
@@ -483,7 +491,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 								disabled={
 									!mailboxId ||
 									conditions.some((condition) => !condition.value.trim()) ||
-									save.isPending
+									save.isPending || labelCreating
 									|| (!criteriaStep && !!sourceMessage && !labels.length && !category && !skip && !forward && destination === "keep")
 								}
 							>

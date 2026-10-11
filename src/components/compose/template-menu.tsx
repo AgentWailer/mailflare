@@ -33,7 +33,7 @@ export function TemplateMenu({ onApply, onNew }: TemplateMenuProps) {
 					<ChevronRight className="ml-4 h-4 w-4 text-neutral-400" />
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.Portal>
-					<DropdownMenu.SubContent
+					<DropdownMenu.SubContent data-compose-layer
 						sideOffset={4}
 						className="z-[130] flex max-h-[min(320px,var(--radix-dropdown-menu-content-available-height))] w-64 max-w-[calc(100vw-16px)] flex-col rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg"
 					>

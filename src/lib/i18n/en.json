@@ -2157,5 +2157,8 @@
 	"labels.expand": "Show sublabels of {name}",
 	"labels.collapse": "Collapse sublabels of {name}",
 	"labels.parentFailed": "Could not move this label. Please try again.",
-	"labels.hierarchyDescription": "Assign parent labels here. Deleting a parent keeps its sublabels."
+	"labels.hierarchyDescription": "Assign parent labels here. Deleting a parent keeps its sublabels.",
+	"labels.new": "New label",
+	"labels.create": "Create label",
+	"labels.duplicate": "A label with this name already exists. Select it or use another name."
 }

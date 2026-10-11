@@ -20,6 +20,8 @@ import { RecipientInput } from "./recipient-input";
 import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleSendMenu } from "./schedule-send-menu";
+import { ForkSource } from "@/components/fork-source";
+import { useComposeScrollLock } from "./use-compose-scroll-lock";
 import { useComposeViewport } from "./use-compose-viewport";
 import {
 	applyMailboxSignatureHtml,
@@ -72,6 +74,7 @@ export function ComposeForm({
 	const [draftSaveFailed, setDraftSaveFailed] = useState(false);
 	const frameRef = useRef<HTMLFormElement | null>(null);
 	useComposeViewport(frameRef, !minimized, mode);
+	useComposeScrollLock(frameRef, mode === "popup" && !minimized, modalMode);
 	const [loading, setLoading] = useState(false);
 	const [loadingDraft, setLoadingDraft] = useState(false);
 	const [deletingDraft, setDeletingDraft] = useState(false);
@@ -528,7 +531,8 @@ export function ComposeForm({
 	return (
 		<>
 			{agentReview && <SendReview approvalId={agentReview.approvalId} snapshot={agentReview.snapshot} onClose={() => setAgentReview(null)} onSent={() => { setAgentReview(null); if (onClose) onClose(); else router.push("/sent"); }} />}
-			{mode === "popup" && modalMode && !minimized && <div className="fixed inset-0 z-40 bg-neutral-950/65" aria-hidden="true" />}
+			{mode === "popup" && !minimized && <div data-compose-layer className="compose-touch-backdrop fixed inset-0 z-[39] hidden bg-white" aria-hidden="true" />}
+			{mode === "popup" && modalMode && !minimized && <div data-compose-layer className="fixed inset-0 z-40 bg-neutral-950/65" aria-hidden="true" />}
 			{toast && (
 				<div
 					className={cn(
@@ -729,6 +733,7 @@ export function ComposeForm({
 						</>
 					}
 				/>
+				{mode === "popup" && <div className="compose-source-offer hidden shrink-0"><ForkSource /></div>}
 				</div>
 			</form>
 		</>

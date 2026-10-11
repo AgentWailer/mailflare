@@ -50,12 +50,17 @@ html, body {
 		bottom: auto;
 		left: 0;
 		width: 100%;
-		height: min(var(--compose-viewport-height, 100dvh), calc(100dvh - var(--mail-source-footer-height, 0px) - env(safe-area-inset-bottom, 0px) - var(--compose-viewport-top, 0px)));
+		height: min(var(--compose-viewport-height, 100dvh), calc(100dvh - var(--compose-viewport-top, 0px)));
 		transform: none;
 		border: 0;
 		border-radius: 0;
 	}
 
+	.compose-touch-backdrop { display: block; overscroll-behavior: none; touch-action: none; }
+	.compose-source-offer { display: block; }
+	.fork-source[inert] { visibility: hidden; }
+	.compose-source-offer .fork-source,
+	body:has(.mail-mobile-shell) .compose-source-offer .fork-source { position: static; height: auto; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--background); }
 	.compose-popup .compose-header { padding-top: env(safe-area-inset-top); }
 	.compose-minimized { bottom: calc(var(--mail-source-footer-height, 0px) + env(safe-area-inset-bottom, 0px)); }
 	.compose-page-container { padding: 8px; overflow: hidden; }

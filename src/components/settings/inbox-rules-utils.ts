@@ -1,6 +1,6 @@
 import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
-import { authFetch } from "@/lib/auth/client";
-import type { InboxRule, InboxRuleInput, InboxRulesResponse, RuleFoldersResponse } from "./inbox-rules-types";
+import { authFetch, getClientSessionToken } from "@/lib/auth/client";
+import type { InboxRule, InboxRuleInput, InboxRulesResponse, RuleFoldersResponse, RuleFolder } from "./inbox-rules-types";
 
 function ruleError(error: unknown, t: Translator): string {
 	if (error === "forwarding_unverified") return t("rules.forwardUnverified");
@@ -19,6 +19,7 @@ export async function fetchInboxRules(mailboxId: string): Promise<InboxRulesResp
 export async function fetchRuleFolders(mailboxId: string): Promise<RuleFoldersResponse> {
 	const params = new URLSearchParams({ mailboxId });
 	const response = await authFetch(`/api/folders?${params.toString()}`);
+	if (!response.ok) throw new Error("Unable to load labels");
 	return (await response.json()) as RuleFoldersResponse;
 }
 
@@ -64,4 +65,15 @@ export function getRuleOperatorLabel(operator: string, t: Translator = defaultTr
 export function getInboxRuleDestination(rule: Pick<InboxRule, "action" | "folderId">): string {
 	if (rule.action === "spam" || rule.action === "trash") return rule.action;
 	return rule.folderId ? `folder:${rule.folderId}` : "";
+}
+
+/** The label exists immediately; saving the surrounding filter remains a separate action. */
+export async function createRuleLabel(input: { mailboxId: string; name: string; parentId: string | null }, t: Translator = defaultTranslator): Promise<RuleFolder> {
+ const token = getClientSessionToken();
+ const response = await authFetch("/api/folders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }).catch(() => { throw new Error(t("labels.createFailed")); });
+ const data = await response.json().catch(() => null) as (RuleFolder & { error?: string }) | null;
+ if (token !== getClientSessionToken()) throw new Error(t("labels.createFailed"));
+ if (!response.ok) throw new Error(t(data?.error === "Folder already exists" ? "labels.duplicate" : "labels.createFailed"));
+ if (!data || typeof data.id !== "string" || !data.id || typeof data.name !== "string" || !data.name) throw new Error(t("labels.createFailed"));
+ return data;
 }

@@ -160,3 +160,47 @@ node tests/browser/nested-labels.mjs
 node tests/browser/label-visibility.mjs
 node tests/browser/label-actions.mjs
 ```
+
+## Inline filter labels and mobile reply (2026-10-11)
+
+Filters now offer an inline "New label" action, including optional parent selection.
+Creating a label selects it alongside previously selected labels without closing the
+filter or resetting its criteria. Enter creates the label rather than submitting
+the filter. Pending creation blocks filter submission; failed and duplicate-name
+requests preserve the entered name and allow retry. Readonly delegates do not get
+the creation control. No database migration is needed.
+
+The iPhone reader now has a labelled Reply button in the top action bar. The
+read/unread action remains in the additional-actions menu. Reply uses the existing
+draft, recipient and conversation logic. Touch popups cover the full visual
+viewport, with an opaque backdrop and their source offer inside the editor, below
+the action bar. Background elements become inert and page scrolling is locked
+while the popup is open. Editor and portal-menu scrolling remains available;
+minimizing or closing restores the background and its original scroll position.
+
+The production build passed, as did 50 selected filter, hierarchy, compose-network
+and refine function tests. The filter test includes actual label creation and
+subsequent routing through the SQLite-backed API. The new Chromium filter script
+passed at 320, 390, 768, 820 and 1440 px, covering retries, duplicate names, pending
+submission, automatic selection, nested paths, cancellation and readonly access.
+The reading-pane script covers eight editor layouts, five actual floating-reply
+flows, eight reader/list layouts and three manual-refresh cases. Reply checks
+include a simulated 360 px visual viewport, recipient preservation, background
+wheel/touch prevention, scrolling inside the draft and portal menu, reachable
+Send/AI/source controls, and minimize/restore/close. Existing message-menu checks
+also passed at eight viewport sizes. These tests do not send production emails.
+
+Focused ESLint passed for the new hook, creator, filter utility/dialog and changed
+template components. Broader checks still encounter existing compose state-in-effect
+errors, its translation dependency warning, the schedule Date.now purity error
+and the reply callback memoization error. Type checking retains the same 17
+pre-existing diagnostics. Chromium simulation does not certify the native iPhone
+keyboard or Safari Home Screen behavior; physical-device verification and the
+previously blocked Firefox/WebKit runs remain outstanding.
+
+```sh
+node --test tests/message-filters.test.mjs tests/nested-labels.test.mjs tests/compose-network-errors.test.mjs tests/refine-ui.test.mjs tests/refine-editor.test.mjs tests/refine-api.test.mjs
+node tests/browser/rule-label-creation.mjs
+node tests/browser/reading-pane.mjs
+node tests/browser/message-action-menus.mjs
+```
