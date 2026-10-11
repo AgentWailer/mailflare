@@ -4,7 +4,7 @@ import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs
 import {createServer} from 'node:http';
 import {join} from 'node:path';
 import {build} from 'esbuild';
-const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
+const browserName=process.env.MAILFLARE_BROWSER||'chromium';assert(['chromium','firefox','webkit'].includes(browserName));const browserType=(await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright'))[browserName];
 const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','mailflare-label-browser-'));
 const write=(name,value)=>writeFileSync(join(dir,name),value);
 const de=JSON.parse(readFileSync(join(root,'public/locales/de.json'),'utf8'));
@@ -14,17 +14,17 @@ write('sidebar.ts',`export const useSidebar=()=>({minimal:false,mobile:innerWidt
 write('chrome.tsx',`export const SidebarHeader=()=> <div>Mailflare</div>;export const SidebarFooter=()=>null;`);
 write('link.tsx',`export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>;}`);
 write('navigation.ts',`export const usePathname=()=>new URLSearchParams(location.search).has('folder')?'/folders/work':'/inbox';export const useRouter=()=>({replace:path=>{window.replacedPath=path;},push:()=>{},prefetch:()=>{},refresh:()=>{}});`);
-write('entry.tsx',`import React from 'react';import {createRoot} from 'react-dom/client';import {LanguageProvider} from '@/components/language-provider';import {DashboardNav} from '@/components/dashboard-nav';import {useMailboxFolders} from '@/components/messages/use-mailbox-folders';import de from '../../public/locales/de.json';
+write('entry.tsx',`import React from 'react';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {createRoot} from 'react-dom/client';import {LanguageProvider} from '@/components/language-provider';import {DashboardNav} from '@/components/dashboard-nav';import {useMailboxFolders} from '@/components/messages/use-mailbox-folders';import de from '../../public/locales/de.json';
 function Probe(){const labels=useMailboxFolders(new URLSearchParams(location.search).get('box')||'box');return <output data-testid="label-cache">{labels.map(x=>x.id).join(',')}</output>;}
 if(new URLSearchParams(location.search).has('dark'))document.documentElement.classList.add('dark');
-createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><div style={{width:'min(300px,100vw)',height:'100dvh'}}><DashboardNav/></div><Probe/></LanguageProvider>);`);
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale="de" initialMessages={de}><div style={{width:'min(300px,100vw)',height:'100dvh'}}><DashboardNav/></div><Probe/></LanguageProvider></QueryClientProvider>);`);
 let server,browser;
 try{
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:join(root,'tsconfig.json'),alias:{'@':join(root,'src'),'@/components/compose/compose-context':join(dir,'compose.ts'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'@/components/sidebar-state':join(dir,'sidebar.ts'),'@/components/sidebar-header':join(dir,'chrome.tsx'),'@/components/sidebar-footer':join(dir,'chrome.tsx'),'next/link':join(dir,'link.tsx'),'next/navigation':join(dir,'navigation.ts')},define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'fixture-contexts',setup(b){b.onResolve({filter:/(?:^|\/)(compose-context|mailbox-provider|sidebar-state|sidebar-header|sidebar-footer)$/},args=>({path:join(dir,{'compose-context':'compose.ts','mailbox-provider':'mailbox.ts','sidebar-state':'sidebar.ts','sidebar-header':'chrome.tsx','sidebar-footer':'chrome.tsx'}[args.path.split('/').at(-1)])}));}}],logLevel:'silent'});
  const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(x=>x.startsWith('index.')&&x.endsWith('.css'))));
  const assets={'/':Buffer.from('<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/fixture.css':css};
  server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(assets[path]?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(assets[path]||'Not found');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
- browser=await chromium.launch({headless:true,...(process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),args:['--no-sandbox']});
+ browser=await browserType.launch({headless:true,...(browserName==='chromium'&&process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),...(browserName==='chromium'?{args:['--no-sandbox']}:{})});
  for(const size of [{width:320,height:700},{width:390,height:844},{width:430,height:932},{width:844,height:390},{width:1440,height:900}]){
   const mobile=size.width<768,page=await browser.newPage({viewport:size,hasTouch:mobile});const errors=[],deletions=[];let failDelete=false;
   page.setDefaultTimeout(10000);page.on('pageerror',err=>{errors.push(err.message);console.error(err.message);});

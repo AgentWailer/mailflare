@@ -1,3 +1,4 @@
+import { LabelVisibilitySettings } from "@/components/settings/label-visibility-settings";
 import { MailSortingSettings } from "@/components/settings/mail-sorting-settings";
 import { getServerTranslator } from "@/lib/i18n/server";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
@@ -48,6 +49,9 @@ export default async function SettingsInboxPage() {
 							<p className="mt-1 text-sm text-neutral-500">{t("settingsPage.inbox.addressesDescription")}</p>
 						</div>
 						<RecipientAddressSettings />
+					</div>
+					<div className="py-6 first:pt-0 last:pb-0">
+						<LabelVisibilitySettings />
 					</div>
 					<div className="py-6 first:pt-0 last:pb-0">
 						<div className="mb-4">

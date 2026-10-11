@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
+import Link from "next/link";
 import { useLanguage } from "./language-provider";
 import { folderColorKeys } from "@/lib/folders/color-keys";
 import type { TranslationKey } from "@/lib/i18n/types";
@@ -19,6 +20,7 @@ import {
   Mails,
   Plus,
   Send,
+  Settings2,
   ShieldAlert,
   Star,
   Trash2,
@@ -42,7 +44,6 @@ import {
   FOLDER_COLOR_OPTIONS,
 } from "@/lib/folders/colors";
 import type { FolderColor } from "@/lib/folders/types";
-import { cn } from "@/lib/utils";
 import { NavItem } from "./components-nav";
 import type { NavLink } from "./components-nav-types";
 import type { CustomFolder } from "./dashboard-nav-types";
@@ -52,11 +53,10 @@ import {
   moveMessagesToCategory,
   moveMessagesToSystemFolder,
 } from "./dashboard-nav-utils";
-import { NavSectionHeader, useSectionOpen } from "./nav-section-header";
 import { LabelActions } from "./label-actions";
 import { notifyLabelsChanged } from "./messages/use-mailbox-folders";
+import { useLabelVisibility } from "./messages/use-label-visibility";
 import { ReorderableList } from "./reorderable-list";
-import { readStorage, writeStorage } from "./reorderable-list-utils";
 import { SidebarFooter } from "./sidebar-footer";
 import { SidebarHeader } from "./sidebar-header";
 import { SidebarScaffold } from "./sidebar-scaffold";
@@ -84,47 +84,30 @@ const links = [
 ] satisfies (Omit<NavLink, "label"> & { labelKey: TranslationKey })[];
 
 
-// Drafts, Archived, Spam and Trash start tucked under "More...".
+// Keep the saved two-list ordering compatible while displaying both lists in full.
 const MORE_LINK_HREFS = ["/drafts", "/archived", "/spam", "/trash"];
-const MAX_VISIBLE_FOLDERS = 3;
-const MORE_OPEN_KEY = "mailflare:nav:more-open";
-const FOLDERS_OPEN_KEY = "mailflare:nav:folders-open";
-
-function NavToggle({ expanded, onClick, collapsedLabel, expandedLabel }: { expanded: boolean; onClick: () => void; collapsedLabel?: string; expandedLabel?: string }) {
-  const { t } = useLanguage();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={expanded}
-      className="flex h-9 w-full items-center rounded-r-full pl-[52px] text-left text-sm text-neutral-700 transition-colors hover:bg-stone-200/60 max-md:min-h-11 max-md:pl-14 max-md:text-base"
-    >
-      {expanded ? (expandedLabel ?? t("navigation.less")) : (collapsedLabel ?? t("navigation.more"))}
-    </button>
-  );
-}
 
 export function DashboardNav({ className }: { className?: string }) {
   const { t } = useLanguage();
   const { minimal } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [foldersOpen, setFoldersOpen] = useState(false);
-  const [foldersSectionOpen, toggleFoldersSection] = useSectionOpen("mailflare:nav:folders-section-open");
   const { selectedMailbox, isLoading } = useSelectedMailbox();
   const { counts } = useMessageCounts(selectedMailbox?.id, !isLoading);
+  const { hiddenLabelIds } = useLabelVisibility(selectedMailbox?.id);
   const [deletingLabel, setDeletingLabel] = useState<CustomFolder | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const canManageLabels = !!selectedMailbox && (!selectedMailbox.permission || selectedMailbox.permission === "full_access");
-  const [folders, setFolders] = useState<CustomFolder[]>([]);
+  const [folderState, setFolderState] = useState<{ mailboxId: string; folders: CustomFolder[] } | null>(null);
+  const folders = folderState?.mailboxId === selectedMailbox?.id ? folderState?.folders ?? [] : [];
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderColor, setNewFolderColor] =
     useState<FolderColor>(DEFAULT_FOLDER_COLOR);
   const [addingFolder, setAddingFolder] = useState(false);
+  const [folderCreateError, setFolderCreateError] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const linksWithCounts: NavLink[] = links.filter((link) => link.href !== "/scheduled" || counts.folders.scheduled.total > 0).map(({ labelKey, ...rest }): NavLink => {
+  const linksWithCounts: NavLink[] = links.map(({ labelKey, ...rest }): NavLink => {
     const link = { ...rest, label: t(labelKey) };
     if (link.href === "/inbox") {
       return { ...link, count: getFolderNavCount("inbox", counts.folders), onMessageDrop: canManageLabels && selectedMailbox ? (ids: string[]) => void moveMessagesToCategory(ids, "primary", selectedMailbox.id) : undefined };
@@ -178,48 +161,29 @@ export function DashboardNav({ className }: { className?: string }) {
     return link;
   });
 
-  useEffect(() => {
-    setMoreOpen(readStorage(MORE_OPEN_KEY, false));
-    setFoldersOpen(readStorage(FOLDERS_OPEN_KEY, false));
-  }, []);
-
-  function toggleMore() {
-    writeStorage(MORE_OPEN_KEY, !moreOpen);
-    setMoreOpen(!moreOpen);
-  }
-
-  function toggleFolders() {
-    writeStorage(FOLDERS_OPEN_KEY, !foldersOpen);
-    setFoldersOpen(!foldersOpen);
-  }
-
   const isActiveHref = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const composeLink = linksWithCounts.find((link) => link.href === "/compose");
   const mainLinks = linksWithCounts.filter((link) => link.href !== "/compose" && !MORE_LINK_HREFS.includes(link.href!));
   const moreLinks = linksWithCounts.filter((link) => MORE_LINK_HREFS.includes(link.href!));
-  // The icon rail has no room for text toggles. When collapsed, the page you are on stays listed on its own.
-  const showAllMoreLinks = minimal || moreOpen;
-  const foldersOverflow = !minimal && folders.length > MAX_VISIBLE_FOLDERS;
+  const visibleFolders = folders.filter(folder => !hiddenLabelIds.includes(folder.id));
 
   useEffect(() => {
-    if (!selectedMailbox?.id) {
-      setFolders([]);
-      return;
-    }
+    if (!selectedMailbox?.id) return;
+    const mailboxId = selectedMailbox.id;
 
     let cancelled = false;
     let requestNumber = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const params = new URLSearchParams({ mailboxId: selectedMailbox.id });
+    const params = new URLSearchParams({ mailboxId });
     function load() {
       const request = ++requestNumber;
       authFetch(`/api/folders?${params.toString()}`)
-        .then((response) => response.json() as Promise<{ folders?: CustomFolder[] }>)
+        .then((response) => { if (!response.ok) throw new Error("Unable to load labels"); return response.json() as Promise<{ folders?: CustomFolder[] }>; })
         .then((data) => {
-          if (!cancelled && request === requestNumber) setFolders(data.folders ?? []);
+          if (!cancelled && request === requestNumber) setFolderState({ mailboxId, folders: data.folders ?? [] });
         })
         .catch(() => {
-          if (!cancelled && request === requestNumber) setFolders([]);
+          // Preserve already loaded labels during temporary network failures.
         });
     }
     function reload() {
@@ -241,6 +205,7 @@ export function DashboardNav({ className }: { className?: string }) {
     if (!selectedMailbox?.id || !newFolderName.trim()) return;
 
     setAddingFolder(true);
+    setFolderCreateError(false);
     try {
       const response = await authFetch("/api/folders", {
         method: "POST",
@@ -251,15 +216,15 @@ export function DashboardNav({ className }: { className?: string }) {
           color: newFolderColor,
         }),
       });
-      if (!response.ok) return;
+      if (!response.ok) throw new Error("Unable to create label");
       const folder = (await response.json()) as CustomFolder;
-      setFolders((items) =>
-        [...items, folder].sort((a, b) => a.name.localeCompare(b.name)),
-      );
+      setFolderState(previous => previous?.mailboxId !== selectedMailbox.id ? previous : { ...previous, folders: [...previous.folders, folder].sort((a, b) => a.name.localeCompare(b.name)) });
       setNewFolderName("");
       setNewFolderColor(DEFAULT_FOLDER_COLOR);
       setFolderDialogOpen(false);
       notifyLabelsChanged();
+    } catch {
+      setFolderCreateError(true);
     } finally {
       setAddingFolder(false);
     }
@@ -272,7 +237,7 @@ export function DashboardNav({ className }: { className?: string }) {
     try {
       const response = await authFetch(`/api/folders/${encodeURIComponent(deletingLabel.id)}?${new URLSearchParams({ mailboxId: selectedMailbox.id })}`, { method: "DELETE" });
       if (!response.ok) { setDeleteError(true); return; }
-      setFolders((items) => items.filter((item) => item.id !== deletingLabel.id));
+      setFolderState(previous => previous?.mailboxId !== selectedMailbox.id ? previous : { ...previous, folders: previous.folders.filter(item => item.id !== deletingLabel.id) });
       if (isActiveHref(`/folders/${deletingLabel.id}`)) router.replace("/all");
       setDeletingLabel(null);
       notifyLabelsChanged();
@@ -292,15 +257,15 @@ export function DashboardNav({ className }: { className?: string }) {
           { id: "main", items: mainLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })) },
           {
             id: "more",
-            before: minimal ? undefined : <NavToggle expanded={moreOpen} onClick={toggleMore} />,
-            visibleIds: (ordered) => showAllMoreLinks ? ordered : ordered.filter((id) => isActiveHref(id)),
             items: moreLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })),
           },
         ]}
       />
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       {!minimal && (
-        <NavSectionHeader label={t("smart.labels")} open={foldersSectionOpen} onToggle={toggleFoldersSection}>
+        <div className="mt-2 ml-3 mr-2 flex min-h-11 shrink-0 items-center gap-1 pl-3">
+          <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t("smart.labels")}</span>
+          <Link href="/settings/inbox#labels" aria-label={t("labels.visibility.title")} title={t("labels.visibility.title")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"><Settings2 className="h-4 w-4" /></Link>
           {canManageLabels && (
             <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
               <DialogTrigger asChild>
@@ -320,6 +285,7 @@ export function DashboardNav({ className }: { className?: string }) {
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={createFolder} className="space-y-4">
+                  {folderCreateError && <p role="alert" className="text-sm text-red-700">{t("labels.createFailed")}</p>}
                   <div className="space-y-2">
                     <Label htmlFor="folderName">{t("navigation.folderName")}</Label>
                     <Input
@@ -368,15 +334,15 @@ export function DashboardNav({ className }: { className?: string }) {
               </DialogContent>
             </Dialog>
           )}
-        </NavSectionHeader>
-      )}
-      
-      {!minimal && foldersSectionOpen && folders.length === 0 && (
-        <div className="px-4 py-1.5 text-xs text-neutral-500">
-          {t("navigation.noFolders")}
         </div>
       )}
-      {(minimal || foldersSectionOpen) && <ReorderableList
+      
+      {!minimal && visibleFolders.length === 0 && (
+        <div className="px-4 py-1.5 text-xs text-neutral-500">
+          {folders.length ? <Link href="/settings/inbox#labels" className="text-blue-700">{t("labels.visibility.allHidden")}</Link> : t("navigation.noFolders")}
+        </div>
+      )}
+      <ReorderableList
         key={selectedMailbox?.id ?? "none"}
         storageKey={`mailflare:nav:layout:folders:${selectedMailbox?.id ?? "none"}`}
         fallbackStorageKey="mailflare:nav:layout:folders"
@@ -390,13 +356,7 @@ export function DashboardNav({ className }: { className?: string }) {
         enabled={!minimal}
         lists={[{
           id: "folders",
-          visibleIds: (ordered) => {
-            if (!foldersOverflow || foldersOpen) return ordered;
-            const first = ordered.slice(0, MAX_VISIBLE_FOLDERS);
-            const active = ordered.slice(MAX_VISIBLE_FOLDERS).find((id) => isActiveHref(`/folders/${id}`));
-            return active ? [...first, active] : first;
-          },
-          items: folders.map((folder) => ({
+          items: visibleFolders.map((folder) => ({
             id: folder.id,
             node: (
               <NavItem
@@ -415,7 +375,7 @@ export function DashboardNav({ className }: { className?: string }) {
             ),
           })),
         }]}
-      />}
+      />
       <Dialog open={!!deletingLabel} onOpenChange={(open) => { if (!open && !deleting) setDeletingLabel(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -429,7 +389,6 @@ export function DashboardNav({ className }: { className?: string }) {
           </div>
         </DialogContent>
       </Dialog>
-      {foldersSectionOpen && foldersOverflow && <NavToggle expanded={foldersOpen} onClick={toggleFolders} />}
     </SidebarScaffold>
   );
 }

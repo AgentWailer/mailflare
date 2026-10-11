@@ -69,3 +69,40 @@ iOS keyboard or Home Screen status-bar behavior. On iOS, changing status-bar met
 may take effect only after closing and reopening the installed app. A physical
 iPhone check remains necessary for that behavior; no live native-style change is
 guaranteed by these tests.
+
+## Follow-up: sidebar and personal label visibility
+
+All twelve mail areas now remain listed, including empty scheduled mail, drafts,
+archive, spam and trash. The sidebar no longer truncates labels to three or uses
+More/Less controls. Existing saved ordering is retained. The sidebar scrolls when
+the complete list exceeds the screen height.
+
+Settings → Inbox → Label visibility controls each label in the selected mailbox.
+The preference belongs to the signed-in user, syncs through the server across
+devices, and affects only the sidebar. Mail labels and rule/label menus remain
+available. Read-only delegates may change their own display. Updates edit one ID
+atomically to retain concurrent changes, and refetch on focus/reconnect picks up
+another device's changes.
+
+Migration `0063_label_visibility.sql` adds a default-empty JSON column to `users`.
+It must be applied before deploying the new schema because session queries select
+the user columns. No table is added or removed; existing backup table/group/type
+lists already include `users`. Real SQLite tests verify preservation in backups
+and restoration of older backups to the all-visible default.
+The existing Cloudflare installation applied and verified this migration before
+the GitHub-triggered deployment on 2026-10-11.
+
+The follow-up build passed. All 73 selected function tests passed, including five
+new authenticated API/database cases. Chromium checks were rerun for composing,
+reply/forward drafts, full-page/popup/modal editors, reading layouts, category
+navigation, refresh/retry and menus. Label ordering/deletion passed at five sizes.
+The new visibility check passed at six phone/tablet/desktop sizes, including dark
+mode, long names, all labels hidden/re-enabled, saved-state reload, mailbox changes,
+pending-write protection, HTTP failure/retry and label creation preserving input
+after a failed request. Lint passes for the follow-up application files; the 17
+pre-existing TypeScript diagnostics remain unchanged.
+
+Firefox/WebKit and physical iOS checks remain unrun for the reasons above. The
+new visibility and existing label-action browser scripts also accept
+`MAILFLARE_BROWSER=firefox` or `MAILFLARE_BROWSER=webkit` once those engines are
+installed. No actual external email was sent during these checks.

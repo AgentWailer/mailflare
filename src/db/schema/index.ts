@@ -27,6 +27,8 @@ export const users = sqliteTable("users", {
 	trashRetentionDays: integer("trash_retention_days"),
 	// Off shows the mailbox only. On shows Name <mailbox> on To, Cc, and Bcc.
 	showFullRecipientAddresses: integer("show_full_recipient_addresses", { mode: "boolean" }).notNull().default(false),
+	/** Personal sidebar visibility only; labels remain attached to mail and usable in rules. */
+	hiddenLabelIds: text("hidden_label_ids").notNull().default("[]"),
 	// TOTP second factor. The secret is written at enrolment and only counts
 	// once the user has proven a code from their authenticator.
 	totpSecret: text("totp_secret"),
