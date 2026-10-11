@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { requireUser } from "@/lib/auth/cookies";
@@ -15,7 +16,7 @@ export async function GET(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
 	const user = await requireUser(env, request);
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	if (domain.sendingProvider !== "resend") return NextResponse.json({ error: "Resend is not selected for this domain" }, { status: 400 });
 	const key = await getResendKeyStatus(env);
@@ -35,7 +36,7 @@ export async function POST(request: Request, { params }: Params) {
 	const user = await requireUser(env, request);
 	if (!canManageDomains(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	const body = (await request.json().catch(() => ({}))) as { action?: string };
 	if (body.action !== "setup" && body.action !== "verify" && body.action !== "test") return NextResponse.json({ error: "Unknown action" }, { status: 400 });

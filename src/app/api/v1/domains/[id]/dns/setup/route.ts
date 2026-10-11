@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
@@ -22,7 +23,7 @@ export async function POST(request: Request, { params }: Params) {
 	}
 
 	const { id } = await params;
-	const domain = await getDomainForUser(env, auth.userId, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(auth.user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
 	const body = (await request.json().catch(() => ({}))) as { record?: string; replaceMx?: boolean };

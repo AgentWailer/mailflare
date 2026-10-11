@@ -1,6 +1,7 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
 import { domains, mailboxes, routingRules } from "@/db/schema";
+import { getDomainRegistryOwnerId } from "./access";
 import type { SessionUser } from "@/lib/auth/types";
 import { getMailboxAccessLevel, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 
@@ -56,7 +57,7 @@ export async function getAdminDomain(
 	domainId: string,
 ) {
 	if (user.role !== "admin") return null;
-	const ownerId = user.canManageMailboxes && user.createdByUserId ? user.createdByUserId : user.id;
+	const ownerId = getDomainRegistryOwnerId(user);
 	const [domain] = await db
 		.select()
 		.from(domains)

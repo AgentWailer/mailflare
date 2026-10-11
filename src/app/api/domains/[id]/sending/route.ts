@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -32,7 +33,7 @@ export async function PUT(request: Request, { params }: Params) {
 	const user = await requireUser(env, request);
 	if (!canManageDomains(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	const parsed = schema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Unknown sending provider" }, { status: 400 });
@@ -53,7 +54,7 @@ export async function PUT(request: Request, { params }: Params) {
 			warning = error instanceof Error ? error.message : "Could not enable Cloudflare sending";
 		}
 	}
-	const updated = await getDomainForUser(env, user.id, id);
+	const updated = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	return NextResponse.json({ domain: updated, warning }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -62,7 +63,7 @@ export async function GET(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
 	const user = await requireUser(env, request);
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	const [cloudflare, resendStatus, ses] = await Promise.all([
 		findCloudflareSending(env, domain),
@@ -88,7 +89,7 @@ export async function DELETE(request: Request, { params }: Params) {
 	const user = await requireUser(env, request);
 	if (!canManageDomains(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	const parsed = removeSchema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Unknown provider" }, { status: 400 });

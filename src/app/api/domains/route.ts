@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextRequest, NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { requireSessionUser } from "@/lib/api/auth";
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 	const env = getEnv();
 	const { user, error } = await requireSessionUser(env, request);
 	if (error) return error;
-	const domainOwnerId = user.canManageMailboxes && user.createdByUserId ? user.createdByUserId : user.id;
+	const domainOwnerId = getDomainRegistryOwnerId(user);
 	const domains = await listUserDomains(env, domainOwnerId);
 
 	const includeDns = request.nextUrl.searchParams.get("includeDns") === "true";
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 	}
 
 	try {
-		const result = await addDomainForUser(env, user.id, parsed.data.hostname, {
+		const result = await addDomainForUser(env, getDomainRegistryOwnerId(user), parsed.data.hostname, {
 			enableRouting: parsed.data.enableRouting,
 			enableSending: parsed.data.enableSending,
 			replaceMxRecords: parsed.data.replaceMxRecords,

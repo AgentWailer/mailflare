@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { authenticateAdminApiKey } from "@/lib/api/admin-auth";
@@ -14,7 +15,7 @@ export async function GET(request: Request, { params }: Params) {
 	}
 
 	const { id } = await params;
-	const domain = await getDomainForUser(env, auth.userId, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(auth.user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
 	try {

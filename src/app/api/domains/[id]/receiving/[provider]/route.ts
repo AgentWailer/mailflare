@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEnv } from "@/lib/cloudflare";
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: Params) {
 	const { id, provider: rawProvider } = await params;
 	const env = getEnv();
 	const user = await requireUser(env, request);
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	const provider = providerSchema.safeParse(rawProvider);
 	if (!provider.success || provider.data === "cloudflare") return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
@@ -44,7 +45,7 @@ export async function POST(request: Request, { params }: Params) {
 	const user = await requireUser(env, request);
 	if (!canManageDomains(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	const provider = providerSchema.safeParse(rawProvider);
 	if (!provider.success) return NextResponse.json({ error: "Unknown provider" }, { status: 400 });

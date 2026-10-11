@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { requireUser } from "@/lib/auth/cookies";
@@ -11,7 +12,7 @@ export async function GET(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
 	const user = await requireUser(env, request);
-	const domain = await getDomainForUser(env, user.id, id);
+	const domain = await getDomainForUser(env, getDomainRegistryOwnerId(user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	return NextResponse.json({ domain });
 }
@@ -23,7 +24,7 @@ export async function DELETE(request: Request, { params }: Params) {
 	if (!canManageDomains(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	try {
-		await removeDomainForUser(env, user.id, id);
+		await removeDomainForUser(env, getDomainRegistryOwnerId(user), id);
 		return NextResponse.json({ ok: true });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to remove domain";

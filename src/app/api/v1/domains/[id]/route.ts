@@ -1,3 +1,4 @@
+import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { authenticateAdminApiKey } from "@/lib/api/admin-auth";
@@ -17,7 +18,7 @@ export async function GET(request: Request, { params }: Params) {
 	if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
 	const { id } = await params;
-	const domain = await getDomainForUser(getEnv(), auth.userId, id);
+	const domain = await getDomainForUser(getEnv(), getDomainRegistryOwnerId(auth.user), id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	return NextResponse.json({ domain });
 }
@@ -28,7 +29,7 @@ export async function DELETE(request: Request, { params }: Params) {
 
 	const { id } = await params;
 	try {
-		await removeDomainForUser(getEnv(), auth.userId, id);
+		await removeDomainForUser(getEnv(), getDomainRegistryOwnerId(auth.user), id);
 		return NextResponse.json({ ok: true });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to remove domain";
