@@ -53,6 +53,9 @@ export async function importMessageToMailbox(
 		filename: string;
 		raw: ArrayBuffer;
 		metadata?: ImportMessageInput["metadata"];
+		/** Background jobs keep partially written messages hidden until objects and attachments are complete. */
+		stagingId?: string;
+		keepStaged?: boolean;
 	},
 ): Promise<{ id: string; created: boolean }> {
 	const parsed = await parseRawMime(input.raw);
@@ -60,13 +63,16 @@ export async function importMessageToMailbox(
 	const providerMessageId = parsed.messageId ?? input.metadata?.sourceKey ?? `import:${input.filename}:${input.raw.byteLength}`;
 
 	const [existing] = await db
-		.select({ id: messages.id })
+		.select({ id: messages.id, status: messages.status, rawR2Key: messages.rawR2Key })
 		.from(messages)
 		.where(and(eq(messages.mailboxId, input.mailboxId), eq(messages.providerMessageId, providerMessageId)))
 		.limit(1);
-	if (existing) return { id: existing.id, created: false };
+	if (existing?.status === "importing") {
+		if (!input.stagingId || existing.id !== input.stagingId) throw new Error("Another import is still writing this message");
+		await deleteMessageWithObjects(env, db, existing.id, existing.rawR2Key);
+	} else if (existing) return { id: existing.id, created: false };
 
-	const messageId = newId("msg");
+	const messageId = input.stagingId ?? newId("msg");
 	const rawR2Key = `imports/${messageId}.eml`;
 	const fromAddr = parsed.fromAddr ?? "unknown";
 	const toAddr = parsed.toAddr ?? "";
@@ -90,7 +96,7 @@ export async function importMessageToMailbox(
 		textBody: parsed.text,
 		htmlBody: parsed.html,
 		rawR2Key,
-		status: placement.status,
+		status: input.stagingId ? "importing" : placement.status,
 		read: input.metadata?.read ?? direction === "outbound",
 		starred: input.metadata?.starred ?? false,
 		category: input.metadata?.category ?? "primary",
@@ -116,6 +122,7 @@ export async function importMessageToMailbox(
 			address: contactAddress,
 			source: direction === "outbound" ? "outbound" : "inbound",
 		});
+		if (input.stagingId && !input.keepStaged) await db.update(messages).set({ status: placement.status }).where(eq(messages.id, messageId));
 	} catch (error) {
 		await deleteMessageWithObjects(env, db, messageId, rawR2Key);
 		throw error;

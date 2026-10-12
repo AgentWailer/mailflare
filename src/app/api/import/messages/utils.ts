@@ -4,8 +4,7 @@ import type { ImportDestination } from "@/lib/import/destination-types";
 import { splitMboxMessages } from "@/lib/import/mbox";
 import type { ImportMessageInput } from "@/lib/import/types";
 
-const MAX_IMPORT_REQUEST_SIZE = 25 * 1024 * 1024;
-const MAX_IMPORT_MESSAGES = 100;
+import { MAX_IMPORT_REQUEST_SIZE, MAX_IMPORT_MESSAGES } from "@/lib/import/file-limits";
 
 function isMboxFile(filename: string, type: string): boolean {
 	const name = filename.toLowerCase();
@@ -50,5 +49,6 @@ export async function parseImportForm(request: Request): Promise<{
 		}
 	}
 
-	return { mailboxId, destination, messages: messages.slice(0, MAX_IMPORT_MESSAGES) };
+	if (messages.length > MAX_IMPORT_MESSAGES) throw new Error("Upload contains more than 100 messages. Use the background R2 MBOX import for a large archive.");
+	return { mailboxId, destination, messages };
 }

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 		input = await parseImportForm(request);
 	} catch (error) {
 		const status = error instanceof RequestBodyTooLargeError ? 413 : 400;
-		return NextResponse.json({ error: "Invalid import upload" }, { status });
+		return NextResponse.json({ error: status === 413 ? "Upload exceeds 25 MiB. Upload large MBOX archives directly to R2 and use the background import." : error instanceof Error ? error.message : "Invalid import upload" }, { status });
 	}
 
 	if (!input.mailboxId || input.messages.length === 0) {

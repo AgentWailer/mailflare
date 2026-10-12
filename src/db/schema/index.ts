@@ -913,6 +913,18 @@ export const mailSortingUsage = sqliteTable("mail_sorting_usage", {
  inputTokens: integer("input_tokens").notNull().default(0),
 }, (t) => [uniqueIndex("mail_sorting_usage_unique").on(t.mailboxId,t.day)]);
 
+export const mboxImportJobs = sqliteTable("mbox_import_jobs", {
+ id: text("id").primaryKey(),
+ userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+ mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+ objectKey: text("object_key").notNull(), objectEtag: text("object_etag").notNull(),
+ objectSize: integer("object_size").notNull(), byteOffset: integer("byte_offset").notNull().default(0),
+ processed: integer("processed").notNull().default(0), imported: integer("imported").notNull().default(0), skipped: integer("skipped").notNull().default(0),
+ status: text("status").notNull().default("pending"), error: text("error"), blockedNextOffset: integer("blocked_next_offset"),
+ leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0),
+ createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+});
+
 export const gmailImportConnections = sqliteTable("gmail_import_connections", {
 	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 	email: text("email").notNull(), tokens: text("tokens").notNull(),
@@ -951,6 +963,7 @@ export const schema = {
 	mailSortingOverrides,
 	mailSortingUsage,
 	mailSortingFeedback,
+	mboxImportJobs,
 	spamTokenStats,
 	spamReputation,
 	spamFeedback,

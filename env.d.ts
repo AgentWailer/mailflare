@@ -3,7 +3,7 @@ interface CloudflareEnv {
 	EMAIL: SendEmail;
 	BUCKET: R2Bucket;
 	INBOUND_QUEUE: Queue<import("./src/lib/email/inbound").InboundQueueMessage>;
-	AGENT_QUEUE?: Queue<{ kind: "agent.draft"; jobId: string }>;
+	AGENT_QUEUE?: Queue<{ kind: "agent.draft" | "import.mbox"; jobId: string }>;
 	AI?: Ai;
 	AI_MODEL?: string;
 	AI_BASE_URL?: string;

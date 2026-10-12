@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { useMemo, useState } from "react";
 import { Folder, Server, Upload } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
+import { R2MboxImport } from "@/components/settings/r2-mbox-import";
 import { GmailImport } from "@/components/settings/gmail-import";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -234,6 +235,7 @@ export default function SettingsImportPage() {
       </div> */}
 
       <GmailImport />
+      <R2MboxImport />
       <section className="space-y-4">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">

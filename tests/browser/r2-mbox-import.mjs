@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {createServer} from 'node:http';
+import {join} from 'node:path';
+import {build} from 'esbuild';
+const {chromium}=await import('/opt/codex/cua_node/lib/node_modules/playwright/index.mjs');
+const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','mbox-browser-')),de=JSON.parse(readFileSync('public/locales/de.json','utf8'));
+writeFileSync(join(dir,'mailbox.ts'),"export const useSelectedMailbox=()=>({selectedMailbox:{id:'box',permission:location.search.includes('readonly')?'read_only':'full_access'}});");
+writeFileSync(join(dir,'user.ts'),"export const useCurrentUser=()=>({id:'admin',role:location.search.includes('nonadmin')?'user':'admin'});");
+writeFileSync(join(dir,'entry.tsx'),`import React from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {LanguageProvider} from '@/components/language-provider';import {R2MboxImport} from '@/components/settings/r2-mbox-import';import de from '../../public/locales/de.json';createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale="de" initialMessages={de}><main className="p-4"><R2MboxImport/></main></LanguageProvider></QueryClientProvider>);`);
+let browser,server;
+try{
+ await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'@':join(root,'src'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'@/hooks/use-current-user':join(dir,'user.ts')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
+ const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(x=>x.startsWith('index.')&&x.endsWith('.css'))));
+ const assets={'/':Buffer.from('<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0"><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/fixture.css':css};
+ server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(assets[path]?200:404,{'Content-Type':path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(assets[path]||'Not found');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+ browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ for(const viewport of [{width:320,height:700},{width:390,height:844},{width:820,height:1180},{width:1440,height:900}]){
+  const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+  let jobs=[],configured=true;const controls=[];
+  await page.route('**/api/import/mbox/jobs**',async route=>{const request=route.request();
+   if(request.method()==='POST'){
+    const body=request.postDataJSON();if(body.objectKey)jobs=[{id:'job',mailboxId:'box',objectKey:body.objectKey,size:10*1024**3,offset:0,processed:0,imported:0,skipped:0,status:'running',progress:0,error:null,canSkip:false}];
+    else {controls.push(body.action);const job=jobs[0];if(body.action==='pause')job.status='paused';if(body.action==='resume'){job.status='running';job.error=null;}if(body.action==='skip'){job.status='paused';job.skipped++;job.processed++;job.error=null;job.canSkip=false;}}
+   }
+   await route.fulfill({contentType:'application/json',body:JSON.stringify({jobs,job:jobs[0],backgroundQueueConfigured:configured})});
+  });
+  await page.goto(origin);const start=page.getByRole('button',{name:de['mbox.start'],exact:true});await start.waitFor();
+  await page.getByLabel(de['mbox.objectKey']).fill('mbox-imports/'+'archive-long-name-'.repeat(9)+'.mbox');await start.click();const pause=page.getByRole('button',{name:de['mbox.pause'],exact:true});await pause.waitFor();await pause.click();const resume=page.getByRole('button',{name:de['mbox.resume'],exact:true});await resume.waitFor();
+  jobs[0].processed=17;jobs[0].imported=17;jobs[0].offset=1024**3;jobs[0].progress=10;await page.reload();await resume.waitFor();assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'10');await resume.click();await pause.waitFor();
+  jobs[0].status='failed';jobs[0].error='Temporary R2 error: '+('long'.repeat(100));jobs[0].canSkip=true;await page.reload();const skip=page.getByRole('button',{name:de['mbox.skip'],exact:true});await skip.waitFor();const bounds=await skip.boundingBox();assert(bounds.height>=44);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await skip.click();await resume.waitFor();assert.equal(jobs[0].skipped,1);await resume.click();
+  jobs[0].status='completed';jobs[0].progress=100;await page.reload();await page.getByText(new RegExp(de['mbox.status.completed'])).waitFor();assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100');assert.equal(await pause.count(),0);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.goto(origin+'/?readonly');await start.waitFor();assert(await start.isDisabled());configured=false;await page.goto(origin);await page.getByText(de['mbox.missingQueue'],{exact:true}).waitFor();assert(await start.isDisabled());
+  await page.goto(origin+'/?nonadmin');assert.equal(await start.count(),0);assert.deepEqual(errors,[]);assert.deepEqual(controls,['pause','resume','skip','resume']);
+  console.log(JSON.stringify({viewport,startPauseResume:true,persistedProgressAfterReload:true,explicitSkip:true,completed:true,privateAdminOnly:true,readOnlyGuard:true,noOverflow:true}));await page.close();
+ }
+}finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}
