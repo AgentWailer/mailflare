@@ -17,6 +17,24 @@ bash scripts/upload-mbox-to-r2.sh "/path/to/archive.mbox" ACCOUNT_ID
 
 The helper uses a multipart upload with 64 MiB parts to `s3://mailflare-raw/mbox-imports/workspace-002.mbox`. It leaves the local source intact and prints the key to enter in Mailflare. Optional arguments select another bucket, object key, and AWS profile. The upload must finish before the background import starts. For a 10 GB file, use this S3 multipart method rather than the dashboard's ordinary upload.
 
+## Resume an ongoing multipart upload
+
+An ongoing upload can occupy gigabytes in R2 while the final object is still absent. Its uploaded parts become a readable object only after `CompleteMultipartUpload`. Running `aws s3 cp` again starts another upload; it does not resume the existing upload ID.
+
+Keep the original local MBOX unchanged and stop any other process writing the same upload. Run the resume helper on the Mac that has the file and the configured `mailflare-r2` AWS profile:
+
+```bash
+python3 scripts/resume-mbox-to-r2.py "/path/to/archive.mbox" ACCOUNT_ID
+```
+
+Python 3.9 or later is required (`brew install python` if needed). The helper finds the existing upload for `mbox-imports/workspace-002.mbox`, infers its part size, and verifies the existing part ETags against the matching local byte ranges. It uploads only missing parts and completes the same upload ID. It then checks the final object size and multipart checksum. It neither starts a replacement upload nor aborts the existing upload, and it never reads or prints credentials.
+
+If the helper is interrupted again, run the same command again. Successfully uploaded parts remain available. If every part was already uploaded, the helper only verifies them and performs the completion request. Existing parts are checked by reading the local file; they are not downloaded from R2.
+
+Multiple ongoing uploads require explicit selection with `--upload-id UPLOAD_ID`; their IDs and initiation times are displayed. `--bucket`, `--key`, and `--profile` support alternate destinations. If the part size cannot be inferred, add `--part-size-mib 64` only when 64 MiB was the original upload setting. A local mismatch stops before completion; use the original source file rather than forcing a mixed archive. An upload that was already aborted cannot be resumed with its old upload ID.
+
+The resume helper changes storage only through `upload-part` and `complete-multipart-upload`. Do not start Mailflare's background import until it prints **Upload complete and verified**.
+
 ## Start and monitor the import
 
 Log into Mailflare as an administrator, select the destination mailbox, and open **Settings → Import → Large MBOX archive from R2**. Enter `mbox-imports/workspace-002.mbox` and start the background import.
