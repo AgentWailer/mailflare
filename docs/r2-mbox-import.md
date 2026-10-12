@@ -57,7 +57,13 @@ Pause stops after the current message. Resume retries from the checkpoint. Inter
 
 Gmail's complete `X-Gmail-Labels` header is MIME-decoded before its comma-separated names are split, including folded headers and German system-label names. Categories without a dedicated Mailflare tab, such as purchases and updates, remain accessible as readable labels. The header preserves Inbox, Sent, Drafts, Spam, Trash, unread status, stars, categories and custom labels when available. Slash paths remain complete label names. Ordinary MBOX messages without that header are imported as read archived mail. Existing messages retain their current state. Imports do not invoke AI sorting, forwarding rules, auto replies or new-mail push alerts. Open **All emails** to inspect the imported inbound messages, including spam and trash; check Sent and Drafts separately.
 
-A malformed or oversized individual message pauses the job with an error; it is never silently dropped. A message over 20 MiB requires separate processing or an explicit skip confirmation. The scan of a single batch is capped at 64 MiB; extremely large malformed messages should be split or repaired offline. Native D1 row limits also apply to decoded email bodies. Skip affects only the failed message, keeps the original archive, and is counted in the job summary. Headers with more than 100 custom labels pause rather than silently truncating labels.
+An oversized (over 20 MiB), invalid MIME message, oversized decoded D1 body, or message with more than 100 custom labels is set aside automatically. An issue record with the source byte range, size and reason is committed atomically with the forward checkpoint; the import continues with the next message. These messages remain in the original archive and do not appear as successfully imported mail. The summary's skipped count also includes duplicates; the separate **Review** list counts actual logged problems.
+
+Very large individual messages are scanned in bounded 32 MiB work segments using resumable scan checkpoints, including inside long body lines. Their bytes are not accumulated in memory. Closing the browser does not interrupt scanning. Valid subsequent messages still import normally.
+
+Under each import, expand **Review** to inspect a paginated issue list, download an exact single-message `.mbox` from the private original archive, and mark a reviewed issue as resolved. Downloads require current administrator and mailbox management permission, and verify the source ETag and size. Marking reviewed changes only the log, never the original message. Repair/split a problematic message externally and use a separate import if needed; keep the source until every pending issue is reviewed.
+
+Temporary R2/D1 connection failures retry the same checkpoint automatically with increasing delays (one minute initially, at most 15 minutes). They never turn into skipped messages. Disabled administrators, revoked permissions, changed source objects and unknown infrastructure errors still stop safely for intervention. Manual skipping of a previously stopped message also creates a retained review record.
 
 ## Storage and cleanup
 
@@ -65,7 +71,7 @@ The upload is private and accessible through the authenticated admin import and 
 
 The original archive consumes about 10 GB in addition to imported raw messages and attachments. This can exceed R2's 10 GB free storage allowance while both are retained. Delete the source after verification to reclaim that temporary storage.
 
-Import jobs belong to the mail group in database backups; restoring active jobs pauses them and clears their leases. The source R2 object must still exist to resume. Older database backups without the job table remain restorable.
+Import jobs and their issue records belong to the mail group in database backups; restoring active jobs pauses them and clears their leases. The source R2 object must still exist to resume. Older database backups without the job table remain restorable.
 
 
 ## Optional AI follow-up sorting

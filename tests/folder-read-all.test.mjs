@@ -156,3 +156,10 @@ test('global spam and not-spam preserve existing classifier feedback while proce
  const spam={folder:'spam',mailboxId:'box'},spamSelection=await f.scopeChunk({...spam,action:'select'});assert.equal(await f.complete(spam,'inbox',spamSelection),3);
  assert.equal(f.DB.db.prepare("SELECT count(*) n FROM spam_feedback WHERE classification='ham'").get().n,3);assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages WHERE status='received' AND category='primary'").get().n,3);
 });
+
+test('category-only global organization preserves legacy folder labels on imported mail',async t=>{
+ const f=await fixture(t);f.add('legacy-import');f.DB.db.exec("UPDATE messages SET folder_id='label' WHERE id='legacy-import'");
+ const scope={folder:'inbox',mailboxId:'box',folderId:'label'},selected=await f.scopeChunk({...scope,action:'select'});
+ assert.equal(await f.complete(scope,'organize',selected,{organization:{category:'invoices'}}),1);
+ const list=await (await app.list(f.request(null,'owner','/api/messages?'+app.getMessageFolderParams('inbox','box','label')))).json();assert.equal(list.messages.length,1,'the existing label still contains the imported message');assert(list.messages[0].labels.some(label=>label.id==='label'));
+});

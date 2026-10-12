@@ -1,6 +1,7 @@
 import { decodeWords } from "postal-mime";
 import { gmailPlacement } from "./gmail-jobs";
 import { resolveTransactionMail } from "@/lib/mail-sorting/routine";
+import { ImportMessageError } from "./errors";
 
 const SYSTEM_LABELS: Record<string, string> = {
  inbox: "INBOX", posteingang: "INBOX", unread: "UNREAD", ungelesen: "UNREAD", geöffnet: "READ", read: "READ", gelesen: "READ", starred: "STARRED", markiert: "STARRED",
@@ -45,7 +46,7 @@ export function mboxPlacement(raw: ArrayBuffer) {
   }
   return [];
  }))];
- if (customLabels.length > 100) throw new Error("This message has more than 100 custom labels; process it separately or explicitly skip it");
+ if (customLabels.length > 100) throw new ImportMessageError("This message has more than 100 custom labels; inspect it separately");
  const placement = gmailPlacement(labels.map(label => systemLabel(label) ?? label));
  // Purchases include receipts too: actual document content takes precedence over
  // that broad Gmail category without reconsidering confirmed marketing/social mail.

@@ -2110,7 +2110,7 @@
 	"mbox.skipConfirm": "Nur diese fehlerhafte Nachricht überspringen? Sie bleibt in der ursprünglichen MBOX erhalten, wird aber nicht in Mailflare importiert.",
 	"mbox.progress": "Fortschritt des Archivimports",
 	"mbox.missingQueue": "Die Hintergrund-Warteschlange muss zuerst auf dem Server eingerichtet werden.",
-	"mbox.retention": "Das Originalarchiv bleibt erhalten. Gmail-Labels, Lesestatus, Gesendet, Spam und Papierkorb werden übernommen, soweit im Export enthalten. Normale MBOX-Nachrichten landen im Archiv. Nachrichten über 20 MiB unterbrechen den Import; Überspringen erfordert eine Bestätigung. Nach der Prüfung das Quellarchiv manuell löschen, um Speicher freizugeben.",
+	"mbox.retention": "Das Originalarchiv bleibt erhalten. Gmail-Labels, Lesestatus, Gesendet, Spam und Papierkorb werden übernommen. Normale MBOX-Nachrichten landen im Archiv. Zu große oder fehlerhafte Nachrichten werden zur Prüfung protokolliert; der Import läuft weiter. Das Original erst nach Prüfung dieser Nachrichten löschen.",
 	"mbox.status.pending": "In Warteschlange",
 	"mbox.status.running": "Wird importiert",
 	"mbox.status.paused": "Pausiert",
@@ -2135,5 +2135,17 @@
 	"smart.invoices": "Rechnung",
 	"smart.orders": "Bestellung",
 	"smart.learningSummary": "Bestätigte Beispiele nach Kategorie",
-	"smart.learningMethod": "Korrigiere eine Kategorie über das Label-Symbol oder ziehe die Nachricht in eine Kategorie. Die KI bevorzugt künftig bestätigte Beispiele desselben Absenders und mit ähnlichem Betreff. Automatische Importentscheidungen werden nicht als Lernvorgaben übernommen; es werden keine Modellgewichte trainiert."
+	"smart.learningMethod": "Korrigiere eine Kategorie über das Label-Symbol oder ziehe die Nachricht in eine Kategorie. Die KI bevorzugt künftig bestätigte Beispiele desselben Absenders und mit ähnlichem Betreff. Automatische Importentscheidungen werden nicht als Lernvorgaben übernommen; es werden keine Modellgewichte trainiert.",
+	"mbox.autoRetry": "Vorübergehender Speicher- oder Datenbankfehler. Der Import versucht es automatisch erneut; keine Nachricht wird deshalb übersprungen.",
+	"mbox.issues.title": "Zur Prüfung: {pending} offen · {total} protokolliert",
+	"mbox.issues.description": "Diese Nachrichten wurden einzeln zurückgestellt. Der Import läuft weiter. Laden Sie eine Nachricht als einzelne MBOX herunter, um sie zu prüfen oder separat zu bearbeiten. „Als geprüft markieren“ löscht keine Originaldaten. Das R2-Archiv bis zum Abschluss der Prüfung aufbewahren.",
+	"mbox.issues.reason.oversized": "Zu große Nachricht",
+	"mbox.issues.reason.invalid_message": "Fehlerhafte Nachricht",
+	"mbox.issues.reason.explicit_skip": "Manuell übersprungen",
+	"mbox.issues.offset": "Position im Originalarchiv: {offset} Bytes",
+	"mbox.issues.download": "Nachricht herunterladen",
+	"mbox.issues.dismiss": "Als geprüft markieren",
+	"mbox.issues.reviewed": "Geprüft",
+	"mbox.issues.first": "Erste Seite",
+	"mbox.issues.next": "Weitere Fehler"
 }

@@ -12,6 +12,7 @@ import { resolveTransactionMail } from "@/lib/mail-sorting/routine";
 import { htmlToReadableText } from "@/lib/email/reply-content-utils";
 import type { ImportDestination } from "./destination-types";
 import type { ImportMailboxResult, ImportMessageInput } from "./types";
+import { ImportMessageError } from "./errors";
 
 export async function importMessagesToMailbox(
 	env: CloudflareEnv,
@@ -60,7 +61,7 @@ export async function importMessageToMailbox(
 		keepStaged?: boolean;
 	},
 ): Promise<{ id: string; created: boolean }> {
-	const parsed = await parseRawMime(input.raw);
+	const parsed = await parseRawMime(input.raw).catch(error => { throw new ImportMessageError("Invalid MIME message; inspect the original message separately.", { cause: error }); });
 	const db = getDb(env);
 	const providerMessageId = parsed.messageId ?? input.metadata?.sourceKey ?? `import:${input.filename}:${input.raw.byteLength}`;
 

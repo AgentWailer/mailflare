@@ -919,12 +919,21 @@ export const mboxImportJobs = sqliteTable("mbox_import_jobs", {
  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
  mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
  objectKey: text("object_key").notNull(), objectEtag: text("object_etag").notNull(),
+ scanOffset: integer("scan_offset").notNull().default(0), scanSize: integer("scan_size").notNull().default(0), scanStartsLine: integer("scan_starts_line").notNull().default(1),
+ retryAt: integer("retry_at").notNull().default(0), consecutiveFailures: integer("consecutive_failures").notNull().default(0),
  objectSize: integer("object_size").notNull(), byteOffset: integer("byte_offset").notNull().default(0),
  processed: integer("processed").notNull().default(0), imported: integer("imported").notNull().default(0), skipped: integer("skipped").notNull().default(0),
  status: text("status").notNull().default("pending"), error: text("error"), blockedNextOffset: integer("blocked_next_offset"),
  leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0),
  createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
 });
+
+export const mboxImportIssues = sqliteTable("mbox_import_issues", {
+ id: text("id").primaryKey(), importJobId: text("import_job_id").notNull().references(() => mboxImportJobs.id, { onDelete: "cascade" }),
+ byteOffset: integer("byte_offset").notNull(), nextOffset: integer("next_offset").notNull(), messageSize: integer("message_size").notNull(),
+ reason: text("reason").notNull(), error: text("error").notNull(), status: text("status", { enum: ["pending", "dismissed"] }).notNull().default("pending"),
+ createdAt: integer("created_at").notNull(), reviewedAt: integer("reviewed_at"),
+}, t => [uniqueIndex("mbox_import_issues_unique").on(t.importJobId, t.byteOffset), index("mbox_import_issues_review_idx").on(t.importJobId,t.status,t.byteOffset)]);
 
 export const mboxSortingJobs = sqliteTable("mbox_sorting_jobs", {
  importJobId: text("import_job_id").primaryKey().references(() => mboxImportJobs.id, { onDelete: "cascade" }),
@@ -976,6 +985,7 @@ export const schema = {
 	mailSortingUsage,
 	mailSortingFeedback,
 	mboxImportJobs,
+	mboxImportIssues,
 	mboxSortingJobs,
 	spamTokenStats,
 	spamReputation,

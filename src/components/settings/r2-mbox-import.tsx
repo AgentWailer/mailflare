@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label";
 import { notifyLabelsChanged } from "@/components/messages/use-mailbox-folders";
 import type { publicMboxJob } from "@/lib/import/mbox-jobs";
 import type { publicMboxSortingJob } from "@/lib/import/mbox-sorting";
+import { MboxImportIssues } from "./mbox-import-issues";
 
-type Job = ReturnType<typeof publicMboxJob> & { sorting?: ReturnType<typeof publicMboxSortingJob> | null };
+type Job = ReturnType<typeof publicMboxJob> & { issues?: { total: number; pending: number }; sorting?: ReturnType<typeof publicMboxSortingJob> | null };
 type Status = { jobs: Job[]; backgroundQueueConfigured: boolean; sortingAvailable?: boolean; error?: string };
 export function R2MboxImport() {
  const user = useCurrentUser(), { selectedMailbox } = useSelectedMailbox(), { t } = useLanguage();
@@ -71,11 +72,13 @@ export function R2MboxImport() {
     <p aria-live="polite">{t(`mbox.status.${job.status}`)} · {job.progress}% · {t("import.summary", { imported: job.imported, skipped: job.skipped })}</p>
     <div role="progressbar" aria-valuenow={job.progress} aria-valuemin={0} aria-valuemax={100} aria-label={t("mbox.progress")} className="h-1.5 overflow-hidden rounded-full bg-neutral-200"><div className="h-full bg-blue-600" style={{ width: `${job.progress}%` }} /></div>
     {job.error && <p role="alert" className="break-words text-red-600">{job.error}</p>}
+    {!!job.retryAt && job.error && <p className="text-xs text-neutral-500">{t("mbox.autoRetry")}</p>}
     <div className="flex flex-wrap gap-2">
      {(job.status === "pending" || job.status === "running") && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void act(job.id, "pause")}>{t("mbox.pause")}</Button>}
      {(job.status === "paused" || job.status === "failed") && <Button type="button" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void act(job.id, "resume")}>{t("mbox.resume")}</Button>}
      {job.canSkip && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => { if (window.confirm(t("mbox.skipConfirm"))) void act(job.id, "skip"); }}>{t("mbox.skip")}</Button>}
     </div>
+    {!!job.issues?.total && <MboxImportIssues jobId={job.id} {...job.issues} onReviewed={() => { void query.refetch(); }} />}
     <div className="space-y-2 border-t pt-3" data-mbox-sorting>
      <p className="font-medium">{t("mbox.sorting.title")}</p>
      <p className="text-xs text-neutral-500">{t("mbox.sorting.description")}</p>

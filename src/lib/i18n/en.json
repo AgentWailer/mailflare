@@ -2224,7 +2224,7 @@
 	"mbox.skipConfirm": "Skip only this failed message? It will remain in the original MBOX, but will not be imported into Mailflare.",
 	"mbox.progress": "Archive import progress",
 	"mbox.missingQueue": "The server background queue must be configured before importing.",
-	"mbox.retention": "The original archive is retained. Gmail labels, read status, Sent, Spam and Trash are preserved when present in the export. Ordinary MBOX messages go to the archive. Messages over 20 MiB pause the import; skipping requires confirmation. After verification, delete the source archive manually to reclaim storage.",
+	"mbox.retention": "The original archive is retained. Gmail labels, read status, Sent, Spam and Trash are preserved. Ordinary MBOX messages go to the archive. Oversized or invalid messages are logged for review while the import continues. Delete the original only after reviewing these messages.",
 	"mbox.status.pending": "Queued",
 	"mbox.status.running": "Importing",
 	"mbox.status.paused": "Paused",
@@ -2249,5 +2249,17 @@
 	"smart.invoices": "Invoices",
 	"smart.orders": "Orders",
 	"smart.learningSummary": "Confirmed examples by category",
-	"smart.learningMethod": "Correct a category using the label icon or drag the message into a category. AI prioritizes confirmed examples from the same sender and with similar subjects. Automatic import decisions are not treated as learning examples; model weights are not trained."
+	"smart.learningMethod": "Correct a category using the label icon or drag the message into a category. AI prioritizes confirmed examples from the same sender and with similar subjects. Automatic import decisions are not treated as learning examples; model weights are not trained.",
+	"mbox.autoRetry": "Temporary storage or database failure. The import retries automatically; no message is skipped because of this.",
+	"mbox.issues.title": "Review: {pending} pending · {total} logged",
+	"mbox.issues.description": "These individual messages were set aside while the import continued. Download a single-message MBOX to inspect or process it separately. Marking it reviewed does not delete source data. Keep the original R2 archive until review is complete.",
+	"mbox.issues.reason.oversized": "Oversized message",
+	"mbox.issues.reason.invalid_message": "Invalid message",
+	"mbox.issues.reason.explicit_skip": "Manually skipped",
+	"mbox.issues.offset": "Original archive position: {offset} bytes",
+	"mbox.issues.download": "Download message",
+	"mbox.issues.dismiss": "Mark reviewed",
+	"mbox.issues.reviewed": "Reviewed",
+	"mbox.issues.first": "First page",
+	"mbox.issues.next": "More issues"
 }
