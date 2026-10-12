@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Check, FileCode2, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound } from "lucide-react";
-import { FORK_SOURCE_URL } from "@/lib/fork";
+import { CalendarDays, Check, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -338,7 +337,6 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 							<Settings size={18} className="text-neutral-600" />
 							{t("account.settings")}
 						</Link>
-						<a href={FORK_SOURCE_URL} target="_blank" rel="noreferrer" onClick={() => setOpen(false)} className="mt-1 flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"><FileCode2 size={18} className="shrink-0 text-neutral-600" />{t("fork.source")}</a>
 						{otherMailboxes.length > 0 && (
 							<div className="mt-3 border-t border-neutral-100 pt-2">
 								<button
