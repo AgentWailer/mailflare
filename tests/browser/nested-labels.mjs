@@ -58,12 +58,12 @@ try {
   await link('invoices').waitFor();assert.equal(await sidebar.locator('[data-reorder-list=folders]').count(),5);
   // Move the parent past another root label without detaching any descendants.
   const rootScope='mailflare:nav:layout:folders:box';const rootOrder=()=>sidebar.locator(`[data-reorder-scope="${rootScope}"][data-reorder-id]`).evaluateAll(nodes=>nodes.map(x=>x.dataset.reorderId));
-  const parentGrip=row('projects').locator('[data-reorder-handle]');await parentGrip.scrollIntoViewIfNeeded();await link('notes').scrollIntoViewIfNeeded();await parentGrip.scrollIntoViewIfNeeded();
-  const start=await parentGrip.boundingBox();await page.mouse.move(start.x+start.width/2,start.y+start.height/2);await page.mouse.down();await page.mouse.move(start.x+start.width/2,start.y+start.height/2+8);await page.locator('[data-reorder-ghost]').waitFor();
+  const parentGrip=link('projects');await parentGrip.scrollIntoViewIfNeeded();await link('notes').scrollIntoViewIfNeeded();await parentGrip.scrollIntoViewIfNeeded();
+  const start=await parentGrip.boundingBox();await page.mouse.move(start.x+start.width/2,start.y+start.height/2);await page.mouse.down();await page.waitForTimeout(420);await page.locator('[data-reorder-ghost]').waitFor();
   // Autoscroll until the following root is reachable, then release below it.
   let target=await row('notes').boundingBox();if(target.y+target.height>viewport.height){await page.mouse.move(start.x+start.width/2,viewport.height-12);await page.waitForTimeout(900);target=await row('notes').boundingBox();}
   await page.mouse.move(start.x+start.width/2,Math.min(viewport.height-12,target.y+target.height-2));await page.mouse.up();await page.locator('[data-reorder-ghost]').waitFor({state:'detached'});assert.deepEqual(await rootOrder(),['notes','projects']);assert.equal(await link('invoices').count(),1);assert.equal(labels.find(x=>x.id==='client').parentId,'projects');assert.equal(labels.find(x=>x.id==='invoices').parentId,'client');
-  await parentGrip.focus();await page.keyboard.press('ArrowUp');assert.deepEqual(await rootOrder(),['projects','notes']);
+  await row('projects').getByRole('button',{name:de['labels.actions'].replace('{name}','Projekte'),exact:true}).click();await page.getByRole('menuitem',{name:de['labels.moveUp'],exact:true}).click();assert.deepEqual(await rootOrder(),['projects','notes']);
   const expand=sidebar.getByRole('button',{name:de['labels.collapse'].replace('{name}','Projekte'),exact:true});await expand.scrollIntoViewIfNeeded();
   if(viewport.width<=1024){const b=await expand.boundingBox();assert(b.height>=44&&b.width>=44,'group toggles must remain usable on touch screens');}
   const projectsX=(await link('projects').boundingBox()).x,invoicesX=(await link('invoices').boundingBox()).x;assert(invoicesX>projectsX,'sublabels are indented');

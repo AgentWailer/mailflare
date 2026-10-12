@@ -158,7 +158,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
       />
       {!minimal && <span className={cn("min-w-0 flex-1", wrap ? "break-words leading-5 max-md:leading-6" : "truncate", labelClassName, typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
       {!minimal && typeof link.count === "number" && link.count > 0 && (
-        <span className={cn("ml-auto mr-3 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-sm font-semibold tabular-nums text-neutral-700", wrap && "py-0 leading-5")}>
+        <span data-nav-count className={cn("ml-auto mr-3 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-sm font-semibold tabular-nums text-neutral-700", wrap && "py-0 leading-5")}>
           {link.count.toLocaleString(locale)}
         </span>
       )}

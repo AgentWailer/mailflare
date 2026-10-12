@@ -20,7 +20,7 @@ export function LabelActions({ name, actions, canDelete, onDelete, onCreateChild
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger asChild>
 				<button type="button" aria-label={t("labels.actions", { name })}
-					className="label-actions-trigger mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200/60 max-md:h-11 max-md:w-11">
+					className="label-actions-trigger mr-0 flex h-9 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200/60 max-md:h-11 max-md:w-11">
 					<MoreHorizontal className="h-4 w-4" />
 				</button>
 			</DropdownMenu.Trigger>

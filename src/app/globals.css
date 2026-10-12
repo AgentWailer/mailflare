@@ -34,6 +34,7 @@ html, body {
 }
 
 .reorder-handle { touch-action: none; user-select: none; -webkit-touch-callout: none; }
+.sidebar-label-link [data-nav-count] { margin-right: 4px; padding-inline: 4px; }
 .reorder-label-row { user-select: none; -webkit-touch-callout: none; }
 
 .refine-preview {

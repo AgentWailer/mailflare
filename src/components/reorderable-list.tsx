@@ -101,7 +101,7 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
    if (commit && inside && drop) {
     const next = moveItem(latest.current.layout, dragId, drop.listId, drop.beforeId);
     writeStorage(storageKey, next);
-    setAnnouncement(t("labels.reordered", { name: container.querySelector(`[data-reorder-id="${CSS.escape(dragId)}"] [data-reorder-handle]`)?.getAttribute("data-label-name") ?? "" }));
+    setAnnouncement(t("labels.reordered", { name: container.querySelector(`[data-reorder-id="${CSS.escape(dragId)}"]`)?.getAttribute("data-reorder-label") ?? "" }));
    }
    if (!commit || !inside) setAnnouncement(t("labels.dragCancelled"));
    setDrag(null); setTarget(null);
@@ -160,14 +160,14 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
    const ordered = layout[list.id] ?? [], shown = list.hidden ? [] : list.visibleIds ? list.visibleIds(ordered) : ordered;
    return <div key={list.id} className="contents">
     {list.before && <div data-reorder-scope={storageKey} data-reorder-boundary={list.id}>{list.before}</div>}
-    {shown.map(id => <Fragment key={id}><div data-reorder-scope={storageKey} data-reorder-id={id} data-reorder-list={list.id}
+    {shown.map(id => <Fragment key={id}><div data-reorder-scope={storageKey} data-reorder-id={id} data-reorder-label={itemLabel?.(list.items.find(item => item.id === id)!) ?? id} data-reorder-list={list.id}
      onPointerDown={event => startHold(event, id)} onPointerMove={moveHold} onPointerUp={cancelHold} onPointerCancel={cancelHold}
      onDragStart={event => event.preventDefault()} onContextMenu={event => { if (hold.current || drag) event.preventDefault(); }}
      onClickCapture={event => { if (suppressClick.current?.id === id && Date.now() < suppressClick.current.until) { event.preventDefault(); event.stopPropagation(); } }}
-     className={cn("shrink-0", dragHandles && "reorder-label-row", dragId === id && "opacity-40")}>{nodes.get(id)}</div>{renderAfterItem?.(list.items.find(item => item.id === id)!)}</Fragment>)}
+     className={cn("shrink-0", (dragHandles || itemLabel) && "reorder-label-row", dragId === id && "opacity-40")}>{nodes.get(id)}</div>{renderAfterItem?.(list.items.find(item => item.id === id)!)}</Fragment>)}
    </div>;
   })}
-  {dragHandles && <span role="status" aria-live="polite" className="sr-only">{announcement}</span>}
+  {(dragHandles || itemLabel) && <span role="status" aria-live="polite" className="sr-only">{announcement}</span>}
   {drag && target && createPortal(<div ref={indicatorRef} aria-hidden="true" data-reorder-indicator className="pointer-events-none fixed z-[300] h-0.5 rounded-full bg-blue-600" style={{ left: drag.listLeft, width: drag.listWidth, top: target.lineY - 1 }} />, document.body)}
   {drag && createPortal(<div ref={ghostRef} aria-hidden="true" data-reorder-ghost className="pointer-events-none fixed z-[301] cursor-grabbing overflow-hidden rounded-r-full bg-white opacity-90 shadow-lg ring-1 ring-neutral-200 will-change-transform" style={{ left: drag.left, width: drag.width, top: drag.pointerY - drag.offsetY }}>{nodes.get(drag.id)}</div>, document.body)}
  </div>;

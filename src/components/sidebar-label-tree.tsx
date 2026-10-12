@@ -64,17 +64,16 @@ export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canMan
   if (!siblings.length) return null;
   return <ReorderableList key={parent ?? "root"}
    storageKey={`mailflare:nav:layout:folders:${mailboxId}${parent ? `:children:${parent}` : ""}`}
-   fallbackStorageKey="mailflare:nav:layout:folders" enabled={!minimal} dragHandles itemLabel={item => siblings.find(folder => folder.id === item.id)?.name ?? item.id}
-   lists={[{ id: "folders", items: siblings.map(folder => ({ id: folder.id, node: <NavItem wrap link={{ href: `/folders/${folder.id}`, label: getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /> })) }]}
+   fallbackStorageKey="mailflare:nav:layout:folders" enabled={!minimal} itemLabel={item => siblings.find(folder => folder.id === item.id)?.name ?? item.id}
+   lists={[{ id: "folders", items: siblings.map(folder => ({ id: folder.id, node: <NavItem link={{ href: `/folders/${folder.id}`, label: getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /> })) }]}
    renderItem={(item, actions) => {
     const folder = siblings.find(label => label.id === item.id)!;
     if (minimal) return item.node;
     const children = groups.get(folder.id)?.length;
-    return <div className="sidebar-label-row relative flex min-w-0 items-start" style={{ paddingLeft: Math.min(depth, 5) * 12 }}>
+    return <div className="sidebar-label-row relative flex min-w-0 items-center" style={{ paddingLeft: Math.min(depth, 5) * 12 }}>
      {/* The disclosure control uses the link's leading gutter, never an extra column. */}
      {children ? <button type="button" className="label-group-toggle absolute top-0 flex h-11 w-6 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-200/60 md:h-9" style={{ left: Math.min(depth, 5) * 12 }} aria-expanded={!collapsed.includes(folder.id)} aria-label={t(collapsed.includes(folder.id) ? "labels.expand" : "labels.collapse", { name: folder.name })} onClick={() => toggle(folder.id)}>{collapsed.includes(folder.id) ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button> : null}
-     <div className="sidebar-label-link min-w-0 flex-1"><NavItem wrap labelClassName="text-sm" link={{ href: `/folders/${folder.id}`, label: folder.parentId && groups.has(folder.parentId) ? folder.name : getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /></div>
-     {actions.dragHandle}
+     <div className="sidebar-label-link min-w-0 flex-1" title={getLabelPath(folder, folders)}><NavItem labelClassName="text-sm whitespace-nowrap" link={{ href: `/folders/${folder.id}`, label: folder.parentId && groups.has(folder.parentId) ? folder.name : getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /></div>
      <LabelActions name={folder.name} actions={actions} canDelete={canManage} onDelete={() => onDelete(folder)} onRename={() => onRename(folder)} onCreateChild={() => onCreateChild(folder)} />
     </div>;
    }}
