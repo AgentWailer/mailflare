@@ -8,6 +8,7 @@ import { getMessageDragData } from "@/lib/messages/drag-utils";
 import { useSelectedMailbox } from "./mailbox-provider";
 import { useSidebar } from "./sidebar-state";
 import { useCompose } from "./compose/compose-context";
+import { useLanguage } from "./language-provider";
 import { Tooltip } from "./ui/tooltip";
 import {
   preloadMailboxPage,
@@ -22,6 +23,7 @@ type Props = {
   wrap?: boolean
 }
 export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
+  const { locale } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
   const { openComposer } = useCompose();
@@ -91,8 +93,8 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
         />
         {!minimal && <span className={cn("flex-1", typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
         {!minimal && typeof link.count === "number" && link.count > 0 && (
-          <span className="ml-auto mr-3 rounded-full px-2 py-0.5 text-sm font-semibold text-neutral-700">
-            {link.count > 99 ? "99+" : link.count}
+          <span className="ml-auto mr-3 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-sm font-semibold tabular-nums text-neutral-700">
+            {link.count.toLocaleString(locale)}
           </span>
         )}
         {minimal && typeof link.count === "number" && link.count > 0 && (
@@ -154,10 +156,10 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
         size={16}
         className={cn("max-md:h-5 max-md:w-5", wrap && !minimal && "mt-0.5 shrink-0", iconClassName)}
       />
-      {!minimal && <span className={cn("flex-1", wrap && "min-w-0 break-words leading-5 max-md:leading-6", labelClassName, typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
+      {!minimal && <span className={cn("min-w-0 flex-1", wrap ? "break-words leading-5 max-md:leading-6" : "truncate", labelClassName, typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
       {!minimal && typeof link.count === "number" && link.count > 0 && (
-        <span className={cn("ml-auto mr-3 rounded-full px-2 py-0.5 text-sm font-semibold text-neutral-700", wrap && "shrink-0 py-0 leading-5")}>
-          {link.count > 99 ? "99+" : link.count}
+        <span className={cn("ml-auto mr-3 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-sm font-semibold tabular-nums text-neutral-700", wrap && "py-0 leading-5")}>
+          {link.count.toLocaleString(locale)}
         </span>
       )}
       {minimal && typeof link.count === "number" && link.count > 0 && (
