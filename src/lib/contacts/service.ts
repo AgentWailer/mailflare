@@ -54,6 +54,9 @@ export async function upsertContactFromAddress(env: CloudflareEnv, input: Contac
 	return created ?? null;
 }
 
+/** Only user-chosen names override message headers. Automatically collected
+ * contacts can share an address across many people (for example LinkedIn), so
+ * their latest name must never rename previously received messages. */
 export async function getContactDisplayNameMap(env: CloudflareEnv, userId: string, addresses: string[]) {
 	const emails = Array.from(new Set(addresses.map(normalizeEmailAddress).filter(Boolean)));
 	if (emails.length === 0) return new Map<string, string>();
@@ -62,7 +65,7 @@ export async function getContactDisplayNameMap(env: CloudflareEnv, userId: strin
 	const rows = await db
 		.select()
 		.from(contacts)
-		.where(and(eq(contacts.userId, userId), inArray(contacts.email, emails)));
+		.where(and(eq(contacts.userId, userId), eq(contacts.source, "manual"), inArray(contacts.email, emails)));
 
 	return new Map(
 		rows
