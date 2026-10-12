@@ -5,14 +5,16 @@ export function avatarPreviewKeyFor(key: string): string {
 	return `${key}:preview`;
 }
 
-export function getOptimizedAvatarFiles(form: FormData): { full: File; preview: File } | null {
+export function getOptimizedAvatarFiles(form: FormData): { full: File; preview: File; original?: File } | null {
 	const full = form.get("file");
 	const preview = form.get("preview");
 	if (!(full instanceof File) || !(preview instanceof File)) return null;
 	if (full.type !== "image/webp" || preview.type !== "image/webp") return null;
 	if (!full.size || full.size > MAX_STORED_AVATAR_SIZE) return null;
 	if (!preview.size || preview.size > MAX_PREVIEW_AVATAR_SIZE) return null;
-	return { full, preview };
+	const original = form.get("original");
+	if (original !== null && (!(original instanceof File) || original.type !== "image/webp" || !original.size || original.size > MAX_STORED_AVATAR_SIZE)) return null;
+	return { full, preview, ...(original instanceof File ? { original } : {}) };
 }
 
 export async function storeAvatarImages(
@@ -20,6 +22,7 @@ export async function storeAvatarImages(
 	key: string,
 	full: File,
 	preview: File,
+	original?: File,
 ): Promise<void> {
 	await bucket.put(avatarPreviewKeyFor(key), await preview.arrayBuffer(), {
 		httpMetadata: { contentType: "image/webp" },
@@ -27,10 +30,12 @@ export async function storeAvatarImages(
 	await bucket.put(key, await full.arrayBuffer(), {
 		httpMetadata: { contentType: "image/webp" },
 	});
+	if (original) await bucket.put(`${key}:original`, await original.arrayBuffer(), { httpMetadata: { contentType: "image/webp" } });
+	else await bucket.delete(`${key}:original`);
 }
 
 export async function deleteAvatarImages(bucket: CloudflareEnv["BUCKET"], key: string): Promise<void> {
-	await bucket.delete([key, avatarPreviewKeyFor(key)]);
+	await bucket.delete([key, avatarPreviewKeyFor(key), `${key}:original`]);
 }
 
 export async function getAvatarImageResponse(
@@ -40,7 +45,9 @@ export async function getAvatarImageResponse(
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const imageKey = url.searchParams.get("variant") === "preview" ? avatarPreviewKeyFor(key) : key;
-	const object = await bucket.get(imageKey);
+	const object = url.searchParams.get("variant") === "original"
+		? await bucket.get(`${key}:original`) ?? await bucket.get(key)
+		: await bucket.get(imageKey);
 	if (!object) return new Response("Not found", { status: 404 });
 
 	const headers = new Headers({

@@ -80,7 +80,7 @@ export async function POST(request: Request, { params }: MailboxAvatarRouteParam
 	// The primary mailbox shares the account avatar; every other mailbox stores its own.
 	const identity = tracksAccountIdentity(mailbox, mailbox.ownerEmail);
 	const key = identity ? avatarKeyFor(mailbox.userId) : mailboxAvatarKeyFor(id);
-	await storeAvatarImages(env.BUCKET, key, images.full, images.preview);
+	await storeAvatarImages(env.BUCKET, key, images.full, images.preview, images.original);
 	if (identity) {
 		await syncPersonalIdentity(db, {
 			userId: mailbox.userId,

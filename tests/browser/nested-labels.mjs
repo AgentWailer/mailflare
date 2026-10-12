@@ -36,10 +36,13 @@ try {
   const page=await browser.newPage({viewport,hasTouch:viewport.width<=1024}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(10000);
   let labels=[{id:'projects',name:'Projekte',color:'#2563eb',parentId:null},{id:'client',name:'Kunde',color:'#16a34a',parentId:'projects'},{id:'invoices',name:'Rechnungen',color:'#2563eb',parentId:'client'},{id:'personal',name:'Privat',color:'#ef4444',parentId:'projects'},{id:'notes',name:'Notizen',color:'#2563eb',parentId:null}];
-  let hidden=[],failMove=false;const writes=[];
-  await page.route('**/api/**',async route=>{
+  let hidden=[],failMove=false;const writes=[],orders={};
+  const apiHandler=async route=>{
    const req=route.request(),url=new URL(req.url());let body={};
-   if(url.pathname==='/api/settings/labels') {
+   if(url.pathname==='/api/settings/label-order') {
+    if(req.method()==='PATCH'){const input=req.postDataJSON(),group=input.parentId??'root';if(!input.onlyIfAbsent||orders[group]===undefined)orders[group]=input.order;}
+    body={orders};
+   } else if(url.pathname==='/api/settings/labels') {
     if(req.method()==='PATCH'){const input=req.postDataJSON();hidden=hidden.filter(id=>id!==input.labelId);if(!input.visible)hidden.push(input.labelId);}
     body={hiddenLabelIds:hidden};
    } else if(url.pathname.startsWith('/api/folders/')&&req.method()==='PATCH') {
@@ -51,11 +54,16 @@ try {
    else if(url.pathname==='/api/folders')body={folders:labels};
    else if(url.pathname==='/api/messages/counts')body={counts:{folders:Object.fromEntries(['inbox','promotions','social','invoices','orders','starred','all','snoozed','sent','scheduled','drafts','archived','spam','trash'].map(key=>[key,{total:0,unread:0}])),customFolders:{},mailboxes:[]}};
    return route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
-  });
+  };await page.route('**/api/**',apiHandler);
   await page.addInitScript(()=>{if(innerWidth===390)document.addEventListener('DOMContentLoaded',()=>document.documentElement.classList.add('dark'),{once:true});});
   await page.goto(origin);const sidebar=page.locator('[data-sidebar]'),settings=page.locator('[data-settings]');
   const link=id=>sidebar.locator(`a[href="/folders/${id}"]`), row=id=>sidebar.locator(`[data-reorder-id="${id}"]`);
   await link('invoices').waitFor();assert.equal(await sidebar.locator('[data-reorder-list=folders]').count(),5);
+  const iconX=async locator=>(await locator.locator(':scope > svg').boundingBox()).x;
+  const nameX=async locator=>(await locator.locator(':scope > span').first().boundingBox()).x;
+  const inbox=sidebar.locator('a[href="/inbox"]').first();
+  for(const id of ['projects','notes']){assert.equal(await iconX(link(id)),await iconX(inbox),'root label icons align with the menu');assert.equal(await nameX(link(id)),await nameX(inbox),'root label names align with the menu');}
+  const caret=await row('projects').locator('.label-group-toggle > svg').boundingBox(),folder=await link('projects').locator(':scope > svg').boundingBox();assert(caret.x+caret.width<=folder.x,'caret does not overlap the folder icon');
   // Move the parent past another root label without detaching any descendants.
   const rootScope='mailflare:nav:layout:folders:box';const rootOrder=()=>sidebar.locator(`[data-reorder-scope="${rootScope}"][data-reorder-id]`).evaluateAll(nodes=>nodes.map(x=>x.dataset.reorderId));
   const parentGrip=link('projects');await parentGrip.scrollIntoViewIfNeeded();await link('notes').scrollIntoViewIfNeeded();await parentGrip.scrollIntoViewIfNeeded();
@@ -63,6 +71,8 @@ try {
   // Autoscroll until the following root is reachable, then release below it.
   let target=await row('notes').boundingBox();if(target.y+target.height>viewport.height){await page.mouse.move(start.x+start.width/2,viewport.height-12);await page.waitForTimeout(900);target=await row('notes').boundingBox();}
   await page.mouse.move(start.x+start.width/2,Math.min(viewport.height-12,target.y+target.height-2));await page.mouse.up();await page.locator('[data-reorder-ghost]').waitFor({state:'detached'});assert.deepEqual(await rootOrder(),['notes','projects']);assert.equal(await link('invoices').count(),1);assert.equal(labels.find(x=>x.id==='client').parentId,'projects');assert.equal(labels.find(x=>x.id==='invoices').parentId,'client');
+  await page.waitForFunction(()=>window.__queryClient.isMutating({mutationKey:['label-order','box']})===0);assert.deepEqual(orders.root,['notes','projects'],'drop saves the account order');
+  const otherDevice=await browser.newPage({viewport:{width:390,height:844},hasTouch:true});await otherDevice.route('**/api/**',apiHandler);await otherDevice.goto(origin);await otherDevice.waitForFunction(()=>window.__queryClient.getQueryData(['label-order','box'])?.orders.root?.[0]==='notes');assert.deepEqual(await otherDevice.locator(`[data-reorder-scope="${rootScope}"][data-reorder-id]`).evaluateAll(nodes=>nodes.map(x=>x.dataset.reorderId)),['notes','projects'],'a clean device receives the desktop order');await otherDevice.close();
   await row('projects').getByRole('button',{name:de['labels.actions'].replace('{name}','Projekte'),exact:true}).click();await page.getByRole('menuitem',{name:de['labels.moveUp'],exact:true}).click();assert.deepEqual(await rootOrder(),['projects','notes']);
   const expand=sidebar.getByRole('button',{name:de['labels.collapse'].replace('{name}','Projekte'),exact:true});await expand.scrollIntoViewIfNeeded();
   if(viewport.width<=1024){const b=await expand.boundingBox();assert(b.height>=44&&b.width>=44,'group toggles must remain usable on touch screens');}
@@ -83,7 +93,7 @@ try {
   await row('notes').getByRole('button',{name:de['labels.actions'].replace('{name}','Notizen'),exact:true}).click();await page.getByRole('menuitem',{name:de['labels.delete'],exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:de['labels.delete'],exact:true}).click();await dialog.waitFor({state:'hidden'});await link('notes').waitFor({state:'detached'});await link('invoices').waitFor();assert.equal(await link('client').innerText(),'Kunde');
   await page.evaluate(()=>{window.__readOnly=true;window.dispatchEvent(new Event('fixture:mailbox'));});await page.locator('[data-fixture-toggle]').click();assert.equal(await settings.getByRole('combobox').count(),0,'read-only delegates can change visibility but not hierarchy');assert((await settings.getByRole('switch').count())>0);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({viewport,parentDragPreservesSubtree:true,treeExpandCollapsePersistence:true,siblingReorder:true,createChild:true,reparentAndRetry:true,cyclesExcluded:true,hiddenParentKeepsChild:true,deleteParentKeepsChild:true,noOverflow:true}));await page.close();
+  console.log(JSON.stringify({viewport,rootLabelsAligned:true,crossDeviceOrder:true,nonOverlappingCaret:true,parentDragPreservesSubtree:true,treeExpandCollapsePersistence:true,siblingReorder:true,createChild:true,reparentAndRetry:true,cyclesExcluded:true,hiddenParentKeepsChild:true,deleteParentKeepsChild:true,noOverflow:true}));await page.close();
 
  }
 } finally {await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}

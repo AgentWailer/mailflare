@@ -30,6 +30,9 @@ export type ReorderableListProps = {
 	lists: ReorderableListSpec[];
 	/** localStorage key for the saved layout. */
 	storageKey: string;
+	/** Account-synced layout; local storage remains the fallback before loading. */
+	storedLayout?: ReorderableLayout;
+	onLayoutChange?: (layout: ReorderableLayout) => void;
 	fallbackStorageKey?: string;
 	/** Position new items after an existing item when upgrading a saved layout. */
 	initialItemAfter?: Record<string, string>;

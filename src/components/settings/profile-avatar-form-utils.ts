@@ -1,5 +1,5 @@
-import { authFetch } from "@/lib/auth/client";
-import { appendOptimizedAvatar, MAX_SOURCE_AVATAR_SIZE } from "@/lib/avatar-upload-client";
+import { authFetch, getClientSessionToken } from "@/lib/auth/client";
+import { appendOptimizedAvatar, MAX_SOURCE_AVATAR_SIZE, type AvatarCrop } from "@/lib/avatar-upload-client";
 import { clearMailboxesCache } from "@/components/mailbox-provider-utils";
 import type { ProfileAvatarUploadResponse } from "./types";
 
@@ -15,9 +15,11 @@ export function validateProfileAvatar(file: File): string | null {
 	return null;
 }
 
-export async function uploadProfileAvatar(file: File): Promise<void> {
+export async function uploadProfileAvatar(file: File, crop?: AvatarCrop): Promise<void> {
+	const session = getClientSessionToken();
 	const body = new FormData();
-	await appendOptimizedAvatar(body, file);
+	await appendOptimizedAvatar(body, file, crop);
+	if (session !== getClientSessionToken()) throw new Error("Account changed");
 	const response = await authFetch("/api/profile/avatar", { method: "POST", body });
 	if (response.ok) return;
 
@@ -29,9 +31,11 @@ export function getMailboxProfileAvatarUrl(mailboxId: string): string {
 	return `/api/mailboxes/${mailboxId}/avatar?v=${Date.now()}`;
 }
 
-export async function uploadMailboxProfileAvatar(mailboxId: string, file: File): Promise<void> {
+export async function uploadMailboxProfileAvatar(mailboxId: string, file: File, crop?: AvatarCrop): Promise<void> {
+	const session = getClientSessionToken();
 	const body = new FormData();
-	await appendOptimizedAvatar(body, file);
+	await appendOptimizedAvatar(body, file, crop);
+	if (session !== getClientSessionToken()) throw new Error("Account changed");
 	const response = await authFetch(`/api/mailboxes/${mailboxId}/avatar`, {
 		method: "POST",
 		body,

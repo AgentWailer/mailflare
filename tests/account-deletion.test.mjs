@@ -68,7 +68,7 @@ test('deletion revokes identity and preserves mail, labels, attachments, routes 
  assert.equal(await app.getUserFromSession(f.env,f.tokens.target),null);assert.deepEqual(await app.resolveAccounts(f.env,[f.tokens.target]),[]);
  assert.equal((await app.resolveInboundAddress(app.getDb(f.env),'sales@example.test')).mailbox.mailboxId,'box');
  assert.equal((await app.resolveInboundAddress(app.getDb(f.env),'new-address@example.test')).mailbox.mailboxId,'box');
- assert.deepEqual(f.deletedKeys,['private-avatar','private-avatar:preview']);assert(!f.deletedKeys.includes('attachment-object'));
+ assert.deepEqual(f.deletedKeys,['private-avatar','private-avatar:preview','private-avatar:original']);assert(!f.deletedKeys.includes('attachment-object'));
  const visible=await app.getActivity(f.request('primary',null,'GET'));assert.equal((await visible.json()).activities.find(x=>x.action==='account.deleted').actorEmail,'primary@example.test');
  const auditLogs=await app.getAuditLogs(f.request('primary',null,'GET'));assert.equal((await auditLogs.json()).auditLogs.some(x=>x.action==='account.deleted'),true);
  const mailboxResponse=await app.getMailboxes(f.request('primary',null,'GET'));assert.equal((await mailboxResponse.json()).mailboxes.find(x=>x.id==='box').permission,'full_access');
@@ -107,7 +107,7 @@ test('atomic batch rolls back transfers on failure and rechecks primary/permissi
 test('profile image cleanup failure is reported after successful deletion, with retry information in audit',async t=>{
  const f=await fixture(t);f.env.BUCKET.delete=async()=>{throw new Error('temporary storage failure');};
  const response=await app.remove(f.request(),f.params('target'));assert.equal(response.status,200);assert.equal((await response.json()).cleanupPending,true);
- assert.equal(f.scalar("SELECT count(*) n FROM users WHERE id='target'").n,0);assert.deepEqual(JSON.parse(f.scalar('SELECT metadata FROM audit_logs').metadata).pendingAvatarCleanup,['private-avatar','private-avatar:preview']);
+ assert.equal(f.scalar("SELECT count(*) n FROM users WHERE id='target'").n,0);assert.deepEqual(JSON.parse(f.scalar('SELECT metadata FROM audit_logs').metadata).pendingAvatarCleanup,['private-avatar','private-avatar:preview','private-avatar:original']);
 });
 test('deletion availability and enabled state are exposed consistently in account APIs',async t=>{
  const f=await fixture(t);f.DB.db.exec("UPDATE users SET disabled=1 WHERE id='target'");

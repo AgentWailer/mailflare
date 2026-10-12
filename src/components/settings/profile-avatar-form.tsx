@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Camera, LoaderCircle, User } from "lucide-react";
-import { authFetch } from "@/lib/auth/client";
+import { authFetch, getClientSessionToken } from "@/lib/auth/client";
+import type { AvatarCrop } from "@/lib/avatar-upload-client";
 import { getAvatarColorStyle } from "@/lib/avatar-colors";
 import {
 	dispatchProfileAvatarChanged,
@@ -12,6 +13,8 @@ import { dispatchMailboxAvatarChanged } from "@/lib/mailboxes/avatar-client";
 import { useLanguage } from "@/components/language-provider";
 import { Input } from "@/components/ui/input";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
+import { AvatarCropDialog } from "./avatar-crop-dialog";
+import { Button } from "@/components/ui/button";
 import type { ProfileAvatarFormProps, ProfileAvatarSessionResponse } from "./types";
 import {
 	getMailboxProfileAvatarUrl,
@@ -35,7 +38,9 @@ export function ProfileAvatarForm({
 	);
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [cropFile, setCropFile] = useState<File | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const cropSession = useRef<string | null>(null);
 
 	useEffect(() => {
 		if (mailboxId) {
@@ -63,20 +68,46 @@ export function ProfileAvatarForm({
 			setStatus(validationError);
 			return;
 		}
+		setStatus(null);
+		cropSession.current = getClientSessionToken();
+		setCropFile(picked);
+	}
+
+	async function adjustExisting() {
+		const session = getClientSessionToken();
+		setBusy(true); setStatus(null);
+		try {
+			const url = new URL(avatarUrl, window.location.origin); url.searchParams.set("variant", "original");
+			const response = await authFetch(url, { cache: "no-store" });
+			if (!response.ok) throw new Error(t("avatar.uploadFailed"));
+			const blob = await response.blob();
+			if (session !== getClientSessionToken()) return;
+			cropSession.current = session;
+			setCropFile(new File([blob], "avatar.webp", { type: blob.type }));
+		} catch (error) { setStatus(error instanceof Error ? error.message : t("avatar.uploadFailed")); }
+		finally { setBusy(false); }
+	}
+
+	async function saveCrop(crop: AvatarCrop) {
+		if (!cropFile || busy) return;
+		const session = getClientSessionToken();
+		if (cropSession.current !== session) { setCropFile(null); return; }
 
 		setBusy(true);
 		setStatus(null);
 		try {
 			if (mailboxId) {
-				await uploadMailboxProfileAvatar(mailboxId, picked);
+				await uploadMailboxProfileAvatar(mailboxId, cropFile, crop);
 			} else {
-				await uploadProfileAvatar(picked);
+				await uploadProfileAvatar(cropFile, crop);
 			}
+			if (session !== getClientSessionToken()) return;
 			const nextAvatarUrl = mailboxId
 				? getMailboxProfileAvatarUrl(mailboxId)
 				: getProfileAvatarUrl();
 			setAvatarUrl(nextAvatarUrl);
 			setHasAvatar(true);
+			setCropFile(null);
 			setBusy(false);
 			if (mailboxId) {
 				dispatchMailboxAvatarChanged(mailboxId, nextAvatarUrl);
@@ -129,6 +160,8 @@ export function ProfileAvatarForm({
 					)}
 				</span>
 			</button>
+			{hasAvatar && <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={busy} onClick={() => void adjustExisting()}>{t("avatar.adjustTitle")}</Button>}
+			{cropFile && <AvatarCropDialog key={avatarUrl + cropFile.lastModified} file={cropFile} busy={busy} error={status} onClose={() => { setCropFile(null); setStatus(null); }} onSave={crop => void saveCrop(crop)} />}
 			{status && <p className="max-w-xs text-xs text-red-600">{status}</p>}
 		</div>
 	);

@@ -43,8 +43,6 @@ html, body {
 
 @media (max-width: 1023px), (hover: none) and (pointer: coarse) {
 	:is(.label-group-toggle, .label-actions-trigger, .reorder-handle) { min-width: 44px; min-height: 44px; }
-	/* All labels share this gutter, so touch-sized disclosures cannot shift parent labels. */
-	.sidebar-label-link > a { padding-left: 44px; }
 	.email-presentation-action { min-height: 44px; }
 	[data-message-ai] button { min-height: 44px; }
 	[data-message-ai][data-compact] button { min-width: 44px; }
@@ -548,12 +546,14 @@ body:has(.mail-mobile-shell, [data-app-profile]) .fork-source { display: none; }
 	}
 	.mail-mobile-main { border-radius: 0; }
 	.mail-mobile-header [role="search"] { background-color: transparent; }
+	.mail-mobile-header:has([data-mail-search-input]:focus) { background-color: #e2ecfa; }
 	.mail-mobile-list-toolbar { height: 44px; border-bottom: 0; }
 	.mail-mobile-list-scroll { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
 	.dark .mail-mobile-shell,
 	.dark .mail-mobile-main,
 	.dark .mail-mobile-list { background-color: #101112; }
 	.dark .mail-mobile-header { background-color: #25292a; }
+	.dark .mail-mobile-header:has([data-mail-search-input]:focus) { background-color: #2d3336; }
 	.dark .mail-mobile-list .mail-mobile-row:not([data-selected="true"]) { background-color: #101112; }
 }
 

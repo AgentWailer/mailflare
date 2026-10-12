@@ -31,6 +31,7 @@ export const users = sqliteTable("users", {
 	allowExternalContent: integer("allow_external_content", { mode: "boolean" }).notNull().default(true),
 	/** Personal sidebar visibility only; labels remain attached to mail and usable in rules. */
 	hiddenLabelIds: text("hidden_label_ids").notNull().default("[]"),
+	labelOrder: text("label_order").notNull().default("{}"),
 	// TOTP second factor. The secret is written at enrolment and only counts
 	// once the user has proven a code from their authenticator.
 	totpSecret: text("totp_secret"),

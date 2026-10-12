@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 	if (!images) return NextResponse.json({ error: "A resized WebP image and preview are required" }, { status: 400 });
 
 	const key = avatarKeyFor(user.id);
-	await storeAvatarImages(env.BUCKET, key, images.full, images.preview);
+	await storeAvatarImages(env.BUCKET, key, images.full, images.preview, images.original);
 	await syncPersonalIdentity(getDb(env), {
 		userId: user.id,
 		name: user.name,

@@ -56,7 +56,7 @@ export async function deleteManagedAccount(
 				UNION SELECT avatar_key FROM mailboxes WHERE avatar_key IN (SELECT value FROM json_each(?))
 				UNION SELECT avatar_key FROM contacts WHERE avatar_key IN (SELECT value FROM json_each(?))`).bind(encoded, encoded, encoded).all<{ avatar_key: string }>();
 			const retained = new Set(references.results.map((row) => row.avatar_key));
-			for (const key of keys) if (!retained.has(key)) unused.push(key, avatarPreviewKeyFor(key));
+			for (const key of keys) if (!retained.has(key)) unused.push(key, avatarPreviewKeyFor(key), `${key}:original`);
 		}
 		// R2 accepts at most 1,000 object keys in one delete request.
 		for (let offset = 0; offset < unused.length; offset += 1000) await env.BUCKET.delete(unused.slice(offset, offset + 1000));

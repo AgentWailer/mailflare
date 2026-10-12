@@ -537,6 +537,10 @@
 	"mfa.generate": "Erzeugen",
 	"avatar.profile": "Profil",
 	"avatar.changeShort": "Ändern",
+	"avatar.adjustTitle": "Bild ausrichten",
+	"avatar.adjustHint": "Verschiebe das Bild oder nutze die Pfeiltasten, um den runden Ausschnitt anzupassen. Mit dem Regler kannst du zoomen.",
+	"avatar.zoom": "Zoom",
+	"avatar.saveCrop": "Bild speichern",
 	"avatar.uploadShort": "Hochladen",
 	"apiKeys.mcpRead.label": "E-Mails lesen",
 	"apiKeys.mcpRead.description": "Nachrichten auflisten, durchsuchen und lesen.",
@@ -2157,5 +2161,6 @@
 	"labels.renameDescription": "E-Mails, Unterlabels und Regeln bleiben diesem Label zugeordnet.",
 	"labels.renameSave": "Speichern",
 	"labels.renameFailed": "Das Label konnte nicht umbenannt werden. Bitte erneut versuchen.",
-	"labels.dragCancelled": "Verschieben abgebrochen."
+	"labels.dragCancelled": "Verschieben abgebrochen.",
+	"labels.orderSaveFailed": "Die Label-Reihenfolge konnte nicht synchronisiert werden. Bitte versuche es erneut."
 }

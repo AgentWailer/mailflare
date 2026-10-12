@@ -10,6 +10,7 @@ import { LabelActions } from "./label-actions";
 import { ReorderableList } from "./reorderable-list";
 import { getLabelPath, visibleLabelGroups } from "@/lib/folders/hierarchy";
 import { moveMessagesToCustomFolder } from "./dashboard-nav-utils";
+import { useLabelOrder } from "./use-label-order";
 
 const memoryPreferences = new Map<string, string>();
 const EVENT = "mailflare:label-groups-changed";
@@ -55,6 +56,7 @@ export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canMan
  const raw = useSyncExternalStore(subscribe, () => snapshot(storageKey), serverSnapshot);
  const collapsed = readCollapsed(raw);
  const groups = visibleLabelGroups(folders, hiddenIds);
+ const { orders, saveOrder } = useLabelOrder(mailboxId, groups);
  function toggle(id: string) {
   saveCollapsed(storageKey, collapsed.includes(id) ? collapsed.filter(item => item !== id) : [...collapsed, id]);
  }
@@ -65,14 +67,16 @@ export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canMan
   return <ReorderableList key={parent ?? "root"}
    storageKey={`mailflare:nav:layout:folders:${mailboxId}${parent ? `:children:${parent}` : ""}`}
    fallbackStorageKey="mailflare:nav:layout:folders" enabled={!minimal} itemLabel={item => siblings.find(folder => folder.id === item.id)?.name ?? item.id}
+   storedLayout={orders[parent ?? "root"] ? { folders: orders[parent ?? "root"] } : undefined}
+   onLayoutChange={layout => saveOrder(parent, layout.folders)}
    lists={[{ id: "folders", items: siblings.map(folder => ({ id: folder.id, node: <NavItem link={{ href: `/folders/${folder.id}`, label: getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /> })) }]}
    renderItem={(item, actions) => {
     const folder = siblings.find(label => label.id === item.id)!;
     if (minimal) return item.node;
     const children = groups.get(folder.id)?.length;
     return <div className="sidebar-label-row relative flex min-w-0 items-center" style={{ paddingLeft: Math.min(depth, 5) * 12 }}>
-     {/* The disclosure control uses the link's leading gutter, never an extra column. */}
-     {children ? <button type="button" className="label-group-toggle absolute top-0 flex h-11 w-6 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-200/60 md:h-9" style={{ left: Math.min(depth, 5) * 12 }} aria-expanded={!collapsed.includes(folder.id)} aria-label={t(collapsed.includes(folder.id) ? "labels.expand" : "labels.collapse", { name: folder.name })} onClick={() => toggle(folder.id)}>{collapsed.includes(folder.id) ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button> : null}
+     {/* Keep the caret in the leading gutter. Its larger touch target also covers the folder icon, without shifting the link or its text. */}
+     {children ? <button type="button" className="label-group-toggle absolute top-0 flex h-11 w-6 items-center justify-start rounded-lg pl-1 text-neutral-500 hover:bg-neutral-200/60 md:h-9" style={{ left: Math.min(depth, 5) * 12 }} aria-expanded={!collapsed.includes(folder.id)} aria-label={t(collapsed.includes(folder.id) ? "labels.expand" : "labels.collapse", { name: folder.name })} onClick={() => toggle(folder.id)}>{collapsed.includes(folder.id) ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}</button> : null}
      <div className="sidebar-label-link min-w-0 flex-1" title={getLabelPath(folder, folders)}><NavItem labelClassName="text-sm whitespace-nowrap" link={{ href: `/folders/${folder.id}`, label: folder.parentId && groups.has(folder.parentId) ? folder.name : getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /></div>
      <LabelActions name={folder.name} actions={actions} canDelete={canManage} onDelete={() => onDelete(folder)} onRename={() => onRename(folder)} onCreateChild={() => onCreateChild(folder)} />
     </div>;

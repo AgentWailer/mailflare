@@ -14,10 +14,10 @@ const CANCEL_DISTANCE = 6;
 
 // A touch-safe grip supports holding on phones and immediate mouse dragging.
 // Labels move only on release, and retain their existing sibling group.
-export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled = true, dragHandles = false, itemLabel, initialItemAfter, renderItem, renderAfterItem }: ReorderableListProps) {
+export function ReorderableList({ lists, storageKey, storedLayout, onLayoutChange, fallbackStorageKey, enabled = true, dragHandles = false, itemLabel, initialItemAfter, renderItem, renderAfterItem }: ReorderableListProps) {
  const { t } = useLanguage();
  const snapshot = useSyncExternalStore(subscribeLayoutChanges, () => getLayoutSnapshot(storageKey, fallbackStorageKey), () => "{}");
- const stored = parseLayoutSnapshot(snapshot);
+ const stored = storedLayout ?? parseLayoutSnapshot(snapshot);
  const [drag, setDrag] = useState<ReorderableDrag | null>(null);
  const [target, setTarget] = useState<ReorderableDropTarget | null>(null);
  const [announcement, setAnnouncement] = useState("");
@@ -26,7 +26,7 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
  const initialPointerY = useRef(0);
  const hold = useRef<{ timer: number; x: number; y: number; pointerId: number; mouseGrip: boolean; activate: () => void } | null>(null);
  const suppressClick = useRef<{ id: string; until: number } | null>(null);
- const latest = useRef({ layout: {} as ReorderableLayout, target: null as ReorderableDropTarget | null });
+ const latest = useRef({ layout: {} as ReorderableLayout, target: null as ReorderableDropTarget | null, onLayoutChange });
 
  const layout = resolveLayout(Object.fromEntries(lists.map(list => [list.id, list.items.map(item => item.id)])), stored, initialItemAfter);
  const nodes = new Map(lists.flatMap(list => list.items.map(item => {
@@ -34,7 +34,7 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
   function move(direction: -1 | 1) {
    if (index + direction < 0 || index + direction >= ids.length) return;
    const next = moveItem(layout, item.id, list.id, direction === -1 ? ids[index - 1] : ids[index + 2] ?? null);
-   writeStorage(storageKey, next); setAnnouncement(t("labels.reordered", { name }));
+   writeStorage(storageKey, next); onLayoutChange?.(next); setAnnouncement(t("labels.reordered", { name }));
   }
   const dragHandle = dragHandles && enabled ? <button type="button" data-reorder-handle data-label-name={name}
    className="reorder-handle flex h-9 w-6 shrink-0 cursor-grab items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-200/60 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 active:cursor-grabbing max-md:h-11 max-md:w-9"
@@ -42,7 +42,7 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
    onKeyDown={event => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); move(event.key === "ArrowUp" ? -1 : 1); } }}><GripVertical className="h-4 w-4" /></button> : undefined;
   return [item.id, renderItem ? renderItem(item, { dragHandle, canMoveUp: index > 0, canMoveDown: index < ids.length - 1, moveUp: () => move(-1), moveDown: () => move(1) }) : item.node] as const;
  })));
- useEffect(() => { latest.current.layout = layout; latest.current.target = target; });
+ useEffect(() => { latest.current.layout = layout; latest.current.target = target; latest.current.onLayoutChange = onLayoutChange; });
 
  const dragId = drag?.id ?? null, pointerId = drag?.pointerId;
  useEffect(() => {
@@ -101,6 +101,7 @@ export function ReorderableList({ lists, storageKey, fallbackStorageKey, enabled
    if (commit && inside && drop) {
     const next = moveItem(latest.current.layout, dragId, drop.listId, drop.beforeId);
     writeStorage(storageKey, next);
+    latest.current.onLayoutChange?.(next);
     setAnnouncement(t("labels.reordered", { name: container.querySelector(`[data-reorder-id="${CSS.escape(dragId)}"]`)?.getAttribute("data-reorder-label") ?? "" }));
    }
    if (!commit || !inside) setAnnouncement(t("labels.dragCancelled"));
