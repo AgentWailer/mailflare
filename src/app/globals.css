@@ -564,3 +564,7 @@ body:has(.mail-mobile-shell, [data-app-profile]) .fork-source { display: none; }
 		padding-right: max(20px, env(safe-area-inset-right, 0px));
 	}
 }
+
+@media (prefers-reduced-motion: reduce) {
+	.pull-refresh-motion { transition: none !important; }
+}

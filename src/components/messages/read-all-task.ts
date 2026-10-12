@@ -4,11 +4,16 @@ import { useSyncExternalStore } from "react";
 import { AUTH_SESSION_CHANGED_EVENT, authFetch, getClientSessionToken } from "@/lib/auth/client";
 import { getMessageQueryParams } from "@/hooks/utils";
 import { clearMessageDetailCache, setCachedMessageRead } from "@/lib/messages/detail-cache";
+import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
+import type { MailCategory } from "@/lib/mail-sorting/categories";
 import type { MessageFolder } from "@/hooks/types";
 
-type Scope = { folder: MessageFolder; mailboxId?: string; folderId?: string; query: string; unreadOnly: boolean; title: string };
+export type BulkScope = { folder: MessageFolder; mailboxId?: string; folderId?: string; query: string; unreadOnly: boolean; title: string };
 type Chunk = { messageIds: string[]; done: boolean; total?: number; snapshot: number; after: number; actorId: string; mailboxIds: string[] };
-export type ReadAllTask = { scope: Scope; status: "running" | "failed" | "done"; processed: number; total?: number };
+export type BulkScopeSelection = { snapshot: number; actorId: string; mailboxIds: string[]; after: number; total: number; unread: number; canManage: boolean };
+export type OrganizationChanges = { addLabelIds?: string[]; removeLabelIds?: string[]; category?: MailCategory; skipInbox?: boolean };
+export type ScopeAction = BulkMessageAction | "organize";
+export type ReadAllTask = { action: ScopeAction; destinationFolderId?: string; organization?: OrganizationChanges; legacy?: boolean; scope: BulkScope; status: "running" | "failed" | "done"; processed: number; total?: number };
 let task: ReadAllTask | null = null;
 let continuation: Pick<Chunk, "snapshot" | "after" | "actorId" | "mailboxIds"> | undefined;
 let session: string | null = null;
@@ -25,11 +30,30 @@ export function dismissReadAllTask() { if (task?.status !== "running") publish(n
 
 // Independent of the page component: switching folders does not abandon the operation.
 // Closing/reloading the browser stops it; completed chunks are retained and safe to repeat.
-export function startReadAllTask(scope: Scope) {
+export async function prepareBulkScopeSelection(scope: BulkScope): Promise<BulkScopeSelection> {
+	const selectedSession = getClientSessionToken();
+	const response = await authFetch("/api/messages/bulk-scope", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...scopePayload(scope), action: "select" }), signal: AbortSignal.timeout(30000) });
+	if (!response.ok) throw new Error("Could not select all matching messages");
+	const result = await response.json() as BulkScopeSelection;
+	if (selectedSession !== getClientSessionToken()) throw new Error("Session changed");
+	return result;
+}
+function scopePayload(scope: BulkScope) {
+	const params = getMessageQueryParams(scope.folder, scope.mailboxId, { query: scope.query, read: scope.unreadOnly ? "unread" : "all" }, scope.folderId);
+	return { folder: scope.folder, mailboxId: scope.mailboxId, folderId: scope.folderId, q: params.get("q") ?? undefined, read: params.get("read") ?? undefined, timeZone: params.get("timeZone") ?? undefined };
+}
+export function startBulkScopeTask(scope: BulkScope, selection: BulkScopeSelection, action: ScopeAction, destinationFolderId?: string, organization?: OrganizationChanges) {
+	if (task?.status === "running") return;
+	session = getClientSessionToken();
+	continuation = { snapshot: selection.snapshot, after: 0, actorId: selection.actorId, mailboxIds: selection.mailboxIds };
+	publish({ scope, action, destinationFolderId, organization, status: "running", processed: 0, total: selection.total });
+	void run();
+}
+export function startReadAllTask(scope: BulkScope) {
 	if (task?.status === "running") return;
 	session = getClientSessionToken();
 	continuation = undefined;
-	publish({ scope, status: "running", processed: 0 });
+	publish({ scope, action: "read", legacy: true, status: "running", processed: 0 });
 	void run();
 }
 export function retryReadAllTask() {
@@ -41,12 +65,13 @@ async function run() {
 	if (!task) return;
 	const scope = task.scope;
 	const taskSession = session;
-	const params = getMessageQueryParams(scope.folder, scope.mailboxId, { query: scope.query, read: scope.unreadOnly ? "unread" : "all" }, scope.folderId);
+	const operation = task;
 	let pendingIds: string[] = [];
 	let lastRefresh = 0;
 	const reconcile = () => {
 		if (taskSession !== getClientSessionToken() || task?.scope !== scope) { pendingIds = []; return; }
-		for (const id of pendingIds) setCachedMessageRead(id, true);
+		if (operation.action === "read" || operation.action === "unread") for (const id of pendingIds) setCachedMessageRead(id, operation.action === "read");
+		else if (pendingIds.length) clearMessageDetailCache();
 		pendingIds = [];
 		window.dispatchEvent(new Event("mailflare:messages-changed"));
 		lastRefresh = Date.now();
@@ -55,10 +80,9 @@ async function run() {
 		while (task?.status === "running") {
 			if (task?.scope !== scope) return;
 			if (taskSession !== getClientSessionToken()) { publish(null); return; }
-			const response = await authFetch("/api/messages/read-all", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-				folder: scope.folder, mailboxId: scope.mailboxId, folderId: scope.folderId,
-				q: params.get("q") ?? undefined, read: params.get("read") ?? undefined,
-				timeZone: params.get("timeZone") ?? undefined, ...continuation,
+			const response = await authFetch(operation.legacy ? "/api/messages/read-all" : "/api/messages/bulk-scope", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+				...scopePayload(scope), ...continuation,
+				...(!operation.legacy ? { action: operation.action, destinationFolderId: operation.destinationFolderId, organization: operation.organization } : {}),
 			}), signal: AbortSignal.timeout(30000) });
 			if (task?.scope !== scope) return;
 			if (taskSession !== getClientSessionToken()) { publish(null); return; }

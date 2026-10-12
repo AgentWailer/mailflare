@@ -48,25 +48,45 @@ try{
  browser=await browserType.launch({headless:true,...(browserName==='chromium'&&process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),...(browserName==='chromium'?{args:['--no-sandbox']}: {})});
 
  if(process.env.MAILFLARE_READ_ALL_ONLY){
+
   for(const viewport of [{width:320,height:700},{width:390,height:844},{width:1440,height:900}]){
-   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),requests=[],errors=[];let release;
-   page.on('pageerror',error=>errors.push(error.message));
+   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),requests=[],errors=[];let release,confirmed=false;
+   page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>confirmed?dialog.accept():dialog.dismiss());
    await page.route('**/api/**',async route=>{
-    if(new URL(route.request().url()).pathname==='/api/messages/read-all'){
-     requests.push(route.request().postDataJSON());if(requests.length===1)await new Promise(resolve=>release=resolve);
-     return route.fulfill({contentType:'application/json',body:JSON.stringify({messageIds:requests.length===1?Array.from({length:200},(_,i)=>'msg-'+i):['last'],done:requests.length>1,total:201,snapshot:999,after:200,actorId:'owner',mailboxIds:['box']})});
+    if(new URL(route.request().url()).pathname==='/api/messages/bulk-scope'){
+     const input=route.request().postDataJSON();requests.push(input);
+     if(input.action==='select')return route.fulfill({contentType:'application/json',body:JSON.stringify({total:201,unread:201,canManage:true,snapshot:999,after:0,actorId:'owner',mailboxIds:['box']})});
+     if(requests.length===2)await new Promise(resolve=>release=resolve);
+     return route.fulfill({contentType:'application/json',body:JSON.stringify({messageIds:requests.length===2?Array.from({length:100},(_,i)=>'msg-'+i):['last'],done:requests.length>2,snapshot:999,after:100,actorId:'owner',mailboxIds:['box']})});
     }
     return route.fulfill({contentType:'application/json',body:'{"messages":[],"accounts":[],"folders":[]}'});
    });
    await page.goto(origin+'/inbox?pagination');await page.getByRole('checkbox',{name:de['list.selectAll'],exact:true}).check();
    const strip=page.locator('[data-folder-read-all]');await strip.getByText(de['list.pageSelectedCompact'].replace('{count}','25'),{exact:true}).waitFor();
-   assert(await strip.evaluate(el=>el.scrollWidth<=el.clientWidth),'selection strip fits the viewport');assert((await strip.boundingBox()).height<=45,'selection strip occupies only one compact line');
-   const action=strip.getByRole('button',{name:de['list.markAllReadScope'].replace('{folder}',de['navigation.inbox']),exact:true});assert(await action.isVisible());await action.click();
-   await strip.getByRole('status').waitFor();assert.equal(requests.length,1);assert.equal(requests[0].folder,'inbox');assert.equal(requests[0].mailboxId,'box');assert(!('limit' in requests[0])&&!('messageIds' in requests[0]),'folder-wide action is independent of the visible 25');
-   if(viewport.width>=1024){await page.locator('[data-inbox-categories]').getByRole('link',{name:de['smart.promotions'],exact:true}).click();await page.waitForFunction(()=>location.pathname==='/promotions');assert(await strip.getByRole('status').isVisible(),'progress remains visible after changing folders');}
-   release();await strip.getByText(de['list.markAllReadDone'].replace('{folder}',de['navigation.inbox']).replace('{count}','201'),{exact:true}).waitFor();assert.equal(requests.length,2);assert.equal(requests[1].snapshot,999);assert.equal(requests[1].folder,'inbox');
-   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
-   console.log(JSON.stringify({viewport,compactSelectionStrip:true,allPagesScope:true,asynchronousChunks:true,navigationRemainsUsable:viewport.width>=1024}));await page.close();
+   assert(await strip.evaluate(el=>el.scrollWidth<=el.clientWidth));assert((await strip.boundingBox()).height<=45,'selection strip occupies one compact line');
+   await strip.getByRole('button',{name:de['list.selectAllFolder'],exact:true}).click();await strip.getByText(de['list.allMatchingSelected'].replace('{count}','201'),{exact:true}).waitFor();assert.equal(requests.length,1,'extending selection does not mutate any mail');assert.equal(requests[0].action,'select');assert((await strip.boundingBox()).height<=45);
+   const trash=page.locator('.mail-mobile-list-toolbar').getByRole('button',{name:de['common.delete'],exact:true});await trash.click();assert.equal(requests.length,1,'cancelling confirmation retains the selection');assert(await strip.getByText(de['list.allMatchingSelected'].replace('{count}','201'),{exact:true}).isVisible());
+   confirmed=true;await trash.click();await strip.getByRole('status').waitFor();assert.equal(requests.length,2);assert.equal(requests[1].action,'trash');assert.equal(requests[1].snapshot,999);assert(!('messageIds' in requests[1])&&!('limit' in requests[1]),'toolbar action applies across all pages');
+   if(viewport.width>=1024){await page.locator('[data-inbox-categories]').getByRole('link',{name:de['smart.promotions'],exact:true}).click();await page.waitForFunction(()=>location.pathname==='/promotions');assert(await strip.getByRole('status').isVisible(),'progress survives navigation');}
+   release();await strip.getByText(de['list.bulkScopeDone'].replace('{folder}',de['navigation.inbox']).replace('{count}','101'),{exact:true}).waitFor();assert.equal(requests.length,3);assert.equal(requests[2].folder,'inbox');assert.equal(requests[2].action,'trash');assert.equal(requests[2].after,100);
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);console.log(JSON.stringify({viewport,compactGlobalSelection:true,selectDoesNotMutate:true,allPagesTrash:true,cancelConfirmationPreservesSelection:true,navigationUsable:viewport.width>=1024}));await page.close();
+  }
+  for(const action of ['read','unread','archive','organize']){
+   const page=await browser.newPage({viewport:{width:1440,height:900}}),requests=[];
+   await page.route('**/api/**',async route=>{
+    const path=new URL(route.request().url()).pathname;
+    if(path==='/api/messages/bulk-scope'){const input=route.request().postDataJSON();requests.push(input);return route.fulfill({contentType:'application/json',body:JSON.stringify(input.action==='select'?{total:60,unread:action==='unread'?0:60,canManage:true,snapshot:999,after:0,actorId:'owner',mailboxIds:['box']}:{messageIds:['one','two'],done:true,snapshot:999,after:100,actorId:'owner',mailboxIds:['box']})});}
+    return route.fulfill({contentType:'application/json',body:JSON.stringify(path==='/api/folders'?{folders:[{id:'work',name:'Projekt',color:'#2563eb',mailboxId:'box'}]}:{messages:[],accounts:[],folders:[]})});
+   });
+   await page.goto(origin+'/inbox?pagination');await page.getByRole('checkbox',{name:de['list.selectAll'],exact:true}).check();const strip=page.locator('[data-folder-read-all]');await strip.getByRole('button',{name:de['list.selectAllFolder'],exact:true}).click();await strip.getByText(de['list.allMatchingSelected'].replace('{count}','60'),{exact:true}).waitFor();
+   const toolbar=page.locator('.mail-mobile-list-toolbar');
+   if(action==='organize'){
+    await toolbar.getByRole('button',{name:de['smart.organize'],exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByRole('checkbox').first().check();await dialog.getByRole('combobox',{name:de['smart.category'],exact:true}).selectOption('invoices');await dialog.getByRole('button',{name:de['rules.saveChanges'],exact:true}).click();
+   }else if(action==='archive'){
+    const direct=toolbar.getByRole('button',{name:de['common.archive'],exact:true});if(await direct.isVisible())await direct.click();else{await toolbar.getByRole('button',{name:de['common.moreActions'],exact:true}).click();await page.getByRole('menuitem',{name:de['common.archive'],exact:true}).click();}
+   }else await toolbar.getByRole('button',{name:de[action==='read'?'common.markRead':'common.markUnread'],exact:true}).click();
+   await strip.getByText(de['list.bulkScopeDone'].replace('{folder}',de['navigation.inbox']).replace('{count}','2'),{exact:true}).waitFor();assert.equal(requests.length,2);assert.equal(requests[1].action,action);assert.equal(requests[1].snapshot,999);if(action==='organize'){assert.deepEqual(requests[1].organization.addLabelIds,['work']);assert.equal(requests[1].organization.category,'invoices');}
+   console.log(JSON.stringify({globalToolbarAction:action,scopeAcrossPages:true}));await page.close();
   }
 
   for(const viewport of [{width:320,height:700},{width:390,height:844},{width:1440,height:900}]){
@@ -91,7 +111,8 @@ try{
    if(viewport.width<768){
     await drag(0,40);assert.equal(requests,1,'a short pull does not refresh');
     await scroll.evaluate(el=>el.scrollTop=180);await drag(0,140);assert.equal(requests,1,'normal scrolling does not refresh');await scroll.evaluate(el=>el.scrollTop=0);
-    revision=2;await drag(0,150);await page.getByText(de['list.refreshing'],{exact:true}).waitFor();assert(await page.getByText('Aktualisiert 1 Mail 0',{exact:true}).isVisible(),'existing mail remains visible while refreshing');assert.equal(requests,2);release();await page.getByText('Aktualisiert 2 Mail 0',{exact:true}).waitFor();await page.waitForFunction(()=>document.querySelector('[data-pull-refresh]')?.getBoundingClientRect().height===0);
+    revision=2;await drag(0,150);await page.getByText(de['list.refreshing'],{exact:true}).waitFor();assert(await page.getByText('Aktualisiert 1 Mail 0',{exact:true}).isVisible(),'existing mail remains visible while refreshing');assert.equal(requests,2);release();await page.getByText('Aktualisiert 2 Mail 0',{exact:true}).waitFor();await page.waitForFunction(()=>new DOMMatrix(document.querySelector('[data-pull-content]').style.transform).m42===0);
+    await page.waitForTimeout(40);const returning=await page.locator('[data-pull-content]').evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m42);assert(returning>0&&returning<48,'the list returns through intermediate positions instead of snapping');await page.waitForFunction(()=>Math.abs(new DOMMatrix(getComputedStyle(document.querySelector('[data-pull-content]')).transform).m42)<0.1);
    }else{await drag(0,150);assert.equal(requests,1,'desktop scrolling does not use pull to refresh');}
    console.log(JSON.stringify({viewport,nativeTouchPullRefresh:viewport.width<768,normalScrollingPreserved:true,noDesktopGesture:viewport.width>=768}));await page.close();
   }

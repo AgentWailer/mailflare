@@ -28,8 +28,9 @@ import { SenderAvatar } from "./sender-avatar";
 import { InboxCategoryTabs } from "./inbox-category-tabs";
 import { MessageRefreshButton } from "./message-refresh-button";
 import { useMessageSelection } from "./message-selection-context";
-import { useReadAllTask, startReadAllTask, retryReadAllTask, dismissReadAllTask } from "./read-all-task";
-import { usePullToRefresh } from "./use-pull-to-refresh";
+import { useReadAllTask, prepareBulkScopeSelection, startBulkScopeTask, retryReadAllTask, dismissReadAllTask } from "./read-all-task";
+import { PullRefreshList } from "./pull-refresh-list";
+import type { BulkScopeSelection, OrganizationChanges } from "./read-all-task";
 import { useReadingLayout } from "./use-reading-layout";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
 import { MessageNavigationProgress, useMessageNavigation } from "./message-navigation";
@@ -315,6 +316,8 @@ export function MessageFolderPage({
 		SelectedMessage[]
 	>([]);
 	const [pendingBulkAction, setPendingBulkAction] = useState(false);
+	const [allSelection, setAllSelection] = useState<(BulkScopeSelection & { key: string }) | null>(null);
+	const [selectionError, setSelectionError] = useState(false);
 	const [emptyingFolder, setEmptyingFolder] = useState(false);
 	const [internalUnreadOnly, setInternalUnreadOnly] = useState(false);
 	const unreadOnly = selection?.unreadOnly ?? internalUnreadOnly;
@@ -328,7 +331,6 @@ export function MessageFolderPage({
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
-	const pull = usePullToRefresh({ enabled: isMobile, busy: isLoading || isRefreshing || pendingBulkAction, onRefresh: refresh });
 	const { counts } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
 	usePageLoading(mailboxesLoading || isLoading);
 	const headerIcons = config.headerIcons ?? [];
@@ -360,11 +362,14 @@ export function MessageFolderPage({
 		ids.flatMap((id) => selectedMessages.find(message => message.id === id)?.messageIds ?? rowMessageIds(messages.find((message) => message.id === id) ?? { id } as Message));
 
 	const selectionScope = JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped]);
+	const allMatchingSelected = allSelection?.key === selectionScope && selectedIds.length > 0;
 	const previousScope = useRef(selectionScope);
 	const previousOffset = useRef(offset);
 	useEffect(() => {
 		if (previousScope.current === selectionScope) return;
 		previousScope.current = selectionScope;
+		setAllSelection(null);
+		setSelectionError(false);
 		setOffset(0);
 		setSelectedMessages([]);
 	}, [selectionScope, setSelectedMessages, setOffset]);
@@ -372,6 +377,7 @@ export function MessageFolderPage({
 	useEffect(() => {
 		if (previousOffset.current === offset) return;
 		previousOffset.current = offset;
+		setAllSelection(null);
 		setSelectedMessages([]);
 	}, [offset, setSelectedMessages]);
 
@@ -387,6 +393,7 @@ export function MessageFolderPage({
 	}, [title, config.folder, config.folderId, mailboxAddress, mailboxesLoading, titleTotal, titleUnread]);
 
 	function updateSelectedMessage(messageId: string, selected: boolean) {
+		setAllSelection(null);
 		const message = messages.find((item) => item.id === messageId);
 		if (!message) return;
 
@@ -401,6 +408,7 @@ export function MessageFolderPage({
 	}
 
 	function toggleAllVisible(selected: boolean) {
+		setAllSelection(null);
 		const visibleIds = new Set(messages.map((message) => message.id));
 		setSelectedMessages((current) => {
 			if (!selected) {
@@ -433,7 +441,31 @@ export function MessageFolderPage({
 		}
 	}
 
+	function clearSelection() { setAllSelection(null); setSelectedMessages([]); }
+	const currentBulkScope = () => ({ folder: config.folder, mailboxId: selectedMailbox?.id, folderId: config.folderId, query, unreadOnly, title });
+	async function selectAllMatching() {
+		const key = selectionScope;
+		setPendingBulkAction(true); setSelectionError(false);
+		try {
+			const prepared = await prepareBulkScopeSelection(currentBulkScope());
+			if (previousScope.current === key) setAllSelection({ ...prepared, key });
+		} catch { if (previousScope.current === key) setSelectionError(true); }
+		finally { setPendingBulkAction(false); }
+	}
+	function organizeAll(changes: OrganizationChanges) {
+		if (!allMatchingSelected || !allSelection) return;
+		startBulkScopeTask(currentBulkScope(), allSelection, "organize", undefined, changes);
+		clearSelection();
+	}
 	async function runSelectedAction(action: BulkMessageAction, folderId?: string) {
+		if (allMatchingSelected && allSelection) {
+			if (action === "delete" && !window.confirm(getPermanentDeleteConfirmText(allSelection.total, t))) return;
+			if (action === "trash" && !window.confirm(t("list.confirmAllTrash", { count: allSelection.total.toLocaleString(locale), folder: title }))) return;
+			startBulkScopeTask(currentBulkScope(), allSelection, action, folderId);
+			clearSelection();
+			if (["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action) && selectedMessageId) router.replace(config.hrefPrefix);
+			return;
+		}
 		if (selectedIds.length === 0) return;
 		if (action === "delete") {
 			const ids = expandSelectedIds(selectedIds);
@@ -479,7 +511,7 @@ export function MessageFolderPage({
 				<div className="flex min-w-0 flex-1 items-center gap-3">
 					<Tooltip label={t("list.selectAll")} className="shrink-0">
 						<Checkbox
-							checked={allVisibleSelected}
+							checked={allMatchingSelected || allVisibleSelected}
 							disabled={messages.length === 0 || pendingBulkAction}
 							onChange={(event) => toggleAllVisible(event.target.checked)}
 							className="h-4 w-4 rounded border-neutral-300"
@@ -491,12 +523,15 @@ export function MessageFolderPage({
 						<BulkMessageToolbar
 							messageIds={expandSelectedIds(selectedIds)}
 							mailboxId={selectionMailboxId}
-							selectedCount={selectedIds.length}
-							hasUnreadSelection={hasUnreadSelection}
-							hideSelectedCount={allVisibleSelected}
+							selectedCount={allMatchingSelected ? allSelection!.total : selectedIds.length}
+							hasUnreadSelection={allMatchingSelected ? allSelection!.unread > 0 : hasUnreadSelection}
+							hideSelectedCount={allMatchingSelected || allVisibleSelected}
 							onAction={runSelectedAction}
-							onClearSelection={() => setSelectedMessages([])}
-							pending={pendingBulkAction || selectedIds.length === 0}
+							onClearSelection={clearSelection}
+							onOrganizeAll={allMatchingSelected ? organizeAll : undefined}
+							allCanManage={allMatchingSelected ? allSelection?.canManage : undefined}
+							organizeDisabled={allMatchingSelected && allSelection?.mailboxIds.length !== 1}
+							pending={pendingBulkAction || readAllTask?.status === "running" || selectedIds.length === 0}
 							compact={compact}
 							folder={config.folderId ? undefined : config.folder}
 						/>
@@ -570,35 +605,30 @@ export function MessageFolderPage({
 					</div>
 				)}
 			</div>
-			{(readAllTask || allVisibleSelected) && (
+			{(readAllTask || allVisibleSelected || allMatchingSelected) && (
 				<div data-folder-read-all className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-neutral-200 bg-neutral-50 px-4 py-1.5 text-xs">
 					{readAllTask ? <>
 						<span role={readAllTask.status === "failed" ? "alert" : "status"} className="flex min-w-0 flex-1 items-center gap-1.5">
 							{readAllTask.status === "running" && <LoaderCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin" />}
-							<span className="truncate" title={readAllTask.scope.title}>{t(readAllTask.status === "running" ? "list.markAllReadProgress" : readAllTask.status === "failed" ? "list.markAllReadFailed" : "list.markAllReadDone", { count: readAllTask.status === "running" && readAllTask.total !== undefined ? `${readAllTask.processed.toLocaleString(locale)} / ${readAllTask.total.toLocaleString(locale)}` : readAllTask.processed.toLocaleString(locale), folder: readAllTask.scope.title })}</span>
+							<span className="truncate" title={readAllTask.scope.title}>{t(readAllTask.status === "running" ? "list.bulkScopeProgress" : readAllTask.status === "failed" ? "list.markAllReadFailed" : "list.bulkScopeDone", { count: readAllTask.status === "running" && readAllTask.total !== undefined ? `${readAllTask.processed.toLocaleString(locale)} / ${readAllTask.total.toLocaleString(locale)}` : readAllTask.processed.toLocaleString(locale), folder: readAllTask.scope.title })}</span>
 						</span>
 						{readAllTask.status === "failed" && <button type="button" onClick={retryReadAllTask} className="shrink-0 font-medium text-blue-700 hover:underline">{t("list.markAllReadRetry")}</button>}
 						{readAllTask.status !== "running" && <button type="button" onClick={dismissReadAllTask} aria-label={t("navigation.close")} className="rounded p-1 hover:bg-neutral-200"><X className="h-3.5 w-3.5" /></button>}
 					</> : <>
-						<span className="text-neutral-500">{t("list.pageSelectedCompact", { count: messages.length.toLocaleString(locale) })}</span>
-						<button type="button" disabled={pendingBulkAction || isLoading || isRefreshing} title={t("list.markAllReadScope", { folder: title })} aria-label={t("list.markAllReadScope", { folder: title })}
-							onClick={() => {
-								startReadAllTask({ folder: config.folder, mailboxId: selectedMailbox?.id, folderId: config.folderId, query, unreadOnly, title });
-								setSelectedMessages([]);
-							}}
-							className="ml-auto flex items-center gap-1.5 rounded px-1.5 py-1 font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50">
-							<MailOpen aria-hidden="true" className="h-3.5 w-3.5" />{t(hasActiveFilters || unreadOnly ? "list.markAllMatchesRead" : "list.markAllFolderRead")}
+						<span className="min-w-0 text-neutral-500">{t(allMatchingSelected ? "list.allMatchingSelected" : "list.pageSelectedCompact", { count: (allMatchingSelected ? allSelection!.total : messages.length).toLocaleString(locale) })}</span>
+						<button type="button" disabled={pendingBulkAction || isLoading || isRefreshing}
+							onClick={allMatchingSelected ? clearSelection : () => void selectAllMatching()}
+							className="ml-auto shrink-0 rounded px-1.5 py-1 font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+							{t(allMatchingSelected ? "common.clearSelection" : hasActiveFilters || unreadOnly ? "list.selectAllMatches" : "list.selectAllFolder")}
 						</button>
 					</>}
 				</div>
 			)}
 			{hasCategoryTabs && <InboxCategoryTabs folder={config.folder} compact={compact} onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
+			{selectionError && <p role="alert" className="shrink-0 px-4 py-2 text-xs text-red-700">{t("list.allSelectionFailed")}</p>}
 			{error && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("list.loadFailed")}</p>}
 
-			<div ref={pull.scrollRef} className="mail-mobile-list-scroll min-h-0 flex-1 md:divide-y divide-neutral-100 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
-				<div data-pull-refresh aria-hidden={pull.distance < 20} style={{ height: pull.distance }} className="flex items-center justify-center gap-2 overflow-hidden text-xs text-neutral-500">
-					{pull.distance >= 20 && <><LoaderCircle aria-hidden="true" className={clsx("h-4 w-4 shrink-0", pull.refreshing && "animate-spin")} style={!pull.refreshing ? { transform: `rotate(${pull.distance * 3}deg)` } : undefined} /><span role="status">{t(pull.refreshing ? "list.refreshing" : pull.ready ? "list.pullRelease" : "list.pullRefresh")}</span></>}
-				</div>
+			<PullRefreshList enabled={isMobile} busy={isLoading || isRefreshing || pendingBulkAction} onRefresh={refresh}>
 				{messages.map((message) => (
 					<MessageListRow
 						key={message.id}
@@ -620,7 +650,7 @@ export function MessageFolderPage({
 						{hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
 					</p>
 				)}
-			</div>
+			</PullRefreshList>
 		</div>
 	);
 }

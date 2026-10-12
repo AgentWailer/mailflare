@@ -59,6 +59,9 @@ export type MessageListVisibility = {
 };
 
 export type BulkMessageToolbarProps = {
+	onOrganizeAll?: (changes: import("./read-all-task").OrganizationChanges) => void;
+	allCanManage?: boolean;
+	organizeDisabled?: boolean;
 	compact?: boolean;
 	messageIds?: string[];
 	mailboxId?: string;

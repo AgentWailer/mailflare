@@ -49,3 +49,17 @@ test('account switch stops future chunks and ignores the old response',async t=>
  await mount(t,async()=>{calls++;await new Promise(resolve=>release=resolve);return data(['old-account-mail']);});
  await act(async()=>app.startReadAllTask(scope));await act(async()=>app.setClientSessionToken('new-session'));await act(async()=>release());await wait(()=>current===null);assert.equal(calls,1);
 });
+
+
+test('global selection prepares without mutation and every archive chunk keeps the full-folder snapshot',async t=>{
+ const requests=[];const prepared={snapshot:999,after:0,actorId:'owner',mailboxIds:['box'],total:3,unread:3,canManage:true};
+ await mount(t,async(_url,init)=>{const input=JSON.parse(init.body);requests.push(input);return input.action==='select'?Response.json(prepared):data(['mail-'+requests.length],requests.length===3);});
+ let selection;await act(async()=>selection=await app.prepareBulkScopeSelection(scope));assert.equal(current,null);assert.equal(requests.length,1);assert.equal(requests[0].action,'select');
+ await act(async()=>app.startBulkScopeTask(scope,selection,'archive'));await wait(()=>current?.status==='done');assert.equal(current.action,'archive');assert.equal(requests.length,3);for(const input of requests.slice(1)){assert.equal(input.action,'archive');assert.equal(input.snapshot,999);assert.equal(input.folder,'inbox');assert(!('messageIds' in input));}
+});
+
+test('global organization sends changes to the entire selection and preserves them on retry',async t=>{
+ const requests=[];await mount(t,async(_url,init)=>{requests.push(JSON.parse(init.body));return requests.length===1?Response.json({error:'offline'},{status:503}):data(['mail'],true);});
+ const selection={snapshot:999,after:0,actorId:'owner',mailboxIds:['box'],total:3,unread:3,canManage:true},changes={addLabelIds:['work'],category:'invoices'};
+ await act(async()=>app.startBulkScopeTask(scope,selection,'organize',undefined,changes));await wait(()=>current?.status==='failed');await act(async()=>app.retryReadAllTask());await wait(()=>current?.status==='done');assert.deepEqual(requests[0].organization,changes);assert.deepEqual(requests[1].organization,changes);assert.equal(requests[1].snapshot,999);
+});

@@ -12,21 +12,31 @@ import {
 } from "@/components/ui/dialog";
 import { authFetch } from "@/lib/auth/client";
 import { useMailboxFolders } from "./use-mailbox-folders";
+import type { OrganizationChanges } from "./read-all-task";
 import type { MailCategory } from "@/lib/mail-sorting/categories";
 
 export function MailOrganizationButton({
 	messageIds,
 	mailboxId,
 	onSaved,
+	onApplyAll,
+	allCount,
+	allCanManage = true,
+	disabled = false,
 }: {
 	messageIds: string[];
 	mailboxId: string;
 	onSaved?: () => void;
+	onApplyAll?: (changes: OrganizationChanges) => void;
+	allCount?: number;
+	allCanManage?: boolean;
+	disabled?: boolean;
 }) {
 	const { t } = useLanguage();
 	const folders = useMailboxFolders(mailboxId);
 	const [reason, setReason] = useState("");
 	const [open, setOpen] = useState(false);
+	const [labelMode, setLabelMode] = useState<"add" | "remove">("add");
 	const [labels, setLabels] = useState<string[]>([]);
 	const [category, setCategory] = useState<MailCategory | "">("");
 	const [categoryChanged, setCategoryChanged] = useState(false);
@@ -45,6 +55,10 @@ export function MailOrganizationButton({
 		setRemember(false);
 		setCategoryChanged(false);
 		setSkipChanged(false);
+		if (onApplyAll) {
+			setLabels([]); setInitialLabels([]); setCategory(""); setSkip(false); setReason(""); setLabelMode("add");
+			setCanManage(allCanManage); setPending(false); return;
+		}
 		try {
 			const params = new URLSearchParams({ mailboxId });
 			messageIds.forEach((id) => params.append("messageId", id));
@@ -112,6 +126,13 @@ export function MailOrganizationButton({
 		}
 	}
 	async function save() {
+		if (onApplyAll) {
+			onApplyAll({
+				...(labels.length ? labelMode === "add" ? { addLabelIds: labels } : { removeLabelIds: labels } : {}),
+				...(categoryChanged && category ? { category } : {}), ...(skipChanged ? { skipInbox: skip } : {}),
+			});
+			setOpen(false); return;
+		}
 		setPending(true);
 		setError("");
 		try {
@@ -146,6 +167,7 @@ export function MailOrganizationButton({
 				className="min-h-11 min-w-11"
 				aria-label={t("smart.organize")}
 				title={t("smart.organize")}
+				disabled={disabled}
 				onClick={() => void show()}
 			>
 				<Tags className="h-4 w-4" />
@@ -154,7 +176,7 @@ export function MailOrganizationButton({
 				<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle>{t("smart.organize")}</DialogTitle>
-						<DialogDescription>{t("smart.organizeHelp")}</DialogDescription>
+						<DialogDescription>{onApplyAll ? t("list.organizeAllHelp", { count: allCount ?? 0 }) : t("smart.organizeHelp")}</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						{reason && messageIds.length === 1 && (
@@ -180,6 +202,12 @@ export function MailOrganizationButton({
 <option value="orders">{t("smart.orders")}</option>
 							</select>
 						</label>
+						{onApplyAll && <label className="grid gap-2 text-sm">
+							{t("smart.labels")}
+							<select aria-label={t("list.allLabelMode")} value={labelMode} onChange={event => setLabelMode(event.target.value as "add" | "remove")} className="min-h-11 rounded-lg border border-neutral-200 bg-white px-3 text-base">
+								<option value="add">{t("list.allAddLabels")}</option><option value="remove">{t("list.allRemoveLabels")}</option>
+							</select>
+						</label>}
 						<fieldset disabled={pending || !canManage}>
 							<legend className="mb-2 text-sm font-medium">
 								{t("smart.labels")}
@@ -218,7 +246,7 @@ export function MailOrganizationButton({
 							/>
 							{t("smart.skip")}
 						</label>
-						<label className="flex min-h-11 items-center gap-3 text-sm">
+						{!onApplyAll && <label className="flex min-h-11 items-center gap-3 text-sm">
 							<input
 								type="checkbox"
 								checked={remember}
@@ -226,7 +254,7 @@ export function MailOrganizationButton({
 								onChange={(event) => setRemember(event.target.checked)}
 							/>
 							{t("smart.remember")}
-						</label>
+						</label>}
 						<p className="text-xs text-neutral-500">{t("smart.learningHelp")}</p>
 						<p className="text-xs text-neutral-500">{t("smart.inboxHelp")}</p>
 						{error && (
@@ -239,7 +267,7 @@ export function MailOrganizationButton({
 								{t("common.cancel")}
 							</Button>
 							<Button
-								disabled={pending || !canManage}
+								disabled={pending || !canManage || (!!onApplyAll && !labels.length && !(categoryChanged && category) && !skipChanged)}
 								onClick={() => void save()}
 							>
 								{pending ? t("common.saving") : t("rules.saveChanges")}

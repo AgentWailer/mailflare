@@ -8,6 +8,7 @@ export const PULL_REFRESH_THRESHOLD = 56;
 export function usePullToRefresh({ enabled, busy, onRefresh }: { enabled: boolean; busy: boolean; onRefresh: () => Promise<void> }) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [distance, setDistance] = useState(0);
+	const [dragging, setDragging] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const refreshingRef = useRef(false);
 	const latest = useRef({ busy, onRefresh });
@@ -23,7 +24,7 @@ export function usePullToRefresh({ enabled, busy, onRefresh }: { enabled: boolea
 			cancelAnimationFrame(frame);
 			frame = requestAnimationFrame(() => { if (!disposed) setDistance(value); });
 		};
-		const cancel = () => { start = null; pulled = 0; if (!refreshingRef.current) display(0); };
+		const cancel = () => { setDragging(false); start = null; pulled = 0; if (!refreshingRef.current) display(0); };
 		const onStart = (event: TouchEvent) => {
 			if (event.touches.length !== 1) { cancel(); return; }
 			if (refreshingRef.current || latest.current.busy || element.scrollTop > 0) return;
@@ -40,9 +41,11 @@ export function usePullToRefresh({ enabled, busy, onRefresh }: { enabled: boolea
 				if (dx > 10 && dx > Math.abs(dy) || dy < -10) { cancel(); return; }
 				if (dy < 10 || dy <= dx * 1.25) return;
 				start.active = true;
+				setDragging(true);
 			}
 			if (event.cancelable) event.preventDefault();
-			pulled = Math.min(96, Math.max(0, dy * 0.55));
+			// Gradually increasing resistance avoids the abrupt stop at a hard distance limit.
+			pulled = 96 * (1 - Math.exp(-Math.max(0, dy) / 120));
 			display(pulled);
 		};
 		const onEnd = (event: TouchEvent) => {
@@ -52,7 +55,11 @@ export function usePullToRefresh({ enabled, busy, onRefresh }: { enabled: boolea
 			refreshingRef.current = true;
 			setRefreshing(true);
 			display(48);
-			void latest.current.onRefresh().catch(() => undefined).finally(() => {
+			const startedAt = Date.now();
+			void latest.current.onRefresh().catch(() => undefined).finally(async () => {
+				// A fast response should still give the release and return animation time to settle.
+				const remaining = 300 - (Date.now() - startedAt);
+				if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
 				refreshingRef.current = false;
 				setRefreshing(false);
 				if (!disposed) display(0);
@@ -73,5 +80,5 @@ export function usePullToRefresh({ enabled, busy, onRefresh }: { enabled: boolea
 			element.removeEventListener("touchcancel", cancel);
 		};
 	}, [enabled]);
-	return { scrollRef, distance: enabled ? distance : 0, refreshing, ready: distance >= PULL_REFRESH_THRESHOLD };
+	return { scrollRef, distance: enabled ? distance : 0, refreshing, dragging: enabled && dragging, ready: distance >= PULL_REFRESH_THRESHOLD };
 }
