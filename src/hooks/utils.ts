@@ -31,7 +31,7 @@ export function getMessageQueryParams(
 	// All incoming mail, regardless of category, label, status or snooze state.
 	if (folder === "all") params.set("direction", "inbound");
 
-	if (folder === "inbox" || folder === "promotions" || folder === "social") {
+	if (folder === "inbox" || folder === "promotions" || folder === "social" || folder === "invoices" || folder === "orders") {
 		params.set("direction", "inbound");
 		params.set("status", "received");
 		if(!folderId) params.set("category",folder === "inbox" ? "primary" : folder);

@@ -70,10 +70,12 @@ Import jobs belong to the mail group in database backups; restoring active jobs 
 
 ## Optional AI follow-up sorting
 
-Under each import, **Settings → Import → AI follow-up sorting** starts a separate, persistent background job. It checks only inbound messages imported by that job that are still in the general inbox, have no direct folder assignment and have no previous sorting decision. Already classified promotions/social mail, spam, trash, archived mail, sent mail, drafts and manual corrections are excluded. Source/custom labels, read flags, contact images, attachments and the original archive remain intact.
+Under each import, **Settings → Import → AI follow-up sorting** starts a separate, persistent background job. It checks unassigned imported Primary mail in the inbox/archive and older automatic Primary decisions from policies before version 4, without a direct folder assignment. Already classified promotions/social/financial mail, spam, trash, sent mail, drafts, snoozed mail and manual corrections are excluded. Source/custom labels, read flags, archive status, contact images, attachments and the original archive remain intact.
 
 The job reuses the mailbox's configured Clef classifier, protection for security alerts/transactions, sender preferences and confirmed learning examples. Historical Authentication-Results headers are not treated as current receiver evidence. It updates categories without replaying delivery, forwarding, learning feedback or phone/browser notifications. A manual change made during an AI request wins the conditional database update.
 
 Clear protected/routine mail needs no model call. Other messages use at most half of the existing shared mailbox AI daily limit, leaving the remainder for newly arriving mail. The default shared limit of 1,000 means archive AI calls stop once total mailbox usage reaches 500 that UTC day. The global limit is not increased. Reaching this allowance pauses work until the next day; model/storage failures leave the category unchanged and retry, stopping after three consecutive failures. Actual model charges still depend on token use.
 
 Progress is independent of the MBOX import and survives a closed browser. It can be paused/resumed separately. When it catches up with the import it waits for additional imported messages, then completes when the import is finished and all eligible messages have been checked. Restoring a database backup pauses this job and clears its execution lease.
+
+See [Categories and learning](mail-categories.md) for transaction categories and confirmed correction examples.

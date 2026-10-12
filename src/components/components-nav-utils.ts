@@ -4,7 +4,7 @@ import type { MessageFolder } from "@/hooks/types";
 export async function preloadMailboxPage(href: string, mailboxId?: string) {
 	const customFolderMatch = href.match(/^\/folders\/([^/]+)$/);
 	const folder = (customFolderMatch ? "inbox" : href.slice(1)) as MessageFolder;
-	const supportedFolders: MessageFolder[] = ["inbox", "promotions", "social", "starred", "all", "snoozed", "sent", "scheduled", "drafts", "archived", "spam", "trash"];
+	const supportedFolders: MessageFolder[] = ["inbox", "promotions", "social", "invoices", "orders", "starred", "all", "snoozed", "sent", "scheduled", "drafts", "archived", "spam", "trash"];
 	if (!supportedFolders.includes(folder)) return;
 
 	const params = getMessageQueryParams(

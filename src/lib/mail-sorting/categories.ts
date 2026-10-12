@@ -1,4 +1,4 @@
-export const MAIL_CATEGORIES = ["primary", "promotions", "social"] as const;
+export const MAIL_CATEGORIES = ["primary", "invoices", "promotions", "social", "orders"] as const;
 export type MailCategory = (typeof MAIL_CATEGORIES)[number];
 export function isMailCategory(value: unknown): value is MailCategory {
 	return MAIL_CATEGORIES.includes(value as MailCategory);
@@ -18,7 +18,7 @@ export type SortingDecision = {
 	securityProbability?: number;
 	learningExamples?: number;
 };
-/** The same policy gates phone, browser alerts and the app badge. */
+/** Primary list membership. Financial categories have their own views. */
 export function isPrimaryInboxMail(message: {
 	status: string;
 	folderId?: string | null;
@@ -37,5 +37,6 @@ export function isPrimaryInboxMail(message: {
 }
 
 export function shouldNotifyMail(message:Parameters<typeof isPrimaryInboxMail>[0]):boolean {
- return isPrimaryInboxMail(message) && message.read !== true;
+ // Moving transactions to their own category must not suppress their existing alerts.
+ return isPrimaryInboxMail({ ...message, category: message.category === "invoices" || message.category === "orders" ? "primary" : message.category }) && message.read !== true;
 }

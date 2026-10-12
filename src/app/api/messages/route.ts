@@ -29,6 +29,8 @@ export async function GET(request: Request) {
 	const mailboxId = url.searchParams.get("mailboxId");
 	const folderId = url.searchParams.get("folderId");
 	const status = url.searchParams.get("status");
+	const requestedCategory = url.searchParams.get("category") ?? "primary";
+	const financialView = !folderId && (requestedCategory === "invoices" || requestedCategory === "orders") && status === "received";
 	const query = url.searchParams.get("q")?.trim();
 	const title = url.searchParams.get("title")?.trim();
 	const read = url.searchParams.get("read");
@@ -63,14 +65,14 @@ export async function GET(request: Request) {
 		conditions.push(labelCondition(folderId));
 	}
 	if (status) {
-		conditions.push(folderId && status === "received" ? inArray(messages.status,["received","archived"]) : eq(messages.status, status));
+		conditions.push((folderId && status === "received") || financialView ? inArray(messages.status,["received","archived"]) : eq(messages.status, status));
 	}
 	// Composer templates are stored as messages but never listed.
 	if (status !== "template") {
 		conditions.push(ne(messages.status, "template"));
 	}
 	if (status === "received" && !folderId) {
-		const category = url.searchParams.get("category") ?? "primary";
+		const category = requestedCategory;
 		if (!isMailCategory(category)) return NextResponse.json({error:"Invalid category"},{status:400});
 		conditions.push(eq(messages.category,category));
 		if(category === "primary") conditions.push(isNull(messages.folderId));

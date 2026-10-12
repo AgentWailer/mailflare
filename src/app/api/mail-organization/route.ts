@@ -21,7 +21,7 @@ const mutation = selection
 		labelIds: z.array(z.string().min(1)).max(50).optional(),
 		addLabelIds: z.array(z.string().min(1)).max(50).optional(),
 		removeLabelIds: z.array(z.string().min(1)).max(50).optional(),
-		category: z.enum(["primary", "promotions", "social"]).optional(),
+		category: z.enum(["primary", "promotions", "social", "invoices", "orders"]).optional(),
 		skipInbox: z.boolean().optional(),
 		rememberSender: z.boolean().default(false),
 	})

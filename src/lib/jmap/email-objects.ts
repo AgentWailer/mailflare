@@ -43,8 +43,8 @@ export function mailboxIdsFor(
 				encodeMailboxRef({ kind: "folder", mailboxId: row.mailboxId, folderId })
 			] = true;
 	if (
-		row.status === "received" &&
-		(row.category === "promotions" || row.category === "social")
+		row.direction === "inbound" && (row.status === "received" || row.status === "archived" && (row.category === "invoices" || row.category === "orders")) &&
+		(row.category === "promotions" || row.category === "social" || row.category === "invoices" || row.category === "orders")
 	)
 		ids[
 			encodeMailboxRef({
@@ -53,7 +53,7 @@ export function mailboxIdsFor(
 				category: row.category,
 			})
 		] = true;
-	else if (!row.folderId || row.status !== "received") {
+	if ((!row.folderId || row.status !== "received") && (row.status !== "received" || row.category === "primary")) {
 		const role = statusToRole(row.status);
 		if (role)
 			ids[encodeMailboxRef({ kind: "role", mailboxId: row.mailboxId, role })] =

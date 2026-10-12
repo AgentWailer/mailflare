@@ -81,7 +81,7 @@ export function R2MboxImport() {
      <p className="text-xs text-neutral-500">{t("mbox.sorting.description")}</p>
      {!job.sorting && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage || !query.data?.sortingAvailable} onClick={() => void sort(job.id, "start")}>{t("mbox.sorting.start")}</Button>}
      {job.sorting && <>
-      <p aria-live="polite" className="break-words">{t(`mbox.sorting.status.${job.sorting.status}`)} · {t("mbox.sorting.summary", { processed: job.sorting.processed, promotions: job.sorting.promotions, social: job.sorting.social, primary: job.sorting.primary })}</p>
+      <p aria-live="polite" className="break-words">{t(`mbox.sorting.status.${job.sorting.status}`)} · {t("mbox.sorting.summary", { processed: job.sorting.processed, promotions: job.sorting.promotions, social: job.sorting.social, invoices: job.sorting.invoices ?? 0, orders: job.sorting.orders ?? 0, primary: job.sorting.primary })}</p>
       {job.sorting.waitReason && <p className="text-xs text-neutral-500">{t(`mbox.sorting.wait.${job.sorting.waitReason}`)}</p>}
       {job.sorting.error && <p role="alert" className="break-words text-red-600">{job.sorting.error}</p>}
       <div className="flex flex-wrap gap-2">

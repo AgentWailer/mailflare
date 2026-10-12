@@ -13,7 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 export function MailHeader({ assistantEnabled, assistantOpen, onToggleAssistant }: { assistantEnabled: boolean | null; assistantOpen: boolean; onToggleAssistant: () => void }) {
 	const { t } = useLanguage();
 	const pathname = usePathname();
-	const readingMessage = /^\/(inbox|all|promotions|social|starred|snoozed|sent|scheduled|archived|spam|trash)\/[^/]+\/?$/.test(pathname) || /^\/folders\/[^/]+\/[^/]+\/?$/.test(pathname);
+	const readingMessage = /^\/(inbox|all|promotions|social|invoices|orders|starred|snoozed|sent|scheduled|archived|spam|trash)\/[^/]+\/?$/.test(pathname) || /^\/folders\/[^/]+\/[^/]+\/?$/.test(pathname);
 	return (
 		<header className={clsx("mail-mobile-header flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm max-md:gap-1 max-md:pr-2", readingMessage && !assistantOpen && "max-lg:hidden")}>
 			<MobileMenuButton className="ml-2" />

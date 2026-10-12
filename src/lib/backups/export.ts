@@ -24,6 +24,8 @@ const INTERNAL_TABLE_PATTERNS = ["sqlite_%", "_cf%", "messages_fts%"];
  * restored, so it is neither exported nor part of the coverage check.
  */
 const INTERNAL_TABLES = [
+	// Transient CHECK-constraint rebuild during 0069; canonical feedback is backed up.
+	"mail_sorting_feedback_v4",
 	// Short-lived, single-use OAuth state and PKCE verifiers must never be restored.
 	"gmail_oauth_states",
 	"d1_migrations",

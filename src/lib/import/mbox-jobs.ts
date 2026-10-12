@@ -193,8 +193,14 @@ export async function processMboxJob(env: CloudflareEnv, id: string) {
   if (!count && live?.status === "running" && job.byte_offset < job.object_size) throw new Error("No complete messages found in this MBOX archive");
   await env.DB.prepare("UPDATE mbox_import_jobs SET status=CASE WHEN byte_offset>=object_size THEN 'completed' WHEN status='paused' THEN 'paused' ELSE 'pending' END,lease_token=NULL,lease_until=0,updated_at=? WHERE id=? AND lease_token=?").bind(Date.now(), id, lease).run();
  } catch (error) {
+  // Drizzle's outer message starts with the whole SQL query and hides D1's cause
+  // when truncated. Report the underlying error without leaking query values.
+  let cause = error;
+  for (let depth = 0; depth < 4 && cause instanceof Error && cause.cause instanceof Error; depth++) cause = cause.cause;
+  const message = cause instanceof Error && !cause.message.startsWith("Failed query:")
+   ? cause.message.slice(0, 350) : "Database write failed; resume to retry. Query values are hidden.";
   await env.DB.prepare("UPDATE mbox_import_jobs SET status=CASE WHEN status='paused' THEN 'paused' ELSE 'failed' END,error=?,blocked_next_offset=?,lease_token=NULL,lease_until=0,updated_at=? WHERE id=? AND lease_token=?")
-   .bind(error instanceof Error ? error.message.slice(0, 350) : "MBOX import failed; resume to retry", blockedOffset, Date.now(), id, lease).run();
+   .bind(message, blockedOffset, Date.now(), id, lease).run();
  }
  const saved = await loadJob(env, id);
  if (saved?.status === "pending") await enqueue(env, id);

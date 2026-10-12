@@ -11,7 +11,7 @@ import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
 
-const folders: MessageFolder[] = ["inbox", "promotions", "social", "starred", "all", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
+const folders: MessageFolder[] = ["inbox", "promotions", "social", "invoices", "orders", "starred", "all", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -40,9 +40,9 @@ export async function GET(request: Request) {
 			: eq(messages.userId, user.id));
 	}
 
-	if (folder === "inbox" || folder === "promotions" || folder === "social") {
+	if (folder === "inbox" || folder === "promotions" || folder === "social" || folder === "invoices" || folder === "orders") {
 		conditions.push(eq(messages.direction, "inbound"));
-		conditions.push(folderId ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
+		conditions.push(folderId || folder === "invoices" || folder === "orders" ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
 		if (!folderId) {
 			conditions.push(eq(messages.category,folder === "inbox" ? "primary" : folder));
 			if(folder === "inbox") conditions.push(isNull(messages.folderId));

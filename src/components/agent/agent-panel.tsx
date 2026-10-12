@@ -56,7 +56,7 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 	const stickToBottomRef = useRef(true);
 	const selectedConversationRef = useRef<string | null>(null);
 	const mailboxId = selectedMailbox?.id;
-	const selectedMessageId = pathname.match(/^\/(?:inbox|promotions|social|all|sent|archived|spam|trash|starred|snoozed|folders\/[^/]+)\/([^/]+)/)?.[1] ?? null;
+	const selectedMessageId = pathname.match(/^\/(?:inbox|promotions|social|invoices|orders|all|sent|archived|spam|trash|starred|snoozed|folders\/[^/]+)\/([^/]+)/)?.[1] ?? null;
 	useEffect(() => {
 		const onRequest = (event: Event) => {
 			const request = (event as CustomEvent<MessageAssistantRequest>).detail;

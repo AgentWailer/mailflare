@@ -12,15 +12,15 @@ import type { MboxJob } from "./mbox-jobs";
 export type MboxSortingJob = {
  import_job_id: string; user_id: string; mailbox_id: string;
  status: "pending" | "running" | "waiting" | "paused" | "failed" | "completed";
- processed: number; primary_count: number; promotions_count: number; social_count: number;
+ processed: number; primary_count: number; promotions_count: number; social_count: number; invoices_count: number; orders_count: number;
  error: string | null; wait_reason: "import" | "daily_limit" | "retry" | "sorting_disabled" | null; retry_at: number; consecutive_failures: number;
  lease_token: string | null; lease_until: number; created_at: number; updated_at: number;
 };
 type Candidate = { id: string; user_id: string; from_addr: string; to_addr: string; subject: string | null;
  text_body: string | null; html_body: string | null; raw_r2_key: string | null; in_reply_to: string | null; spam_score: number | null };
 const LEASE_MS = 5 * 60_000;
-// The partial index exactly matches this eligibility condition. Labels alone are not a category.
-const ELIGIBLE = "direction='inbound' AND status='received' AND category='primary' AND folder_id IS NULL AND sorting_decision IS NULL AND snoozed_until IS NULL";
+// The partial index covers status/category placement; decision versions exclude already processed/manual mail.
+const ELIGIBLE = "direction='inbound' AND status IN ('received','archived') AND category='primary' AND folder_id IS NULL AND snoozed_until IS NULL AND (sorting_decision IS NULL OR CASE WHEN json_valid(sorting_decision) THEN json_extract(sorting_decision,'$.source') IN ('rule','clef','fallback') AND coalesce(json_extract(sorting_decision,'$.policyVersion'),0)<4 ELSE 0 END)";
 const load = (env: CloudflareEnv, id: string) => env.DB.prepare("SELECT * FROM mbox_sorting_jobs WHERE import_job_id=?").bind(id).first<MboxSortingJob>();
 const parent = (env: CloudflareEnv, id: string) => env.DB.prepare("SELECT * FROM mbox_import_jobs WHERE id=?").bind(id).first<MboxJob>();
 const bounds = (id: string) => [`msg_mbox_${id}_`, `msg_mbox_${id}\``] as const;
@@ -30,7 +30,7 @@ async function enqueue(env: CloudflareEnv, id: string) {
 }
 export function publicMboxSortingJob(job: MboxSortingJob) {
  return { status: job.status, processed: job.processed, primary: job.primary_count, promotions: job.promotions_count,
-  social: job.social_count, error: job.error, waitReason: job.wait_reason, retryAt: job.retry_at };
+  social: job.social_count, invoices: job.invoices_count ?? 0, orders: job.orders_count ?? 0, error: job.error, waitReason: job.wait_reason, retryAt: job.retry_at };
 }
 export async function getMboxSortingJobs(env: CloudflareEnv, mailboxId: string) {
  if (!await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mbox_sorting_jobs'").first()) return new Map<string, ReturnType<typeof publicMboxSortingJob>>();
@@ -141,8 +141,8 @@ export async function processMboxSortingJob(env: CloudflareEnv, id: string) {
    await env.DB.batch([
     env.DB.prepare(`UPDATE messages SET category=?,sorting_decision=? WHERE id=? AND mailbox_id=? AND ${ELIGIBLE} AND EXISTS(SELECT 1 FROM mbox_sorting_jobs WHERE import_job_id=? AND lease_token=?)`)
      .bind(decision.category, recorded, message.id, job.mailbox_id, id, lease),
-    env.DB.prepare("UPDATE mbox_sorting_jobs SET processed=processed+1,primary_count=primary_count+?,promotions_count=promotions_count+?,social_count=social_count+?,consecutive_failures=0,updated_at=?,lease_until=? WHERE import_job_id=? AND lease_token=? AND EXISTS(SELECT 1 FROM messages WHERE id=? AND sorting_decision=?)")
-     .bind(Number(decision.category === "primary"), Number(decision.category === "promotions"), Number(decision.category === "social"), Date.now(), Date.now() + LEASE_MS, id, lease, message.id, recorded),
+    env.DB.prepare("UPDATE mbox_sorting_jobs SET processed=processed+1,primary_count=primary_count+?,promotions_count=promotions_count+?,social_count=social_count+?,invoices_count=invoices_count+?,orders_count=orders_count+?,consecutive_failures=0,updated_at=?,lease_until=? WHERE import_job_id=? AND lease_token=? AND EXISTS(SELECT 1 FROM messages WHERE id=? AND sorting_decision=?)")
+     .bind(Number(decision.category === "primary"), Number(decision.category === "promotions"), Number(decision.category === "social"), Number(decision.category === "invoices"), Number(decision.category === "orders"), Date.now(), Date.now() + LEASE_MS, id, lease, message.id, recorded),
    ]);
    if (Date.now() - now >= 15_000) break;
   }

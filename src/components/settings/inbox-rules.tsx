@@ -62,7 +62,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 	const [labelCreating, setLabelCreating] = useState(false);
 	const [labels, setLabels] = useState<string[]>([]);
 	const [category, setCategory] = useState<
-		"primary" | "promotions" | "social" | ""
+		"primary" | "promotions" | "social" | "invoices" | "orders" | ""
 	>("");
 	const [destination, setDestination] = useState("keep");
 	const [skip, setSkip] = useState(false);
@@ -205,7 +205,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 												? "smart.primary"
 												: rule.category === "social"
 													? "smart.social"
-													: "smart.promotions",
+													: rule.category === "invoices" ? "smart.invoices" : rule.category === "orders" ? "smart.orders" : "smart.promotions",
 										)
 									: rule.action === "spam"
 										? t("navigation.spam")
@@ -387,6 +387,8 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 									<option value="primary">{t("smart.primary")}</option>
 									<option value="promotions">{t("smart.promotions")}</option>
 									<option value="social">{t("smart.social")}</option>
+<option value="invoices">{t("smart.invoices")}</option>
+<option value="orders">{t("smart.orders")}</option>
 								</RoutingRuleSelect>
 							</label>
 							<label className="grid gap-1 text-sm">

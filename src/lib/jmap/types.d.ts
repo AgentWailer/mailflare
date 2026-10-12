@@ -37,7 +37,7 @@ export type JmapMethodHandler = (ctx: JmapContext, args: Record<string, unknown>
 
 /** How a JMAP Mailbox id maps onto Mailflare's mailbox × status/folder model. */
 export type MailboxRef =
- | {kind:"category";mailboxId:string;category:"promotions"|"social"}
+ | {kind:"category";mailboxId:string;category:"promotions"|"social"|"invoices"|"orders"}
 	| { kind: "account"; mailboxId: string }
 	| { kind: "role"; mailboxId: string; role: SystemRole }
 	| { kind: "folder"; mailboxId: string; folderId: string };

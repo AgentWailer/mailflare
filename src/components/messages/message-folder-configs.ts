@@ -1,3 +1,4 @@
+import { ReceiptText, Package } from "lucide-react";
 import { Megaphone, Users, Archive, Clock, CalendarClock, Mails, MailOpen, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
 import type { MessageFolderConfig } from "./types";
 
@@ -104,3 +105,6 @@ export const trashFolderConfig: MessageFolderConfig = {
 
 export const promotionsFolderConfig: MessageFolderConfig = {folder:"promotions",title:"Promotions",titleKey:"smart.promotions",emptyTextKey:"smart.empty",emptyText:"No promotions",hrefPrefix:"/promotions",icon:Megaphone};
 export const socialFolderConfig: MessageFolderConfig = {folder:"social",title:"Social",titleKey:"smart.social",emptyTextKey:"smart.empty",emptyText:"No social updates",hrefPrefix:"/social",icon:Users};
+
+export const invoicesFolderConfig: MessageFolderConfig = {folder:"invoices",title:"Invoices",titleKey:"smart.invoices",emptyTextKey:"smart.empty",emptyText:"No invoices",hrefPrefix:"/invoices",icon:ReceiptText};
+export const ordersFolderConfig: MessageFolderConfig = {folder:"orders",title:"Orders",titleKey:"smart.orders",emptyTextKey:"smart.empty",emptyText:"No orders",hrefPrefix:"/orders",icon:Package};

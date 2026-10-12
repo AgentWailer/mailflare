@@ -5,6 +5,7 @@ import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authFetch } from "@/lib/auth/client";
+import { MAIL_CATEGORIES, type MailCategory } from "@/lib/mail-sorting/categories";
 type Settings = {
 	mode: "active" | "observe" | "off";
 	dailyLimit: number;
@@ -14,6 +15,7 @@ type State = {
 	settings: Settings;
 	available: boolean;
 	learningExamples: number;
+	learningSummary?: Array<{category:MailCategory;count:number}>;
 	usage: { requests: number; inputTokens: number };
 	overrides: Array<{ sender: string; category: string }>;
 };
@@ -101,7 +103,7 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 		try {
 			const response = await authFetch("/api/settings/mail-sorting", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId, clearLearning: true }) });
 			if (!response.ok) throw new Error();
-			setData((current) => current ? { ...current, learningExamples: 0 } : null);
+			setData((current) => current ? { ...current, learningExamples: 0, learningSummary: [] } : null);
 		} catch { setNotice(t("smart.failed")); }
 		finally { setPending(false); }
 	}
@@ -163,6 +165,8 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 						</label>
 					</div>
 					<p className="text-sm text-neutral-500">{t("smart.learningCount", { count: data.learningExamples ?? 0 })}</p>
+					<p className="text-sm text-neutral-500">{t("smart.learningMethod")}</p>
+					{data.learningSummary && <div className="space-y-2"><h4 className="text-sm font-medium">{t("smart.learningSummary")}</h4><div className="flex flex-wrap gap-2">{MAIL_CATEGORIES.map(category => <span key={category} className="rounded-lg bg-neutral-100 px-3 py-2 text-sm">{t(`smart.${category}`)}: {data.learningSummary?.find(row => row.category === category)?.count ?? 0}</span>)}</div></div>}
 					{!!data.learningExamples && <Button variant="outline" disabled={pending} onClick={() => void clearLearning()}>{t("smart.clearLearning")}</Button>}
 					{!data.available && (
 						<p role="status" className="text-sm text-amber-700">
@@ -193,7 +197,7 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 												? "smart.primary"
 												: item.category === "social"
 													? "smart.social"
-													: "smart.promotions",
+													: item.category === "invoices" ? "smart.invoices" : item.category === "orders" ? "smart.orders" : "smart.promotions",
 										)}
 									</span>
 									<Button

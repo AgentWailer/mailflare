@@ -176,6 +176,8 @@ export function MailOrganizationButton({
 								<option value="primary">{t("smart.primary")}</option>
 								<option value="promotions">{t("smart.promotions")}</option>
 								<option value="social">{t("smart.social")}</option>
+<option value="invoices">{t("smart.invoices")}</option>
+<option value="orders">{t("smart.orders")}</option>
 							</select>
 						</label>
 						<fieldset disabled={pending || !canManage}>

@@ -8,6 +8,8 @@ import { resolveThreadId } from "@/lib/email/threading";
 import { upsertContactFromAddress } from "@/lib/contacts/service";
 import { newId } from "@/lib/ids";
 import { getImportMessagePlacement } from "./destination";
+import { resolveTransactionMail } from "@/lib/mail-sorting/routine";
+import { htmlToReadableText } from "@/lib/email/reply-content-utils";
 import type { ImportDestination } from "./destination-types";
 import type { ImportMailboxResult, ImportMessageInput } from "./types";
 
@@ -79,6 +81,12 @@ export async function importMessageToMailbox(
 	const createdAt = input.metadata?.date ?? parsed.date ?? new Date();
 	const placement = getImportMessagePlacement(input.destination);
 	const direction = input.metadata?.direction ?? placement.direction;
+	let category = input.metadata?.category ?? "primary";
+	if (direction === "inbound" && (category === "primary" || category === "orders")) {
+		const transaction = resolveTransactionMail({ sender: fromAddr, subject: parsed.subject,
+			text: `${parsed.text ?? ""}\n${htmlToReadableText(parsed.html?.slice(0, 64000))}`.slice(0, 6000) });
+		if (transaction && (category === "primary" || transaction.category === "invoices")) category = transaction.category;
+	}
 
 	await db.insert(messages).values({
 		id: messageId,
@@ -99,7 +107,7 @@ export async function importMessageToMailbox(
 		status: input.stagingId ? "importing" : placement.status,
 		read: input.metadata?.read ?? direction === "outbound",
 		starred: input.metadata?.starred ?? false,
-		category: input.metadata?.category ?? "primary",
+		category,
 		threadId: input.metadata?.threadId ?? await resolveThreadId(db, {
 			mailboxId: input.mailboxId,
 			messageId: parsed.messageId,

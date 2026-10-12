@@ -237,7 +237,7 @@ function targetFromMailboxIds(
 			status?: string;
 			folderId?: string | null;
 			labelIds?: string[];
-			category?: "primary" | "promotions" | "social";
+			category?: "primary" | "promotions" | "social" | "invoices" | "orders";
 	  }
 	| { error: Record<string, unknown> }
 	| null {
@@ -288,14 +288,15 @@ function targetFromMailboxIds(
 	)
 		return invalid;
 	const destinations = refs.filter((ref) => ref && ref.kind !== "folder");
-	if (destinations.length > 1) return invalid;
+	const archivedTransaction = destinations.length === 2 && destinations.some(ref => ref?.kind === "role" && ref.role === "archive") && destinations.some(ref => ref?.kind === "category" && (ref.category === "invoices" || ref.category === "orders"));
+	if (destinations.length > 1 && !archivedTransaction) return invalid;
 	const labels = refs.flatMap((ref) =>
 		ref?.kind === "folder" ? [ref.folderId] : [],
 	);
-	const destination = destinations[0];
+	const destination = archivedTransaction ? destinations.find(ref => ref?.kind === "category") : destinations[0];
 	if (destination?.kind === "category")
 		return {
-			status: "received",
+			status: archivedTransaction ? "archived" : "received",
 			folderId: null,
 			labelIds: labels,
 			category: destination.category,

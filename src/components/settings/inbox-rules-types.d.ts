@@ -7,7 +7,7 @@ export type RuleFolder = {
 
 export type InboxRule = {
 	id: string;
- enabled:boolean;conditions:string;conditionMode:"all"|"any";labelIds:string;category:"primary"|"promotions"|"social"|null;skipInbox:boolean;
+ enabled:boolean;conditions:string;conditionMode:"all"|"any";labelIds:string;category:"primary"|"promotions"|"social"|"invoices"|"orders"|null;skipInbox:boolean;
 	pattern: string;
 	matchField: "email" | "sender" | "recipient" | "content" | "title";
 	matchOperator: "contains" | "exact" | "starts_with" | "ends_with";
@@ -19,7 +19,7 @@ export type InboxRule = {
 };
 
 export type InboxRuleInput = {
- enabled?:boolean;conditions?:RuleCondition[];conditionMode?:"all"|"any";labelIds?:string[];category?:"primary"|"promotions"|"social";skipInbox?:boolean;
+ enabled?:boolean;conditions?:RuleCondition[];conditionMode?:"all"|"any";labelIds?:string[];category?:"primary"|"promotions"|"social"|"invoices"|"orders";skipInbox?:boolean;
 	mailboxId: string;
 	matchField: "email" | "sender" | "recipient" | "content" | "title";
 	matchOperator: "contains" | "exact" | "starts_with" | "ends_with";

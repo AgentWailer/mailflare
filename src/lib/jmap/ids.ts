@@ -21,7 +21,7 @@ export function decodeMailboxRef(id: string): MailboxRef | null {
 	if (parts.length === 2 && (SYSTEM_ROLES as string[]).includes(parts[1])) {
 		return { kind: "role", mailboxId: parts[0], role: parts[1] as SystemRole };
 	}
-	if(parts.length === 3 && parts[1] === "c" && (parts[2] === "promotions" || parts[2] === "social")) return {kind:"category",mailboxId:parts[0],category:parts[2]};
+	if(parts.length === 3 && parts[1] === "c" && (parts[2] === "promotions" || parts[2] === "social" || parts[2] === "invoices" || parts[2] === "orders")) return {kind:"category",mailboxId:parts[0],category:parts[2]};
 	if (parts.length === 3 && parts[1] === "f" && parts[2]) return { kind: "folder", mailboxId: parts[0], folderId: parts[2] };
 	return null;
 }

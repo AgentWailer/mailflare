@@ -266,7 +266,7 @@ export const routingRuleSchema = z.object({
  conditions: z.array(z.object({field:z.enum(["email","sender","recipient","title","content"]),operator:z.enum(["contains","exact","starts_with","ends_with"]),value:z.string().trim().min(1).max(500),negate:z.boolean().default(false)})).max(12).default([]),
  conditionMode:z.enum(["all","any"]).default("all"),
  labelIds:z.array(z.string().min(1)).max(50).default([]),
- category:z.enum(["primary","promotions","social"]).optional(),
+ category:z.enum(["primary","promotions","social","invoices","orders"]).optional(),
  skipInbox:z.boolean().default(false),
 });
 

@@ -9,7 +9,7 @@ export type ImportMessageInput = {
 	raw: ArrayBuffer;
 	metadata?: {
 		read: boolean; starred: boolean; direction: "inbound" | "outbound";
-		category: "primary" | "promotions" | "social";
+		category: "primary" | "promotions" | "social" | "invoices" | "orders";
 		date?: Date; sourceKey?: string;
 		threadId?: string;
 	};

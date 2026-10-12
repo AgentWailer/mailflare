@@ -1,6 +1,6 @@
 export type MessageStatus = "received" | "sent" | "draft" | "queued" | "failed" | "archived" | "trash" | "spam";
 
-export type MessageFolder = "inbox" | "promotions" | "social" | "starred" | "all" | "snoozed" | "sent" | "scheduled" | "drafts" | "archived" | "trash" | "spam";
+export type MessageFolder = "inbox" | "promotions" | "social" | "invoices" | "orders" | "starred" | "all" | "snoozed" | "sent" | "scheduled" | "drafts" | "archived" | "trash" | "spam";
 
 export type MessageDirection = "inbound" | "outbound";
 
@@ -9,7 +9,7 @@ export type Message = {
 	userId: string;
 	mailboxId: string | null;
 	folderId: string | null;
-	category?: "primary" | "promotions" | "social";
+	category?: "primary" | "promotions" | "social" | "invoices" | "orders";
 	sortingDecision?: string | null;
 	labels?: Array<{id:string;name:string;color:string}>;
 	direction: MessageDirection;

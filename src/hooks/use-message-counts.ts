@@ -9,6 +9,8 @@ const emptyCounts: MessageCounts = {
 		inbox: { total: 0, unread: 0 },
 		promotions: { total: 0, unread: 0 },
 		social: { total: 0, unread: 0 },
+		invoices: { total: 0, unread: 0 },
+		orders: { total: 0, unread: 0 },
 		starred: { total: 0, unread: 0 },
 		all: { total: 0, unread: 0 },
 		snoozed: { total: 0, unread: 0 },

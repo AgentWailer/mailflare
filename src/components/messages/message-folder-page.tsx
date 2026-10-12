@@ -337,7 +337,7 @@ export function MessageFolderPage({
 	const mailboxAddress = getMailboxAddress(selectedMailbox);
 	const currentAccountName = selectedMailbox?.displayName ?? selectedMailbox?.localPart;
 	const pageRange = getPageRange(offset, messages.length, total);
-	const hasCategoryTabs = !config.folderId && ["inbox", "promotions", "social"].includes(config.folder);
+	const hasCategoryTabs = !config.folderId && ["inbox", "promotions", "social", "invoices", "orders"].includes(config.folder);
 	const selectedMessages = selection?.selectedMessages ?? internalSelectedMessages;
 	const setSelectedMessages =
 		selection?.setSelectedMessages ?? setInternalSelectedMessages;

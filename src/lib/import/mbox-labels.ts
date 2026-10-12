@@ -1,5 +1,6 @@
 import { decodeWords } from "postal-mime";
 import { gmailPlacement } from "./gmail-jobs";
+import { resolveTransactionMail } from "@/lib/mail-sorting/routine";
 
 const SYSTEM_LABELS: Record<string, string> = {
  inbox: "INBOX", posteingang: "INBOX", unread: "UNREAD", ungelesen: "UNREAD", geöffnet: "READ", read: "READ", gelesen: "READ", starred: "STARRED", markiert: "STARRED",
@@ -8,6 +9,10 @@ const SYSTEM_LABELS: Record<string, string> = {
  'category promotions': "CATEGORY_PROMOTIONS", 'category social': "CATEGORY_SOCIAL", 'category updates': "CATEGORY_UPDATES",
  'category forums': "CATEGORY_FORUMS", 'category personal': "CATEGORY_PERSONAL", archived: "ARCHIVED", archiviert: "ARCHIVED",
 };
+
+export function normalizeImportedLabel(label: string) {
+ return /^Abrechnungen[ _]+nach[ _]+Kategorie$/i.test(label.trim()) ? "Rechnung" : label;
+}
 
 export function mboxPlacement(raw: ArrayBuffer) {
  const bytes = new Uint8Array(raw, 0, Math.min(raw.byteLength, 64 * 1024));
@@ -33,7 +38,7 @@ export function mboxPlacement(raw: ArrayBuffer) {
  };
  const customLabels = [...new Set(labels.flatMap(label => {
   const system = systemLabel(label);
-  if (!system) return [label];
+  if (!system) return [normalizeImportedLabel(label)];
   // Categories without their own Mailflare tab remain available as readable labels.
   if (["CATEGORY_UPDATES", "CATEGORY_PURCHASES", "CATEGORY_FORUMS"].includes(system)) {
    return [label.replace(/^(?:kategorie|category)\s*:?\s*/i, "").replace(/"/g, "").trim()];
@@ -42,6 +47,13 @@ export function mboxPlacement(raw: ArrayBuffer) {
  }))];
  if (customLabels.length > 100) throw new Error("This message has more than 100 custom labels; process it separately or explicitly skip it");
  const placement = gmailPlacement(labels.map(label => systemLabel(label) ?? label));
+ // Purchases include receipts too: actual document content takes precedence over
+ // that broad Gmail category without reconsidering confirmed marketing/social mail.
+ const subject = decodeWords(header.match(/^Subject:\s*(.*)$/im)?.[1] ?? "");
+ const transaction = resolveTransactionMail({ sender: "", subject });
+ if (transaction && (placement.metadata.category === "primary" || placement.metadata.category === "orders")) placement.metadata.category = transaction.category;
+ // Preserve confirmed financial filing without paying for another AI decision.
+ if (customLabels.includes("Rechnung") && placement.metadata.category === "primary") placement.metadata.category = "invoices";
  // An ordinary MBOX has no Gmail placement information: retain it as read archived mail.
  if (value === undefined) placement.metadata.read = true;
  return { ...placement, labels: customLabels };

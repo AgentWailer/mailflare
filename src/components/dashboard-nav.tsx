@@ -1,4 +1,5 @@
 "use client";
+import { ReceiptText, Package } from "lucide-react";
 
 import type { FormEvent } from "react";
 import Link from "next/link";
@@ -66,6 +67,8 @@ const links = [
   { href: "/inbox", labelKey: "navigation.inbox", icon: Inbox, preloadMessages: true },
   { href: "/promotions", labelKey: "smart.promotions", icon: Megaphone, preloadMessages: true },
   { href: "/social", labelKey: "smart.social", icon: Users, preloadMessages: true },
+  { href: "/invoices", labelKey: "smart.invoices", icon: ReceiptText, preloadMessages: true },
+  { href: "/orders", labelKey: "smart.orders", icon: Package, preloadMessages: true },
   { href: "/starred", labelKey: "navigation.starred", icon: Star, preloadMessages: true },
   { href: "/all", labelKey: "navigation.allMail", icon: Mails, preloadMessages: true },
   { href: "/snoozed", labelKey: "navigation.snoozed", icon: Clock, preloadMessages: true },
@@ -112,8 +115,8 @@ export function DashboardNav({ className }: { className?: string }) {
     if (link.href === "/inbox") {
       return { ...link, count: getFolderNavCount("inbox", counts.folders), onMessageDrop: canManageLabels && selectedMailbox ? (ids: string[]) => void moveMessagesToCategory(ids, "primary", selectedMailbox.id) : undefined };
     }
-    if (link.href === "/promotions" || link.href === "/social") {
-      const category = link.href.slice(1) as "promotions" | "social";
+    if (link.href === "/promotions" || link.href === "/social" || link.href === "/invoices" || link.href === "/orders") {
+      const category = link.href.slice(1) as "promotions" | "social" | "invoices" | "orders";
       return { ...link, count: getFolderNavCount(category, counts.folders), onMessageDrop: canManageLabels && selectedMailbox ? (ids: string[]) => void moveMessagesToCategory(ids, category, selectedMailbox.id) : undefined };
     }
     if (link.href === "/starred") {

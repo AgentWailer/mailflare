@@ -50,6 +50,7 @@ async function loadCounts(
 	const rows = await ctx.db
 		.select({
 			mailboxId: messages.mailboxId,
+			direction: messages.direction,
 			status: messages.status,
 			folderId: messages.folderId,
 			category: messages.category,
@@ -60,6 +61,7 @@ async function loadCounts(
 		.where(inArray(messages.mailboxId, mailboxIds))
 		.groupBy(
 			messages.mailboxId,
+			messages.direction,
 			messages.status,
 			messages.folderId,
 			messages.category,
@@ -76,8 +78,8 @@ async function loadCounts(
 		if (!row.mailboxId) continue;
 		add(encodeMailboxRef({ kind: "account", mailboxId: row.mailboxId }), row);
 		if (
-			row.status === "received" &&
-			(row.category === "promotions" || row.category === "social")
+			row.direction === "inbound" && (row.status === "received" || row.status === "archived" && (row.category === "invoices" || row.category === "orders")) &&
+			(row.category === "promotions" || row.category === "social" || row.category === "invoices" || row.category === "orders")
 		) {
 			add(
 				encodeMailboxRef({
@@ -87,7 +89,7 @@ async function loadCounts(
 				}),
 				row,
 			);
-			continue;
+			if (row.status === "received") continue;
 		}
 		if (row.folderId && row.status === "received") {
 			continue;
@@ -217,7 +219,7 @@ export async function buildAllMailboxes(ctx: JmapContext) {
 				isSubscribed: true,
 			});
 		}
-		for (const category of ["promotions", "social"] as const) {
+		for (const category of ["promotions", "social", "invoices", "orders"] as const) {
 			const id = encodeMailboxRef({
 				kind: "category",
 				mailboxId: mailbox.id,
@@ -226,7 +228,7 @@ export async function buildAllMailboxes(ctx: JmapContext) {
 			const c = counts.get(id) ?? { total: 0, unread: 0 };
 			list.push({
 				id,
-				name: category === "promotions" ? "Promotions" : "Social",
+				name: ({promotions:"Promotions",social:"Social",invoices:"Invoices",orders:"Orders"})[category],
 				parentId: accountId,
 				role: null,
 				sortOrder: sortBase + 7,

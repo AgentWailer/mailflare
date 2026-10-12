@@ -16,7 +16,7 @@ type GoogleMessage = { id: string; labelIds?: string[]; raw?: string; internalDa
 export function gmailPlacement(labels: string[]): { destination: ImportDestination; metadata: NonNullable<ImportMessageInput["metadata"]> } {
 	const set = new Set(labels);
 	const section = set.has("TRASH") ? "trash" : set.has("SPAM") ? "spam" : set.has("DRAFT") ? "drafts" : set.has("SENT") ? "sent" : set.has("INBOX") ? "inbox" : "archived";
-	return { destination: { type: "system", section }, metadata: { read: !set.has("UNREAD"), starred: set.has("STARRED"), direction: set.has("SENT") || set.has("DRAFT") ? "outbound" : "inbound", category: set.has("CATEGORY_SOCIAL") ? "social" : set.has("CATEGORY_PROMOTIONS") ? "promotions" : "primary" } };
+	return { destination: { type: "system", section }, metadata: { read: !set.has("UNREAD"), starred: set.has("STARRED"), direction: set.has("SENT") || set.has("DRAFT") ? "outbound" : "inbound", category: set.has("CATEGORY_SOCIAL") ? "social" : set.has("CATEGORY_PROMOTIONS") ? "promotions" : set.has("CATEGORY_PURCHASES") ? "orders" : "primary" } };
 }
 export function publicGmailJob(job: GmailJob) {
 	let canSkip = false;

@@ -3,6 +3,28 @@ import type { SortingDecision } from "./categories";
 
 type RoutineInput = { sender: string; subject?: string | null; text?: string | null; headers?: Record<string, string> };
 
+/** Require transaction wording, not a merchant domain or the mere presence of a price. */
+export function resolveTransactionMail(input: RoutineInput): SortingDecision | null {
+	const subject = input.subject?.normalize("NFKC").toLowerCase() ?? "";
+	const text = input.text?.normalize("NFKC").toLowerCase().slice(0, 6000) ?? "";
+	// Coupons, purchase invitations and invoice software newsletters are not actual transactions.
+	if (/\b(rabatt|gutschein|coupon|discount|sale|angebot|angebote|offer|newsletter|black friday)\b|jetzt bestellen|order now/.test(subject)) return null;
+	if (/\b(rechnung(?:en|snummer)?|abrechnung|quittung|beleg|zahlungsbeleg|zahlbeleg|zahlungsbestätigung|zahlungseingang|gutschrift|invoice|receipt|payment confirmation|payment received|credit note)\b/u.test(subject) &&
+		!/rechnung(?:en)?\s+(?:erstellen|schreiben)|create invoices|invoicing software/.test(subject))
+		return { category: "invoices", source: "rule", reason: "transaction_receipt" };
+	if (/\b(bestell(?:ung|bestätigung|daten|details|nummer)|auftragsbestätigung|versandbestätigung|lieferbestätigung|lieferung|order confirmation|order number|shipping confirmation|shipment|delivery confirmation)\b/u.test(subject) &&
+		!/erste bestellung|first order|free shipping|kostenlose lieferung/.test(subject))
+		return { category: "orders", source: "rule", reason: "transaction_order" };
+	// Body-only evidence needs both a specific transaction id and an amount/status.
+	if (/\b(rechnungsnummer|belegnummer|invoice number|receipt number)\s*[:#]?\s*[\w-]*\d[\w-]*/iu.test(text) &&
+		/\b(gesamtbetrag|rechnungsbetrag|total paid|amount paid|payment received)\b|(?:€|\$|£|\beur\b|\busd\b)\s*\d|\d[\d.,]*\s*(?:€|eur|usd)\b/iu.test(text))
+		return { category: "invoices", source: "rule", reason: "transaction_receipt" };
+	if (/\b(bestellnummer|order number)\s*[:#]?\s*[\w-]*\d[\w-]*/iu.test(text) &&
+		/\b(bestellbestätigung|bestellung erhalten|order confirmed|order confirmation|shipped|versendet)\b/iu.test(text))
+		return { category: "orders", source: "rule", reason: "transaction_order" };
+	return null;
+}
+
 /** Account events include German compounds; a boundary after "Sicherheit" misses "Sicherheitswarnung". */
 export function isAccountSecurityNotice(input: Pick<RoutineInput, "subject">): boolean {
 	return /(?:^|[^\p{L}\p{N}])(?:sicherheits(?:warnung|meldung|benachrichtigung|hinweis)|anmelde(?:warnung|benachrichtigung)|(?:neue|ungewöhnliche|verdächtige)\s+anmeldung|(?:ungewöhnliche|verdächtige)\s+aktivität|passwort(?:änderung|änderungen)|passwort\s+(?:zurücksetzen|geändert)|security\s+(?:alert|warning|notice)|(?:new|unusual|suspicious)\s+(?:sign[ -]?in|login|activity)|password\s+(?:reset|changed|change))(?:$|[^\p{L}\p{N}])/iu.test(input.subject ?? "");
@@ -20,9 +42,10 @@ export function isProtectedRoutineMail(input: RoutineInput): boolean {
 	const subject = input.subject?.toLowerCase() ?? "";
 	const text = input.text?.toLowerCase().slice(0, 6000) ?? "";
 	return isAccountSecurityNotice(input) || /^(re|aw|fw|fwd|wg):/.test(subject.trim()) ||
-		/\b(anmeldung|login|invoice|rechnung|receipt|quittung|beleg|belege|abrechnung|payment|zahlung|zahlungsbestätigung|bestelldaten|bestellung|bestellbestätigung|order confirmation)\b|message from|nachricht von|sent you a message|hat dir eine nachricht/.test(subject) ||
+		!!resolveTransactionMail(input) ||
+		/\b(anmeldung|login)\b|message from|nachricht von|sent you a message|hat dir eine nachricht/.test(subject) ||
 		Object.keys(input.headers ?? {}).some((key) => key.toLowerCase() === "in-reply-to") ||
-		/\b(rechnungsnummer|belegnummer|bestellnummer|bestelldetails|invoice number|receipt number|order number|order confirmation|verification code|bestätigungscode|password reset|passwort zurücksetzen)\b/.test(text);
+		/\b(verification code|bestätigungscode|password reset|passwort zurücksetzen)\b/.test(text);
 }
 
 /** Narrow shortcuts spare AI calls without categorizing every message from a company's domain. */

@@ -1,4 +1,3 @@
-import { getSortingExamples } from "@/lib/mail-sorting/learning";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -52,12 +51,15 @@ export async function GET(request: Request) {
 		.select()
 		.from(mailSortingOverrides)
 		.where(eq(mailSortingOverrides.mailboxId, mailboxId));
+	const learningSummary = (await env.DB.prepare("SELECT category,count(*) AS count FROM mail_sorting_feedback WHERE mailbox_id=? GROUP BY category")
+		.bind(mailboxId).all<{category:string;count:number}>()).results;
 	return NextResponse.json({
 		settings: settings ?? { mailboxId, ...DEFAULT_SORTING_SETTINGS },
 		usage: usage ?? { requests: 0, inputTokens: 0 },
 		available: !!env.AI,
 		model: SORTING_MODEL,
-		learningExamples: (await getSortingExamples(env, mailboxId)).length,
+		learningExamples: learningSummary.reduce((sum, row) => sum + row.count, 0),
+		learningSummary,
 		overrides,
 	});
 }

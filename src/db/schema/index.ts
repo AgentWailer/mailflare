@@ -243,7 +243,7 @@ export const messages = sqliteTable(
 		direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
 		providerMessageId: text("provider_message_id"),
 		folderId: text("folder_id").references(() => folders.id, { onDelete: "set null" }),
-		category: text("category", { enum: ["primary", "promotions", "social"] }).notNull().default("primary"),
+		category: text("category", { enum: ["primary", "promotions", "social", "invoices", "orders"] }).notNull().default("primary"),
 		sortingDecision: text("sorting_decision"),
 		fromAddr: text("from_addr").notNull(),
 		toAddr: text("to_addr").notNull(),
@@ -283,7 +283,7 @@ export const messages = sqliteTable(
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
 		index("messages_raw_r2_key_idx").on(t.rawR2Key),
 		index("messages_trashed_at_idx").on(t.trashedAt),
-		index("messages_import_sorting_idx").on(t.mailboxId, t.id).where(sql`${t.direction}='inbound' AND ${t.status}='received' AND ${t.category}='primary' AND ${t.folderId} IS NULL AND ${t.sortingDecision} IS NULL AND ${t.snoozedUntil} IS NULL`),
+		index("messages_import_sorting_idx").on(t.mailboxId, t.id).where(sql`${t.direction}='inbound' AND ${t.status} IN ('received','archived') AND ${t.category}='primary' AND ${t.folderId} IS NULL AND ${t.snoozedUntil} IS NULL`),
 		index("messages_inbox_page_idx").on(
 			t.mailboxId,
 			t.status,
@@ -904,9 +904,9 @@ export const mailSortingFeedback = sqliteTable("mail_sorting_feedback", {
  messageId: text("message_id").references(() => messages.id, { onDelete: "set null" }),
  sender: text("sender").notNull(),
  subject: text("subject").notNull().default(""),
- category: text("category", { enum: ["primary", "promotions", "social"] }).notNull(),
+ category: text("category", { enum: ["primary", "promotions", "social", "invoices", "orders"] }).notNull(),
  correctedAt: text("corrected_at").notNull(),
-}, (t) => [uniqueIndex("mail_sorting_feedback_message_idx").on(t.mailboxId, t.messageId), index("mail_sorting_feedback_mailbox_idx").on(t.mailboxId, sql`${t.correctedAt} desc`)]);
+}, (t) => [uniqueIndex("mail_sorting_feedback_message_idx").on(t.mailboxId, t.messageId), index("mail_sorting_feedback_mailbox_idx").on(t.mailboxId, sql`${t.correctedAt} desc`), index("mail_sorting_feedback_sender_idx").on(t.mailboxId,t.sender,sql`${t.correctedAt} desc`)]);
 
 export const mailSortingUsage = sqliteTable("mail_sorting_usage", {
  mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
@@ -931,7 +931,7 @@ export const mboxSortingJobs = sqliteTable("mbox_sorting_jobs", {
  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
  mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
  status: text("status").notNull().default("pending"), processed: integer("processed").notNull().default(0),
- primaryCount: integer("primary_count").notNull().default(0), promotionsCount: integer("promotions_count").notNull().default(0), socialCount: integer("social_count").notNull().default(0),
+ primaryCount: integer("primary_count").notNull().default(0), promotionsCount: integer("promotions_count").notNull().default(0), socialCount: integer("social_count").notNull().default(0), invoicesCount: integer("invoices_count").notNull().default(0), ordersCount: integer("orders_count").notNull().default(0),
  error: text("error"), waitReason: text("wait_reason"), retryAt: integer("retry_at").notNull().default(0), consecutiveFailures: integer("consecutive_failures").notNull().default(0),
  leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0),
  createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),

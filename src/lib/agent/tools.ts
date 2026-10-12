@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { agentDraftMetadata, domains, mailboxes, messages } from "@/db/schema";
@@ -24,10 +24,10 @@ const body = z.string().trim().min(1).max(40_000).describe("The recipient-facing
 const limit = z.number().int().min(1).max(50).default(20);
 
 export const emailToolSchemas = {
-	list_emails: z.object({ folder: z.enum(["inbox", "promotions", "social", "sent", "draft", "archived", "trash", "spam"]).default("inbox"), limit, cursor: id.optional() }),
+	list_emails: z.object({ folder: z.enum(["inbox", "promotions", "social", "invoices", "orders", "sent", "draft", "archived", "trash", "spam"]).default("inbox"), limit, cursor: id.optional() }),
 	get_email: z.object({ emailId: id }),
 	get_thread: z.object({ emailId: id }),
-	search_emails: z.object({ query: z.string().trim().min(1).max(300), folder: z.enum(["inbox", "promotions", "social", "sent", "draft", "archived", "trash", "spam"]).optional(), limit }),
+	search_emails: z.object({ query: z.string().trim().min(1).max(300), folder: z.enum(["inbox", "promotions", "social", "invoices", "orders", "sent", "draft", "archived", "trash", "spam"]).optional(), limit }),
 	draft_email: z.object({ to: z.string().email(), subject: z.string().trim().min(1).max(500), body }),
 	draft_reply: z.object({ emailId: id, body, replyAll: z.boolean().default(false) }),
 	edit_draft: z.object({
@@ -126,7 +126,7 @@ export async function runEmailTool(context: AgentToolContext, name: EmailToolNam
 		if (folder === "draft") conditions.push(eq(messages.status, "draft"), eq(messages.userId, context.user.id));
 		else if (folder === "sent") conditions.push(eq(messages.status, "sent"));
 		else if (folder === "inbox") conditions.push(eq(messages.status, "received"), eq(messages.category,"primary"), isNull(messages.folderId));
-		else if(folder === "promotions" || folder === "social") conditions.push(eq(messages.status,"received"),eq(messages.category,folder));
+		else if(folder === "promotions" || folder === "social" || folder === "invoices" || folder === "orders") conditions.push(folder === "invoices" || folder === "orders" ? inArray(messages.status,["received","archived"]) : eq(messages.status,"received"),eq(messages.category,folder));
 		else if (folder === "archived" || folder === "trash" || folder === "spam") conditions.push(eq(messages.status, folder));
 		else conditions.push(or(eq(messages.userId, context.user.id), eq(messages.direction, "inbound"))!);
 		if (name === "search_emails") conditions.push(...buildSearchConditions(input.query as string, context.timeZone));

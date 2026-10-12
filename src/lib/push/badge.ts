@@ -13,7 +13,7 @@ export async function getUnreadBadgeCount(db: AppDatabase, user: SessionUser): P
 		eq(messages.direction, "inbound"),
 		eq(messages.status, "received"),
 		eq(messages.read, false),
-		eq(messages.category, "primary"),
+		inArray(messages.category, ["primary", "invoices", "orders"]),
 		isNull(messages.folderId),
 		or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date())),
 	));

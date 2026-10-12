@@ -25,10 +25,11 @@ export function MessageReaderLabels({ message }: { message: Message }) {
 	}, [client, message.mailboxId, message.id]);
 	const current = { ...message, ...data };
 	const category = current.category;
-	const systemLabel = current.status === "spam" ? "navigation.spam" : current.status === "trash" ? "navigation.trash" : current.status === "archived" ? "navigation.archived" : category === "promotions" ? "smart.promotions" : category === "social" ? "smart.social" : isPrimaryInboxMail(current) ? "smart.primary" : "message.categories.primary";
+	const systemLabel = current.status === "spam" ? "navigation.spam" : current.status === "trash" ? "navigation.trash" : current.status === "archived" ? "navigation.archived" : category === "promotions" ? "smart.promotions" : category === "social" ? "smart.social" : category === "invoices" ? "smart.invoices" : category === "orders" ? "smart.orders" : isPrimaryInboxMail(current) ? "smart.primary" : "message.categories.primary";
 	const labels = data?.labels ?? message.labels ?? [];
 	return <div data-reader-labels className="flex min-w-0 flex-wrap items-center gap-1.5" aria-label={t("smart.labels")}>
 		{message.direction === "inbound" && category && <span className="rounded bg-blue-50 px-2 py-0.5 text-xs font-normal text-blue-700">{t(systemLabel)}</span>}
+		{message.direction === "inbound" && current.status === "archived" && (category === "invoices" || category === "orders") && <span className="rounded bg-blue-50 px-2 py-0.5 text-xs font-normal text-blue-700">{t(category === "invoices" ? "smart.invoices" : "smart.orders")}</span>}
 		{labels.map(label => <span key={label.id} className="inline-flex max-w-full items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 text-xs font-normal text-neutral-700"><span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} /><span className="break-words">{label.name}</span></span>)}
 	</div>;
 }
