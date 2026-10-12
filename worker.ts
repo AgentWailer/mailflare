@@ -24,6 +24,7 @@ import { runTrashRetention } from "./src/lib/email/trash-retention";
 import { runDriveTrashRetention } from "./src/lib/drive/retention";
 import { forwardMatchingMailboxRules } from "./src/lib/email/rule-forwarding";
 import { processMboxJob, recoverMboxJobs } from "./src/lib/import/mbox-jobs";
+import { processMboxSortingJob, recoverMboxSortingJobs } from "./src/lib/import/mbox-sorting";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
@@ -113,6 +114,8 @@ export default {
 					await processInboundMessage(env, msg.body);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "import.mbox" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processMboxJob(env, (msg.body as { jobId: string }).jobId);
+				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "import.sort" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
+					await processMboxSortingJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "agent.draft" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processAgentDraftJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (isWebhookRetryMessage(msg.body)) {
@@ -140,6 +143,7 @@ export default {
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runAgentMaintenance(env));
 		ctx.waitUntil(recoverMboxJobs(env));
+		ctx.waitUntil(recoverMboxSortingJobs(env));
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		// Drive trash is emptied once a day, with the 02:00 UTC cron; the 5-minute cron is for queue-like upkeep.
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runDriveTrashRetention(env, new Date(controller.scheduledTime)));

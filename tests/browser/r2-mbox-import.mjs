@@ -17,21 +17,24 @@ try{
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  for(const viewport of [{width:320,height:700},{width:390,height:844},{width:820,height:1180},{width:1440,height:900}]){
   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
-  let jobs=[],configured=true;const controls=[];
+  let jobs=[],configured=true;const controls=[],sortingControls=[];
   await page.route('**/api/import/mbox/jobs**',async route=>{const request=route.request();
    if(request.method()==='POST'){
-    const body=request.postDataJSON();if(body.objectKey)jobs=[{id:'job',mailboxId:'box',objectKey:body.objectKey,size:10*1024**3,offset:0,processed:0,imported:0,skipped:0,status:'running',progress:0,error:null,canSkip:false}];
+    const body=request.postDataJSON();if(new URL(request.url()).pathname.endsWith('/sorting')){sortingControls.push(body.action);if(body.action==='start')jobs[0].sorting={status:'running',processed:0,primary:0,promotions:0,social:0,error:null,waitReason:null,retryAt:0};else if(body.action==='pause')jobs[0].sorting.status='paused';else if(body.action==='resume')jobs[0].sorting.status='running';}else if(body.objectKey)jobs=[{id:'job',mailboxId:'box',objectKey:body.objectKey,size:10*1024**3,offset:0,processed:0,imported:0,skipped:0,status:'running',progress:0,error:null,canSkip:false}];
     else {controls.push(body.action);const job=jobs[0];if(body.action==='pause')job.status='paused';if(body.action==='resume'){job.status='running';job.error=null;}if(body.action==='skip'){job.status='paused';job.skipped++;job.processed++;job.error=null;job.canSkip=false;}}
    }
-   await route.fulfill({contentType:'application/json',body:JSON.stringify({jobs,job:jobs[0],backgroundQueueConfigured:configured})});
+   await route.fulfill({contentType:'application/json',body:JSON.stringify({jobs,job:jobs[0],backgroundQueueConfigured:configured,sortingAvailable:configured})});
   });
   await page.goto(origin);const start=page.getByRole('button',{name:de['mbox.start'],exact:true});await start.waitFor();
   await page.getByLabel(de['mbox.objectKey']).fill('mbox-imports/'+'archive-long-name-'.repeat(9)+'.mbox');await start.click();const pause=page.getByRole('button',{name:de['mbox.pause'],exact:true});await pause.waitFor();await pause.click();const resume=page.getByRole('button',{name:de['mbox.resume'],exact:true});await resume.waitFor();
   jobs[0].processed=17;jobs[0].imported=17;jobs[0].offset=1024**3;jobs[0].progress=10;await page.reload();await resume.waitFor();assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'10');await resume.click();await pause.waitFor();
   jobs[0].status='failed';jobs[0].error='Temporary R2 error: '+('long'.repeat(100));jobs[0].canSkip=true;await page.reload();const skip=page.getByRole('button',{name:de['mbox.skip'],exact:true});await skip.waitFor();const bounds=await skip.boundingBox();assert(bounds.height>=44);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await skip.click();await resume.waitFor();assert.equal(jobs[0].skipped,1);await resume.click();
   jobs[0].status='completed';jobs[0].progress=100;await page.reload();await page.getByText(new RegExp(de['mbox.status.completed'])).waitFor();assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100');assert.equal(await pause.count(),0);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  const sorting=page.locator('[data-mbox-sorting]');await sorting.getByRole('button',{name:de['mbox.sorting.start'],exact:true}).click();await sorting.getByRole('button',{name:de['mbox.sorting.pause'],exact:true}).click();await sorting.getByRole('button',{name:de['mbox.sorting.resume'],exact:true}).waitFor();
+  jobs[0].sorting.processed=4;jobs[0].sorting.promotions=3;jobs[0].sorting.primary=1;await page.reload();await sorting.getByText(/4 geprüft/).waitFor();await sorting.getByRole('button',{name:de['mbox.sorting.resume'],exact:true}).click();await sorting.getByRole('button',{name:de['mbox.sorting.pause'],exact:true}).waitFor();
+  jobs[0].sorting.status='waiting';jobs[0].sorting.waitReason='daily_limit';await page.reload();await sorting.getByText(de['mbox.sorting.wait.daily_limit'],{exact:true}).waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(sortingControls,['start','pause','resume']);
   await page.goto(origin+'/?readonly');await start.waitFor();assert(await start.isDisabled());configured=false;await page.goto(origin);await page.getByText(de['mbox.missingQueue'],{exact:true}).waitFor();assert(await start.isDisabled());
   await page.goto(origin+'/?nonadmin');assert.equal(await start.count(),0);assert.deepEqual(errors,[]);assert.deepEqual(controls,['pause','resume','skip','resume']);
-  console.log(JSON.stringify({viewport,startPauseResume:true,persistedProgressAfterReload:true,explicitSkip:true,completed:true,privateAdminOnly:true,readOnlyGuard:true,noOverflow:true}));await page.close();
+  console.log(JSON.stringify({viewport,startPauseResume:true,persistedProgressAfterReload:true,separateSortingControls:true,persistedSortingProgress:true,dailyLimitDisplayed:true,explicitSkip:true,completed:true,privateAdminOnly:true,readOnlyGuard:true,noOverflow:true}));await page.close();
  }
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}

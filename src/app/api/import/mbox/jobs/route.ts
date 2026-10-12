@@ -13,7 +13,7 @@ export async function GET(request: Request) {
  if (auth.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403, headers });
  try {
   const mailboxId = z.string().min(1).max(100).parse(new URL(request.url).searchParams.get("mailboxId"));
-  return NextResponse.json({ jobs: await listMboxJobs(env, auth.user, mailboxId), backgroundQueueConfigured: !!env.AGENT_QUEUE }, { headers });
+  return NextResponse.json({ jobs: await listMboxJobs(env, auth.user, mailboxId), backgroundQueueConfigured: !!env.AGENT_QUEUE, sortingAvailable: !!env.AI && !!env.AGENT_QUEUE }, { headers });
  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to load MBOX imports" }, { status: 400, headers }); }
 }
 export async function POST(request: Request) {

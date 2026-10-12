@@ -7,6 +7,8 @@ import { getUserFromSession } from "@/lib/auth/session";
 import { getSessionTokenFromRequest } from "@/lib/realtime/utils";
 import { processInboundMessage } from "@/lib/email/inbound";
 import { processAgentDraftJob } from "@/lib/agent/jobs/utils";
+import { processMboxJob } from "@/lib/import/mbox-jobs";
+import { processMboxSortingJob } from "@/lib/import/mbox-sorting";
 import { processOutboundQueue, type OutboundQueueMessage } from "@/lib/email/send";
 import { processWebhookRetry, type WebhookRetryMessage } from "@/lib/email/webhooks";
 import { isInboundQueueMessage, isWebhookRetryMessage } from "../worker-utils";
@@ -39,7 +41,11 @@ async function main() {
 		else await processOutboundQueue(env, body as OutboundQueueMessage);
 	});
 	runtime.agentQueue.setConsumer(async (body) => {
-		if (typeof body === "object" && body !== null && (body as { kind?: unknown }).kind === "agent.draft" && typeof (body as { jobId?: unknown }).jobId === "string") await processAgentDraftJob(env, (body as { jobId: string }).jobId);
+		if (typeof body !== "object" || body === null || typeof (body as { jobId?: unknown }).jobId !== "string") return;
+		const message = body as { kind: string; jobId: string };
+		if (message.kind === "agent.draft") await processAgentDraftJob(env, message.jobId);
+		else if (message.kind === "import.mbox") await processMboxJob(env, message.jobId);
+		else if (message.kind === "import.sort") await processMboxSortingJob(env, message.jobId);
 	});
 
 	const app = next({ dev, dir: process.cwd(), hostname: host, port });

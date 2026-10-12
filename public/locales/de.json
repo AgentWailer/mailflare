@@ -2093,5 +2093,21 @@
 	"mbox.status.running": "Wird importiert",
 	"mbox.status.paused": "Pausiert",
 	"mbox.status.failed": "Unterbrochen – fortsetzen oder fehlerhafte Nachricht prüfen",
-	"mbox.status.completed": "Abgeschlossen"
+	"mbox.status.completed": "Abgeschlossen",
+	"mbox.sorting.title": "KI-Nachsortierung",
+	"mbox.sorting.description": "Prüft nur importierte Nachrichten im allgemeinen Posteingang ohne bisherige Entscheidung. Werbung, soziale Medien, Spam, Archiv und manuelle Zuordnungen bleiben erhalten. Nutzt höchstens die Hälfte des bestehenden KI-Tageslimits; Profilbilder und Labels bleiben erhalten.",
+	"mbox.sorting.start": "Noch nicht zugeordnete E-Mails mit KI prüfen",
+	"mbox.sorting.pause": "KI-Nachsortierung pausieren",
+	"mbox.sorting.resume": "KI-Nachsortierung fortsetzen",
+	"mbox.sorting.summary": "{processed} geprüft · {promotions} Werbung · {social} soziale Medien · {primary} allgemein",
+	"mbox.sorting.status.pending": "KI-Prüfung in Warteschlange",
+	"mbox.sorting.status.running": "KI prüft Nachrichten",
+	"mbox.sorting.status.waiting": "KI-Prüfung wartet",
+	"mbox.sorting.status.paused": "KI-Prüfung pausiert",
+	"mbox.sorting.status.failed": "KI-Prüfung unterbrochen",
+	"mbox.sorting.status.completed": "KI-Prüfung abgeschlossen",
+	"mbox.sorting.wait.import": "Die bisher importierten Nachrichten sind geprüft. Neue Nachrichten aus diesem Import werden automatisch nachgeprüft.",
+	"mbox.sorting.wait.daily_limit": "Das Kontingent für die Nachsortierung ist heute ausgeschöpft. Sie geht am nächsten Tag automatisch weiter; ein Teil des Tageslimits bleibt für neue E-Mails reserviert.",
+	"mbox.sorting.wait.retry": "Wird nach einer vorübergehenden Störung erneut versucht. Kategorien bleiben bis zu einer erfolgreichen Prüfung erhalten.",
+	"mbox.sorting.wait.sorting_disabled": "Automatische Sortierung zuerst in den Postfach-Einstellungen aktivieren."
 }

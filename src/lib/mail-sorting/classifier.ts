@@ -118,6 +118,8 @@ export async function classifyIncomingMail(
 		text?: string | null;
 		spamScore: number;
 		headers?: Record<string, string>;
+		/** Background archive sorting leaves part of the shared daily quota for new mail. */
+		aiBudgetCeiling?: number;
 	},
 ): Promise<SortingDecision> {
 	const fallback: SortingDecision = {
@@ -161,10 +163,11 @@ export async function classifyIncomingMail(
 		if (routine) return finalize(routine);
 		if (!env.AI) return finalize(resolveUnavailableSorting(input, "unavailable"));
 		const day = new Date().toISOString().slice(0, 10);
+		const dailyLimit = Math.min(config.dailyLimit, input.aiBudgetCeiling ?? config.dailyLimit);
 		const reservation = await env.DB.prepare(
 			"INSERT INTO mail_sorting_usage(mailbox_id,day,requests,input_tokens) SELECT ?,?,1,0 WHERE ?>0 ON CONFLICT(mailbox_id,day) DO UPDATE SET requests=requests+1 WHERE requests<? RETURNING requests",
 		)
-			.bind(input.mailboxId, day, config.dailyLimit, config.dailyLimit)
+			.bind(input.mailboxId, day, dailyLimit, dailyLimit)
 			.first();
 		if (!reservation) return finalize(resolveUnavailableSorting(input, "daily_limit"));
 		const [contact] = await db

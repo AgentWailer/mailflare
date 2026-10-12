@@ -283,6 +283,7 @@ export const messages = sqliteTable(
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
 		index("messages_raw_r2_key_idx").on(t.rawR2Key),
 		index("messages_trashed_at_idx").on(t.trashedAt),
+		index("messages_import_sorting_idx").on(t.mailboxId, t.id).where(sql`${t.direction}='inbound' AND ${t.status}='received' AND ${t.category}='primary' AND ${t.folderId} IS NULL AND ${t.sortingDecision} IS NULL AND ${t.snoozedUntil} IS NULL`),
 		index("messages_inbox_page_idx").on(
 			t.mailboxId,
 			t.status,
@@ -925,6 +926,17 @@ export const mboxImportJobs = sqliteTable("mbox_import_jobs", {
  createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
 });
 
+export const mboxSortingJobs = sqliteTable("mbox_sorting_jobs", {
+ importJobId: text("import_job_id").primaryKey().references(() => mboxImportJobs.id, { onDelete: "cascade" }),
+ userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+ mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+ status: text("status").notNull().default("pending"), processed: integer("processed").notNull().default(0),
+ primaryCount: integer("primary_count").notNull().default(0), promotionsCount: integer("promotions_count").notNull().default(0), socialCount: integer("social_count").notNull().default(0),
+ error: text("error"), waitReason: text("wait_reason"), retryAt: integer("retry_at").notNull().default(0), consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+ leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0),
+ createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+}, t => [index("mbox_sorting_jobs_recovery_idx").on(t.status, t.retryAt, t.leaseUntil)]);
+
 export const gmailImportConnections = sqliteTable("gmail_import_connections", {
 	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 	email: text("email").notNull(), tokens: text("tokens").notNull(),
@@ -964,6 +976,7 @@ export const schema = {
 	mailSortingUsage,
 	mailSortingFeedback,
 	mboxImportJobs,
+	mboxSortingJobs,
 	spamTokenStats,
 	spamReputation,
 	spamFeedback,

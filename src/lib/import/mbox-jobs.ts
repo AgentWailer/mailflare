@@ -10,6 +10,7 @@ import { getImportMessagePlacement } from "./destination";
 import { importMessageToMailbox } from "./service";
 import { mboxPlacement } from "./mbox-labels";
 import { readMboxRecords, type MboxSource } from "./mbox-stream";
+import { getMboxSortingJobs } from "./mbox-sorting";
 
 export type MboxJob = {
  id: string; user_id: string; mailbox_id: string; object_key: string; object_etag: string; object_size: number;
@@ -38,7 +39,9 @@ async function checkAccess(env: CloudflareEnv, user: SessionUser, mailboxId: str
 }
 export async function listMboxJobs(env: CloudflareEnv, user: SessionUser, mailboxId: string) {
  await checkAccess(env, user, mailboxId);
- return (await env.DB.prepare("SELECT * FROM mbox_import_jobs WHERE mailbox_id=? ORDER BY created_at DESC LIMIT 30").bind(mailboxId).all<MboxJob>()).results.map(publicMboxJob);
+ const jobs = await env.DB.prepare("SELECT * FROM mbox_import_jobs WHERE mailbox_id=? ORDER BY created_at DESC LIMIT 30").bind(mailboxId).all<MboxJob>();
+ const sorting = await getMboxSortingJobs(env, mailboxId);
+ return jobs.results.map(job => ({ ...publicMboxJob(job), sorting: sorting.get(job.id) ?? null }));
 }
 async function enqueue(env: CloudflareEnv, id: string) {
  if (!env.AGENT_QUEUE) throw new Error("The background queue is not configured");

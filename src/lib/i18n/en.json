@@ -2207,5 +2207,21 @@
 	"mbox.status.running": "Importing",
 	"mbox.status.paused": "Paused",
 	"mbox.status.failed": "Interrupted — resume or inspect the failed message",
-	"mbox.status.completed": "Completed"
+	"mbox.status.completed": "Completed",
+	"mbox.sorting.title": "AI follow-up sorting",
+	"mbox.sorting.description": "Checks only imported primary inbox messages without an existing decision. Promotions, social mail, spam, archived mail and manual decisions are preserved. Uses at most half the existing AI daily limit; contact pictures and labels are preserved.",
+	"mbox.sorting.start": "Check unassigned emails with AI",
+	"mbox.sorting.pause": "Pause AI follow-up sorting",
+	"mbox.sorting.resume": "Resume AI follow-up sorting",
+	"mbox.sorting.summary": "{processed} checked \u00b7 {promotions} promotions \u00b7 {social} social \u00b7 {primary} primary",
+	"mbox.sorting.status.pending": "AI check queued",
+	"mbox.sorting.status.running": "AI checking messages",
+	"mbox.sorting.status.waiting": "AI check waiting",
+	"mbox.sorting.status.paused": "AI check paused",
+	"mbox.sorting.status.failed": "AI check interrupted",
+	"mbox.sorting.status.completed": "AI check complete",
+	"mbox.sorting.wait.import": "All currently imported messages have been checked. Newly imported messages will be checked automatically.",
+	"mbox.sorting.wait.daily_limit": "The follow-up allowance is used up for today. Sorting continues automatically the next day; part of the daily allowance remains reserved for new mail.",
+	"mbox.sorting.wait.retry": "Retrying after a temporary failure. Existing categories remain until a check succeeds.",
+	"mbox.sorting.wait.sorting_disabled": "Enable automatic sorting in mailbox settings first."
 }

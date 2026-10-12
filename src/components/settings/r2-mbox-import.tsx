@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { notifyLabelsChanged } from "@/components/messages/use-mailbox-folders";
 import type { publicMboxJob } from "@/lib/import/mbox-jobs";
+import type { publicMboxSortingJob } from "@/lib/import/mbox-sorting";
 
-type Job = ReturnType<typeof publicMboxJob>;
-type Status = { jobs: Job[]; backgroundQueueConfigured: boolean; error?: string };
+type Job = ReturnType<typeof publicMboxJob> & { sorting?: ReturnType<typeof publicMboxSortingJob> | null };
+type Status = { jobs: Job[]; backgroundQueueConfigured: boolean; sortingAvailable?: boolean; error?: string };
 export function R2MboxImport() {
  const user = useCurrentUser(), { selectedMailbox } = useSelectedMailbox(), { t } = useLanguage();
  const [objectKey, setObjectKey] = useState("mbox-imports/workspace-002.mbox"), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
@@ -25,7 +26,7 @@ export function R2MboxImport() {
   refetchInterval: 5000,
  });
  useEffect(() => {
-  const signature = (query.data?.jobs ?? []).map(job => `${job.id}:${job.processed}`).join(",");
+  const signature = (query.data?.jobs ?? []).map(job => `${job.id}:${job.processed}:${job.sorting?.processed ?? 0}`).join(",");
   if (previous.current && signature !== previous.current) notifyLabelsChanged();
   previous.current = signature;
  }, [query.data]);
@@ -38,6 +39,18 @@ export function R2MboxImport() {
     body: JSON.stringify(id ? { action } : { mailboxId: selectedMailbox?.id, objectKey: objectKey.trim() }),
    });
    const body = await response.json() as { error?: string }; if (!response.ok) throw new Error(body.error ?? t("import.failed"));
+   await query.refetch(); notifyLabelsChanged();
+  } catch (error) { setError(error instanceof Error ? error.message : t("import.failed")); }
+  finally { setBusy(false); }
+ }
+ async function sort(id: string, action: "start" | "pause" | "resume") {
+  setBusy(true); setError(null);
+  try {
+   const response = await authFetch(`/api/import/mbox/jobs/${encodeURIComponent(id)}/sorting`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
+   });
+   const result = await response.json() as { error?: string };
+   if (!response.ok) throw new Error(result.error ?? t("import.failed"));
    await query.refetch(); notifyLabelsChanged();
   } catch (error) { setError(error instanceof Error ? error.message : t("import.failed")); }
   finally { setBusy(false); }
@@ -62,6 +75,20 @@ export function R2MboxImport() {
      {(job.status === "pending" || job.status === "running") && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void act(job.id, "pause")}>{t("mbox.pause")}</Button>}
      {(job.status === "paused" || job.status === "failed") && <Button type="button" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void act(job.id, "resume")}>{t("mbox.resume")}</Button>}
      {job.canSkip && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => { if (window.confirm(t("mbox.skipConfirm"))) void act(job.id, "skip"); }}>{t("mbox.skip")}</Button>}
+    </div>
+    <div className="space-y-2 border-t pt-3" data-mbox-sorting>
+     <p className="font-medium">{t("mbox.sorting.title")}</p>
+     <p className="text-xs text-neutral-500">{t("mbox.sorting.description")}</p>
+     {!job.sorting && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage || !query.data?.sortingAvailable} onClick={() => void sort(job.id, "start")}>{t("mbox.sorting.start")}</Button>}
+     {job.sorting && <>
+      <p aria-live="polite" className="break-words">{t(`mbox.sorting.status.${job.sorting.status}`)} · {t("mbox.sorting.summary", { processed: job.sorting.processed, promotions: job.sorting.promotions, social: job.sorting.social, primary: job.sorting.primary })}</p>
+      {job.sorting.waitReason && <p className="text-xs text-neutral-500">{t(`mbox.sorting.wait.${job.sorting.waitReason}`)}</p>}
+      {job.sorting.error && <p role="alert" className="break-words text-red-600">{job.sorting.error}</p>}
+      <div className="flex flex-wrap gap-2">
+       {["pending", "running", "waiting"].includes(job.sorting.status) && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void sort(job.id, "pause")}>{t("mbox.sorting.pause")}</Button>}
+       {["paused", "failed"].includes(job.sorting.status) && <Button type="button" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void sort(job.id, "resume")}>{t("mbox.sorting.resume")}</Button>}
+      </div>
+     </>}
     </div>
    </div>)}
    <p className="text-xs text-neutral-500">{t("mbox.retention")}</p>
