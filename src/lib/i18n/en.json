@@ -2150,6 +2150,7 @@
 	"message.ai.translate": "Translate into English",
 	"message.ai.summaryPrompt": "Read email {id} and its conversation. Summarize the key points and outstanding tasks in English. Do not change any messages.",
 	"message.ai.translatePrompt": "Read email {id} and translate its contents into English. Preserve numbers, names and links. Do not modify the original message.",
+	"message.noConversationSelected": "No conversation selected",
 	"message.categories.primary": "Primary",
 	"message.categories.social": "Social",
 	"labels.parent": "Parent label",

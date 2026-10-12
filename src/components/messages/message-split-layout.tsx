@@ -13,7 +13,6 @@ import { MessageDetailNavigationProvider } from "./message-detail-navigation";
 import { MessageListVisibilityContext } from "./message-list-visibility";
 import { readInitialMessageListVisible, saveMessageListVisible } from "./message-list-visibility-utils";
 import { useReadingLayout } from "./use-reading-layout";
-import { useInitialMessagePreview } from "./use-initial-message-preview";
 import type { MessageSplitLayoutProps, SelectedMessage } from "./types";
 
 export function MessageSplitLayout({
@@ -41,12 +40,14 @@ export function MessageSplitLayout({
 	const { t } = useLanguage();
 	const { userId, setForcedMinimal } = useSidebar();
 	const assistantOpen = useAssistantOpen();
-	const listVisible = twoColumnReading && !assistantOpen && manualListVisible;
 	const detailPrefix = `${config.hrefPrefix}/`;
 	const selectedMessageId = pathname.startsWith(detailPrefix)
 		? pathname.slice(detailPrefix.length).split("/")[0]
 		: undefined;
-	useInitialMessagePreview({ config, readingLayout, selectedMessageId, offset, unreadOnly });
+	const isOverview = pathname === config.hrefPrefix || pathname === detailPrefix;
+	const rendersPane = !!selectedMessageId || (twoColumnReading && isOverview);
+	// The overview must remain reachable even if the list was hidden in a reader.
+	const listVisible = twoColumnReading && (!selectedMessageId || (!assistantOpen && manualListVisible));
 	const renderedListWidth = Math.max(250, Math.min(listWidth, (containerWidth || 1000) - 280));
 	const renderedListHeight = Math.max(96, Math.min(listHeight, (containerHeight || 700) - 180));
 
@@ -67,10 +68,6 @@ export function MessageSplitLayout({
 	}, [userId]);
 
 	useLayoutEffect(() => {
-		if (!selectedMessageId) {
-			setForcedMinimal(false);
-			return;
-		}
 		const container = containerRef.current;
 		if (!container) return;
 		const measure = () => { setContainerWidth(container.clientWidth); setContainerHeight(container.clientHeight); };
@@ -78,20 +75,20 @@ export function MessageSplitLayout({
 		const observer = new ResizeObserver(measure);
 		observer.observe(container);
 		return () => observer.disconnect();
-	}, [selectedMessageId, setForcedMinimal]);
+	}, [rendersPane]);
 
 	useEffect(() => () => setForcedMinimal(false), [setForcedMinimal]);
 	useEffect(() => { if (below || !twoColumnReading) setForcedMinimal(false); }, [below, twoColumnReading, setForcedMinimal]);
 
 	const selection = { selectedMessages, setSelectedMessages, offset, setOffset, unreadOnly, setUnreadOnly };
-	if (!selectedMessageId) return <MessageSelectionContext.Provider value={selection}>{children}</MessageSelectionContext.Provider>;
+	if (!rendersPane) return <MessageSelectionContext.Provider value={selection}>{children}</MessageSelectionContext.Provider>;
 
 	return (
 		<MessageSelectionContext.Provider value={selection}>
 		<div ref={containerRef} data-reading-layout={readingLayout} className="h-full min-h-0 overflow-hidden lg:grid lg:transition-[grid-template-columns,grid-template-rows] lg:ease-in-out motion-reduce:transition-none" style={{ gridTemplateColumns: twoColumnReading && !below ? `${listVisible ? renderedListWidth : 0}px minmax(0,1fr)` : "minmax(0,1fr)", gridTemplateRows: twoColumnReading && below ? `${listVisible ? renderedListHeight : 0}px minmax(0,1fr)` : "minmax(0,1fr)", transitionDuration: widthReady ? "300ms" : "0ms" }}>
 			{twoColumnReading && (
-			<aside className={`relative hidden min-h-0 min-w-0 overflow-hidden bg-white lg:block ${listVisible ? below ? "border-b border-neutral-200" : "border-r border-neutral-200" : "pointer-events-none"}`} aria-hidden={!listVisible} inert={!listVisible}>
-				<div className="h-full min-w-0 overflow-hidden" style={{ width: below ? "100%" : renderedListWidth }}>
+			<aside className={`relative min-h-0 min-w-0 overflow-hidden bg-white lg:block ${selectedMessageId ? "hidden" : "h-full lg:h-auto"} ${listVisible ? below ? "border-b border-neutral-200" : "border-r border-neutral-200" : "pointer-events-none"}`} aria-hidden={!listVisible} inert={!listVisible}>
+				<div className="h-full min-w-0 overflow-hidden" style={{ width: below || !selectedMessageId ? "100%" : renderedListWidth }}>
 				<MessageFolderPage
 					config={config}
 					compact={!below}
@@ -119,11 +116,10 @@ export function MessageSplitLayout({
 			</aside>
 			)}
 			<MessageListVisibilityContext.Provider value={{ visible: listVisible, toggle: () => { const visible = !manualListVisible; setManualListVisible(visible); saveMessageListVisible(visible); }, singleColumn: !twoColumnReading, backHref: config.hrefPrefix, backLabel: config.titleKey ? t(config.titleKey) : config.title }}>
-			<MessageDetailNavigationProvider config={config}>
-			<section className="min-h-0 min-w-0 overflow-hidden bg-white flex flex-col h-full">
-				{children}
+			<section data-message-reading-pane aria-label={t("settings.reading.title")} className={`min-h-0 min-w-0 overflow-hidden bg-white flex-col h-full ${selectedMessageId ? "flex" : "hidden lg:flex"}`}>
+				{selectedMessageId ? <MessageDetailNavigationProvider config={config}>{children}</MessageDetailNavigationProvider> :
+					<div data-empty-reader role="status" className="flex flex-1 justify-center px-6 pt-12 text-sm text-neutral-500">{t("message.noConversationSelected")}</div>}
 			</section>
-			</MessageDetailNavigationProvider>
 			</MessageListVisibilityContext.Provider>
 		</div>
 		</MessageSelectionContext.Provider>
