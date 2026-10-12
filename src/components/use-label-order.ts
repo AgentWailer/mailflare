@@ -48,7 +48,9 @@ export function useLabelOrder(mailboxId: string, groups: Map<string | null, Cust
  // Keep polling/focus requests from replacing a save that is still in flight.
  const save = mutation.mutate;
  useEffect(() => {
-  if (!query.data || mailboxId === "none") return;
+  // Existing orders have no timestamp. Prefer the desktop's legacy arrangement;
+  // an older phone cache must not become the account default first.
+  if (!query.data || mailboxId === "none" || window.innerWidth < 768) return;
   const known = new Set([...groups.values()].flat().map(label => label.id));
   for (const parentId of groups.keys()) {
    const group = parentId ?? "root";
