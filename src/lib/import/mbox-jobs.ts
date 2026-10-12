@@ -1,13 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { driveItems, driveUploadParts, folders, messageLabels, users } from "@/db/schema";
+import { driveItems, driveUploadParts, folders, users } from "@/db/schema";
 import { assertAdmin } from "@/lib/auth/admin";
 import type { SessionUser } from "@/lib/auth/types";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { newId } from "@/lib/ids";
 import { deleteMessageWithObjects } from "@/lib/email/message-cleanup";
 import { getImportMessagePlacement } from "./destination";
-import { validLabelIds } from "@/lib/mail-sorting/labels";
 import { importMessageToMailbox } from "./service";
 import { mboxPlacement } from "./mbox-labels";
 import { readMboxRecords, type MboxSource } from "./mbox-stream";
@@ -20,6 +19,7 @@ export type MboxJob = {
  created_at: number; updated_at: number;
 };
 const LEASE_MS = 5 * 60_000;
+const MAX_BATCH_MESSAGES = 25;
 const PRIVATE_PREFIX = "mbox-imports/";
 export function publicMboxJob(job: MboxJob) {
  return { id: job.id, mailboxId: job.mailbox_id, objectKey: job.object_key, size: job.object_size, offset: job.byte_offset,
@@ -144,11 +144,12 @@ export async function processMboxJob(env: CloudflareEnv, id: string) {
   let count = 0;
   for await (const record of readMboxRecords(r2MboxSource(env, job), job.byte_offset, { scanLimit: 64 * 1024 * 1024 })) {
    blockedOffset = record.nextOffset;
-   const live = await loadJob(env, id);
+   // Check pause/ownership and renew the lease in one round trip.
+   const live = await env.DB.prepare("UPDATE mbox_import_jobs SET lease_until=? WHERE id=? AND lease_token=? RETURNING *")
+    .bind(Date.now() + LEASE_MS, id, lease).first<MboxJob>();
    if (!live || live.lease_token !== lease) return;
    if (live.status !== "running") break;
    if (!record.raw) throw new Error("A message exceeds the 20 MiB message limit. Nothing was skipped; explicitly skip this message or process it separately.");
-   await env.DB.prepare("UPDATE mbox_import_jobs SET lease_until=? WHERE id=? AND lease_token=?").bind(Date.now() + LEASE_MS, id, lease).run();
    const raw = await record.raw.arrayBuffer(), placement = mboxPlacement(raw);
    placement.metadata.sourceKey = `r2mbox:${job.object_etag}:${job.object_key}:${job.byte_offset}`;
    const imported = await importMessageToMailbox(env, { userId: placement.metadata.direction === "outbound" ? user.id : access.mailbox.userId,
@@ -166,20 +167,24 @@ export async function processMboxJob(env: CloudflareEnv, id: string) {
     }
     labelIds.push(folderId);
    }
+   const labelWrites: D1PreparedStatement[] = [];
    for (let start = 0; start < labelIds.length; start += 40) {
-    const valid = await validLabelIds(getDb(env), job.mailbox_id, labelIds.slice(start, start + 40));
-    if (valid.length) await getDb(env).insert(messageLabels).values(valid.map(folderId => ({ messageId: imported.id, folderId }))).onConflictDoNothing();
+    const ids = labelIds.slice(start, start + 40);
+    // Validate mailbox ownership inside the insert, including labels deleted during the import.
+    labelWrites.push(env.DB.prepare(`INSERT INTO message_labels(message_id,folder_id) SELECT ?,id FROM folders WHERE mailbox_id=? AND id IN (${ids.map(() => "?").join(",")}) AND EXISTS(SELECT 1 FROM mbox_import_jobs WHERE id=? AND lease_token=?) ON CONFLICT DO NOTHING`)
+     .bind(imported.id, job.mailbox_id, ...ids, id, lease));
    }
-   // Publish the message and its checkpoint together, after attachments and labels are complete.
+   // Store labels, publish the message and checkpoint together after all objects are complete.
    const results = await env.DB.batch([
+    ...labelWrites,
     env.DB.prepare("UPDATE messages SET status=? WHERE id=? AND status='importing' AND EXISTS(SELECT 1 FROM mbox_import_jobs WHERE id=? AND lease_token=?)")
      .bind(getImportMessagePlacement(placement.destination).status, imported.id, id, lease),
     env.DB.prepare("UPDATE mbox_import_jobs SET byte_offset=?,processed=processed+1,imported=imported+?,skipped=skipped+?,updated_at=?,lease_until=? WHERE id=? AND lease_token=? RETURNING *")
      .bind(record.nextOffset, imported.created ? 1 : 0, imported.created ? 0 : 1, Date.now(), Date.now() + LEASE_MS, id, lease),
    ]);
-   const saved = results[1].results[0] as MboxJob | undefined;
+   const saved = results[results.length - 1].results[0] as MboxJob | undefined;
    if (!saved) return; job = saved; blockedOffset = null;
-   if (++count >= 5 || Date.now() - now >= 15000) break;
+   if (++count >= MAX_BATCH_MESSAGES || Date.now() - now >= 15000) break;
   }
   const live = await loadJob(env, id);
   if (!count && live?.status === "running" && job.byte_offset < job.object_size) throw new Error("No complete messages found in this MBOX archive");

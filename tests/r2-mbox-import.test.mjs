@@ -46,23 +46,23 @@ test('Gmail export placement retains spam, trash, sent, drafts, read, stars and 
 test('queue batches finish all 113 messages, preserve attachments and labels, and do not reclassify or notify',async t=>{
  const f=await fixture(t,Array.from({length:113},(_,i)=>mail(i,i===1?'Spam,Unread':i===2?'Trash':i===3?'Sent,Starred':'Inbox,Unread,Work,Clients/Project',i===0)).join(''));
  f.env.AI={run:async()=>{throw Error('Must not classify archive mail');}};f.env.REALTIME={getByName:()=>{throw Error('Must not notify archive mail');}};
- const job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');assert.equal(f.queue[0].kind,'import.mbox');await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT processed FROM mbox_import_jobs').get().processed,5);
+ const job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');assert.equal(f.queue[0].kind,'import.mbox');await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT processed FROM mbox_import_jobs').get().processed,25);
  for(let i=0;i<30;i++)await app.processMboxJob(f.env,job.id);
  const saved=f.DB.db.prepare('SELECT * FROM mbox_import_jobs').get();assert.equal(saved.status,'completed');assert.equal(saved.imported,113);assert.equal(saved.processed,113);assert.equal(saved.byte_offset,saved.object_size);
  const rows=f.DB.db.prepare('SELECT * FROM messages').all();assert.equal(rows.length,113);assert.equal(rows.find(x=>x.subject==='Mail 1').status,'spam');assert.equal(rows.find(x=>x.subject==='Mail 2').status,'trash');assert.equal(rows.find(x=>x.subject==='Mail 3').status,'sent');assert.equal(rows.find(x=>x.subject==='Mail 3').starred,1);assert.equal(rows[0].created_at,1735732800);
  assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_attachments').get().n,1);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,220);assert(f.objects.has('mbox-imports/archive.mbox'));assert(f.calls.filter(x=>x.key==='mbox-imports/archive.mbox').every(x=>x.length<=2*1024**2));
 });
 test('pause persists through queue delivery; failed reads resume from the last acknowledged message',async t=>{
- const f=await fixture(t),job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');await app.processMboxJob(f.env,job.id);
+ const f=await fixture(t,Array.from({length:63},(_,i)=>mail(i)).join('')),job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');await app.processMboxJob(f.env,job.id);
  const checkpoint=f.DB.db.prepare('SELECT byte_offset FROM mbox_import_jobs').get().byte_offset;
- await app.controlMboxJob(f.env,f.user,job.id,'pause');await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT processed FROM mbox_import_jobs').get().processed,5);
+ await app.controlMboxJob(f.env,f.user,job.id,'pause');await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT processed FROM mbox_import_jobs').get().processed,25);
  await app.controlMboxJob(f.env,f.user,job.id,'resume');f.fail(true);await app.processMboxJob(f.env,job.id);const failed=f.DB.db.prepare('SELECT * FROM mbox_import_jobs').get();assert.equal(failed.status,'failed');assert.equal(failed.byte_offset,checkpoint);assert.equal(failed.blocked_next_offset,null);
- f.fail(false);await app.controlMboxJob(f.env,f.user,job.id,'resume');const completed=await drain(f,job.id);assert.equal(completed.imported,13);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages').get().n,13);
+ f.fail(false);await app.controlMboxJob(f.env,f.user,job.id,'resume');const completed=await drain(f,job.id);assert.equal(completed.imported,63);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages').get().n,63);
 });
 test('duplicate queues cannot race a leased job; changed sources and revoked permission stop before writing',async t=>{
- const f=await fixture(t),job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');await app.processMboxJob(f.env,job.id);
- f.DB.db.prepare("UPDATE mbox_import_jobs SET status='running',lease_token='other',lease_until=?").run(Date.now()+60000);await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT processed FROM mbox_import_jobs').get().processed,5);
- f.DB.db.exec("UPDATE mbox_import_jobs SET lease_until=0");f.etag('changed');await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT status FROM mbox_import_jobs').get().status,'failed');assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages').get().n,5);
+ const f=await fixture(t,Array.from({length:63},(_,i)=>mail(i)).join('')),job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');await app.processMboxJob(f.env,job.id);
+ f.DB.db.prepare("UPDATE mbox_import_jobs SET status='running',lease_token='other',lease_until=?").run(Date.now()+60000);await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT processed FROM mbox_import_jobs').get().processed,25);
+ f.DB.db.exec("UPDATE mbox_import_jobs SET lease_until=0");f.etag('changed');await app.processMboxJob(f.env,job.id);assert.equal(f.DB.db.prepare('SELECT status FROM mbox_import_jobs').get().status,'failed');assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages').get().n,25);
  f.etag('original');await app.controlMboxJob(f.env,f.user,job.id,'resume');f.DB.db.exec("UPDATE users SET disabled=1 WHERE id='admin'");await app.processMboxJob(f.env,job.id);assert.match(f.DB.db.prepare('SELECT error FROM mbox_import_jobs').get().error,/disabled/);
 });
 test('message failures pause before advancing; explicit skip handles only that message',async t=>{
@@ -102,7 +102,7 @@ test('admin session, origin, private prefix and mailbox checks guard all import 
  f.DB.db.exec("UPDATE mailboxes SET disabled=1 WHERE id='box'");assert.equal((await app.list(f.request())).status,400);
 });
 test('backup includes jobs once, restores active jobs paused, and older pre-migration backups remain restorable',async t=>{
- const f=await fixture(t),job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');await app.processMboxJob(f.env,job.id);
+ const f=await fixture(t,Array.from({length:63},(_,i)=>mail(i)).join('')),job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');await app.processMboxJob(f.env,job.id);
  const bytes=await app.exportDatabaseRecords(f.env.DB),doc=JSON.parse(new TextDecoder().decode(bytes));assert.equal(doc.tables.mbox_import_jobs.length,1);await app.restoreDatabaseRecords(f.env.DB,bytes.buffer);assert.equal(f.DB.db.prepare('SELECT status FROM mbox_import_jobs').get().status,'paused');
  delete doc.tables.mbox_import_jobs;doc.includedTables=doc.includedTables.filter(x=>x!=='mbox_import_jobs');await app.restoreDatabaseRecords(f.env.DB,new TextEncoder().encode(JSON.stringify(doc)).buffer);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM mbox_import_jobs').get().n,0);
  const prior=join(dir,'pre-mbox');mkdirSync(prior);for(const name of readdirSync('drizzle/migrations').filter(x=>x.endsWith('.sql')&&!x.startsWith('0067_')))writeFileSync(join(prior,name),readFileSync(join('drizzle/migrations',name)));
@@ -132,4 +132,46 @@ test('Drive source validation rejects foreign, trashed, non-MBOX, incomplete and
  f.DB.db.exec("UPDATE drive_items SET name='Archive.mbox',size=size+1");await assert.rejects(app.createMboxJob(f.env,f.user,'box',key),/declared file size/);
  f.objects.delete(key);await assert.rejects(app.createMboxJob(f.env,f.user,'box',key),/Finish its multipart upload/);
  assert.equal(f.DB.db.prepare('SELECT upload_id FROM drive_items').get().upload_id,'pending');assert.equal(f.DB.db.prepare('SELECT count(*) n FROM mbox_import_jobs').get().n,0);
+});
+
+
+test('archive contacts download new avatars and preserve manual names, blocking, avatars and outbound sources',async t=>{
+ const f=await fixture(t,mail('manual')+mail('new').replaceAll('sender@example.test','new@example.test')+mail('outbound').replaceAll('sender@example.test','outbound@example.test'));
+ f.DB.db.exec("INSERT INTO contacts(id,user_id,email,display_name,source,blocked,avatar_key,last_seen_at,created_at) VALUES('manual','admin','sender@example.test','My chosen name','manual',1,'avatars/existing',1,1),('outbound','admin','outbound@example.test','Old name','outbound',0,NULL,1,1)");
+ const originalFetch=globalThis.fetch;let fetches=0;globalThis.fetch=async()=>{fetches++;return new Response(new Uint8Array([1,2,3,4]),{headers:{'Content-Type':'image/png'}});};t.after(()=>globalThis.fetch=originalFetch);
+ const job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');const done=await drain(f,job.id);assert.equal(done.imported,3);assert.equal(fetches,2);
+ const manual=f.DB.db.prepare("SELECT * FROM contacts WHERE id='manual'").get();assert.equal(manual.display_name,'My chosen name');assert.equal(manual.source,'manual');assert.equal(manual.blocked,1);assert.equal(manual.avatar_key,'avatars/existing');assert(manual.last_seen_at>1);
+ const outbound=f.DB.db.prepare("SELECT * FROM contacts WHERE id='outbound'").get();assert.equal(outbound.source,'outbound');assert.equal(outbound.display_name,'Sender');
+ const fresh=f.DB.db.prepare("SELECT * FROM contacts WHERE email='new@example.test'").get();assert.equal(fresh.display_name,'Sender');assert.equal(fresh.source,'inbound');assert(fresh.avatar_key);assert(f.objects.has(fresh.avatar_key));
+});
+test('pausing during a larger batch finishes only the current message and retains its checkpoint',async t=>{
+ const f=await fixture(t),job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');let paused=false;
+ f.hook(async key=>{if(!paused&&key.startsWith('imports/')){paused=true;await app.controlMboxJob(f.env,f.user,job.id,'pause');}});
+ await app.processMboxJob(f.env,job.id);const row=f.DB.db.prepare('SELECT * FROM mbox_import_jobs').get();assert.equal(row.status,'paused');assert.equal(row.processed,1);assert.equal(row.byte_offset,Buffer.byteLength(mail(0)));assert.equal(f.DB.db.prepare('SELECT status FROM messages').get().status,'received');
+ f.hook(null);await app.controlMboxJob(f.env,f.user,job.id,'resume');const done=await drain(f,job.id);assert.equal(done.imported,13);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages').get().n,13);
+});
+test('label transaction failures roll back publication and checkpoint; resume rebuilds exactly once',async t=>{
+ const f=await fixture(t,mail('atomic','Inbox,Unread,Work',true));f.DB.db.exec("CREATE TRIGGER reject_label BEFORE INSERT ON message_labels BEGIN SELECT RAISE(ABORT,'Label transaction failed'); END;");
+ const job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');await app.processMboxJob(f.env,job.id);const row=f.DB.db.prepare('SELECT * FROM mbox_import_jobs').get();assert.equal(row.status,'failed');assert.equal(row.byte_offset,0);assert.equal(row.processed,0);assert.equal(f.DB.db.prepare('SELECT status FROM messages').get().status,'importing');
+ f.DB.db.exec('DROP TRIGGER reject_label');await app.controlMboxJob(f.env,f.user,job.id,'resume');const done=await drain(f,job.id);assert.equal(done.imported,1);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages').get().n,1);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_attachments').get().n,1);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,1);
+});
+
+
+test('Takeout decodes the entire localized header before splitting labels or assigning categories',()=>{
+ const encoded='=?UTF-8?Q?Kategorie_""Eink=C3=A4ufe"",Posteingang,?=\r\n =?UTF-8?Q?Kategorie:_""Neuigkeiten"",Ungelesen?=';
+ const p=app.mboxPlacement(new TextEncoder().encode(mail('real-takeout',encoded)).buffer);
+ assert.equal(p.destination.section,'inbox');assert.equal(p.metadata.read,false);assert.deepEqual(p.labels,['Einkäufe','Neuigkeiten']);
+ const opened=app.mboxPlacement(new TextEncoder().encode(mail('opened','=?UTF-8?Q?Spam,Ge=C3=B6ffne?= =?UTF-8?Q?t,W?= =?UTF-8?Q?ichtig?=')).buffer);
+ assert.equal(opened.destination.section,'spam');assert.equal(opened.metadata.read,true);assert.deepEqual(opened.labels,[]);
+ for(const [label,category] of [['Kategorie: ""Werbung""','promotions'],['Kategorie: ""Angebote""','promotions'],['Kategorie ""Soziale Netzwerke""','social'],['Kategorie ""Soziale Medien""','social'],['Kategorie: ""Persönlich""','primary']]){
+  const p=app.mboxPlacement(new TextEncoder().encode(mail('categories',`=?UTF-8?B?${Buffer.from('Posteingang,Ungelesen,'+label+',Privat').toString('base64')}?=`)).buffer);
+  assert.equal(p.destination.section,'inbox');assert.equal(p.metadata.category,category);assert.equal(p.metadata.read,false);assert.deepEqual(p.labels,['Privat']);
+ }
+});
+test('encoded comma-separated Takeout labels retain correct placement and clean names end to end',async t=>{
+ const f=await fixture(t,mail('encoded','=?UTF-8?Q?Posteingang,Ungelesen,Ge=C3=B6ffnet,?= =?UTF-8?Q?Kategorie:_""Werbung"",Abrechnungen_nach_Kategorie?='));
+ const originalFetch=globalThis.fetch;globalThis.fetch=async()=>new Response(null,{status:404});t.after(()=>globalThis.fetch=originalFetch);
+ const job=await app.createMboxJob(f.env,f.user,'box','mbox-imports/archive.mbox');const done=await drain(f,job.id);assert.equal(done.imported,1);
+ const message=f.DB.db.prepare('SELECT status,category,read FROM messages').get();assert.equal(message.status,'received');assert.equal(message.category,'promotions');assert.equal(message.read,0);
+ assert.deepEqual(f.DB.db.prepare('SELECT name FROM folders').all().map(x=>x.name),['Abrechnungen nach Kategorie']);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,1);
 });
