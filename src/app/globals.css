@@ -552,3 +552,15 @@ body:has(.mail-mobile-shell, [data-app-profile]) .fork-source { display: none; }
 	.dark .mail-mobile-header { background-color: #25292a; }
 	.dark .mail-mobile-list .mail-mobile-row:not([data-selected="true"]) { background-color: #101112; }
 }
+
+/* One shared reader gutter: headers, bodies and attachments align without nested indents. */
+.message-reader-gutter {
+	padding-left: max(12px, env(safe-area-inset-left, 0px));
+	padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+@media (min-width: 768px) {
+	.message-reader-gutter {
+		padding-left: max(20px, env(safe-area-inset-left, 0px));
+		padding-right: max(20px, env(safe-area-inset-right, 0px));
+	}
+}

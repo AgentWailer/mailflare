@@ -1,0 +1,9 @@
+# Mark a complete folder read
+
+Select the visible page with the list header checkbox. The compact selection strip offers **Mark entire folder read**, or **Mark all matches read** when a search/unread filter is active. This applies to every matching message across pages; ordinary bulk actions still apply to the selected rows. Labels and invoice/order archive views use the same filter as the list.
+
+The browser processes 200 messages per authenticated request to `/api/messages/read-all`, with small pauses between chunks. No complete archive or email bodies are loaded. A row-ID cursor advances through the archive rather than scanning completed chunks again. Progress is shared across folder pages, so navigation remains available. Counts, cached details, notifications badges and other tabs reconcile through the existing message-change events, at most once every 1.5 seconds during processing and again at completion/error.
+
+Keep the app open until completion. This is a browser-managed operation, not a persistent queue job: closing/reloading the app stops further chunks. Completed chunks remain saved, and selecting the action again processes remaining unread mail. An interrupted request offers **Continue** with the original scope. Folder/category/search scope is captured at the start; a row-ID boundary protects mail received or imported during processing. Access is checked on every chunk, and changing login sessions cancels the task. No mail is deleted or moved.
+
+Validation: `node --test tests/folder-read-all.test.mjs tests/folder-read-all-client.test.mjs tests/message-read-sync.test.mjs tests/persistent-reading-pane.test.mjs tests/smart-inbox.test.mjs`. Browser: build first, then `MAILFLARE_READ_ALL_ONLY=1 MAILFLARE_PLAYWRIGHT_MODULE=/opt/codex/cua_node/lib/node_modules/playwright/index.mjs MAILFLARE_CHROMIUM_EXECUTABLE=/usr/bin/chromium node tests/browser/reading-pane.mjs`.

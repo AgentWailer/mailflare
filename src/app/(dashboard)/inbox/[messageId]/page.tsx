@@ -30,7 +30,6 @@ import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
 import { ThreadMessageActions } from "@/components/messages/thread-message-actions";
 import { useMessageThread } from "@/components/messages/use-message-thread";
 import { useLatestMessagesFirst } from "@/components/messages/use-latest-messages-first";
-import { useMessageListVisibility } from "@/components/messages/message-list-visibility";
 import { splitEmailAddressList } from "@/lib/email/address";
 import { RecipientList } from "@/components/messages/recipient-list";
 import { useShowFullRecipientAddresses } from "@/components/messages/use-show-full-recipient-addresses";
@@ -46,7 +45,6 @@ import {
 } from "./utils";
 import { extractCloudAttachments } from "./cloud-attachment-utils";
 import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
-import clsx from "clsx";
 import { useAssistantOpen } from "@/components/agent/assistant-open-state";
 import { useMessageContentScroll } from "./use-message-content-scroll";
 
@@ -62,11 +60,9 @@ export default function MessageDetailPage() {
   const [threadExpanded, setThreadExpanded] = useState(false);
   const [latestMessagesFirst] = useLatestMessagesFirst();
   const { enabled: showFullRecipientAddresses } = useShowFullRecipientAddresses();
-  const { visible: messageListVisible } = useMessageListVisibility();
   usePageLoading(loading);
   const thread = useMessageThread(messageId, data?.message?.threadId);
   const assistantVisible = useAssistantOpen();
-  const isAnyPanelVisible = messageListVisible || assistantVisible;
   const { scrollRef, scrolled, handleScroll } = useMessageContentScroll(messageId, loading);
 
   useEffect(() => {
@@ -191,7 +187,7 @@ export default function MessageDetailPage() {
     <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
       {!message.read && <MarkAsRead messageId={message.id} />}
 
-      <div data-message-heading className={clsx(!isAnyPanelVisible ? "md:pl-16" : "md:pl-10", "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 pr-6")}>
+      <div data-message-heading className="message-reader-gutter flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-2">
         <h1 className="min-w-0 break-words text-xl leading-snug text-neutral-900" title={message.subject ?? t("list.noSubject")}>
           {message.subject ?? t("list.noSubject")}
         </h1>
@@ -220,9 +216,9 @@ export default function MessageDetailPage() {
         expandedAll={threadExpanded}
         onExpandedAllChange={setThreadExpanded}
       />
-      <article data-message-content className={clsx("px-4 py-1 md:px-6", !isAnyPanelVisible && "md:pl-12")}>
+      <article data-message-content className="message-reader-gutter py-1">
         <div className="w-full">
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-2 md:pl-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-2">
             <div className="flex min-w-0 flex-1 basis-60 items-start gap-3">
               <SenderAvatar
                 mailboxId={message.mailboxId}
@@ -279,7 +275,7 @@ export default function MessageDetailPage() {
             </div>
           </div>
           {scheduledAt && <div className="pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} /></div>}
-          <div className="prose max-w-none md:pl-16 text-neutral-900">
+          <div className="prose max-w-none text-neutral-900">
             {htmlBody ? (
               <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />
             ) : (
@@ -296,7 +292,7 @@ export default function MessageDetailPage() {
             ))}
           </div>
           {cloudAttachmentResult.attachments.length > 0 && (
-            <section className="mt-8 border-t border-neutral-100 py-6 pl-16">
+            <section className="mt-8 border-t border-neutral-100 py-6">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
                 {t("message.cloudFiles", { count: cloudAttachmentResult.attachments.length })}
               </h2>
@@ -325,7 +321,7 @@ export default function MessageDetailPage() {
             </section>
           )}
           {attachments.length > 0 && (
-            <section className="mt-8 border-t border-neutral-100 py-6 pl-16">
+            <section className="mt-8 border-t border-neutral-100 py-6">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
                 {t("message.attachments", { count: attachments.length })}
               </h2>

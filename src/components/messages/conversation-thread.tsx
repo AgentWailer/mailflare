@@ -20,8 +20,6 @@ import {
 	partitionThread,
 } from "./conversation-thread-utils";
 import clsx from "clsx";
-import { useMessageListVisibility } from "./message-list-visibility";
-import { useAssistantOpen } from "../agent/assistant-open-state";
 
 /**
  * The other messages in a conversation, ordered oldest to newest and collapsed
@@ -130,9 +128,6 @@ export function ConversationMessageCard({
 	// const href = `${getMessageBackHref(message.direction, message.status)}/${message.id}`;
 	const outbound = message.direction === "outbound";
 	const attachments = message.attachments.filter((attachment) => attachment.disposition === "attachment");
-	const { visible: messageListVisible } = useMessageListVisibility();
-	const isAssistantOpen = useAssistantOpen();
-	const isAnyPanelVisible = messageListVisible || isAssistantOpen;
 
 	useEffect(() => setLocallyRead(message.read), [message.read]);
 
@@ -148,9 +143,9 @@ export function ConversationMessageCard({
 
 
 	return (
-		<article className={cn("bg-white transition-colors px-4 md:px-6", !expanded && "hover:bg-neutral-50", !isAnyPanelVisible && "md:pl-12")}>
+		<article className={cn("message-reader-gutter bg-white transition-colors", !expanded && "hover:bg-neutral-50")}>
 			<div className="w-full">
-				<div className="flex w-full flex-wrap items-start gap-x-3 py-3 md:pl-4">
+				<div className="flex w-full flex-wrap items-start gap-x-3 py-3">
 					<button
 						type="button"
 						onClick={() => {
@@ -197,7 +192,7 @@ export function ConversationMessageCard({
 					/>
 				</div>
 				{expanded && body && (
-					<div className="pb-4 md:pl-16 pt-2">
+					<div className="pb-4 pt-2">
 						{body.html ? (
 							<EmailHtmlRenderer html={body.html} />
 						) : (
