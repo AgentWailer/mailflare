@@ -1,4 +1,19 @@
 import type { ReorderableLayout } from "./reorderable-list-types";
+const LAYOUT_CHANGED = "mailflare:nav-layout-changed";
+const memoryLayouts = new Map<string, string>();
+
+export function subscribeLayoutChanges(callback: () => void) {
+	window.addEventListener(LAYOUT_CHANGED, callback); window.addEventListener("storage", callback);
+	return () => { window.removeEventListener(LAYOUT_CHANGED, callback); window.removeEventListener("storage", callback); };
+}
+export function getLayoutSnapshot(key: string, fallbackKey?: string) {
+	if (memoryLayouts.has(key)) return memoryLayouts.get(key)!;
+	try { return localStorage.getItem(key) ?? (fallbackKey ? memoryLayouts.get(fallbackKey) ?? localStorage.getItem(fallbackKey) : null) ?? "{}"; }
+	catch { return (fallbackKey ? memoryLayouts.get(fallbackKey) : null) ?? "{}"; }
+}
+export function parseLayoutSnapshot(raw: string): ReorderableLayout {
+	try { const value = JSON.parse(raw); return value && typeof value === "object" && !Array.isArray(value) ? value : {}; } catch { return {}; }
+}
 
 /**
  * Saved placement first (dropping ids that no longer exist or repeat), then any item the
@@ -9,7 +24,7 @@ export function resolveLayout(defaults: ReorderableLayout, stored: ReorderableLa
 	const placed = new Set<string>();
 	const layout: ReorderableLayout = {};
 	for (const listId of Object.keys(defaults)) {
-		layout[listId] = (stored[listId] ?? []).filter((id) => known.has(id) && !placed.has(id) && !!placed.add(id));
+		layout[listId] = (Array.isArray(stored[listId]) ? stored[listId] : []).filter((id) => known.has(id) && !placed.has(id) && !!placed.add(id));
 	}
 	for (const [listId, ids] of Object.entries(defaults)) {
 		for (const id of ids) {
@@ -25,6 +40,7 @@ export function resolveLayout(defaults: ReorderableLayout, stored: ReorderableLa
 
 /** Take `id` out of whichever list holds it and insert it into `listId` before `beforeId` (end when null). */
 export function moveItem(layout: ReorderableLayout, id: string, listId: string, beforeId: string | null): ReorderableLayout {
+	if (beforeId === id) return layout;
 	const next: ReorderableLayout = {};
 	for (const [key, ids] of Object.entries(layout)) next[key] = ids.filter((item) => item !== id);
 	const target = next[listId] ?? [];
@@ -45,9 +61,12 @@ export function readStorage<T>(key: string, fallback: T): T {
 }
 
 export function writeStorage(key: string, value: unknown) {
+	const raw = JSON.stringify(value);
 	try {
-		localStorage.setItem(key, JSON.stringify(value));
+		localStorage.setItem(key, raw); memoryLayouts.delete(key);
 	} catch {
-		// Storage can be unavailable (private windows); the setting just won't persist.
+		// Keep this session usable even when storage is unavailable or full.
+		memoryLayouts.set(key, raw);
 	}
+	window.dispatchEvent(new Event(LAYOUT_CHANGED));
 }

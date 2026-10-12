@@ -1,17 +1,18 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ArrowDown, ArrowUp, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "./language-provider";
 import { MessageActionMenuContent } from "./messages/message-action-menu-content";
 import type { ReorderableItemActions } from "./reorderable-list-types";
 
-export function LabelActions({ name, actions, canDelete, onDelete, onCreateChild }: {
+export function LabelActions({ name, actions, canDelete, onDelete, onCreateChild, onRename }: {
 	name: string;
 	actions: ReorderableItemActions;
 	canDelete: boolean;
 	onDelete: () => void;
 	onCreateChild?: () => void;
+	onRename?: () => void;
 }) {
 	const { t } = useLanguage();
 	const itemClass = "flex items-center gap-3 rounded-lg px-3 py-2 text-sm";
@@ -31,6 +32,7 @@ export function LabelActions({ name, actions, canDelete, onDelete, onCreateChild
 					<ArrowDown className="h-4 w-4" />{t("labels.moveDown")}
 				</DropdownMenu.Item>
 				{canDelete && <>
+					{onRename && <DropdownMenu.Item className={itemClass} onSelect={onRename}><Pencil className="h-4 w-4" />{t("labels.rename")}</DropdownMenu.Item>}
 					{onCreateChild && <DropdownMenu.Item className={itemClass} onSelect={onCreateChild}><Plus className="h-4 w-4" />{t("labels.createChild")}</DropdownMenu.Item>}
 					<DropdownMenu.Separator className="my-1 border-t border-neutral-200" />
 					<DropdownMenu.Item className={`${itemClass} text-red-600`} onSelect={onDelete}>

@@ -53,6 +53,7 @@ import {
   moveMessagesToSystemFolder,
 } from "./dashboard-nav-utils";
 import { revealLabel, SidebarLabelTree } from "./sidebar-label-tree";
+import { LabelRenameDialog } from "./label-rename-dialog";
 import { getLabelPath } from "@/lib/folders/hierarchy";
 import { notifyLabelsChanged } from "./messages/use-mailbox-folders";
 import { useLabelVisibility } from "./messages/use-label-visibility";
@@ -98,6 +99,7 @@ export function DashboardNav({ className }: { className?: string }) {
   const { counts } = useMessageCounts(selectedMailbox?.id, !isLoading);
   const { hiddenLabelIds } = useLabelVisibility(selectedMailbox?.id);
   const [deletingLabel, setDeletingLabel] = useState<CustomFolder | null>(null);
+  const [renamingLabel, setRenamingLabel] = useState<{ mailboxId: string; folder: CustomFolder } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const canManageLabels = !!selectedMailbox && (!selectedMailbox.permission || selectedMailbox.permission === "full_access");
@@ -358,7 +360,9 @@ export function DashboardNav({ className }: { className?: string }) {
       )}
       <SidebarLabelTree key={selectedMailbox?.id ?? "none"} mailboxId={selectedMailbox?.id ?? "none"} folders={folders} hiddenIds={hiddenLabelIds} counts={counts.customFolders} canManage={canManageLabels}
         onDelete={folder => { setDeleteError(false); setDeletingLabel(folder); }}
+        onRename={folder => { if (selectedMailbox) setRenamingLabel({ mailboxId: selectedMailbox.id, folder }); }}
         onCreateChild={folder => { setNewFolderParentId(folder.id); setNewFolderName(""); setFolderCreateError(false); setFolderDialogOpen(true); }} />
+      {renamingLabel && renamingLabel.mailboxId === selectedMailbox?.id && canManageLabels && folders.some(folder => folder.id === renamingLabel.folder.id) && <LabelRenameDialog key={`${renamingLabel.mailboxId}:${renamingLabel.folder.id}`} mailboxId={renamingLabel.mailboxId} folder={renamingLabel.folder} onClose={() => setRenamingLabel(null)} onRenamed={folder => setFolderState(previous => previous?.mailboxId !== renamingLabel.mailboxId ? previous : { ...previous, folders: previous.folders.map(item => item.id === folder.id ? { ...item, ...folder } : item) })} />}
       <Dialog open={!!deletingLabel} onOpenChange={(open) => { if (!open && !deleting) setDeletingLabel(null); }}>
         <DialogContent>
           <DialogHeader>

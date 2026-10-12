@@ -6,6 +6,8 @@ import { getDb } from "@/db";
 import { requireSessionUser } from "@/lib/api/auth";
 import { getEnv } from "@/lib/cloudflare";
 import { getFolderForMailbox, getMailboxFolderAccess } from "../utils";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
+import { readJsonBody } from "@/lib/http/request";
 
 /** Remove a label and its references, never the messages or their attachments. */
 export async function DELETE(request: Request, context: { params: Promise<{ folderId: string }> }) {
@@ -39,16 +41,17 @@ export async function DELETE(request: Request, context: { params: Promise<{ fold
 	return NextResponse.json({ ok: true });
 }
 
-const parentSchema = z.object({ mailboxId: z.string().min(1).max(128), parentId: z.string().min(1).max(128).nullable() }).strict();
+const patchSchema = z.object({ mailboxId: z.string().min(1).max(128), parentId: z.string().min(1).max(128).nullable().optional(), name: z.string().trim().min(1).max(80).regex(/^[^\x00-\x1f]+$/).optional() }).strict().refine(input => input.parentId !== undefined || input.name !== undefined);
 
-/** Change hierarchy only; labels on messages and filter targets keep their IDs. */
+/** Rename or change hierarchy; labels on messages and filter targets keep their IDs. */
 export async function PATCH(request: Request, context: { params: Promise<{ folderId: string }> }) {
  const env = getEnv();
  const { user, error } = await requireSessionUser(env, request);
  if (error) return error;
- const parsed = parentSchema.safeParse(await request.json().catch(() => null));
+ if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+ const parsed = patchSchema.safeParse(await readJsonBody(request, 4096).catch(() => null));
  if (!parsed.success) return NextResponse.json({ error: "Invalid parent label" }, { status: 400 });
- const { mailboxId, parentId } = parsed.data;
+ const { mailboxId, parentId, name } = parsed.data;
  const { folderId } = await context.params;
  const db = getDb(env);
  const access = await getMailboxFolderAccess(db, user, mailboxId);
@@ -59,11 +62,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ folde
  try {
   // The database trigger checks the complete ancestor chain within this atomic write,
   // including concurrent moves that would otherwise create a cycle.
-  await db.update(folders).set({ parentId }).where(and(eq(folders.id, folderId), eq(folders.mailboxId, mailboxId)));
+  const changes = { ...(parentId !== undefined ? { parentId } : {}), ...(name !== undefined ? { name } : {}) };
+  const [saved] = await db.update(folders).set(changes).where(and(eq(folders.id, folderId), eq(folders.mailboxId, mailboxId))).returning();
+  if (!saved) return NextResponse.json({ error: "Label not found" }, { status: 404 });
+  return NextResponse.json({ ok: true, folder: { id: saved.id, mailboxId: saved.mailboxId, name: saved.name, parentId: saved.parentId, color: saved.color } });
  } catch (error) {
   const detail = String(error) + String((error as { cause?: unknown }).cause ?? "");
   if (detail.includes("Invalid label parent")) return NextResponse.json({ error: "Invalid label parent" }, { status: 400 });
+  if (detail.includes("UNIQUE constraint")) return NextResponse.json({ error: "Folder already exists" }, { status: 409 });
   throw error;
  }
- return NextResponse.json({ ok: true });
 }

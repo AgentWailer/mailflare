@@ -45,10 +45,10 @@ export function revealLabel(mailboxId: string, label: CustomFolder, folders: Cus
  saveCollapsed(key, readCollapsed(snapshot(key)).filter(id => !ancestors.has(id)));
 }
 
-export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canManage, onDelete, onCreateChild }: {
+export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canManage, onDelete, onCreateChild, onRename }: {
  mailboxId: string; folders: CustomFolder[]; hiddenIds: string[];
  counts: Record<string, { unread: number }>; canManage: boolean;
- onDelete: (folder: CustomFolder) => void; onCreateChild: (folder: CustomFolder) => void;
+ onDelete: (folder: CustomFolder) => void; onCreateChild: (folder: CustomFolder) => void; onRename: (folder: CustomFolder) => void;
 }) {
  const { t } = useLanguage(), { minimal } = useSidebar();
  const storageKey = `mailflare:nav:collapsed-labels:${mailboxId}`;
@@ -64,7 +64,7 @@ export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canMan
   if (!siblings.length) return null;
   return <ReorderableList key={parent ?? "root"}
    storageKey={`mailflare:nav:layout:folders:${mailboxId}${parent ? `:children:${parent}` : ""}`}
-   fallbackStorageKey="mailflare:nav:layout:folders" enabled={!minimal}
+   fallbackStorageKey="mailflare:nav:layout:folders" enabled={!minimal} dragHandles itemLabel={item => siblings.find(folder => folder.id === item.id)?.name ?? item.id}
    lists={[{ id: "folders", items: siblings.map(folder => ({ id: folder.id, node: <NavItem wrap link={{ href: `/folders/${folder.id}`, label: getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /> })) }]}
    renderItem={(item, actions) => {
     const folder = siblings.find(label => label.id === item.id)!;
@@ -74,7 +74,8 @@ export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canMan
      {/* The disclosure control uses the link's leading gutter, never an extra column. */}
      {children ? <button type="button" className="label-group-toggle absolute top-0 flex h-11 w-6 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-200/60 md:h-9" style={{ left: Math.min(depth, 5) * 12 }} aria-expanded={!collapsed.includes(folder.id)} aria-label={t(collapsed.includes(folder.id) ? "labels.expand" : "labels.collapse", { name: folder.name })} onClick={() => toggle(folder.id)}>{collapsed.includes(folder.id) ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button> : null}
      <div className="sidebar-label-link min-w-0 flex-1"><NavItem wrap labelClassName="text-sm" link={{ href: `/folders/${folder.id}`, label: folder.parentId && groups.has(folder.parentId) ? folder.name : getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /></div>
-     <LabelActions name={folder.name} actions={actions} canDelete={canManage} onDelete={() => onDelete(folder)} onCreateChild={() => onCreateChild(folder)} />
+     {actions.dragHandle}
+     <LabelActions name={folder.name} actions={actions} canDelete={canManage} onDelete={() => onDelete(folder)} onRename={() => onRename(folder)} onCreateChild={() => onCreateChild(folder)} />
     </div>;
    }}
    renderAfterItem={item => minimal || !collapsed.includes(item.id) ? group(item.id, depth + 1) : null}

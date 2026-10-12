@@ -2261,5 +2261,15 @@
 	"mbox.issues.dismiss": "Mark reviewed",
 	"mbox.issues.reviewed": "Reviewed",
 	"mbox.issues.first": "First page",
-	"mbox.issues.next": "More issues"
+	"mbox.issues.next": "More issues",
+	"labels.drag": "Reorder {name}",
+	"labels.dragHint": "Hold and drag; use arrow keys to reorder",
+	"labels.dragging": "Moving label. Release to save, Escape to cancel.",
+	"labels.reordered": "Order of {name} saved.",
+	"labels.rename": "Rename",
+	"labels.renameTitle": "Rename label",
+	"labels.renameDescription": "Messages, sublabels and rules stay assigned to this label.",
+	"labels.renameSave": "Save",
+	"labels.renameFailed": "The label could not be renamed. Please try again.",
+	"labels.dragCancelled": "Reordering cancelled."
 }

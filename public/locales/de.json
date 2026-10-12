@@ -2147,5 +2147,15 @@
 	"mbox.issues.dismiss": "Als geprüft markieren",
 	"mbox.issues.reviewed": "Geprüft",
 	"mbox.issues.first": "Erste Seite",
-	"mbox.issues.next": "Weitere Fehler"
+	"mbox.issues.next": "Weitere Fehler",
+	"labels.drag": "{name} verschieben",
+	"labels.dragHint": "Gedrückt halten und ziehen; mit den Pfeiltasten verschieben",
+	"labels.dragging": "Label wird verschoben. Loslassen zum Speichern, Escape zum Abbrechen.",
+	"labels.reordered": "Reihenfolge von {name} gespeichert.",
+	"labels.rename": "Umbenennen",
+	"labels.renameTitle": "Label umbenennen",
+	"labels.renameDescription": "E-Mails, Unterlabels und Regeln bleiben diesem Label zugeordnet.",
+	"labels.renameSave": "Speichern",
+	"labels.renameFailed": "Das Label konnte nicht umbenannt werden. Bitte erneut versuchen.",
+	"labels.dragCancelled": "Verschieben abgebrochen."
 }

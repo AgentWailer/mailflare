@@ -33,12 +33,15 @@ html, body {
 	to { background-color: transparent; box-shadow: inset 0 0 0 transparent; }
 }
 
+.reorder-handle { touch-action: none; user-select: none; -webkit-touch-callout: none; }
+.reorder-label-row { user-select: none; -webkit-touch-callout: none; }
+
 .refine-preview {
 	animation: refine-preview-reveal 900ms ease-out both;
 }
 
 @media (max-width: 1023px), (hover: none) and (pointer: coarse) {
-	:is(.label-group-toggle, .label-actions-trigger) { min-width: 44px; min-height: 44px; }
+	:is(.label-group-toggle, .label-actions-trigger, .reorder-handle) { min-width: 44px; min-height: 44px; }
 	/* All labels share this gutter, so touch-sized disclosures cannot shift parent labels. */
 	.sidebar-label-link > a { padding-left: 44px; }
 	.email-presentation-action { min-height: 44px; }

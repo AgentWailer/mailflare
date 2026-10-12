@@ -17,6 +17,7 @@ export type ReorderableListSpec = {
 };
 
 export type ReorderableItemActions = {
+	dragHandle?: ReactNode;
 	canMoveUp: boolean;
 	canMoveDown: boolean;
 	moveUp: () => void;
@@ -34,6 +35,9 @@ export type ReorderableListProps = {
 	initialItemAfter?: Record<string, string>;
 	/** Hold-to-reorder is switched off when false (e.g. the collapsed icon rail). */
 	enabled?: boolean;
+	/** Show an explicit touch-safe drag grip in renderItem. */
+	dragHandles?: boolean;
+	itemLabel?: (item: ReorderableItem) => string;
 };
 
 export type ReorderableLayout = Record<string, string[]>;
@@ -47,6 +51,7 @@ export type ReorderableDropTarget = {
 };
 
 export type ReorderableDrag = {
+	pointerId: number;
 	id: string;
 	left: number;
 	width: number;

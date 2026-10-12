@@ -118,3 +118,26 @@ test('backups work before the migration; nested backups require migration before
  assert.equal(old.DB.db.prepare('SELECT count(*) n FROM folders').get().n,3);
  assert.equal(old.DB.db.prepare('SELECT count(*) n FROM messages').get().n,1);
 });
+
+test('renaming keeps message assignments, filter targets, children and ordering IDs unchanged',async t=>{
+ const f=await fixture(t);await app.createLabel(apiRequest(f,{mailboxId:'box',name:'Child',parentId:'work'}));
+ f.DB.db.exec(`INSERT INTO routing_rules(id,user_id,domain_id,pattern,mailbox_id,folder_id,label_ids,created_at) VALUES('rule','owner','domain','sender@example.test','box','work','["work"]',1);`);
+ const ruleBefore=f.DB.db.prepare("SELECT folder_id,label_ids FROM routing_rules WHERE id='rule'").get();
+ const before=f.DB.db.prepare('SELECT folder_id,subject,status FROM messages WHERE id=?').get('message');
+ const children=f.DB.db.prepare("SELECT id,parent_id FROM folders WHERE parent_id='work'").all();
+ const response=await app.moveLabel(apiRequest(f,{mailboxId:'box',name:'  Projects  '},'PATCH'),context('work'));assert.equal(response.status,200);const body=await response.json();assert.equal(body.folder.id,'work');assert.equal(body.folder.name,'Projects');assert.equal(body.folder.parentId,null);
+ assert.deepEqual(f.DB.db.prepare('SELECT folder_id,subject,status FROM messages WHERE id=?').get('message'),before);assert.equal(f.DB.db.prepare("SELECT folder_id FROM message_labels WHERE message_id='message'").get().folder_id,'work');assert.deepEqual(f.DB.db.prepare("SELECT id,parent_id FROM folders WHERE parent_id='work'").all(),children);
+ const rows=(await(await app.listLabels(f.request())).json()).folders;assert.equal(app.getLabelPath(rows.find(x=>x.id===children[0].id),rows),'Projects / Child');
+ assert.deepEqual(f.DB.db.prepare("SELECT folder_id,label_ids FROM routing_rules WHERE id='rule'").get(),ruleBefore);
+ const renamedChild=await app.moveLabel(apiRequest(f,{mailboxId:'box',name:'Receipts'},'PATCH'),context(children[0].id));assert.equal(renamedChild.status,200);assert.equal((await renamedChild.json()).folder.parentId,'work');
+});
+
+test('rename rejects duplicates, invalid input and foreign or read-only access without changing labels',async t=>{
+ const f=await fixture(t);f.DB.db.exec("UPDATE mailboxes SET type='shared' WHERE id='box'");
+ for(const name of ['', '  ', 'x'.repeat(81),'bad\u0000name'])assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',name},'PATCH'),context('work'))).status,400);
+ assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',name:'Family'},'PATCH'),context('work'))).status,409);
+ for(const actor of ['delegate','foreign'])assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',name:'Denied'},'PATCH',actor),context('work'))).status,404);
+ assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',name:'Denied'},'PATCH','unauthenticated'),context('work'))).status,401);
+ assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',name:'Wrong mailbox'},'PATCH'),context('secret'))).status,404);
+ assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box'},'PATCH'),context('work'))).status,400);assert.equal(f.DB.db.prepare("SELECT name FROM folders WHERE id='work'").get().name,'Work');
+});
