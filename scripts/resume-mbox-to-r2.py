@@ -21,6 +21,12 @@ MIN_PART = 5 * MIB
 MAX_PART = 5 * 1024 ** 3
 
 
+def valid_mbox_key(key):
+    archive = key.startswith("mbox-imports/") and key.lower().endswith((".mbox", ".mbx"))
+    drive = re.fullmatch(r"drive/[A-Za-z0-9_-]+/drv_[A-Za-z0-9_-]+", key) is not None
+    return (archive or drive) and ".." not in key.split("/") and not any(ord(char) < 32 for char in key)
+
+
 class ResumeError(Exception):
     pass
 
@@ -182,8 +188,8 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch(r"[0-9a-fA-F]{32}", args.account_id):
         parser.error("Enter the 32-character Cloudflare account ID")
-    if not args.key.startswith("mbox-imports/") or not args.key.lower().endswith((".mbox", ".mbx")):
-        parser.error("Use a .mbox object key inside mbox-imports/")
+    if not valid_mbox_key(args.key):
+        parser.error("Use a .mbox key inside mbox-imports/ or the exact drive/OWNER/drv_ID key of your MBOX")
     if not shutil.which("aws"):
         parser.error("Install AWS CLI and configure the mailflare-r2 profile first")
     if args.part_size_mib is not None and not 5 <= args.part_size_mib <= 5120:

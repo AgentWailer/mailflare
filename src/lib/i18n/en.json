@@ -2193,7 +2193,7 @@
 	"gmail.checkSetup": "Check setup again",
 	"mbox.title": "Large MBOX archive from R2",
 	"mbox.description": "Import an uploaded archive in the background, even when your browser is closed.",
-	"mbox.uploadHint": "Upload the MBOX to the private bucket used by Mailflare under mbox-imports/. For 10 GB, use an S3 multipart upload, for example AWS CLI. Then select the destination mailbox and enter the object key below.",
+	"mbox.uploadHint": "Upload the MBOX to the private bucket used by Mailflare under mbox-imports/. For 10 GB, use an S3 multipart upload, for example AWS CLI. Then select the destination mailbox and enter the object key below. An MBOX already uploaded through your own Drive can be imported directly using its drive/OWNER/FILE object key.",
 	"mbox.objectKey": "R2 object key",
 	"mbox.start": "Start background import",
 	"mbox.pause": "Pause import",

@@ -115,3 +115,21 @@ test('small-upload parser rejects excess messages instead of truncating an MBOX'
 test('a 10 GB browser file is rejected before any upload starts',async()=>{
  await assert.rejects(app.importMessageFiles('box',[{size:10*1024**3,name:'archive.mbox'}],'system:inbox'),/background MBOX import/);
 });
+
+test('owned Drive MBOX objects completed through S3 are reconciled and imported without copying',async t=>{
+ const f=await fixture(t,mail('drive'));const key='drive/admin/drv_archive',bytes=f.objects.get('mbox-imports/archive.mbox');f.objects.set(key,bytes);
+ f.DB.db.prepare("INSERT INTO drive_items(id,owner_id,kind,name,r2_key,size,upload_id,upload_part_size,upload_fingerprint,created_at,updated_at) VALUES('drv_archive','admin','file','Archive.mbox',?,?,'pending',67108864,'fingerprint',1,1)").run(key,bytes.length);
+ f.DB.db.exec("INSERT INTO drive_upload_parts(item_id,part_number,etag) VALUES('drv_archive',1,'etag')");
+ const job=await app.createMboxJob(f.env,f.user,'box',key);const row=f.DB.db.prepare("SELECT * FROM drive_items WHERE id='drv_archive'").get();assert.equal(row.upload_id,null);assert.equal(row.upload_fingerprint,null);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM drive_upload_parts').get().n,0);
+ const done=await drain(f,job.id);assert.equal(done.status,'completed');assert.equal(done.imported,1);assert(f.objects.has(key));assert.equal([...f.objects.keys()].filter(x=>x.startsWith('drive/')).length,1);
+});
+test('Drive source validation rejects foreign, trashed, non-MBOX, incomplete and mismatched files',async t=>{
+ const f=await fixture(t,mail('drive'));const key='drive/admin/drv_archive',bytes=f.objects.get('mbox-imports/archive.mbox');f.objects.set(key,bytes);
+ f.DB.db.prepare("INSERT INTO drive_items(id,owner_id,kind,name,r2_key,size,upload_id,created_at,updated_at) VALUES('drv_archive','owner','file','Archive.mbox',?,?,'pending',1,1)").run(key,bytes.length);
+ await assert.rejects(app.createMboxJob(f.env,f.user,'box',key),/own Drive/);
+ f.DB.db.exec("UPDATE drive_items SET owner_id='admin',trashed_at=1");await assert.rejects(app.createMboxJob(f.env,f.user,'box',key),/own Drive/);
+ f.DB.db.exec("UPDATE drive_items SET trashed_at=NULL,name='Other.pdf'");await assert.rejects(app.createMboxJob(f.env,f.user,'box',key),/own Drive/);
+ f.DB.db.exec("UPDATE drive_items SET name='Archive.mbox',size=size+1");await assert.rejects(app.createMboxJob(f.env,f.user,'box',key),/declared file size/);
+ f.objects.delete(key);await assert.rejects(app.createMboxJob(f.env,f.user,'box',key),/Finish its multipart upload/);
+ assert.equal(f.DB.db.prepare('SELECT upload_id FROM drive_items').get().upload_id,'pending');assert.equal(f.DB.db.prepare('SELECT count(*) n FROM mbox_import_jobs').get().n,0);
+});

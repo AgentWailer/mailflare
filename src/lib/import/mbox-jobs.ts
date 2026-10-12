@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { folders, messageLabels, users } from "@/db/schema";
+import { driveItems, driveUploadParts, folders, messageLabels, users } from "@/db/schema";
 import { assertAdmin } from "@/lib/auth/admin";
 import type { SessionUser } from "@/lib/auth/types";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
@@ -47,9 +47,29 @@ async function enqueue(env: CloudflareEnv, id: string) {
 export async function createMboxJob(env: CloudflareEnv, user: SessionUser, mailboxId: string, objectKey: string) {
  await checkAccess(env, user, mailboxId);
  if (!env.AGENT_QUEUE) throw new Error("The background queue is not configured");
- if (!objectKey.startsWith(PRIVATE_PREFIX) || !/\.m(?:box|bx)$/i.test(objectKey) || objectKey.length > 1024 || /[\x00-\x1f]/.test(objectKey) || objectKey.split('/').some(part => part === '..')) throw new Error("Use a .mbox object inside the private mbox-imports/ prefix");
+ if (objectKey.length > 1024 || /[\x00-\x1f]/.test(objectKey) || objectKey.split('/').some(part => part === '..')) throw new Error("Invalid MBOX object key");
+ const db = getDb(env);
+ let driveSource: typeof driveItems.$inferSelect | undefined;
+ if (objectKey.startsWith("drive/")) {
+  const [item] = await db.select().from(driveItems).where(and(eq(driveItems.r2Key, objectKey), eq(driveItems.ownerId, user.id))).limit(1);
+  if (!item || item.kind !== "file" || item.trashedAt || !/\.m(?:box|bx)$/i.test(item.name)) throw new Error("Select an untrashed MBOX file from your own Drive");
+  driveSource = item;
+ } else if (!objectKey.startsWith(PRIVATE_PREFIX) || !/\.m(?:box|bx)$/i.test(objectKey)) {
+  throw new Error("Use a .mbox object inside mbox-imports/ or an MBOX file from your own Drive");
+ }
  const object = await env.BUCKET.head(objectKey);
  if (!object || !object.size || !object.etag) throw new Error("MBOX object not found. Finish its multipart upload before starting the import.");
+ if (driveSource) {
+  if (object.size !== driveSource.size) throw new Error("The completed Drive object does not match the declared file size; finish or verify the upload first");
+  // A verified S3 completion outside Mailflare leaves Drive's pending marker behind.
+  // Publish it only after the full object exists; never copy the archive or grant access to another owner's Drive.
+  if (driveSource.uploadId) {
+   await db.batch([
+    db.update(driveItems).set({ uploadId: null, uploadPartSize: null, uploadFingerprint: null, updatedAt: new Date() }).where(and(eq(driveItems.id, driveSource.id), eq(driveItems.ownerId, user.id), eq(driveItems.uploadId, driveSource.uploadId))),
+    db.delete(driveUploadParts).where(eq(driveUploadParts.itemId, driveSource.id)),
+   ]);
+  }
+ }
  const now = Date.now(), id = newId("mboximport");
  await env.DB.prepare("INSERT INTO mbox_import_jobs(id,user_id,mailbox_id,object_key,object_etag,object_size,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING")
   .bind(id, user.id, mailboxId, objectKey, object.etag, object.size, now, now).run();

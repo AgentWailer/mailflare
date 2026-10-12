@@ -2079,7 +2079,7 @@
 	"gmail.checkSetup": "Einrichtung erneut prüfen",
 	"mbox.title": "Großes MBOX-Archiv aus R2",
 	"mbox.description": "Ein hochgeladenes Archiv im Hintergrund importieren – auch bei geschlossenem Browser.",
-	"mbox.uploadHint": "Die MBOX im privaten Mailflare-Bucket unter mbox-imports/ hochladen. Für 10 GB einen S3-Multipart-Upload nutzen, z. B. AWS CLI. Anschließend das Zielpostfach auswählen und unten den Objektschlüssel eingeben.",
+	"mbox.uploadHint": "Die MBOX im privaten Mailflare-Bucket unter mbox-imports/ hochladen. Für 10 GB einen S3-Multipart-Upload nutzen, z. B. AWS CLI. Anschließend das Zielpostfach auswählen und unten den Objektschlüssel eingeben. Eine MBOX aus deinem eigenen Drive kann direkt über ihren Objektschlüssel drive/OWNER/FILE importiert werden.",
 	"mbox.objectKey": "R2-Objektschlüssel",
 	"mbox.start": "Hintergrundimport starten",
 	"mbox.pause": "Import pausieren",

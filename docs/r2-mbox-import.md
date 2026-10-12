@@ -35,6 +35,18 @@ Multiple ongoing uploads require explicit selection with `--upload-id UPLOAD_ID`
 
 The resume helper changes storage only through `upload-part` and `complete-multipart-upload`. Do not start Mailflare's background import until it prints **Upload complete and verified**.
 
+## An archive originally uploaded through Mailflare Drive
+
+A Drive upload uses `drive/OWNER_ID/FILE_ID` as its R2 key, with no filename extension. It will not appear under `mbox-imports/`. To resume that existing multipart upload, pass the exact Drive key:
+
+```bash
+python3 scripts/resume-mbox-to-r2.py "/path/to/archive.mbox" ACCOUNT_ID --key "drive/OWNER_ID/FILE_ID" --part-size-mib 64
+```
+
+Use 64 MiB only when it matches Drive's recorded upload part size. The helper verifies all existing part data before completing the upload. Then enter this same Drive key in the background import form. Mailflare verifies that the Drive entry belongs to the current administrator, is an untrashed MBOX file, and matches the complete object's size. It reconciles an upload completed externally and imports directly from the Drive object; there is no second upload or storage copy. Archives in another account's Drive are rejected even for administrators.
+
+If using the browser instead, choosing the same local file again through Drive's Upload action resumes recorded parts when its name, size and last-modified fingerprint match. Keep only one uploader active for a given upload.
+
 ## Start and monitor the import
 
 Log into Mailflare as an administrator, select the destination mailbox, and open **Settings → Import → Large MBOX archive from R2**. Enter `mbox-imports/workspace-002.mbox` and start the background import.

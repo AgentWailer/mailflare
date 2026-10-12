@@ -164,6 +164,23 @@ class ResumeTests(unittest.TestCase):
             self.run_resume(api)
         self.assertIsNone(api.completed)
 
+    def test_resume_preserves_the_exact_drive_key_without_copying(self):
+        api = FakeS3(self.content)
+        key = 'drive/usr_owner/drv_archive'
+        api.uploads = [{'Key': key, 'UploadId': 'ongoing'}]
+        resume_mbox.resume(api, self.path, 'mailflare-raw', key, part_size=5*MIB, emit=self.logs.append)
+        self.assertEqual(api.completed, self.content)
+        for operation, args in api.calls:
+            if '--key' in args:
+                self.assertEqual(args['--key'], key)
+        self.assertFalse(any(operation in ('copy-object', 'create-multipart-upload') for operation, args in api.calls))
+
+    def test_drive_keys_are_explicit_and_traversal_is_rejected(self):
+        self.assertTrue(resume_mbox.valid_mbox_key('drive/usr_owner/drv_archive'))
+        self.assertTrue(resume_mbox.valid_mbox_key('mbox-imports/archive.mbox'))
+        for key in ('drive/../drv_archive', 'drive/usr_owner/../drv_archive', 'inbound/raw.eml', 'mbox-imports/../archive.mbox', 'drive/usr_owner/not-an-item'):
+            self.assertFalse(resume_mbox.valid_mbox_key(key))
+
     def test_aws_cli_uses_existing_profile_and_does_not_log_secrets(self):
         with patch.object(resume_mbox.subprocess, 'run') as run:
             run.return_value.returncode = 0
