@@ -30,11 +30,14 @@ export async function createBulkJob(env: CloudflareEnv, user: SessionUser, input
  const existing = await env.DB.prepare("SELECT * FROM message_bulk_jobs WHERE user_id=? AND request_id=?").bind(user.id, requestId).first<BulkJob>();
  if (existing) { await enqueue(env, existing.id); return publicBulkJob(existing); }
  if (!env.AGENT_QUEUE) throw new Error("Background queue is not configured");
- const preview = await executeBulkScope(env, user, { ...input, after: 0 }, { preview: true });
+ // Old selections/jobs were captured before categorized mail joined the inbox.
+ // Preserve their narrower scope rather than expanding an in-flight archive/delete.
+ const capturedInput = { ...input, inboxPolicy: input.inboxPolicy ?? "primary_only" as const };
+ const preview = await executeBulkScope(env, user, { ...capturedInput, after: 0 }, { preview: true });
  if (!preview.ok) return preview;
  const selected = await preview.json() as { snapshot: number; actorId: string; mailboxIds: string[]; total: number };
  const id = newId("bulkjob"), now = Date.now();
- const payload = { ...input, snapshot: selected.snapshot, actorId: user.id, mailboxIds: selected.mailboxIds, after: 0 };
+ const payload = { ...capturedInput, snapshot: selected.snapshot, actorId: user.id, mailboxIds: selected.mailboxIds, after: 0 };
  try {
   await env.DB.prepare("INSERT INTO message_bulk_jobs(id,user_id,request_id,payload,scope,total,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
    .bind(id, user.id, requestId, JSON.stringify(payload), JSON.stringify(scope), selected.total, now, now).run();
@@ -68,7 +71,8 @@ export async function processBulkJob(env: CloudflareEnv, id: string) {
  if (!job) return;
  let permanentError = false;
  try {
-  const input = bulkScopeSchema.parse(JSON.parse(job.payload));
+  const savedInput = bulkScopeSchema.parse(JSON.parse(job.payload));
+  const input = { ...savedInput, inboxPolicy: savedInput.inboxPolicy ?? "primary_only" as const };
   for (let step = 0; step < 12 && Date.now() - now < 20000; step++) {
    const [user] = await getDb(env).select().from(users).where(eq(users.id, job.user_id)).limit(1);
    if (!user || user.disabled) { permanentError = true;throw new Error("Account is no longer authorized"); }

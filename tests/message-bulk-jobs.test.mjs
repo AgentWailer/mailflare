@@ -103,3 +103,11 @@ test('labels, archive, unread and move actions use the same durable selection',a
  job=await create(f,'read',{folder:'all'});await drain(f,job.id);job=await create(f,'unread',{folder:'all'});await drain(f,job.id);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages WHERE read=0').get().n,91);
  job=await create(f,'folder',{folder:'all',destinationFolderId:'label'});await drain(f,job.id);assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages WHERE folder_id='label'").get().n,91);
 });
+
+test('new inbox selections include transactions, while old in-flight snapshots retain their narrower scope',async t=>{
+ const f=await fixture(t);f.add('primary');f.add('invoice',{category:'invoices'});f.add('order',{category:'orders'});f.add('social',{category:'social'});f.add('advert',{category:'promotions'});
+ const legacy=await create(f,'archive');assert.equal(legacy.total,1);await drain(f,legacy.id);assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='invoice'").get().status,'received');
+ const selection=await f.scopeChunk({folder:'inbox',mailboxId:'box',action:'select'});assert.equal(selection.inboxPolicy,'relevant');assert.equal(selection.total,3);
+ const current=await create(f,'read',{inboxPolicy:selection.inboxPolicy,snapshot:selection.snapshot,actorId:selection.actorId,mailboxIds:selection.mailboxIds});assert.equal(current.total,3);await drain(f,current.id);
+ assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages WHERE read=1').get().n,3);assert.equal(f.DB.db.prepare("SELECT read FROM messages WHERE id='advert'").get().read,0);
+});

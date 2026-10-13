@@ -9,7 +9,7 @@ import type { MailCategory } from "@/lib/mail-sorting/categories";
 import type { MessageFolder } from "@/hooks/types";
 
 export type BulkScope = { folder: MessageFolder; mailboxId?: string; folderId?: string; query: string; unreadOnly: boolean; title: string };
-export type BulkScopeSelection = { snapshot: number; actorId: string; mailboxIds: string[]; after: number; total: number; unread: number; canManage: boolean };
+export type BulkScopeSelection = { snapshot: number; actorId: string; mailboxIds: string[]; after: number; total: number; unread: number; canManage: boolean; inboxPolicy?: "primary_only" | "relevant" };
 export type OrganizationChanges = { addLabelIds?: string[]; removeLabelIds?: string[]; category?: MailCategory; skipInbox?: boolean };
 export type ScopeAction = BulkMessageAction | "organize";
 export type ReadAllTask = { id?: string; requestId?: string; canRetry?: boolean; error?: string; action: ScopeAction; destinationFolderId?: string; organization?: OrganizationChanges; scope: BulkScope; status: "running" | "failed" | "done"; processed: number; total?: number };
@@ -84,7 +84,7 @@ export function startBulkScopeTask(scope: BulkScope, selection: BulkScopeSelecti
  generation++;
  session = getClientSessionToken();
  const requestId = crypto.randomUUID();
- pending = { input: { ...scopePayload(scope), snapshot: selection.snapshot, actorId: selection.actorId, mailboxIds: selection.mailboxIds, action, destinationFolderId, organization }, scope, requestId };
+ pending = { input: { ...scopePayload(scope), snapshot: selection.snapshot, actorId: selection.actorId, mailboxIds: selection.mailboxIds, inboxPolicy: selection.inboxPolicy ?? "primary_only", action, destinationFolderId, organization }, scope, requestId };
  publish({ scope, action, destinationFolderId, organization, requestId, status: "running", processed: 0, total: selection.total });
  void submit();
 }
@@ -92,7 +92,7 @@ export function startReadAllTask(scope: BulkScope) {
  if (task?.status === "running") return;
  generation++;
  session = getClientSessionToken();const requestId = crypto.randomUUID();
- pending = { input: { ...scopePayload(scope), action: "read" }, scope, requestId };
+ pending = { input: { ...scopePayload(scope), action: "read", inboxPolicy: "relevant" }, scope, requestId };
  publish({ scope, action: "read", requestId, status: "running", processed: 0 });void submit();
 }
 export function retryReadAllTask() {

@@ -1,5 +1,7 @@
 export const MAIL_CATEGORIES = ["primary", "invoices", "promotions", "social", "orders"] as const;
 export type MailCategory = (typeof MAIL_CATEGORIES)[number];
+/** Categories are additional views, not automatic moves out of the inbox. */
+export const INBOX_CATEGORIES = ["primary", "invoices", "orders", "social"] as const;
 export function isMailCategory(value: unknown): value is MailCategory {
 	return MAIL_CATEGORIES.includes(value as MailCategory);
 }
@@ -18,7 +20,7 @@ export type SortingDecision = {
 	securityProbability?: number;
 	learningExamples?: number;
 };
-/** Primary list membership. Financial categories have their own views. */
+/** Inbox membership; explicit archive/move/snooze actions still take precedence. */
 export function isPrimaryInboxMail(message: {
 	status: string;
 	folderId?: string | null;
@@ -30,13 +32,13 @@ export function isPrimaryInboxMail(message: {
 	return (
 		message.status === "received" &&
 		!message.folderId &&
-		(!message.category || message.category === "primary") &&
+		(!message.category || INBOX_CATEGORIES.includes(message.category as (typeof INBOX_CATEGORIES)[number])) &&
 		message.direction !== "outbound" &&
 		(!message.snoozedUntil || new Date(message.snoozedUntil).getTime() <= Date.now())
 	);
 }
 
 export function shouldNotifyMail(message:Parameters<typeof isPrimaryInboxMail>[0]):boolean {
- // Moving transactions to their own category must not suppress their existing alerts.
- return isPrimaryInboxMail({ ...message, category: message.category === "invoices" || message.category === "orders" ? "primary" : message.category }) && message.read !== true;
+ // Keep social notifications quiet while displaying them in the inbox.
+ return isPrimaryInboxMail(message) && message.category !== "social" && message.read !== true;
 }

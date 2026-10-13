@@ -1,4 +1,5 @@
 import { labelCondition } from "@/lib/mail-sorting/labels";
+import { INBOX_CATEGORIES } from "@/lib/mail-sorting/categories";
 import { NextResponse } from "next/server";
 import { and, desc, eq, gt, inArray, isNull, lte, ne, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
 		conditions.push(eq(messages.direction, "inbound"));
 		conditions.push(folderId || folder === "invoices" || folder === "orders" ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
 		if (!folderId) {
-			conditions.push(eq(messages.category,folder === "inbox" ? "primary" : folder));
+			conditions.push(folder === "inbox" ? inArray(messages.category, INBOX_CATEGORIES) : eq(messages.category,folder));
 			if(folder === "inbox") conditions.push(isNull(messages.folderId));
 			conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
 		}

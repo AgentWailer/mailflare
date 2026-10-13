@@ -17,6 +17,7 @@ export const bulkScopeSchema = z.object({
 	q: z.string().max(4096).optional(),
 	read: z.enum(["read", "unread"]).optional(),
 	timeZone: z.string().max(100).optional(),
+	inboxPolicy: z.enum(["primary_only", "relevant"]).optional(),
 	after: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).default(0),
 	snapshot: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
 	actorId: z.string().min(1).max(200).optional(),
@@ -56,6 +57,7 @@ export async function executeBulkScope(env: CloudflareEnv, user: import("@/lib/a
 	if (input.q) params.set("q", input.q);
 	if (input.read) params.set("read", input.read);
 	if (input.timeZone) params.set("timeZone", input.timeZone);
+	if (input.inboxPolicy) params.set("inboxPolicy", input.inboxPolicy);
 	const [boundary] = input.snapshot === undefined || options.preview ? await db.select({ value: sql<number>`coalesce(max(rowid), 0)` }).from(messages) : [];
 	const snapshot = options.preview ? Math.min(input.snapshot ?? Number.MAX_SAFE_INTEGER, boundary?.value ?? 0) : input.snapshot ?? boundary?.value ?? 0;
 	const scope = and(
@@ -64,7 +66,7 @@ export async function executeBulkScope(env: CloudflareEnv, user: import("@/lib/a
 		sql`${messages}.rowid <= ${snapshot}`,
 		sql`${messages}.rowid > ${input.after}`,
 	);
-	const context = { snapshot, actorId: user.id, mailboxIds, canManage };
+	const context = { snapshot, actorId: user.id, mailboxIds, canManage, inboxPolicy: input.inboxPolicy ?? "relevant" };
 	if (input.action === "select" || options.preview) {
 		const [summary] = await db.select({ total: count(), unread: sql<number>`coalesce(sum(case when ${messages.read} = 0 then 1 else 0 end), 0)` }).from(messages).where(scope);
 		return NextResponse.json({ ...context, after: 0, total: summary?.total ?? 0, unread: summary?.unread ?? 0 });

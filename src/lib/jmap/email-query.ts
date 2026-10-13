@@ -1,3 +1,4 @@
+import { INBOX_CATEGORIES } from "@/lib/mail-sorting/categories";
 import { labelCondition } from "@/lib/mail-sorting/labels";
 import {
 	and,
@@ -11,6 +12,7 @@ import {
 	isNotNull,
 	isNull,
 	like,
+	lte,
 	lt,
 	ne,
 	not,
@@ -47,8 +49,10 @@ export function mailboxRefCondition(ref: MailboxRef): SQL {
 		return and(
 			base,
 			eq(messages.status, status),
-			eq(messages.category, "primary"),
+			inArray(messages.category, INBOX_CATEGORIES),
+			eq(messages.direction, "inbound"),
 			isNull(messages.folderId),
+			or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!,
 		)!;
 	if (ref.role === "sent")
 		return and(

@@ -1,3 +1,4 @@
+import { isPrimaryInboxMail } from "@/lib/mail-sorting/categories";
 import { labelCondition } from "@/lib/mail-sorting/labels";
 import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { folders, messages, messageLabels } from "@/db/schema";
@@ -54,6 +55,7 @@ async function loadCounts(
 			status: messages.status,
 			folderId: messages.folderId,
 			category: messages.category,
+			snoozedUntil: messages.snoozedUntil,
 			total: count(),
 			unread: sql<number>`sum(case when ${messages.read} = 0 and ${messages.direction} = 'inbound' then 1 else 0 end)`,
 		})
@@ -65,6 +67,7 @@ async function loadCounts(
 			messages.status,
 			messages.folderId,
 			messages.category,
+			messages.snoozedUntil,
 		);
 
 	const add = (key: string, row: { total: number; unread: number }) => {
@@ -89,8 +92,8 @@ async function loadCounts(
 				}),
 				row,
 			);
-			if (row.status === "received") continue;
 		}
+		if (row.status === "received" && !isPrimaryInboxMail(row)) continue;
 		if (row.folderId && row.status === "received") {
 			continue;
 		}

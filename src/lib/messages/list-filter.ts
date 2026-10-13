@@ -3,7 +3,7 @@ import type { SQL } from "drizzle-orm";
 import { messages } from "@/db/schema";
 import type { getDb } from "@/db";
 import { labelCondition } from "@/lib/mail-sorting/labels";
-import { isMailCategory } from "@/lib/mail-sorting/categories";
+import { isMailCategory, INBOX_CATEGORIES } from "@/lib/mail-sorting/categories";
 import { buildSearchConditions } from "@/lib/search/conditions";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
 
@@ -37,7 +37,7 @@ export function messageListFilterConditions(db: ReturnType<typeof getDb>, params
 	if (status === "received" && !folderId) {
 		const category = requestedCategory;
 		if (!isMailCategory(category)) throw new Error("Invalid category");
-		conditions.push(eq(messages.category,category));
+		conditions.push(category === "primary" && params.get("inboxPolicy") !== "primary_only" ? inArray(messages.category, INBOX_CATEGORIES) : eq(messages.category,category));
 		if(category === "primary") conditions.push(isNull(messages.folderId));
 		conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
 	}

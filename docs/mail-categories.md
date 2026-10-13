@@ -7,7 +7,17 @@ confirmations and credit notes. Orders includes purchase, shipment and delivery
 confirmations. When an actual payment receipt accompanies an order, Invoices takes
 precedence. Personal correspondence and account security alerts remain in Primary.
 New unread invoices and orders retain their existing notification eligibility;
-advertising and social updates remain silent. The app badge follows that policy.
+advertising and social updates remain silent. The app badge counts the unread mail
+actually visible in the inbox, including social mail.
+
+Categories are additional views. New invoices, orders and social mail remain in the
+inbox and appear in their own categories too; only advertising and spam skip the
+inbox automatically. Explicit archive, move, snooze and filter `skipInbox` actions
+still take precedence. Existing received categorized messages become visible
+without reclassifying them or altering their read flags, labels or attachments.
+Inbox counts, message navigation, JMAP mailbox membership and bulk selection use
+the same policy. Durable jobs accepted under the older primary-only policy keep
+their original scope rather than picking up additional categorized messages.
 
 Narrow transaction and bulk-mail rules run before Clef Flash. Sender domains and
 prices alone are not enough to identify a transaction. Coupons and invitations to

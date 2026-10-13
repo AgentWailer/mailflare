@@ -1,5 +1,6 @@
 import type { MessageCounts, MessageFolder } from "@/hooks/types";
 import type { CountableFolder, MessageCountRow } from "./types";
+import { isPrimaryInboxMail } from "@/lib/mail-sorting/categories";
 
 export function getMessageFolder(row: MessageCountRow): CountableFolder {
 	if (row.snoozedUntil && row.snoozedUntil > new Date()) return "snoozed";
@@ -42,6 +43,7 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 	for (const row of rows) {
 		const weight = row.total ?? 1;
 		const folder = getMessageFolder(row);
+		const inInbox = isPrimaryInboxMail(row);
 		const unread = row.direction === "inbound" && !row.read;
 		if (row.direction === "inbound" && row.status !== "template") {
 			folders.all.total += weight;
@@ -58,6 +60,10 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 		if (folder) {
 			folders[folder].total += weight;
 			if (unread) folders[folder].unread += weight;
+		}
+		if (inInbox && folder !== "inbox") {
+			folders.inbox.total += weight;
+			if (unread) folders.inbox.unread += weight;
 		}
 
 		if (row.folderId) {
@@ -77,7 +83,7 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 		};
 		mailboxCount.total += weight;
 		if (unread) mailboxCount.unread += weight;
-		if (folder === "inbox") mailboxCount.inbox += weight;
+		if (inInbox) mailboxCount.inbox += weight;
 		mailboxMap.set(row.mailboxId, mailboxCount);
 	}
 

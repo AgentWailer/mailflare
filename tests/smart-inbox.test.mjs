@@ -45,6 +45,7 @@ await build({
  export {getDb} from './src/db/index.ts';
  export {resolveRoutineMail} from './src/lib/mail-sorting/routine.ts';
  export {requireSessionUser} from './src/lib/api/auth.ts';
+ export {emailQuery} from './src/lib/jmap/emails.ts';
  export {emailGet,emailSet} from './src/lib/jmap/emails.ts';
  export {mailboxGet} from './src/lib/jmap/mailboxes.ts';
  export {processInboundMessage} from './src/lib/email/inbound.ts';
@@ -164,8 +165,8 @@ test("all incoming mail includes every category, labels, archive, snooze and tra
 	assert.equal(nav.messages.find(x=>x.id==='archived').unread,false);
 	const counts = (await (await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json()).counts;
 	assert.deepEqual(counts.folders.all,{total:8,unread:7});
-	assert.equal(counts.folders.inbox.unread,1);
-	assert.equal(await app.getUnreadBadgeCount(f.db,{id:'owner',email:'owner@example.test',role:'user'}),1);
+	assert.equal(counts.folders.inbox.unread,2);
+	assert.equal(await app.getUnreadBadgeCount(f.db,{id:'owner',email:'owner@example.test',role:'user'}),2);
 	const searched = app.getMessageQueryParams('all','box',{query:'from:scam@example.test',read:'unread'});
 	assert.deepEqual((await (await app.list(f.request('/api/messages?' + searched))).json()).messages.map(x=>x.id),['spam']);
 	// No mailbox selected still respects access; an explicit foreign mailbox is rejected.
@@ -263,11 +264,11 @@ test("conversation rows retain labels from older visible messages without duplic
 	`);
 	const query = '/api/messages?mailboxId=box&status=received&direction=inbound';
 	const grouped = await (await app.list(f.request(query+'&group=thread'))).json();
-	assert.deepEqual(grouped.messages.map(message=>message.id), ['newest']);
+	assert.deepEqual(grouped.messages.map(message=>message.id), ['newest','social']);
 	assert.deepEqual(grouped.messages[0].labels.map(label=>label.id).sort(), ['follow','work']);
 	assert.deepEqual(grouped.messages[0].threadMessageIds.sort(), ['newest','primary']);
 	const individual = await (await app.list(f.request(query))).json();
-	assert.deepEqual(individual.messages.map(message=>message.id), ['newest','primary']);
+	assert.deepEqual(individual.messages.map(message=>message.id), ['newest','primary','social']);
 	assert.deepEqual(individual.messages[0].labels.map(label=>label.id), ['follow']);
 	const filtered = await (await app.list(f.request(query+'&group=thread&folderId=work'))).json();
 	assert.deepEqual(filtered.messages.map(message=>message.id), ['primary']);
@@ -312,13 +313,13 @@ test("multiple labels share one message, remain in inbox, count once and preserv
 	).json();
 	assert.deepEqual(
 		main.messages.map((x) => x.id),
-		["primary"],
+		["primary", "social"],
 	);
 	assert.equal(main.messages[0].labels.length, 2);
 	const result = await (
 		await app.counts(f.request("/api/messages/counts?mailboxId=box"))
 	).json();
-	assert.equal(result.counts.folders.inbox.unread, 1);
+	assert.equal(result.counts.folders.inbox.unread, 2);
 	assert.equal(result.counts.folders.promotions.unread, 1);
 	assert.equal(result.counts.folders.social.unread, 1);
 	assert.equal(result.counts.customFolders.work.total, 1);
@@ -351,7 +352,7 @@ test("multiple labels share one message, remain in inbox, count once and preserv
 				await app.list(f.request("/api/messages?mailboxId=box&status=received"))
 			).json()
 		).messages.length,
-		0,
+		1,
 	);
 	assert.equal(
 		(
@@ -520,7 +521,7 @@ test("AND/OR/exception filters assign multiple labels and skip inbox before AI",
 		true,
 	);
 });
-test("promotions/social/spam/archive stay silent and only primary contributes to badge", async (t) => {
+test("promotions/social/spam/archive stay silent and badge matches visible inbox", async (t) => {
 	const f = await fixture(t);
 	assert.equal(
 		await app.getUnreadBadgeCount(f.db, {
@@ -528,7 +529,7 @@ test("promotions/social/spam/archive stay silent and only primary contributes to
 			role: "user",
 			email: "owner@example.test",
 		}),
-		1,
+		2,
 	);
 	for (const category of ["promotions", "social"])
 		assert.equal(app.shouldNotifyMail({ status: "received", category }), false);
@@ -802,7 +803,7 @@ test("bulk shortcuts spare AI calls while excluding security, personal messages 
 });
 
  test('primary membership counts read mail correctly and ignores snoozed mail',()=>{
-  const message={status:'received',direction:'inbound',category:'primary',read:true};assert.equal(app.isPrimaryInboxMail(message),true);assert.equal(app.shouldNotifyMail(message),false);assert.equal(app.isPrimaryInboxMail({...message,category:'social'}),false);assert.equal(app.isPrimaryInboxMail({...message,snoozedUntil:new Date(Date.now()+3600000).toISOString()}),false);
+  const message={status:'received',direction:'inbound',category:'primary',read:true};assert.equal(app.isPrimaryInboxMail(message),true);assert.equal(app.shouldNotifyMail(message),false);assert.equal(app.isPrimaryInboxMail({...message,category:'social'}),true);assert.equal(app.isPrimaryInboxMail({...message,snoozedUntil:new Date(Date.now()+3600000).toISOString()}),false);
  });
 
 
@@ -1032,7 +1033,7 @@ test('invoice/order lists, counters and navigation include archive while preserv
   const nav=await(await app.navigation(f.request('/api/messages/navigation?mailboxId=box&folder='+category))).json();assert.deepEqual(nav.messages.map(x=>x.id),[id]);
   const params=app.getMessageQueryParams(category,'box');assert.equal(params.get('category'),category);assert.equal(params.get('status'),'received');
  }
- const counts=await(await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json();assert.equal(counts.counts.folders.invoices.total,1);assert.equal(counts.counts.folders.orders.total,1);assert.equal(counts.counts.folders.archived.total,1);assert.equal(counts.counts.folders.inbox.total,0);assert.equal(counts.counts.customFolders.work.total,1);
+ const counts=await(await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json();assert.equal(counts.counts.folders.invoices.total,1);assert.equal(counts.counts.folders.orders.total,1);assert.equal(counts.counts.folders.archived.total,1);assert.equal(counts.counts.folders.inbox.total,2);assert.equal(counts.counts.customFolders.work.total,1);
  assert.equal((await app.list(f.request('/api/messages?mailboxId=otherbox&status=received&category=invoices'))).status,404);
 });
 
@@ -1057,5 +1058,26 @@ test('new invoice/order alerts retain transaction relevance while advertising an
  const f=await fixture(t);const message={status:'received',direction:'inbound',folderId:null,read:false};
  for(const category of ['primary','invoices','orders']){assert.equal(app.shouldNotifyMail({...message,category}),true);assert.equal(app.shouldNotifyMail({...message,category,status:'archived'}),false);assert.equal(app.shouldNotifyMail({...message,category,read:true}),false);assert.equal(app.shouldNotifyMail({...message,category,snoozedUntil:new Date(Date.now()+3600000)}),false);}
  for(const category of ['promotions','social'])assert.equal(app.shouldNotifyMail({...message,category}),false);
- f.DB.db.exec("UPDATE messages SET category='invoices' WHERE id='primary';UPDATE messages SET category='orders' WHERE id='promotion'");const {user}=await app.requireSessionUser(f.env,f.request('/api/messages'));assert.equal(await app.getUnreadBadgeCount(f.db,user),2);f.DB.db.exec("UPDATE messages SET status='archived' WHERE id='primary'");assert.equal(await app.getUnreadBadgeCount(f.db,user),1);
+ f.DB.db.exec("UPDATE messages SET category='invoices' WHERE id='primary';UPDATE messages SET category='orders' WHERE id='promotion'");const {user}=await app.requireSessionUser(f.env,f.request('/api/messages'));assert.equal(await app.getUnreadBadgeCount(f.db,user),3);f.DB.db.exec("UPDATE messages SET status='archived' WHERE id='primary'");assert.equal(await app.getUnreadBadgeCount(f.db,user),2);
+});
+
+test('Freenet invoices, orders and social remain in inbox as well as their categories across list/counts/badge/JMAP',async t=>{
+ const f=await fixture(t);
+ f.DB.db.exec(`UPDATE messages SET category='invoices',from_addr='freenet <noreply@freenet-mobilfunk.de>',subject='Neue freenet Rechnung M26067823747' WHERE id='primary';
+ UPDATE messages SET category='orders' WHERE id='promotion';
+ INSERT INTO message_labels(message_id,folder_id) VALUES ('primary','work');
+ INSERT INTO messages(id,user_id,mailbox_id,direction,from_addr,to_addr,subject,status,category,read,created_at,snoozed_until) VALUES
+ ('advertising','owner','box','inbound','sales@example.test','owner@example.test','Sale','received','promotions',0,5,NULL),
+ ('archived-invoice','owner','box','inbound','billing@example.test','owner@example.test','Invoice','archived','invoices',0,4,NULL),
+ ('snoozed-invoice','owner','box','inbound','billing@example.test','owner@example.test','Invoice','received','invoices',0,3,4102444800);`);
+ const inbox=await(await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received'))).json();assert.deepEqual(inbox.messages.map(x=>x.id),['primary','promotion','social']);
+ const invoices=await(await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received&category=invoices'))).json();assert.deepEqual(invoices.messages.map(x=>x.id),['primary','archived-invoice']);
+ const nav=await(await app.navigation(f.request('/api/messages/navigation?mailboxId=box&folder=inbox'))).json();assert.deepEqual(nav.messages.map(x=>x.id),['primary','promotion','social']);
+ const counts=(await(await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json()).counts;assert.deepEqual(counts.folders.inbox,{total:3,unread:3});assert.equal(counts.folders.invoices.total,2);assert.equal(counts.folders.orders.total,1);assert.equal(counts.mailboxes[0].inbox,3);
+ const {user}=await app.requireSessionUser(f.env,f.request('/api/messages'));assert.equal(await app.getUnreadBadgeCount(f.db,user),3);
+ const ctx={env:f.env,db:f.db,auth:{user,userId:'owner',mailboxIds:null},accountId:'owner',origin:'https://mailflare.test',createdIds:{}};
+ const email=(await app.emailGet(ctx,{ids:['primary']})).list[0];assert.equal(email.mailboxIds['box~inbox'],true);assert.equal(email.mailboxIds['box~c~invoices'],true);assert.equal(email.mailboxIds['box~f~work'],true);
+ const boxes=await app.mailboxGet(ctx,{});assert.equal(boxes.list.find(x=>x.id==='box~inbox').totalEmails,3);assert.equal(boxes.list.find(x=>x.id==='box~inbox').unreadEmails,3);
+ const queried=await app.emailQuery(ctx,{filter:{inMailbox:'box~inbox'}});assert.deepEqual(queried.ids,['primary','promotion','social']);
+ const edited=await app.emailSet(ctx,{update:{primary:{'mailboxIds/box~f~follow':true}}});assert.equal(edited.updated.primary,null);assert.equal(f.DB.db.prepare("SELECT category FROM messages WHERE id='primary'").get().category,'invoices');assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='primary'").get().status,'received');
 });

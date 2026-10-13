@@ -1,3 +1,4 @@
+import { isPrimaryInboxMail } from "@/lib/mail-sorting/categories";
 import { and, inArray, isNull } from "drizzle-orm";
 import { messageAttachments, messages } from "@/db/schema";
 import {
@@ -53,7 +54,7 @@ export function mailboxIdsFor(
 				category: row.category,
 			})
 		] = true;
-	if ((!row.folderId || row.status !== "received") && (row.status !== "received" || row.category === "primary")) {
+	if ((!row.folderId || row.status !== "received") && (row.status !== "received" || isPrimaryInboxMail(row))) {
 		const role = statusToRole(row.status);
 		if (role)
 			ids[encodeMailboxRef({ kind: "role", mailboxId: row.mailboxId, role })] =

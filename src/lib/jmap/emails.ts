@@ -289,11 +289,12 @@ function targetFromMailboxIds(
 		return invalid;
 	const destinations = refs.filter((ref) => ref && ref.kind !== "folder");
 	const archivedTransaction = destinations.length === 2 && destinations.some(ref => ref?.kind === "role" && ref.role === "archive") && destinations.some(ref => ref?.kind === "category" && (ref.category === "invoices" || ref.category === "orders"));
-	if (destinations.length > 1 && !archivedTransaction) return invalid;
+	const categorizedInbox = destinations.length === 2 && destinations.some(ref => ref?.kind === "role" && ref.role === "inbox") && destinations.some(ref => ref?.kind === "category" && ["invoices", "orders", "social"].includes(ref.category));
+	if (destinations.length > 1 && !archivedTransaction && !categorizedInbox) return invalid;
 	const labels = refs.flatMap((ref) =>
 		ref?.kind === "folder" ? [ref.folderId] : [],
 	);
-	const destination = archivedTransaction ? destinations.find(ref => ref?.kind === "category") : destinations[0];
+	const destination = archivedTransaction || categorizedInbox ? destinations.find(ref => ref?.kind === "category") : destinations[0];
 	if (destination?.kind === "category")
 		return {
 			status: archivedTransaction ? "archived" : "received",
