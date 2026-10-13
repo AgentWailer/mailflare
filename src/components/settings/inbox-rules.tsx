@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { ListFilter, LoaderCircle, Plus, Trash2, X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
+import { useReadAllTask, retryReadAllTask, dismissReadAllTask } from "@/components/messages/read-all-task";
 import { Input } from "@/components/ui/input";
 import { RuleLabelCreator } from "./rule-label-creator";
 import { getLabelPath } from "@/lib/folders/hierarchy";
@@ -23,6 +24,7 @@ import {
 	deleteInboxRule,
 	fetchInboxRules,
 	fetchRuleFolders,
+	applyInboxRule,
 } from "./inbox-rules-utils";
 import type {
 	InboxRule,
@@ -45,7 +47,7 @@ function storedArray<T>(value: string | undefined): T[] {
 	}
 }
 export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRuleSource; onClose?: () => void} = {}) {
-	const { t } = useLanguage();
+	const { t, locale } = useLanguage();
 	const { selectedMailbox, mailboxes } = useSelectedMailbox();
 	const mailboxId = sourceMessage?.mailboxId ?? selectedMailbox?.id ?? "";
 	const ruleMailbox = selectedMailbox?.id === mailboxId ? selectedMailbox : mailboxes.find(box => box.id === mailboxId);
@@ -70,7 +72,27 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 	const [priority, setPriority] = useState(10);
 	const [forward, setForward] = useState(false);
 	const [forwardTo, setForwardTo] = useState("");
-	function changeOpen(next: boolean) { setLabelCreating(false); setOpen(next); if (!next) onClose?.(); }
+ const [applyExisting, setApplyExisting] = useState(false);
+ const [applyingRule, setApplyingRule] = useState<InboxRule | null>(null);
+ const [includeSpamTrash, setIncludeSpamTrash] = useState(false);
+ const savedRuleId = useRef<string | null>(null);
+ const applyRequestId = useRef<string | null>(null);
+ const saveRequestId = useRef<string | null>(null);
+ const backgroundTask = useReadAllTask();
+ const jobRunning = backgroundTask?.status === "running";
+ const hasLocalActions = labels.length > 0 || !!category || skip || destination !== "keep";
+ function ruleHasLocalActions(rule: InboxRule) { return storedArray<string>(rule.labelIds).length > 0 || !!rule.folderId || !!rule.category || rule.skipInbox || rule.action === "spam" || rule.action === "trash"; }
+ const apply = useMutation({
+  mutationFn: () => {
+   if (!applyingRule) throw new Error(t("smart.failed"));
+   applyRequestId.current ??= crypto.randomUUID();
+   return applyInboxRule(applyingRule.id, applyRequestId.current, includeSpamTrash, t);
+  },
+  onSuccess: () => setApplyingRule(null),
+ });
+ function showApply(rule: InboxRule) { apply.reset(); applyRequestId.current = null; setIncludeSpamTrash(false); setApplyingRule(rule); }
+
+	function changeOpen(next: boolean) { if (!next && save.isPending) return; setLabelCreating(false); setOpen(next); if (!next) onClose?.(); }
 	const folders = useQuery({
 		queryKey: ["folders", mailboxId],
 		enabled: !!mailboxId,
@@ -82,7 +104,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 		queryFn: () => fetchInboxRules(mailboxId),
 	});
 	const save = useMutation({
-		mutationFn: () => {
+		mutationFn: async () => {
 			const first = conditions[0];
 			const input: InboxRuleInput = {
 				mailboxId,
@@ -100,12 +122,19 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 				priority,
 				destination,
 			};
-			return editing
-				? updateInboxRule(editing.id, input, t)
-				: createInboxRule(input, t);
+   const id = editing?.id ?? savedRuleId.current;
+   const result = id ? await updateInboxRule(id, input, t) : await createInboxRule(input, t);
+   savedRuleId.current = id ?? result.id ?? null;
+   void client.invalidateQueries({ queryKey: ["routing-rules", mailboxId] });
+   if (applyExisting && hasLocalActions) {
+    saveRequestId.current ??= crypto.randomUUID();
+    if (!savedRuleId.current) throw new Error(t("rules.applyFailed"));
+    await applyInboxRule(savedRuleId.current, saveRequestId.current, false, t);
+   }
+   return result;
 		},
 		onSuccess: () => {
-			changeOpen(false);
+			setLabelCreating(false); setOpen(false); onClose?.();
 			client.invalidateQueries({ queryKey: ["routing-rules", mailboxId] });
 		},
 	});
@@ -116,6 +145,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 	});
 	function show(rule: InboxRule | null) {
 		setLabelCreating(false);
+  setApplyExisting(false); savedRuleId.current = null; saveRequestId.current = null;
 		setEditing(rule);
 		const items = storedArray<RuleCondition>(rule?.conditions);
 		setConditions(
@@ -215,6 +245,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 								· {rule.priority}
 							</span>
 						</button>
+      <Button variant="ghost" className="min-h-11 min-w-11" aria-label={t("rules.applyExisting")} title={ruleHasLocalActions(rule) ? t("rules.applyExisting") : t("rules.historicalForwardHelp")} disabled={jobRunning || !ruleHasLocalActions(rule)} onClick={() => showApply(rule)}><ListFilter className="h-4 w-4" /></Button>
 						<Button
 							variant="ghost"
 							className="min-h-11 min-w-11"
@@ -233,6 +264,22 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 				)}
 			</div>
 			</>}
+   {backgroundTask?.action === "applyRule" && <div className="flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-800">
+    {backgroundTask.status === "running" && <LoaderCircle aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />}
+    <span role={backgroundTask.status === "failed" ? "alert" : "status"} className="min-w-0 flex-1 break-words" title={backgroundTask.error}>{t(backgroundTask.status === "running" ? "rules.applyProgress" : backgroundTask.status === "failed" ? "rules.applyFailed" : "rules.applyDone", { count: `${backgroundTask.processed.toLocaleString(locale)} / ${(backgroundTask.total ?? 0).toLocaleString(locale)}` })}</span>
+    {backgroundTask.status === "failed" && backgroundTask.canRetry !== false && <Button variant="ghost" onClick={retryReadAllTask}>{t("list.markAllReadRetry")}</Button>}
+    {backgroundTask.status !== "running" && <Button variant="ghost" aria-label={t("navigation.close")} onClick={dismissReadAllTask}><X className="h-4 w-4" /></Button>}
+   </div>}
+   <Dialog open={!!applyingRule} onOpenChange={next => { if (!next && !apply.isPending) setApplyingRule(null); }}>
+    <DialogContent className="sm:max-w-lg">
+     <DialogHeader><DialogTitle>{t("rules.applyExisting")}</DialogTitle><DialogDescription>{t("rules.applyHelp")}</DialogDescription></DialogHeader>
+     <p className="break-words text-sm font-medium">{applyingRule?.matchValue || applyingRule?.pattern}</p>
+     <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={includeSpamTrash} disabled={apply.isPending} onChange={event => { setIncludeSpamTrash(event.target.checked); applyRequestId.current = null; }} />{t("rules.includeSpamTrash")}</label>
+     {applyingRule?.forwardTo && <p className="text-xs text-neutral-500">{t("rules.historicalForwardHelp")}</p>}
+     {apply.isError && <p role="alert" className="text-sm text-red-600">{apply.error.message}</p>}
+     <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" disabled={apply.isPending} onClick={() => setApplyingRule(null)}>{t("common.cancel")}</Button><Button disabled={apply.isPending || jobRunning} onClick={() => apply.mutate()}>{apply.isPending ? t("list.bulkStarting") : t("rules.applyStart")}</Button></div>
+    </DialogContent>
+   </Dialog>
 			<Dialog open={open} onOpenChange={changeOpen}>
 				<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
 					<DialogHeader>
@@ -245,6 +292,7 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 					</DialogHeader>
 					<form
 						className="space-y-4"
+      onChange={() => { saveRequestId.current = null; }}
 						onSubmit={(event) => {
 							event.preventDefault();
 							if (criteriaStep) { setStep("actions"); return; }
@@ -470,7 +518,11 @@ export function InboxRules({ sourceMessage, onClose }: {sourceMessage?: InboxRul
 								onChange={(event) => setPriority(Number(event.target.value))}
 							/>
 						</label>
-						{sourceMessage && <p className="text-sm text-neutral-500">{t("rules.futureOnly")}</p>}
+						<label className="flex min-h-11 items-center gap-3 text-sm">
+       <input type="checkbox" checked={applyExisting && hasLocalActions} disabled={jobRunning || !hasLocalActions} onChange={event => setApplyExisting(event.target.checked)} />
+       {t("rules.alsoApplyExisting")}
+      </label>
+      <p className="text-xs leading-5 text-neutral-500">{forward ? t("rules.historicalForwardHelp") : t("rules.applyHelp")}</p>
 						</>}
 						{save.isError && (
 							<p role="alert" className="text-sm text-red-600">

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
  const env = getEnv(), { user, error } = await requireSessionUser(env, request);if (error) return error;
  if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
  const parsed = schema.safeParse(await readJsonBody(request, 32768).catch(() => null));
- if (!parsed.success || parsed.data.input.action === "select") return NextResponse.json({ error: "Invalid background action" }, { status: 400 });
+ if (!parsed.success || (parsed.data.input.action === "select" || parsed.data.input.action === "applyRule" || parsed.data.input.ruleApplication)) return NextResponse.json({ error: "Invalid background action" }, { status: 400 });
  const result = await createBulkJob(env, user, parsed.data.input, parsed.data.scope, parsed.data.requestId);
  return result instanceof Response ? result : NextResponse.json({ job: result }, { status: 202, headers });
 }

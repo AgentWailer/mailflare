@@ -14,6 +14,8 @@ await build({stdin:{contents:`
  export {POST as idBulk} from './src/app/api/messages/bulk/route';
  export {POST as bulkScope} from './src/app/api/messages/bulk-scope/route';
  export {POST as markRead} from './src/app/api/messages/read-all/route';
+ export {POST as applyRule} from './src/app/api/routing-rules/[id]/apply/route';
+ export {POST as saveRule} from './src/app/api/routing-rules/route';
  export {GET as list} from './src/app/api/messages/route';
  export {GET as counts} from './src/app/api/messages/counts/route';
  export {processBulkJob,recoverBulkJobs,latestBulkJob} from './src/lib/messages/bulk-jobs';
@@ -110,4 +112,67 @@ test('new inbox selections include transactions, while old in-flight snapshots r
  const selection=await f.scopeChunk({folder:'inbox',mailboxId:'box',action:'select'});assert.equal(selection.inboxPolicy,'relevant');assert.equal(selection.total,3);
  const current=await create(f,'read',{inboxPolicy:selection.inboxPolicy,snapshot:selection.snapshot,actorId:selection.actorId,mailboxIds:selection.mailboxIds});assert.equal(current.total,3);await drain(f,current.id);
  assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages WHERE read=1').get().n,3);assert.equal(f.DB.db.prepare("SELECT read FROM messages WHERE id='advert'").get().read,0);
+});
+
+async function savedRule(f, changes={}) {
+ const response=await app.saveRule(f.request({mailboxId:'box',matchField:'sender',matchOperator:'exact',matchValue:'sender@example.test',destination:'keep',labelIds:['label'],...changes}));
+ assert.equal(response.status,200);return (await response.json()).id;
+}
+async function applySavedRule(f,id,extra={},actor='owner',requestId='apply-'+id) {
+ const response=await app.applyRule(f.request({requestId,...extra},actor),{params:Promise.resolve({id})});
+ assert.equal(response.status,202);return (await response.json()).job;
+}
+
+test('saved filters scan existing incoming mail in a durable job, preserving labels/read flags and excluding new arrivals',async t=>{
+ const f=await fixture(t);for(let i=0;i<1001;i++)f.add('historical-'+i);f.add('archive',{status:'archived'});f.add('spam',{status:'spam'});f.add('trash',{status:'trash'});f.add('foreign',{mailbox:'private'});f.add('sent');f.DB.db.exec("UPDATE messages SET direction='outbound', status='sent' WHERE id='sent'");
+ f.DB.db.exec("INSERT INTO folders(id,user_id,mailbox_id,name,created_at) VALUES('old-label','owner','box','Existing',1);INSERT INTO message_labels(message_id,folder_id) VALUES('historical-0','old-label');UPDATE messages SET read=1 WHERE id='historical-0'");
+ const id=await savedRule(f,{category:'invoices'}),job=await applySavedRule(f,id);assert.equal(job.action,'applyRule');assert.equal(job.total,1002);assert.equal((await applySavedRule(f,id)).id,job.id);
+ f.add('new-arrival');await app.processBulkJob(f.env,job.id);assert.equal(row(f,job.id).processed,300);
+ // The accepted rule and selection must not change halfway through the job.
+ f.DB.db.prepare("UPDATE routing_rules SET category='promotions', label_ids='[]' WHERE id=?").run(id);
+ await drain(f,job.id);assert.equal(row(f,job.id).processed,1002);
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages WHERE category='invoices'").get().n,1002);
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM message_labels WHERE folder_id='label'").get().n,1002);
+ assert.equal(f.DB.db.prepare("SELECT read FROM messages WHERE id='historical-0'").get().read,1);
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM message_labels WHERE message_id='historical-0'").get().n,2);
+ assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='archive'").get().status,'archived');
+ for(const excluded of ['new-arrival','spam','trash','foreign','sent'])assert.equal(f.DB.db.prepare('SELECT category FROM messages WHERE id=?').get(excluded).category,'primary');
+});
+
+test('historical filters reuse sender/subject/content conditions and exclusions; only matching messages are changed',async t=>{
+ const f=await fixture(t);f.add('match',{subject:'Monthly invoice'});f.add('receipt',{subject:'Receipt'});f.add('except',{subject:'Monthly invoice advertisement'});f.add('body-miss',{subject:'Monthly invoice'});f.add('sender-miss',{subject:'Monthly invoice'});
+ f.DB.db.exec("UPDATE messages SET text_body='Payment received' WHERE id IN ('match','receipt','except','sender-miss');UPDATE messages SET from_addr='other@example.test' WHERE id='sender-miss'");
+ const id=await savedRule(f,{category:'invoices',conditions:[{field:'sender',operator:'exact',value:'sender@example.test',negate:false},{field:'title',operator:'contains',value:'invoice',negate:false},{field:'content',operator:'contains',value:'payment received',negate:false},{field:'title',operator:'contains',value:'advertisement',negate:true}],conditionMode:'all'}),job=await applySavedRule(f,id);await drain(f,job.id);
+ assert.equal(job.total,5);assert.deepEqual(f.DB.db.prepare("SELECT id FROM messages WHERE category='invoices'").all().map(x=>x.id),['match']);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,1);
+});
+
+test('optional spam/trash scan preserves hidden status; explicit trash/spam and archive actions work without permanent deletion',async t=>{
+ const f=await fixture(t);f.add('spam',{status:'spam'});f.add('trash',{status:'trash'});f.add('inbox');
+ let id=await savedRule(f,{category:'orders'}),job=await applySavedRule(f,id,{includeSpamTrash:true});await drain(f,job.id);assert.equal(job.total,3);assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='spam'").get().status,'spam');assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='trash'").get().status,'trash');
+ id=await savedRule(f,{skipInbox:true});job=await applySavedRule(f,id);await drain(f,job.id);assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='inbox'").get().status,'archived');
+ id=await savedRule(f,{destination:'trash'});job=await applySavedRule(f,id);await drain(f,job.id);assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='inbox'").get().status,'trash');assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages').get().n,3);
+ id=await savedRule(f,{destination:'spam'});job=await applySavedRule(f,id,{includeSpamTrash:true});await drain(f,job.id);assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages WHERE status='spam'").get().n,3);
+});
+
+test('historical application checks full access/CSRF, forbids domain rules and rejects forged snapshots in generic APIs',async t=>{
+ const f=await fixture(t);f.add('mail');const id=await savedRule(f);
+ const routeParams={params:Promise.resolve({id})};for(const actor of ['reader','other']) assert.equal((await app.applyRule(f.request({requestId:'forbidden'},actor),routeParams)).status,404);
+ f.DB.db.exec("INSERT INTO routing_rules(id,user_id,domain_id,mailbox_id,scope,pattern,created_at) VALUES('catch-all','owner','domain','box','domain','*',1)");assert.equal((await app.applyRule(f.request({requestId:'domain'}),{params:Promise.resolve({id:'catch-all'})})).status,404);
+ globalThis.__readAllCookie=f.tokens.owner;const csrf=new Request('https://mailflare.test/api/routing-rules/'+id+'/apply',{method:'POST',headers:{Origin:'https://foreign.test'},body:JSON.stringify({requestId:'csrf'})});assert.equal((await app.applyRule(csrf,routeParams)).status,403);delete globalThis.__readAllCookie;
+ assert.equal((await app.createJob(f.request({input:{folder:'all',mailboxId:'box',action:'applyRule'},scope,requestId:'forged'}))).status,400);
+ assert.equal((await app.bulkScope(f.request({folder:'all',mailboxId:'box',action:'applyRule'}))).status,400);
+ const job=await applySavedRule(f,id);f.DB.db.exec("UPDATE users SET disabled=1 WHERE id='owner'");await app.processBulkJob(f.env,job.id);assert.equal(row(f,job.id).status,'failed');assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,0);
+});
+
+test('historical forwarding filters apply their local actions without re-sending mail, and forward-only filters are refused',async t=>{
+ const f=await fixture(t);f.add('mail');const id=await savedRule(f);f.DB.db.prepare("UPDATE routing_rules SET action='forward', forward_to='target@example.test' WHERE id=?").run(id);
+ const job=await applySavedRule(f,id);await drain(f,job.id);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,1);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM outbound_jobs').get().n,0);
+ f.DB.db.prepare("UPDATE routing_rules SET label_ids='[]' WHERE id=?").run(id);const response=await app.applyRule(f.request({requestId:'forward-only'}),{params:Promise.resolve({id})});assert.equal(response.status,400);assert.equal((await response.json()).error,'rule_no_historical_actions');
+});
+
+test('rule actions replay safely after a lost checkpoint; deleted rule labels produce a recoverable job error',async t=>{
+ const f=await fixture(t);for(let i=0;i<26;i++)f.add('mail-'+i);let id=await savedRule(f,{category:'promotions',skipInbox:true}),job=await applySavedRule(f,id);
+ const original=f.DB.prepare.bind(f.DB);let fail=true;f.DB.prepare=sql=>{const statement=original(sql),bind=statement.bind.bind(statement);statement.bind=(...values)=>{const bound=bind(...values);if(sql.startsWith('UPDATE message_bulk_jobs SET after_row=')&&fail){fail=false;bound.first=async()=>{throw Error('Checkpoint unavailable');};}return bound;};return statement;};
+ await app.processBulkJob(f.env,job.id);assert.equal(row(f,job.id).status,'waiting');assert(row(f,job.id).pending_chunk);f.DB.db.prepare('UPDATE message_bulk_jobs SET retry_at=0 WHERE id=?').run(job.id);await drain(f,job.id);assert.equal(row(f,job.id).processed,26);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,26);
+ id=await savedRule(f);job=await applySavedRule(f,id);f.DB.db.exec("DELETE FROM folders WHERE id='label'");await app.processBulkJob(f.env,job.id);assert.equal(row(f,job.id).status,'failed');assert.match(row(f,job.id).error,/label no longer exists/);
 });

@@ -2279,5 +2279,15 @@
 	"labels.renameSave": "Save",
 	"labels.renameFailed": "The label could not be renamed. Please try again.",
 	"labels.dragCancelled": "Reordering cancelled.",
-	"labels.orderSaveFailed": "Could not sync the label order. Please try again."
+	"labels.orderSaveFailed": "Could not sync the label order. Please try again.",
+	"rules.applyExisting": "Apply to existing messages",
+	"rules.alsoApplyExisting": "Also apply to existing messages",
+	"rules.applyHelp": "Checks received and archived messages in this mailbox. Only matching messages are changed. Processing continues in the background, even after you close the app.",
+	"rules.includeSpamTrash": "Also check Spam and Trash",
+	"rules.applyStart": "Apply in background",
+	"rules.applyBusy": "Another background action is running. Please wait for it to finish.",
+	"rules.applyFailed": "Rule application failed. Your saved rule is retained. Please try again.",
+	"rules.applyProgress": "Rule in background · {count} messages checked",
+	"rules.applyDone": "Rule applied · {count} messages checked",
+	"rules.historicalForwardHelp": "Forwarding applies only to new emails. For existing messages only labels, categories and move actions are applied; they are not re-sent."
 }

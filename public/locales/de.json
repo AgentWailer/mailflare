@@ -2165,5 +2165,15 @@
 	"labels.renameSave": "Speichern",
 	"labels.renameFailed": "Das Label konnte nicht umbenannt werden. Bitte erneut versuchen.",
 	"labels.dragCancelled": "Verschieben abgebrochen.",
-	"labels.orderSaveFailed": "Die Label-Reihenfolge konnte nicht synchronisiert werden. Bitte versuche es erneut."
+	"labels.orderSaveFailed": "Die Label-Reihenfolge konnte nicht synchronisiert werden. Bitte versuche es erneut.",
+	"rules.applyExisting": "Auf vorhandene Nachrichten anwenden",
+	"rules.alsoApplyExisting": "Auch auf vorhandene Nachrichten anwenden",
+	"rules.applyHelp": "Prüft empfangene und archivierte Nachrichten in diesem Postfach. Nur passende Nachrichten werden geändert. Der Vorgang läuft im Hintergrund weiter, auch wenn du die App schließt.",
+	"rules.includeSpamTrash": "Spam und Papierkorb ebenfalls prüfen",
+	"rules.applyStart": "Im Hintergrund anwenden",
+	"rules.applyBusy": "Es läuft bereits ein Hintergrundauftrag. Bitte warte, bis er abgeschlossen ist.",
+	"rules.applyFailed": "Regelanwendung fehlgeschlagen. Die gespeicherte Regel bleibt erhalten. Bitte erneut versuchen.",
+	"rules.applyProgress": "Regel im Hintergrund · {count} Nachrichten geprüft",
+	"rules.applyDone": "Regel angewendet · {count} Nachrichten geprüft",
+	"rules.historicalForwardHelp": "Weiterleitungen gelten nur für neue E-Mails. Bei vorhandenen Nachrichten werden nur Labels, Kategorien und Verschiebeaktionen angewendet; sie werden nicht erneut versendet."
 }

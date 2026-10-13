@@ -10,6 +10,6 @@ export async function POST(request: Request) {
  if (error) return error;
  if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
  const input = bulkScopeSchema.safeParse(await readJsonBody(request, 16384).catch(() => null));
- if (!input.success) return NextResponse.json({ error: "Invalid bulk selection scope" }, { status: 400 });
+ if (!input.success || input.data.action === "applyRule" || input.data.ruleApplication) return NextResponse.json({ error: "Invalid bulk selection scope" }, { status: 400 });
  return executeBulkScope(env, user, input.data);
 }

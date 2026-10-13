@@ -12,7 +12,7 @@ export type BulkScope = { folder: MessageFolder; mailboxId?: string; folderId?: 
 export type BulkScopeSelection = { snapshot: number; actorId: string; mailboxIds: string[]; after: number; total: number; unread: number; canManage: boolean; inboxPolicy?: "primary_only" | "relevant" };
 export type OrganizationChanges = { addLabelIds?: string[]; removeLabelIds?: string[]; category?: MailCategory; skipInbox?: boolean };
 export type ScopeAction = BulkMessageAction | "organize";
-export type ReadAllTask = { id?: string; requestId?: string; canRetry?: boolean; error?: string; action: ScopeAction; destinationFolderId?: string; organization?: OrganizationChanges; scope: BulkScope; status: "running" | "failed" | "done"; processed: number; total?: number };
+export type ReadAllTask = { id?: string; requestId?: string; canRetry?: boolean; error?: string; action: ScopeAction | "applyRule"; destinationFolderId?: string; organization?: OrganizationChanges; scope: BulkScope; status: "running" | "failed" | "done"; processed: number; total?: number };
 let task: ReadAllTask | null = null, pending: { input: unknown; scope: BulkScope; requestId: string } | null = null;
 let session: string | null = null, generation = 0, timer: ReturnType<typeof setTimeout> | undefined, submitting = false;
 let readingGeneration: number | null = null;
@@ -114,4 +114,10 @@ async function submit() {
  } finally {
   if (version === generation) { submitting = false;void refreshBulkTask(); }
  }
+}
+
+/** Adopt a durable rule job accepted by the dedicated, authorized rule endpoint. */
+export function observeRuleTask(job: ReadAllTask) {
+ generation++; pending = null; submitting = false; session = getClientSessionToken();
+ publish(job); changed(); schedule();
 }

@@ -1,5 +1,6 @@
 import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
 import { authFetch, getClientSessionToken } from "@/lib/auth/client";
+import { observeRuleTask, type ReadAllTask } from "@/components/messages/read-all-task";
 import type { InboxRule, InboxRuleInput, InboxRulesResponse, RuleFoldersResponse, RuleFolder } from "./inbox-rules-types";
 
 function ruleError(error: unknown, t: Translator): string {
@@ -29,7 +30,7 @@ export async function createInboxRule(input: InboxRuleInput, t: Translator = def
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(input),
 	});
-	const data = (await response.json()) as { error?: string };
+	const data = (await response.json()) as { id?: string; error?: string };
 	if (!response.ok) throw new Error(ruleError(data.error, t));
 	return data;
 }
@@ -40,7 +41,7 @@ export async function updateInboxRule(ruleId: string, input: InboxRuleInput, t: 
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(input),
 	});
-	const data = (await response.json()) as { error?: string };
+	const data = (await response.json()) as { id?: string; error?: string };
 	if (!response.ok) throw new Error(ruleError(data.error, t));
 	return data;
 }
@@ -76,4 +77,17 @@ export async function createRuleLabel(input: { mailboxId: string; name: string; 
  if (!response.ok) throw new Error(t(data?.error === "Folder already exists" ? "labels.duplicate" : "labels.createFailed"));
  if (!data || typeof data.id !== "string" || !data.id || typeof data.name !== "string" || !data.name) throw new Error(t("labels.createFailed"));
  return data;
+}
+
+export async function applyInboxRule(ruleId: string, requestId: string, includeSpamTrash: boolean, t: Translator = defaultTranslator) {
+ const token = getClientSessionToken();
+ const response = await authFetch(`/api/routing-rules/${ruleId}/apply`, {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ requestId, includeSpamTrash }), keepalive: true, signal: AbortSignal.timeout(30000),
+ });
+ const data = await response.json() as { job?: ReadAllTask; error?: string };
+ if (token !== getClientSessionToken()) throw new Error(t("smart.failed"));
+ if (!response.ok || !data.job) throw new Error(response.status === 409 ? t("rules.applyBusy") : data.error === "rule_no_historical_actions" ? t("rules.historicalForwardHelp") : t("rules.applyFailed"));
+ observeRuleTask(data.job);
+ return data.job;
 }
