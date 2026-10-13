@@ -10,56 +10,56 @@ for(const key of ['window','document','localStorage','CustomEvent','Event'])Obje
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const dir=mkdtempSync(join(process.cwd(),'node_modules','mailflare-read-all-client-'));
 after(()=>{rmSync(dir,{recursive:true,force:true});dom.window.close();});
-await build({stdin:{contents:`export * from './src/components/messages/read-all-task';export {setClientSessionToken} from './src/lib/auth/client';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,format:'esm',platform:'node',packages:'external',tsconfig:'tsconfig.json',logLevel:'silent'});
+await build({stdin:{contents:`export * from './src/components/messages/read-all-task';export {setClientSessionToken,clearClientSessionToken} from './src/lib/auth/client';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,format:'esm',platform:'node',packages:'external',tsconfig:'tsconfig.json',logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href);
 const React=await import('react'),{act}=React,{createRoot}=await import('react-dom/client');
 let current,root;
 const scope={folder:'inbox',mailboxId:'box',query:'from:sender@example.test',unreadOnly:false,title:'Posteingang'};
-const data=(ids,done=false)=>Response.json({messageIds:ids,done,snapshot:999,after:200,actorId:'owner',mailboxIds:['box'],total:3});
+const data=(processed=0,status='running',requestId='request')=>({id:'job',requestId,scope,action:'read',processed,total:20000,status});
 const wait=async predicate=>{for(let i=0;i<50&&!predicate();i++)await act(async()=>{await new Promise(resolve=>setTimeout(resolve,20));});assert(predicate(),'background task reached expected state');};
 function Screen(){current=app.useReadAllTask();return React.createElement('output',null,current?.status??'idle');}
 async function mount(t,fetcher){localStorage.clear();app.dismissReadAllTask();document.body.innerHTML='<div id="root"></div>';t.mock.method(globalThis,'fetch',fetcher);root=createRoot(document.getElementById('root'));await act(async()=>root.render(React.createElement(Screen)));t.after(async()=>{await act(async()=>root.unmount());app.dismissReadAllTask();});}
 
-test('read-all advances bounded chunks asynchronously, deduplicates clicks and preserves the captured scope',async t=>{
- const requests=[];let release;
- await mount(t,async(_url,init)=>{requests.push(JSON.parse(init.body));if(requests.length===1)await new Promise(resolve=>release=resolve);return data(requests.length===1?['one','two']:['three'],requests.length>1);});
- await act(async()=>{app.startReadAllTask(scope);app.startReadAllTask({...scope,folder:'spam'});});assert.equal(current.status,'running');assert.equal(requests.length,1);
- // Other UI work can proceed while the request is outstanding.
- document.body.dataset.interactive='yes';assert.equal(document.body.dataset.interactive,'yes');
- await act(async()=>release());await wait(()=>current?.status==='done');assert.equal(current.processed,3);assert.equal(requests.length,2);
- assert.equal(requests[0].q,scope.query);assert.equal(requests[1].folder,'inbox');assert.equal(requests[1].snapshot,999);assert.equal(requests[1].after,200);assert.equal(requests[1].actorId,'owner');assert.deepEqual(requests[1].mailboxIds,['box']);
-});
 
-test('navigation/unmount does not abandon chunks and a new subscriber observes completion',async t=>{
- let calls=0,release;
- await mount(t,async()=>{calls++;if(calls===1)await new Promise(resolve=>release=resolve);return data(['mail-'+calls],calls===2);});
- await act(async()=>app.startReadAllTask(scope));await act(async()=>root.unmount());root=createRoot(document.getElementById('root'));await act(async()=>root.render(React.createElement(Screen)));
- assert.equal(current.status,'running');await act(async()=>release());await wait(()=>current?.status==='done');assert.equal(calls,2);
+test('one idempotent server submission replaces browser chunk processing and leaves UI interactive',async t=>{
+ const requests=[];let release,job=null;
+ await mount(t,async(url,init)=>{if(init?.method!=='POST')return Response.json({job});requests.push(JSON.parse(init.body));await new Promise(resolve=>release=resolve);job={...data(),requestId:requests[0].requestId};return Response.json({job},{status:202});});
+ await act(async()=>{app.startReadAllTask(scope);app.startReadAllTask({...scope,folder:'spam'});});assert.equal(current.status,'running');assert.equal(requests.length,1);document.body.dataset.interactive='yes';assert.equal(document.body.dataset.interactive,'yes');
+ await act(async()=>release());await wait(()=>current?.id==='job');assert.equal(requests.length,1);assert.equal(requests[0].input.q,scope.query);assert.equal(requests[0].input.folder,'inbox');assert(!('after' in requests[0].input));
+ job=data(20000,'done',job.requestId);await act(async()=>app.refreshBulkTask());await wait(()=>current?.status==='done');assert.equal(current.processed,20000);assert.equal(requests.length,1);
 });
-
-test('failure retains progress and retry reuses the snapshot instead of marking newly arriving messages',async t=>{
- let calls=0;const requests=[];
- await mount(t,async(_url,init)=>{calls++;requests.push(JSON.parse(init.body));return calls===2?Response.json({error:'offline'},{status:503}):data(['mail-'+calls],calls===3);});
- await act(async()=>app.startReadAllTask(scope));await wait(()=>current?.status==='failed');assert.equal(current.processed,1);
- await act(async()=>app.retryReadAllTask());await wait(()=>current?.status==='done');assert.equal(current.processed,2);assert.equal(requests[1].snapshot,requests[2].snapshot);
+test('reopening subscribes to server progress without restarting the operation',async t=>{
+ let job=data(960),posts=0;
+ await mount(t,async(_url,init)=>{if(init?.method==='POST')posts++;return Response.json({job});});await wait(()=>current?.processed===960);
+ await act(async()=>root.unmount());job=data(20000,'done');root=createRoot(document.getElementById('root'));await act(async()=>root.render(React.createElement(Screen)));await wait(()=>current?.status==='done');assert.equal(current.processed,20000);assert.equal(posts,0);
 });
-
-test('account switch stops future chunks and ignores the old response',async t=>{
+test('poll network failures retain the running server job; retry controls the stored checkpoint',async t=>{
+ let job=data(500),offline=false,controls=[];
+ await mount(t,async(_url,init)=>{if(offline)throw Error('offline');if(init?.method==='PATCH'){controls.push(JSON.parse(init.body));job=data(500);}return Response.json({job});});await wait(()=>current?.id==='job');offline=true;await act(async()=>app.refreshBulkTask());assert.equal(current.status,'running');assert.equal(current.processed,500);
+ offline=false;job=data(500,'failed');await act(async()=>app.refreshBulkTask());await wait(()=>current?.status==='failed');await act(async()=>app.retryReadAllTask());await wait(()=>current?.status==='running');assert.deepEqual(controls,[{id:'job',action:'retry'}]);
+});
+test('account switch ignores late submission responses and only observes the new account',async t=>{
  let release,calls=0;
- await mount(t,async()=>{calls++;await new Promise(resolve=>release=resolve);return data(['old-account-mail']);});
+ await mount(t,async(_url,init)=>{if(init?.method!=='POST')return Response.json({job:null});calls++;await new Promise(resolve=>release=resolve);return Response.json({job:data()});});
  await act(async()=>app.startReadAllTask(scope));await act(async()=>app.setClientSessionToken('new-session'));await act(async()=>release());await wait(()=>current===null);assert.equal(calls,1);
 });
-
-
-test('global selection prepares without mutation and every archive chunk keeps the full-folder snapshot',async t=>{
- const requests=[];const prepared={snapshot:999,after:0,actorId:'owner',mailboxIds:['box'],total:3,unread:3,canManage:true};
- await mount(t,async(_url,init)=>{const input=JSON.parse(init.body);requests.push(input);return input.action==='select'?Response.json(prepared):data(['mail-'+requests.length],requests.length===3);});
- let selection;await act(async()=>selection=await app.prepareBulkScopeSelection(scope));assert.equal(current,null);assert.equal(requests.length,1);assert.equal(requests[0].action,'select');
- await act(async()=>app.startBulkScopeTask(scope,selection,'archive'));await wait(()=>current?.status==='done');assert.equal(current.action,'archive');assert.equal(requests.length,3);for(const input of requests.slice(1)){assert.equal(input.action,'archive');assert.equal(input.snapshot,999);assert.equal(input.folder,'inbox');assert(!('messageIds' in input));}
+test('all-pages actions and organization preserve the selection snapshot in the server request',async t=>{
+ const requests=[],selection={snapshot:999,after:0,actorId:'owner',mailboxIds:['box'],total:3,unread:3,canManage:true},changes={addLabelIds:['work'],category:'invoices'};
+ let job=null;await mount(t,async(url,init)=>{if(url.endsWith('bulk-scope')){requests.push(JSON.parse(init.body));return Response.json(selection);}if(init?.method==='POST'){requests.push(JSON.parse(init.body));job={...data(0,'running',requests.at(-1).requestId),action:'organize',organization:changes};}return Response.json({job});});
+ let prepared;await act(async()=>prepared=await app.prepareBulkScopeSelection(scope));assert.equal(current,null);assert.equal(requests[0].action,'select');await act(async()=>app.startBulkScopeTask(scope,prepared,'organize',undefined,changes));await wait(()=>current?.id==='job');assert.equal(requests.length,2);assert.equal(requests[1].input.snapshot,999);assert.deepEqual(requests[1].input.organization,changes);assert(!('messageIds' in requests[1].input));
+ // End the server operation before unmounting the test's observer.
+ job={...job,status:'done'};await act(async()=>app.refreshBulkTask());
 });
 
-test('global organization sends changes to the entire selection and preserves them on retry',async t=>{
- const requests=[];await mount(t,async(_url,init)=>{requests.push(JSON.parse(init.body));return requests.length===1?Response.json({error:'offline'},{status:503}):data(['mail'],true);});
- const selection={snapshot:999,after:0,actorId:'owner',mailboxIds:['box'],total:3,unread:3,canManage:true},changes={addLabelIds:['work'],category:'invoices'};
- await act(async()=>app.startBulkScopeTask(scope,selection,'organize',undefined,changes));await wait(()=>current?.status==='failed');await act(async()=>app.retryReadAllTask());await wait(()=>current?.status==='done');assert.deepEqual(requests[0].organization,changes);assert.deepEqual(requests[1].organization,changes);assert.equal(requests[1].snapshot,999);
+test('logout clears the observer without issuing a new unauthorized polling request',async t=>{
+ let calls=0;await mount(t,async()=>{calls++;return Response.json({job:data(1000)});});await wait(()=>current?.id==='job');const before=calls;await act(async()=>app.clearClientSessionToken());await wait(()=>current===null);assert.equal(calls,before);
+});
+
+test('a stale status response cannot replace a newly accepted operation',async t=>{
+ let oldBody,reads=0,job=null;await mount(t,async(_url,init)=>{
+  if(init?.method==='POST'){const request=JSON.parse(init.body);job=data(0,'running',request.requestId);return Response.json({job});}
+  if(++reads===1)return {ok:true,json:()=>new Promise(resolve=>oldBody=resolve)};return Response.json({job});
+ });
+ await act(async()=>app.startReadAllTask(scope));await wait(()=>current?.id==='job');await act(async()=>oldBody({job:{...data(20000,'done'),id:'old-job'}}));assert.equal(current.id,'job');assert.equal(current.status,'running');
+ job={...job,status:'done'};await act(async()=>app.refreshBulkTask());
 });

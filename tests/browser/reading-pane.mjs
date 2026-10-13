@@ -50,14 +50,17 @@ try{
  if(process.env.MAILFLARE_READ_ALL_ONLY){
 
   for(const viewport of [{width:320,height:700},{width:390,height:844},{width:1440,height:900}]){
-   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),requests=[],errors=[];let release,confirmed=false;
+   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),requests=[],errors=[];let release,confirmed=false,job=null;
    page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>confirmed?dialog.accept():dialog.dismiss());
    await page.route('**/api/**',async route=>{
-    if(new URL(route.request().url()).pathname==='/api/messages/bulk-scope'){
+    const path=new URL(route.request().url()).pathname;
+    if(path==='/api/messages/bulk-jobs'){
+     if(route.request().method()==='POST'){const payload=route.request().postDataJSON();requests.push(payload.input);job={id:'job',requestId:payload.requestId,action:payload.input.action,scope:payload.scope,status:'running',processed:0,total:201};release=()=>{job={...job,status:'done',processed:101};};}
+     return route.fulfill({contentType:'application/json',body:JSON.stringify({job})});
+    }
+    if(path==='/api/messages/bulk-scope'){
      const input=route.request().postDataJSON();requests.push(input);
-     if(input.action==='select')return route.fulfill({contentType:'application/json',body:JSON.stringify({total:201,unread:201,canManage:true,snapshot:999,after:0,actorId:'owner',mailboxIds:['box']})});
-     if(requests.length===2)await new Promise(resolve=>release=resolve);
-     return route.fulfill({contentType:'application/json',body:JSON.stringify({messageIds:requests.length===2?Array.from({length:100},(_,i)=>'msg-'+i):['last'],done:requests.length>2,snapshot:999,after:100,actorId:'owner',mailboxIds:['box']})});
+     return route.fulfill({contentType:'application/json',body:JSON.stringify({total:201,unread:201,canManage:true,snapshot:999,after:0,actorId:'owner',mailboxIds:['box']})});
     }
     return route.fulfill({contentType:'application/json',body:'{"messages":[],"accounts":[],"folders":[]}'});
    });
@@ -65,16 +68,17 @@ try{
    const strip=page.locator('[data-folder-read-all]');await strip.getByText(de['list.pageSelectedCompact'].replace('{count}','25'),{exact:true}).waitFor();
    assert(await strip.evaluate(el=>el.scrollWidth<=el.clientWidth));assert((await strip.boundingBox()).height<=45,'selection strip occupies one compact line');
    await strip.getByRole('button',{name:de['list.selectAllFolder'],exact:true}).click();await strip.getByText(de['list.allMatchingSelected'].replace('{count}','201'),{exact:true}).waitFor();assert.equal(requests.length,1,'extending selection does not mutate any mail');assert.equal(requests[0].action,'select');assert((await strip.boundingBox()).height<=45);
-   const trash=page.locator('.mail-mobile-list-toolbar').getByRole('button',{name:de['common.delete'],exact:true});await trash.click();assert.equal(requests.length,1,'cancelling confirmation retains the selection');assert(await strip.getByText(de['list.allMatchingSelected'].replace('{count}','201'),{exact:true}).isVisible());
+   const archive=page.locator('.mail-mobile-list-toolbar').getByRole('button',{name:de['common.archive'],exact:true});assert(await archive.isVisible(),'archive is directly available on mobile');const archiveBox=await archive.boundingBox();if(viewport.width<768)assert(archiveBox.height>=44);const trash=page.locator('.mail-mobile-list-toolbar').getByRole('button',{name:de['common.delete'],exact:true});await trash.click();assert.equal(requests.length,1,'cancelling confirmation retains the selection');assert(await strip.getByText(de['list.allMatchingSelected'].replace('{count}','201'),{exact:true}).isVisible());
    confirmed=true;await trash.click();await strip.getByRole('status').waitFor();assert.equal(requests.length,2);assert.equal(requests[1].action,'trash');assert.equal(requests[1].snapshot,999);assert(!('messageIds' in requests[1])&&!('limit' in requests[1]),'toolbar action applies across all pages');
    if(viewport.width>=1024){await page.locator('[data-inbox-categories]').getByRole('link',{name:de['smart.promotions'],exact:true}).click();await page.waitForFunction(()=>location.pathname==='/promotions');assert(await strip.getByRole('status').isVisible(),'progress survives navigation');}
-   release();await strip.getByText(de['list.bulkScopeDone'].replace('{folder}',de['navigation.inbox']).replace('{count}','101'),{exact:true}).waitFor();assert.equal(requests.length,3);assert.equal(requests[2].folder,'inbox');assert.equal(requests[2].action,'trash');assert.equal(requests[2].after,100);
+   release();await strip.getByText(de['list.bulkScopeDone'].replace('{folder}',de['navigation.inbox']).replace('{count}','101'),{exact:true}).waitFor();assert.equal(requests.length,2,'browser only submitted once and observed server progress');
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);console.log(JSON.stringify({viewport,compactGlobalSelection:true,selectDoesNotMutate:true,allPagesTrash:true,cancelConfirmationPreservesSelection:true,navigationUsable:viewport.width>=1024}));await page.close();
   }
   for(const action of ['read','unread','archive','organize']){
-   const page=await browser.newPage({viewport:{width:1440,height:900}}),requests=[];
+   const page=await browser.newPage({viewport:{width:1440,height:900}}),requests=[];let job=null;
    await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
+    if(path==='/api/messages/bulk-jobs'){if(route.request().method()==='POST'){const payload=route.request().postDataJSON();requests.push(payload.input);job={id:'job',requestId:payload.requestId,action:payload.input.action,scope:payload.scope,status:'done',processed:2,total:60};}return route.fulfill({contentType:'application/json',body:JSON.stringify({job})});}
     if(path==='/api/messages/bulk-scope'){const input=route.request().postDataJSON();requests.push(input);return route.fulfill({contentType:'application/json',body:JSON.stringify(input.action==='select'?{total:60,unread:action==='unread'?0:60,canManage:true,snapshot:999,after:0,actorId:'owner',mailboxIds:['box']}:{messageIds:['one','two'],done:true,snapshot:999,after:100,actorId:'owner',mailboxIds:['box']})});}
     return route.fulfill({contentType:'application/json',body:JSON.stringify(path==='/api/folders'?{folders:[{id:'work',name:'Projekt',color:'#2563eb',mailboxId:'box'}]}:{messages:[],accounts:[],folders:[]})});
    });

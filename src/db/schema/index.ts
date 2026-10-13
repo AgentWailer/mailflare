@@ -947,6 +947,15 @@ export const mboxSortingJobs = sqliteTable("mbox_sorting_jobs", {
  createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
 }, t => [index("mbox_sorting_jobs_recovery_idx").on(t.status, t.retryAt, t.leaseUntil)]);
 
+export const messageBulkJobs = sqliteTable("message_bulk_jobs", {
+ id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+ requestId: text("request_id").notNull(), payload: text("payload").notNull(), scope: text("scope").notNull(),
+ status: text("status").notNull().default("pending"), processed: integer("processed").notNull().default(0), total: integer("total").notNull().default(0),
+ afterRow: integer("after_row").notNull().default(0), pendingChunk: text("pending_chunk"),
+ leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0), retryAt: integer("retry_at").notNull().default(0), consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+ error: text("error"), dismissed: integer("dismissed").notNull().default(0), createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+});
+
 export const gmailImportConnections = sqliteTable("gmail_import_connections", {
 	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 	email: text("email").notNull(), tokens: text("tokens").notNull(),
@@ -988,6 +997,7 @@ export const schema = {
 	mboxImportJobs,
 	mboxImportIssues,
 	mboxSortingJobs,
+	messageBulkJobs,
 	spamTokenStats,
 	spamReputation,
 	spamFeedback,

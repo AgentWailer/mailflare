@@ -1,3 +1,4 @@
+import { processBulkJob } from "@/lib/messages/bulk-jobs";
 import { createServer } from "node:http";
 import { join, resolve } from "node:path";
 import { parse } from "node:url";
@@ -45,6 +46,7 @@ async function main() {
 		const message = body as { kind: string; jobId: string };
 		if (message.kind === "agent.draft") await processAgentDraftJob(env, message.jobId);
 		else if (message.kind === "import.mbox") await processMboxJob(env, message.jobId);
+		else if (message.kind === "messages.bulk") await processBulkJob(env, message.jobId);
 		else if (message.kind === "import.sort") await processMboxSortingJob(env, message.jobId);
 	});
 

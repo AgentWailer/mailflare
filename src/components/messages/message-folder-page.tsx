@@ -46,7 +46,6 @@ import {
 	formatEmailPageTitle,
 	getMailboxAddress,
 	runBulkMessageAction,
-	emptyMessageFolder,
 } from "./utils";
 import {
 	getEmptyFolderConfirmText,
@@ -427,11 +426,13 @@ export function MessageFolderPage({
 
 	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
 	async function emptyFolder() {
-		if (!permanentDeleteFolder || !selectedMailbox?.id) return;
+		if (!permanentDeleteFolder || !selectedMailbox?.id || readAllTask?.status === "running") return;
 		if (!window.confirm(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
 		setEmptyingFolder(true);
 		try {
-			await emptyMessageFolder(selectedMailbox.id, permanentDeleteFolder);
+			const scope = { folder: permanentDeleteFolder, mailboxId: selectedMailbox.id, query: "", unreadOnly: false, title };
+			const selection = await prepareBulkScopeSelection(scope);
+			startBulkScopeTask(scope, selection, "delete");
 			setOffset(0);
 		} catch (error) {
 			console.error(error);
@@ -508,7 +509,7 @@ export function MessageFolderPage({
 	return (
 		<div className="mail-mobile-list flex h-full min-h-0 flex-col">
 			<div className={`mail-mobile-list-toolbar flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
-				<div className="flex min-w-0 flex-1 items-center gap-3">
+				<div className="flex min-w-0 flex-1 items-center gap-3 max-md:gap-1">
 					<Tooltip label={t("list.selectAll")} className="shrink-0">
 						<Checkbox
 							checked={allMatchingSelected || allVisibleSelected}
@@ -590,7 +591,7 @@ export function MessageFolderPage({
 									variant="ghost"
 									size="sm"
 									aria-label={getEmptyFolderLabel(permanentDeleteFolder, t)}
-									disabled={emptyingFolder || isLoading || total === 0}
+									disabled={emptyingFolder || isLoading || total === 0 || readAllTask?.status === "running"}
 									onClick={() => void emptyFolder()}
 									className="gap-1.5 text-xs font-medium text-red-600 hover:text-red-700"
 								>
@@ -610,9 +611,9 @@ export function MessageFolderPage({
 					{readAllTask ? <>
 						<span role={readAllTask.status === "failed" ? "alert" : "status"} className="flex min-w-0 flex-1 items-center gap-1.5">
 							{readAllTask.status === "running" && <LoaderCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin" />}
-							<span className="truncate" title={readAllTask.scope.title}>{t(readAllTask.status === "running" ? "list.bulkScopeProgress" : readAllTask.status === "failed" ? "list.markAllReadFailed" : "list.bulkScopeDone", { count: readAllTask.status === "running" && readAllTask.total !== undefined ? `${readAllTask.processed.toLocaleString(locale)} / ${readAllTask.total.toLocaleString(locale)}` : readAllTask.processed.toLocaleString(locale), folder: readAllTask.scope.title })}</span>
+							<span className="truncate" title={readAllTask.error ?? readAllTask.scope.title}>{t(readAllTask.status === "running" ? readAllTask.id ? "list.bulkServerProgress" : "list.bulkStarting" : readAllTask.status === "failed" ? "list.bulkServerFailed" : "list.bulkScopeDone", { count: readAllTask.status === "running" && readAllTask.total !== undefined ? `${readAllTask.processed.toLocaleString(locale)} / ${readAllTask.total.toLocaleString(locale)}` : readAllTask.processed.toLocaleString(locale), folder: readAllTask.scope.title })}</span>
 						</span>
-						{readAllTask.status === "failed" && <button type="button" onClick={retryReadAllTask} className="shrink-0 font-medium text-blue-700 hover:underline">{t("list.markAllReadRetry")}</button>}
+						{readAllTask.status === "failed" && readAllTask.canRetry !== false && <button type="button" onClick={retryReadAllTask} className="shrink-0 font-medium text-blue-700 hover:underline">{t("list.markAllReadRetry")}</button>}
 						{readAllTask.status !== "running" && <button type="button" onClick={dismissReadAllTask} aria-label={t("navigation.close")} className="rounded p-1 hover:bg-neutral-200"><X className="h-3.5 w-3.5" /></button>}
 					</> : <>
 						<span className="min-w-0 text-neutral-500">{t(allMatchingSelected ? "list.allMatchingSelected" : "list.pageSelectedCompact", { count: (allMatchingSelected ? allSelection!.total : messages.length).toLocaleString(locale) })}</span>

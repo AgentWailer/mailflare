@@ -3,107 +3,115 @@
 import { useSyncExternalStore } from "react";
 import { AUTH_SESSION_CHANGED_EVENT, authFetch, getClientSessionToken } from "@/lib/auth/client";
 import { getMessageQueryParams } from "@/hooks/utils";
-import { clearMessageDetailCache, setCachedMessageRead } from "@/lib/messages/detail-cache";
+import { clearMessageDetailCache } from "@/lib/messages/detail-cache";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { MailCategory } from "@/lib/mail-sorting/categories";
 import type { MessageFolder } from "@/hooks/types";
 
 export type BulkScope = { folder: MessageFolder; mailboxId?: string; folderId?: string; query: string; unreadOnly: boolean; title: string };
-type Chunk = { messageIds: string[]; done: boolean; total?: number; snapshot: number; after: number; actorId: string; mailboxIds: string[] };
 export type BulkScopeSelection = { snapshot: number; actorId: string; mailboxIds: string[]; after: number; total: number; unread: number; canManage: boolean };
 export type OrganizationChanges = { addLabelIds?: string[]; removeLabelIds?: string[]; category?: MailCategory; skipInbox?: boolean };
 export type ScopeAction = BulkMessageAction | "organize";
-export type ReadAllTask = { action: ScopeAction; destinationFolderId?: string; organization?: OrganizationChanges; legacy?: boolean; scope: BulkScope; status: "running" | "failed" | "done"; processed: number; total?: number };
-let task: ReadAllTask | null = null;
-let continuation: Pick<Chunk, "snapshot" | "after" | "actorId" | "mailboxIds"> | undefined;
-let session: string | null = null;
+export type ReadAllTask = { id?: string; requestId?: string; canRetry?: boolean; error?: string; action: ScopeAction; destinationFolderId?: string; organization?: OrganizationChanges; scope: BulkScope; status: "running" | "failed" | "done"; processed: number; total?: number };
+let task: ReadAllTask | null = null, pending: { input: unknown; scope: BulkScope; requestId: string } | null = null;
+let session: string | null = null, generation = 0, timer: ReturnType<typeof setTimeout> | undefined, submitting = false;
+let readingGeneration: number | null = null;
 const listeners = new Set<() => void>();
-const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 const publish = (next: ReadAllTask | null) => { task = next; for (const listener of listeners) listener(); };
-if (typeof window !== "undefined") {
-	window.addEventListener(AUTH_SESSION_CHANGED_EVENT, () => publish(null));
-	window.addEventListener("storage", () => { if (session !== getClientSessionToken()) publish(null); });
-}
+const subscribe = (listener: () => void) => { listeners.add(listener); if (listeners.size === 1) void refreshBulkTask(); return () => { listeners.delete(listener); if (!listeners.size) { clearTimeout(timer); timer = undefined; } }; };
 const emptySnapshot = () => null;
-export function useReadAllTask() { return useSyncExternalStore(subscribe, () => task, emptySnapshot); }
-export function dismissReadAllTask() { if (task?.status !== "running") publish(null); }
-
-// Independent of the page component: switching folders does not abandon the operation.
-// Closing/reloading the browser stops it; completed chunks are retained and safe to repeat.
+function schedule() { clearTimeout(timer); if (listeners.size) timer = setTimeout(() => void refreshBulkTask(), task?.status === "running" ? 2000 : 15000); }
+function changed() { clearMessageDetailCache(); window.dispatchEvent(new Event("mailflare:messages-changed")); }
+/** Only observe the server job. Closing this subscriber never cancels its queue work. */
+export async function refreshBulkTask() {
+ if (!listeners.size) return;
+ const token = getClientSessionToken(), version = generation;
+ if (submitting || readingGeneration === version) { schedule(); return; }
+ readingGeneration = version;
+ try {
+  const response = await authFetch("/api/messages/bulk-jobs", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+  if (!response.ok) return;
+  const result = await response.json() as { job?: ReadAllTask | null };
+  const job = result.job ?? null;
+  if (token !== getClientSessionToken() || version !== generation || submitting) return;
+  // A failed submission retains its retry payload unless the same request reached the server.
+  if (pending && task?.status === "failed" && job?.requestId !== pending.requestId) return;
+  if (job && (job.id !== task?.id || job.processed !== task?.processed || job.status !== task?.status)) changed();
+  session = token;publish(job);
+ } catch { /* A network failure does not interrupt server processing. */ }
+ finally { if (readingGeneration === version) readingGeneration = null; if (version === generation) schedule(); }
+}
+if (typeof window !== "undefined") {
+ const reset = () => { generation++; clearTimeout(timer);submitting = false; pending = null; session = getClientSessionToken();publish(null);if (session) void refreshBulkTask(); };
+ window.addEventListener(AUTH_SESSION_CHANGED_EVENT, reset);
+ window.addEventListener("storage", () => { if (session !== getClientSessionToken()) reset(); });
+ window.addEventListener("focus", () => void refreshBulkTask());
+ window.addEventListener("online", () => void refreshBulkTask());
+ document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") void refreshBulkTask(); });
+}
+export function useReadAllTask() {
+ return useSyncExternalStore(subscribe, () => task, emptySnapshot);
+}
+export function dismissReadAllTask() {
+ if (task?.status === "running") return;
+ generation++;
+ const id = task?.id; pending = null;publish(null);
+ if (id) void control(id, "dismiss");
+}
+async function control(id: string, action: "retry" | "dismiss") {
+ const token = getClientSessionToken(), version = generation;
+ try {
+  const response = await authFetch("/api/messages/bulk-jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action }), signal: AbortSignal.timeout(15000) });
+  const { job } = await response.json() as { job?: ReadAllTask };
+  if (response.ok && token === getClientSessionToken() && version === generation && action === "retry" && job) publish(job);
+ } catch { /* Keep the persisted task available for another retry. */ }
+ schedule();
+}
 export async function prepareBulkScopeSelection(scope: BulkScope): Promise<BulkScopeSelection> {
-	const selectedSession = getClientSessionToken();
-	const response = await authFetch("/api/messages/bulk-scope", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...scopePayload(scope), action: "select" }), signal: AbortSignal.timeout(30000) });
-	if (!response.ok) throw new Error("Could not select all matching messages");
-	const result = await response.json() as BulkScopeSelection;
-	if (selectedSession !== getClientSessionToken()) throw new Error("Session changed");
-	return result;
+ const selectedSession = getClientSessionToken();
+ const response = await authFetch("/api/messages/bulk-scope", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...scopePayload(scope), action: "select" }), signal: AbortSignal.timeout(30000) });
+ if (!response.ok) throw new Error("Could not select all matching messages");
+ const result = await response.json() as BulkScopeSelection;
+ if (selectedSession !== getClientSessionToken()) throw new Error("Session changed");
+ return result;
 }
 function scopePayload(scope: BulkScope) {
-	const params = getMessageQueryParams(scope.folder, scope.mailboxId, { query: scope.query, read: scope.unreadOnly ? "unread" : "all" }, scope.folderId);
-	return { folder: scope.folder, mailboxId: scope.mailboxId, folderId: scope.folderId, q: params.get("q") ?? undefined, read: params.get("read") ?? undefined, timeZone: params.get("timeZone") ?? undefined };
+ const params = getMessageQueryParams(scope.folder, scope.mailboxId, { query: scope.query, read: scope.unreadOnly ? "unread" : "all" }, scope.folderId);
+ return { folder: scope.folder, mailboxId: scope.mailboxId, folderId: scope.folderId, q: params.get("q") ?? undefined, read: params.get("read") ?? undefined, timeZone: params.get("timeZone") ?? undefined };
 }
 export function startBulkScopeTask(scope: BulkScope, selection: BulkScopeSelection, action: ScopeAction, destinationFolderId?: string, organization?: OrganizationChanges) {
-	if (task?.status === "running") return;
-	session = getClientSessionToken();
-	continuation = { snapshot: selection.snapshot, after: 0, actorId: selection.actorId, mailboxIds: selection.mailboxIds };
-	publish({ scope, action, destinationFolderId, organization, status: "running", processed: 0, total: selection.total });
-	void run();
+ if (task?.status === "running") return;
+ generation++;
+ session = getClientSessionToken();
+ const requestId = crypto.randomUUID();
+ pending = { input: { ...scopePayload(scope), snapshot: selection.snapshot, actorId: selection.actorId, mailboxIds: selection.mailboxIds, action, destinationFolderId, organization }, scope, requestId };
+ publish({ scope, action, destinationFolderId, organization, requestId, status: "running", processed: 0, total: selection.total });
+ void submit();
 }
 export function startReadAllTask(scope: BulkScope) {
-	if (task?.status === "running") return;
-	session = getClientSessionToken();
-	continuation = undefined;
-	publish({ scope, action: "read", legacy: true, status: "running", processed: 0 });
-	void run();
+ if (task?.status === "running") return;
+ generation++;
+ session = getClientSessionToken();const requestId = crypto.randomUUID();
+ pending = { input: { ...scopePayload(scope), action: "read" }, scope, requestId };
+ publish({ scope, action: "read", requestId, status: "running", processed: 0 });void submit();
 }
 export function retryReadAllTask() {
-	if (task?.status !== "failed" || session !== getClientSessionToken()) { dismissReadAllTask(); return; }
-	publish({ ...task, status: "running" });
-	void run();
+ if (task?.status !== "failed" || session !== getClientSessionToken()) return;
+ if (task.id) { void control(task.id, "retry");return; }
+ if (pending) { publish({ ...task, status: "running" });void submit(); }
 }
-async function run() {
-	if (!task) return;
-	const scope = task.scope;
-	const taskSession = session;
-	const operation = task;
-	let pendingIds: string[] = [];
-	let lastRefresh = 0;
-	const reconcile = () => {
-		if (taskSession !== getClientSessionToken() || task?.scope !== scope) { pendingIds = []; return; }
-		if (operation.action === "read" || operation.action === "unread") for (const id of pendingIds) setCachedMessageRead(id, operation.action === "read");
-		else if (pendingIds.length) clearMessageDetailCache();
-		pendingIds = [];
-		window.dispatchEvent(new Event("mailflare:messages-changed"));
-		lastRefresh = Date.now();
-	};
-	try {
-		while (task?.status === "running") {
-			if (task?.scope !== scope) return;
-			if (taskSession !== getClientSessionToken()) { publish(null); return; }
-			const response = await authFetch(operation.legacy ? "/api/messages/read-all" : "/api/messages/bulk-scope", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-				...scopePayload(scope), ...continuation,
-				...(!operation.legacy ? { action: operation.action, destinationFolderId: operation.destinationFolderId, organization: operation.organization } : {}),
-			}), signal: AbortSignal.timeout(30000) });
-			if (task?.scope !== scope) return;
-			if (taskSession !== getClientSessionToken()) { publish(null); return; }
-			if (!response.ok) throw new Error("Read-all request failed");
-			const chunk = await response.json() as Chunk;
-			if (task?.scope !== scope) return;
-			if (taskSession !== getClientSessionToken()) { publish(null); return; }
-			continuation = { snapshot: chunk.snapshot, after: chunk.after, actorId: chunk.actorId, mailboxIds: chunk.mailboxIds };
-			pendingIds.push(...chunk.messageIds);
-			publish({ ...task, processed: task.processed + chunk.messageIds.length, total: chunk.total ?? task.total, status: chunk.done ? "done" : "running" });
-			if (chunk.done || Date.now() - lastRefresh > 1500) reconcile();
-			if (chunk.done) return;
-			// Leave breathing room for input/rendering and other mailbox requests.
-			await new Promise(resolve => setTimeout(resolve, 75));
-		}
-	} catch {
-		// A lost response may already have committed a chunk whose IDs we never received.
-		if (task?.scope === scope && taskSession === getClientSessionToken()) clearMessageDetailCache();
-		reconcile();
-		if (task?.scope !== scope) return;
-		if (taskSession !== getClientSessionToken()) publish(null);
-		else if (task) publish({ ...task, status: "failed" });
-	}
+async function submit() {
+ if (!pending || submitting) return;
+ submitting = true;const request = pending, token = session, version = generation;
+ try {
+  const response = await authFetch("/api/messages/bulk-jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request), keepalive: true, signal: AbortSignal.timeout(30000) });
+  const { job, error } = await response.json() as { job?: ReadAllTask; error?: string };
+  if (token !== getClientSessionToken() || version !== generation) return;
+  if (!response.ok || !job) throw new Error(error ?? "Background action could not start");
+  pending = null;publish(job);changed();
+ } catch {
+  if (token === getClientSessionToken() && version === generation && task) publish({ ...task, status: "failed" });
+ } finally {
+  if (version === generation) { submitting = false;void refreshBulkTask(); }
+ }
 }

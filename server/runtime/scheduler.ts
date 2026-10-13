@@ -1,3 +1,4 @@
+import { recoverBulkJobs } from "@/lib/messages/bulk-jobs";
 import { runScheduledDatabaseBackup } from "@/lib/backups/runner";
 import { runAgentMaintenance } from "@/lib/agent/maintenance";
 import { runTrashRetention } from "@/lib/email/trash-retention";
@@ -9,6 +10,7 @@ import { runDriveTrashRetention } from "@/lib/drive/retention";
 export function startScheduler(env: CloudflareEnv) {
 	let lastRunDay = "";
 	const timer = setInterval(() => {
+		recoverBulkJobs(env).catch((error) => console.error("Bulk action recovery failed", error));
 		recoverMboxJobs(env).catch((error) => console.error("MBOX recovery failed", error));
 		recoverMboxSortingJobs(env).catch((error) => console.error("Archive sorting recovery failed", error));
 		runAgentMaintenance(env).catch((error) => console.error("Agent maintenance failed", error));

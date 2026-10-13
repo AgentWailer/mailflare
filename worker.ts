@@ -1,3 +1,4 @@
+import { processBulkJob, recoverBulkJobs } from "./src/lib/messages/bulk-jobs";
 import { withStorage } from "./src/lib/storage";
 import vinextHandler from "vinext/server/fetch-handler";
 import {
@@ -116,6 +117,8 @@ export default {
 					await processMboxJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "import.sort" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processMboxSortingJob(env, (msg.body as { jobId: string }).jobId);
+				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "messages.bulk" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
+					await processBulkJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "agent.draft" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processAgentDraftJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (isWebhookRetryMessage(msg.body)) {
@@ -143,6 +146,7 @@ export default {
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runAgentMaintenance(env));
 		ctx.waitUntil(recoverMboxJobs(env));
+		ctx.waitUntil(recoverBulkJobs(env));
 		ctx.waitUntil(recoverMboxSortingJobs(env));
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		// Drive trash is emptied once a day, with the 02:00 UTC cron; the 5-minute cron is for queue-like upkeep.

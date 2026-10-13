@@ -54,17 +54,17 @@ export function BulkMessageToolbar({
 	const { selectedMailbox } = useSelectedMailbox();
 	const folders = useMailboxFolders(selectedMailbox?.id);
 	return (
-		<div className="flex min-w-0 items-center gap-1 md:gap-2 text-neutral-600 w-full">
+		<div className="flex min-w-0 items-center gap-0 md:gap-2 text-neutral-600 w-full">
 			{!hideSelectedCount && selectedCount > 0 && (
-				<span className="mr-2 text-sm font-medium text-neutral-800">
+				<span className="md:mr-2 text-sm font-medium text-neutral-800">
 					<span className={compact ? "" : "md:hidden"} aria-label={t("common.selectedCount", {count:selectedCount})}>{selectedCount}</span><span className={compact ? "hidden" : "max-md:hidden"}>{t("common.selectedCount", { count: selectedCount })}</span>
 				</span>
 			)}
 			<span className={compact ? "flex-1" : "flex-1 md:hidden"} />
 			{!!messageIds?.length && (mailboxId || selectedMailbox) && <MailOrganizationButton messageIds={messageIds} mailboxId={mailboxId ?? selectedMailbox!.id} onSaved={onClearSelection} onApplyAll={onOrganizeAll} allCount={selectedCount} allCanManage={allCanManage} disabled={pending || organizeDisabled || allCanManage === false} />}
 			{!messageIds?.length && <Button variant="ghost" size="sm" disabled aria-label={t("smart.organize")}><Tags className="h-4 w-4" /></Button>}
-			<Tooltip label={archive.label} className={compact ? "hidden" : "max-md:hidden"}>
-				<Button variant="ghost" size="sm" onClick={() => onAction(archive.action as BulkMessageAction)} disabled={managePending} aria-label={archive.label}>
+			<Tooltip label={archive.label}>
+				<Button variant="ghost" size="sm" className="max-md:h-11 max-md:w-11 max-md:shrink-0 max-md:px-0" onClick={() => onAction(archive.action as BulkMessageAction)} disabled={managePending} aria-label={archive.label}>
 					<archive.Icon className="h-4 w-4" />
 				</Button>
 			</Tooltip>

@@ -1,0 +1,11 @@
+# Background actions for entire folders
+
+Select the current page, then choose **Select all** in the compact selection strip. Archive, move to Trash, mark read/unread, move to a folder and apply labels/categories use a persisted server job for the whole matching selection. **Empty Trash/Spam** uses the same mechanism, with its existing confirmation. Permanent deletion is restricted to messages in Trash or Spam.
+
+Wait until the strip says **Background**: the server has then accepted the job, and closing Safari, locking the phone or closing the app does not stop processing. Reopening the inbox loads the saved progress. The browser only submits the action and polls status; it does not send or process each chunk. Small selections on the current page continue to use the existing immediate actions. Archive is directly accessible beside labels and Delete in the mobile selection toolbar.
+
+Jobs use the existing `mailflare-agent` queue and five-minute recovery cron. D1 stores the selection's mailbox grants, query, insertion boundary, cursor and a pending chunk. Each invocation processes at most 12 small chunks, using the existing action implementation (80 simple updates, five organization/deletion operations, one spam-learning operation per chunk). Messages arriving after acceptance are excluded. Queue redelivery uses a lease; a failed/lost checkpoint retries the saved chunk rather than losing messages whose read state or folder already changed. Progress advances only after a successful chunk. Actions are idempotent; audit entries may be repeated after a lost checkpoint.
+
+Temporary failures retry with increasing delays, up to eight consecutive failures. The existing cron recovers queue outages and expired leases without a browser. Disabled users or revoked mailbox permissions stop the job. Only the initiating user can view, retry or dismiss it. No browser session token is stored in the job. One job per user runs at a time.
+
+Jobs are included in the **Mail** backup group. Restoring a backup pauses unfinished/failed jobs and clears leases and pending chunks. Their old row-ID boundaries are not safe after message restoration, so create a fresh selection instead of resuming those restored jobs. Older backups without the jobs table remain compatible.
