@@ -30,6 +30,7 @@ import { MessageRefreshButton } from "./message-refresh-button";
 import { useMessageSelection } from "./message-selection-context";
 import { useReadAllTask, prepareBulkScopeSelection, startBulkScopeTask, retryReadAllTask, dismissReadAllTask } from "./read-all-task";
 import { PullRefreshList } from "./pull-refresh-list";
+import { MessageListEmpty } from "./message-list-empty";
 import type { BulkScopeSelection, OrganizationChanges } from "./read-all-task";
 import { useReadingLayout } from "./use-reading-layout";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
@@ -629,7 +630,7 @@ export function MessageFolderPage({
 			{selectionError && <p role="alert" className="shrink-0 px-4 py-2 text-xs text-red-700">{t("list.allSelectionFailed")}</p>}
 			{error && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("list.loadFailed")}</p>}
 
-			<PullRefreshList enabled={isMobile} busy={isLoading || isRefreshing || pendingBulkAction} onRefresh={refresh}>
+			<PullRefreshList enabled={isMobile} busy={isLoading || isRefreshing || pendingBulkAction} onRefresh={refresh} empty={!isLoading && !error && messages.length === 0}>
 				{messages.map((message) => (
 					<MessageListRow
 						key={message.id}
@@ -647,9 +648,7 @@ export function MessageFolderPage({
 					/>
 				))}
 				{!isLoading && !error && messages.length === 0 && (
-					<p className="px-6 py-4 text-sm text-neutral-500">
-						{hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
-					</p>
+					<MessageListEmpty text={hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText} />
 				)}
 			</PullRefreshList>
 		</div>
