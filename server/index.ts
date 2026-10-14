@@ -1,3 +1,4 @@
+import { processDatabaseBackup } from "@/lib/backups/runner";
 import { processPaperlessJob } from "@/lib/paperless/jobs";
 import { processBulkJob } from "@/lib/messages/bulk-jobs";
 import { createServer } from "node:http";
@@ -46,7 +47,8 @@ async function main() {
 	runtime.agentQueue.setConsumer(async (body) => {
 		if (typeof body !== "object" || body === null || typeof (body as { jobId?: unknown }).jobId !== "string") return;
 		const message = body as { kind: string; jobId: string };
-		if (message.kind === "agent.draft") await processAgentDraftJob(env, message.jobId);
+		if (message.kind === "database.backup") await processDatabaseBackup(env, message.jobId);
+		else if (message.kind === "agent.draft") await processAgentDraftJob(env, message.jobId);
 		else if (message.kind === "import.mbox") await processMboxJob(env, message.jobId);
 		else if (message.kind === "messages.bulk") await processBulkJob(env, message.jobId);
 		else if (message.kind === "import.sort") await processMboxSortingJob(env, message.jobId);

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { assertPrimaryAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/cookies";
 import { getBackupConfigurationStatus } from "@/lib/backups/export";
-import { runDatabaseBackup } from "@/lib/backups/runner";
+import { enqueueDatabaseBackup } from "@/lib/backups/runner";
 import {
 	createBackupRecord,
 	getBackupSettings,
@@ -52,8 +52,8 @@ export async function POST(request: Request) {
 	try {
 		const { env, user } = await requireAdmin(request);
 		const backupId = await createBackupRecord(env, "manual", user.id);
-		await runDatabaseBackup(env, backupId);
-		return NextResponse.json({ backupId });
+		await enqueueDatabaseBackup(env, backupId);
+		return NextResponse.json({ backupId }, { status: 202 });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Failed to run backup";
 		return NextResponse.json({ error: message }, { status: 400 });

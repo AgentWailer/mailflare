@@ -17,7 +17,7 @@ export async function getBackupSettings(env: CloudflareEnv) {
 }
 
 export async function listBackups(env: CloudflareEnv) {
-	return getDb(env).select().from(backups).orderBy(desc(backups.createdAt)).limit(100);
+	return getDb(env).select({ id: backups.id, status: backups.status, trigger: backups.trigger, r2Key: backups.r2Key, filename: backups.filename, size: backups.size, error: backups.error, createdByUserId: backups.createdByUserId, createdAt: backups.createdAt, startedAt: backups.startedAt, completedAt: backups.completedAt }).from(backups).orderBy(desc(backups.createdAt)).limit(100);
 }
 
 export async function createBackupRecord(

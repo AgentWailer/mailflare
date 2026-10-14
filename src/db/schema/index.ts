@@ -757,6 +757,9 @@ export const backups = sqliteTable(
 		filename: text("filename"),
 		size: integer("size"),
 		error: text("error"),
+		checkpoint: text("checkpoint"),
+		leaseToken: text("lease_token"),
+		leaseUntil: integer("lease_until").notNull().default(0),
 		createdByUserId: text("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()

@@ -1,3 +1,5 @@
+import { processDatabaseBackup, recoverDatabaseBackups } from "./src/lib/backups/runner";
+import { safeErrorCategory } from "./src/lib/security/logging";
 import { processPaperlessJob, recoverPaperlessJobs } from "./src/lib/paperless/jobs";
 import { processBulkJob, recoverBulkJobs } from "./src/lib/messages/bulk-jobs";
 import { withStorage } from "./src/lib/storage";
@@ -105,7 +107,7 @@ export default {
 			};
 			await env.INBOUND_QUEUE.send(payload);
 		} catch (err) {
-			console.error("Inbound enqueue failed", err);
+			console.error("Inbound enqueue failed", safeErrorCategory(err));
 			message.setReject("Processing failed");
 		}
 	},
@@ -114,7 +116,9 @@ export default {
 		const env = withStorage(rawEnv);
 		for (const msg of batch.messages) {
 			try {
-				if (isInboundQueueMessage(msg.body)) {
+				if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "database.backup" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
+					await processDatabaseBackup(env, (msg.body as { jobId: string }).jobId);
+				} else if (isInboundQueueMessage(msg.body)) {
 					await processInboundMessage(env, msg.body);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "import.mbox" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processMboxJob(env, (msg.body as { jobId: string }).jobId);
@@ -139,9 +143,8 @@ export default {
 			} catch (err) {
 				console.error("Queue processing failed", {
 					rawR2Key: isInboundQueueMessage(msg.body) ? msg.body.rawR2Key : undefined,
-					recipient: isInboundQueueMessage(msg.body) ? msg.body.to : undefined,
 					attempts: msg.attempts,
-					error: err,
+					error: safeErrorCategory(err),
 				});
 				msg.retry({ delaySeconds: 10 });
 			}
@@ -153,6 +156,7 @@ export default {
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runAgentMaintenance(env));
 		ctx.waitUntil(recoverMboxJobs(env));
+		ctx.waitUntil(recoverDatabaseBackups(env));
 		ctx.waitUntil(recoverBulkJobs(env));
 		ctx.waitUntil(recoverMboxSortingJobs(env));
 		ctx.waitUntil(recoverContentAudits(env));
