@@ -41,3 +41,28 @@ Regression checks cover exact counts, metadata-only query plans, immediate menu
 navigation with an unresolved request, startup with pending data, refresh coalescing,
 follow-up invalidation and account isolation. Timing measurements distinguish API
 latency from full browser startup; network and cache conditions can change results.
+
+## First category load and conversation view
+
+Follow-up measurements of the first category pages found roughly 6.5 seconds for
+Promotions in the default conversation view and 15.5 seconds for the first Social
+single-message request. SQLite's DISTINCT optimization still selected an older,
+ordered conversation-key index that required reading large message-table rows to
+check category, status, direction and snooze predicates.
+
+Migration `0074_category_conversation_indexes.sql` replaces the two incomplete
+expression indexes with `messages_conversation_cover_idx` (mailbox, normalized
+conversation key, dates and all required membership metadata). It adds
+`messages_category_page_cover_idx` for category/status/direction and newest-first
+selection. Exact DISTINCT counts, heads and matching conversation members are
+checked for covering-index plans in all four categories, including the two-status
+invoice/order views. Labels and conversation action membership remain intact.
+
+Conversation count and head queries use one D1 batch. After selecting the visible
+page, member IDs, thread totals, scheduled times, contact metadata and labels load
+concurrently; they retain the same authorized mailbox/user scopes.
+
+Sidebar preloads now follow the stored conversation preference, matching the
+actual default page cache key. Previously a click requested a single-message page
+and the destination requested a separate grouped page. Drafts stay ungrouped.
+Tests verify that duplicate preload callers join the same request.

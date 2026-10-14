@@ -22,7 +22,7 @@ export async function loadConversationPage({ db, where, offset, limit }: Convers
 		.as("conversation_heads");
 
 	// Always two queries, even for deep pages or threads with many messages.
-	const [totals, heads] = await Promise.all([
+	const [totals, heads] = await db.batch([
 		db.select({ total: countDistinct(threadKey) }).from(messages).where(where),
 		db
 			.select({ id: ranked.id })

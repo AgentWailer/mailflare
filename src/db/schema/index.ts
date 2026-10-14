@@ -302,14 +302,16 @@ export const messages = sqliteTable(
 			sql`${t.createdAt} desc`,
 			sql`${t.id} desc`,
 		),
-		index("messages_thread_key_idx").on(
-			t.mailboxId,
-			t.status,
-			t.folderId,
-			sql`coalesce(${t.threadId}, ${t.id})`,
-			t.createdAt,
+		index("messages_conversation_cover_idx").on(
+			t.mailboxId, sql`coalesce(${t.threadId}, ${t.id})`,
+			sql`${t.createdAt} desc`, sql`${t.id} desc`,
+			t.category, t.status, t.folderId, t.direction, t.snoozedUntil, t.read, t.threadId,
 		),
-		index("messages_mailbox_thread_key_idx").on(t.mailboxId, sql`coalesce(${t.threadId}, ${t.id})`),
+		index("messages_category_page_cover_idx").on(
+			t.mailboxId, t.category, t.status, t.direction,
+			sql`${t.createdAt} desc`, sql`${t.id} desc`,
+			t.snoozedUntil, t.folderId, t.threadId, t.read,
+		),
 	],
 );
 

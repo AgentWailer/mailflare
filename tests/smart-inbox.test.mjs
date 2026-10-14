@@ -1101,7 +1101,7 @@ test('large imported mail keeps exact startup counts and selects metadata throug
  assert(countsPlan.details.some(detail=>/COVERING INDEX messages_counts_cover_idx/.test(detail)),JSON.stringify(countsPlan));
  assert(!countsPlan.details.some(detail=>/TEMP B-TREE FOR GROUP BY/.test(detail)),JSON.stringify(countsPlan));
  const labelsPlan=plans.find(plan=>plan.query.includes('message_labels') && plan.query.includes('sum('));
- assert(labelsPlan.details.some(detail=>/COVERING INDEX messages_(?:counts|page)_cover_idx/.test(detail)),JSON.stringify(labelsPlan));
+ assert(labelsPlan.details.some(detail=>/COVERING INDEX messages_(?:counts|page|category_page|conversation)_cover_idx/.test(detail)),JSON.stringify(labelsPlan));
  plans.length=0;
  const list=await (await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received&category=primary&limit=25'))).json();assert.equal(list.total,3002);assert.equal(list.messages.length,25);
  const totalPlan=plans.find(plan=>plan.query.includes('count(*)'));
@@ -1114,4 +1114,27 @@ test('optimized message-list authorization still checks current valid shared-mai
  const read=await app.list(f.request('/api/messages?mailboxId=otherbox'));assert.equal(read.status,200);assert.equal((await read.json()).messages[0].id,'foreign');
  f.DB.db.exec("UPDATE mailbox_access SET permission='invalid-legacy-value' WHERE id='shared-grant'");assert.equal((await app.list(f.request('/api/messages?mailboxId=otherbox'))).status,404);
  f.DB.db.exec("DELETE FROM mailbox_access WHERE id='shared-grant'");assert.equal((await app.list(f.request('/api/messages?mailboxId=otherbox'))).status,404);
+});
+
+
+test('first category conversation pages use body-free metadata indexes for counts, heads and matching members', async t=>{
+ const f=await fixture(t);
+ const insert=f.DB.db.prepare("INSERT INTO messages(id,user_id,mailbox_id,direction,from_addr,to_addr,status,category,read,thread_id,created_at,text_body,html_body) VALUES(?,'owner','box','inbound','sender@example.test','owner@example.test',?,?,0,?,?,?,?)");
+ const body='Long unrelated imported MIME content '.repeat(500);
+ f.DB.db.transaction(()=>{
+  for(let i=0;i<3000;i++)insert.run('noise-'+i,'archived','primary','noise-thread-'+i,i,body,body);
+  for(const category of ['promotions','social','invoices','orders'])for(let i=0;i<60;i++){const id=category+'-'+i;insert.run(id,i%2?'archived':'received',category,category+'-thread-'+Math.floor(i/2),10000+i,body,body);f.DB.db.prepare("INSERT INTO message_labels(message_id,folder_id) VALUES(?,'work')").run(id);}
+ })();
+ const plans=[],prepare=f.DB.prepare.bind(f.DB);f.DB.prepare=query=>{const statement=prepare(query),bind=statement.bind.bind(statement);statement.bind=(...params)=>{if(query.startsWith('select')&&query.includes('messages'))plans.push({query,details:f.DB.db.prepare('EXPLAIN QUERY PLAN '+query).all(...params).map(row=>row.detail)});return bind(...params);};return statement;};
+ for(const category of ['promotions','social','invoices','orders']){
+  plans.length=0;const page=await (await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received&category='+category+'&limit=25&group=thread'))).json();
+  const systemExtra=category==='promotions'||category==='social'?1:0;assert.equal(page.total,30+systemExtra);assert.equal(page.messages.length,25);assert(page.messages.every(message=>message.category===category));
+  for(const queryPart of ['count(distinct','row_number()','"id", coalesce']){
+   const plan=plans.find(plan=>plan.query.includes(queryPart));assert(plan,'expected page-query plan '+queryPart);
+   assert(plan.details.some(detail=>/COVERING INDEX messages_(conversation|category_page)_cover_idx/.test(detail)),JSON.stringify({category,plan}));
+  }
+  assert(page.messages.every(message=>message.labels.some(label=>label.id==='work')));
+  if(category==='invoices'||category==='orders')assert(page.messages.every(message=>message.threadMessageIds.length===2));else assert(page.messages.every(message=>message.threadMessageIds.length===1));
+ }
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM sqlite_master WHERE name IN ('messages_mailbox_thread_key_idx','messages_thread_key_idx')").get().n,0);
 });

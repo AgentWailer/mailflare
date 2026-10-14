@@ -7,10 +7,12 @@ export async function preloadMailboxPage(href: string, mailboxId?: string) {
 	const supportedFolders: MessageFolder[] = ["inbox", "promotions", "social", "invoices", "orders", "starred", "all", "snoozed", "sent", "scheduled", "drafts", "archived", "spam", "trash"];
 	if (!supportedFolders.includes(folder)) return;
 
+	let grouped = true;
+	try { grouped = localStorage.getItem("mailflare-conversation-view") !== "off"; } catch { /* Default is conversation view. */ }
 	const params = getMessageQueryParams(
 		folder,
 		mailboxId,
-		{ limit: 25, offset: 0 },
+		{ limit: 25, offset: 0, group: grouped && folder !== "drafts" ? "thread" : undefined },
 		customFolderMatch?.[1],
 	);
 	await fetchMessageList(params);

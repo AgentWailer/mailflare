@@ -73,18 +73,6 @@ export async function GET(request: Request) {
 			: [];
 		const rowById = new Map(rows.map((row) => [row.id, row]));
 		rows = page.ids.map((id) => rowById.get(id)).filter((row): row is ListMessage => !!row);
-		const keys = rows.map((row) => row.threadId ?? row.id);
-		if (keys.length > 0) {
-			const members = await db
-				.select({ id: messages.id, key: threadKey })
-				.from(messages)
-				.where(and(where, inArray(threadKey, keys)));
-			for (const member of members) {
-				const list = threadMessageIds.get(member.key) ?? [];
-				list.push(member.id);
-				threadMessageIds.set(member.key, list);
-			}
-		}
 	} else {
 		const [totalRow] = await db.select({ total: count() }).from(messages).where(where);
 		total = totalRow?.total ?? 0;
@@ -96,39 +84,41 @@ export async function GET(request: Request) {
 			.limit(limit)
 			.offset(offset);
 	}
-	// Conversation sizes for the rows on this page, so the list can show "(3)"
-	// next to a subject the way threaded clients do.
-	const threadIds = Array.from(new Set(rows.map((row) => row.threadId).filter((id): id is string => !!id)));
+	// All enrichment depends only on this page: launch it together instead of
+	// making the browser wait for each independent D1 metadata round trip.
+	const keys = rows.map(row => row.threadId ?? row.id);
+	const membersPromise = groupByThread && keys.length
+		? db.select({ id: messages.id, key: threadKey }).from(messages).where(and(where, inArray(threadKey, keys)))
+		: Promise.resolve([]);
+	const threadIds = Array.from(new Set(rows.map(row => row.threadId).filter((id): id is string => !!id)));
+	const scope = mailboxId ? eq(messages.mailboxId, mailboxId)
+		: accessibleMailboxIds.length ? inArray(messages.mailboxId, accessibleMailboxIds) : eq(messages.userId, user.id);
+	const threadCountsPromise = threadIds.length
+		? db.select({ threadId: messages.threadId, total: count(), unread: sum(sql`case when ${messages.read} = 0 then 1 else 0 end`) })
+			.from(messages).where(and(scope, inArray(messages.threadId, threadIds), isNotNull(messages.threadId), notInArray(messages.status, ["draft", "trash"]))).groupBy(messages.threadId)
+		: Promise.resolve([]);
+	const jobsPromise = scheduled === "true" && rows.length
+		? db.select({ messageId: outboundJobs.messageId, scheduledAt: outboundJobs.scheduledAt }).from(outboundJobs)
+			.where(and(inArray(outboundJobs.messageId, rows.map(row => row.id)), eq(outboundJobs.status, "queued"), isNotNull(outboundJobs.scheduledAt)))
+		: Promise.resolve([]);
+	const contactsPromise = Promise.all(Array.from(new Set(rows.map(message => message.userId))).map(async userId => {
+		const addresses = rows.filter(message => message.userId === userId).flatMap(message => [message.fromAddr, getFirstEmailAddressEntry(message.toAddr)]);
+		const [names, avatars] = await Promise.all([getContactDisplayNameMap(env, userId, addresses), getContactAvatarMap(env, userId, addresses)]);
+		return [userId, { names, avatars }] as const;
+	}));
+	const labelsPromise = groupByThread
+		? getConversationLabels(db, keys, where).then(labels => labels.map(({ threadKey, ...label }) => ({ messageId: threadKey, ...label })))
+		: getMessageLabels(db, rows.map(row => row.id));
+	const [members, countRows, jobs, contactEntries, labels] = await Promise.all([membersPromise, threadCountsPromise, jobsPromise, contactsPromise, labelsPromise]);
+	for (const member of members) {
+		const ids = threadMessageIds.get(member.key) ?? [];
+		ids.push(member.id); threadMessageIds.set(member.key, ids);
+	}
 	const threadCounts = new Map<string, { total: number; unread: number }>();
-	if (threadIds.length > 0) {
-		const scope = mailboxId
-			? eq(messages.mailboxId, mailboxId)
-			: accessibleMailboxIds.length > 0
-				? inArray(messages.mailboxId, accessibleMailboxIds)
-				: eq(messages.userId, user.id);
-		const countRows = await db
-			.select({
-				threadId: messages.threadId,
-				total: count(),
-				unread: sum(sql`case when ${messages.read} = 0 then 1 else 0 end`),
-			})
-			.from(messages)
-			.where(and(scope, inArray(messages.threadId, threadIds), isNotNull(messages.threadId), notInArray(messages.status, ["draft", "trash"])))
-			.groupBy(messages.threadId);
-		for (const row of countRows) {
-			if (row.threadId) threadCounts.set(row.threadId, { total: row.total, unread: Number(row.unread ?? 0) });
-		}
-	}
+	for (const row of countRows) if (row.threadId) threadCounts.set(row.threadId, { total: row.total, unread: Number(row.unread ?? 0) });
 	const scheduledAtByMessageId = new Map<string, string>();
-	if (scheduled === "true" && rows.length > 0) {
-		const jobs = await db
-			.select({ messageId: outboundJobs.messageId, scheduledAt: outboundJobs.scheduledAt })
-			.from(outboundJobs)
-			.where(and(inArray(outboundJobs.messageId, rows.map((row) => row.id)), eq(outboundJobs.status, "queued"), isNotNull(outboundJobs.scheduledAt)));
-		for (const job of jobs) {
-			if (job.messageId && job.scheduledAt) scheduledAtByMessageId.set(job.messageId, job.scheduledAt.toISOString());
-		}
-	}
+	for (const job of jobs) if (job.messageId && job.scheduledAt) scheduledAtByMessageId.set(job.messageId, job.scheduledAt.toISOString());
+	const contactMapsByUserId = new Map(contactEntries);
 	const mailboxNameMap = new Map(
 		accessibleMailboxes.map((mailbox) => [
 			mailbox.id,
@@ -137,22 +127,6 @@ export async function GET(request: Request) {
 				: mailbox.displayName ?? mailbox.localPart,
 		]),
 	);
-	const contactMapsByUserId = new Map(
-		await Promise.all(
-			Array.from(new Set(rows.map((message) => message.userId))).map(async (userId) => {
-				const addresses = rows.filter(message => message.userId === userId).flatMap(message => [message.fromAddr, getFirstEmailAddressEntry(message.toAddr)]);
-				const [names, avatars] = await Promise.all([getContactDisplayNameMap(env, userId, addresses), getContactAvatarMap(env, userId, addresses)]);
-				return [userId, { names, avatars }] as const;
-			}),
-		),
-	);
-	// `Message.textBody`/`htmlBody` are optional on the wire type and the
-	// reading pane loads them from /api/messages/[id]/thread, so they are
-	// neither selected nor sent here.
-	const labels = groupByThread
-		? (await getConversationLabels(db, rows.map(row => row.threadId ?? row.id), where))
-			.map(({ threadKey, ...label }) => ({ messageId: threadKey, ...label }))
-		: await getMessageLabels(db, rows.map(row => row.id));
 	const labelsByKey = new Map<string, Array<{ id: string; name: string; color: string }>>();
 	for (const { messageId, ...label } of labels) {
 		const assigned = labelsByKey.get(messageId) ?? [];

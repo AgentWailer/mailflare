@@ -17,7 +17,7 @@ const sidebar=write('sidebar.ts',`export const useSidebar=()=>({minimal:false,mo
 const mailbox=write('mailbox.ts',`export const useSelectedMailbox=()=>({selectedMailbox:{id:'box'}});`);
 const compose=write('compose.ts',`export const useCompose=()=>({openComposer:()=>{}});`);
 const branding=write('branding.ts',`export const useBranding=()=>({appName:'Mailflare',iconUrl:'/icon-96.png'});`);
-await build({stdin:{contents:`export {NavItem} from './src/components/components-nav';export {LoadingTransition} from './src/components/loading-transition';export {usePageLoading} from './src/components/page-loading';export {fetchMessageCounts,clearMessageCountsCache,clearMessageClientState} from './src/hooks/utils';`,resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'next/navigation':navigation,'next/link':link,'@/components/sidebar-state':sidebar,'@/components/mailbox-provider':mailbox,'@/components/branding-provider':branding},plugins:[{name:'relative-fixture-contexts',setup(build){const mocks={'./sidebar-state':sidebar,'./mailbox-provider':mailbox,'./compose/compose-context':compose};build.onResolve({filter:/^\.(\/sidebar-state|\/mailbox-provider|\/compose\/compose-context)$/},args=>({path:mocks[args.path]}));}}],logLevel:'silent'});
+await build({stdin:{contents:`export {NavItem} from './src/components/components-nav';export {LoadingTransition} from './src/components/loading-transition';export {usePageLoading} from './src/components/page-loading';export {getMessageQueryParams} from './src/hooks/utils';export {preloadMailboxPage} from './src/components/components-nav-utils';export {fetchMessageCounts,clearMessageCountsCache,clearMessageClientState} from './src/hooks/utils';`,resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'next/navigation':navigation,'next/link':link,'@/components/sidebar-state':sidebar,'@/components/mailbox-provider':mailbox,'@/components/branding-provider':branding},plugins:[{name:'relative-fixture-contexts',setup(build){const mocks={'./sidebar-state':sidebar,'./mailbox-provider':mailbox,'./compose/compose-context':compose};build.onResolve({filter:/^\.(\/sidebar-state|\/mailbox-provider|\/compose\/compose-context)$/},args=>({path:mocks[args.path]}));}}],logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href);
 const React=await import('react'),{act}=React,{createRoot}=await import('react-dom/client');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -51,4 +51,22 @@ test('invalidations during a counter query schedule exactly one fresh follow-up 
 test('an account change starts its own counters without waiting for the old account query',async t=>{
  const resolvers=[];let calls=0;reset(t,()=>{calls++;return new Promise(resolve=>resolvers.push(resolve));});const old=app.fetchMessageCounts('box');app.clearMessageClientState();localStorage.setItem('mailflare-session-token','new-account');const current=app.fetchMessageCounts('box');assert.equal(calls,2);
  resolvers[1](Response.json({counts:{account:'new'}}));await current;resolvers[0](Response.json({counts:{account:'old'}}));await old;assert.deepEqual(await app.fetchMessageCounts('box'),{account:'new'});
+});
+
+
+test('sidebar preloads share the exact default conversation-list request instead of fetching an unused single-mail page', async t=>{
+ let resolve,calls=0,url;reset(t,(input)=>{calls++;url=String(input);return new Promise(r=>resolve=r);});
+ const preload=app.preloadMailboxPage('/promotions','box');
+ assert.equal(new URL(url,'https://mailflare.test').searchParams.get('group'),'thread');
+ const params=app.getMessageQueryParams('promotions','box',{query:'',limit:25,offset:0,read:'all',group:'thread'});
+ assert.equal(url,'/api/messages?'+params.toString());
+ // A second preloader joins the same pending cache entry.
+ const second=app.preloadMailboxPage('/promotions','box');assert.equal(calls,1);resolve(Response.json({messages:[],total:0,grouped:true}));await Promise.all([preload,second]);
+ await app.preloadMailboxPage('/promotions','box');assert.equal(calls,1);
+});
+
+test('sidebar preloading follows disabled conversation grouping and keeps drafts ungrouped', async t=>{
+ const urls=[];reset(t,async input=>{urls.push(String(input));return Response.json({messages:[],total:0});});localStorage.setItem('mailflare-conversation-view','off');
+ await app.preloadMailboxPage('/social','box');assert.equal(new URL(urls[0],'https://mailflare.test').searchParams.get('group'),null);
+ localStorage.setItem('mailflare-conversation-view','on');await app.preloadMailboxPage('/drafts','box');assert.equal(new URL(urls[1],'https://mailflare.test').searchParams.get('group'),null);
 });
