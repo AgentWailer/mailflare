@@ -8,21 +8,22 @@ import { getLabelPath } from "@/lib/folders/hierarchy";
 import { LabelParentSelect } from "./label-parent-select";
 import { Button } from "@/components/ui/button";
 
-export function LabelVisibilitySettings() {
+export function LabelVisibilitySettings({ embedded = false }: { embedded?: boolean } = {}) {
 	const { t } = useLanguage();
 	const { selectedMailbox, isLoading: mailboxLoading } = useSelectedMailbox();
 	const canManage = !!selectedMailbox && (!selectedMailbox.permission || selectedMailbox.permission === "full_access");
 	const folders = useMailboxFolders(selectedMailbox?.id);
 	const { hiddenLabelIds, isLoading, failed, saving, setVisible, retry } = useLabelVisibility(selectedMailbox?.id);
-	return <details id="labels" className="scroll-mt-4 space-y-3" aria-label={t("labels.visibility.title")}>
-		<summary className="cursor-pointer rounded-lg py-2 text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">
+	const Wrapper = embedded ? "div" : "details";
+	return <Wrapper id={embedded ? undefined : "labels"} className="scroll-mt-4 space-y-3" aria-label={t("labels.visibility.title")}>
+		{!embedded && <summary className="cursor-pointer rounded-lg py-2 text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">
 			<span className="text-base font-semibold">{t("labels.visibility.title")}</span>
-		</summary>
-		<div>
+		</summary>}
+		{!embedded && <div>
 			<p className="mt-1 text-sm text-neutral-500">{t("labels.visibility.description")}</p>
 			<p className="mt-1 text-sm text-neutral-500">{t("labels.hierarchyDescription")}</p>
 			{selectedMailbox && <p className="mt-2 break-all text-sm text-neutral-700">{selectedMailbox.localPart}@{selectedMailbox.hostname}</p>}
-		</div>
+		</div>}
 		{failed && <div role="alert" className="text-sm text-red-700"><p>{t("labels.visibility.failed")}</p><Button variant="outline" className="mt-2 min-h-11" onClick={() => void retry()}>{t("labels.visibility.retry")}</Button></div>}
 		{mailboxLoading || isLoading ? <p role="status" className="text-sm text-neutral-500">{t("common.loading")}</p> : folders.length === 0 ? <p className="text-sm text-neutral-500">{t("navigation.noFolders")}</p> : folders.map(folder => <div key={`${selectedMailbox?.id}:${folder.id}`} className="space-y-2 rounded-xl bg-neutral-50 p-3"><div className="flex min-h-11 items-center gap-3">
 			<span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: folder.color }} />
@@ -33,5 +34,5 @@ export function LabelVisibilitySettings() {
 			</button>
 		</div>{canManage && selectedMailbox && <LabelParentSelect mailboxId={selectedMailbox.id} folder={folder} folders={folders} />}
 		</div>)}
-	</details>;
+	</Wrapper>;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
@@ -14,22 +15,24 @@ export function SettingsNav() {
 	const currentLabel = t(currentItem?.labelKey ?? "settings.nav.settings");
 
 	return (
-		<SectionNavSheet title={t("settings.nav.menu")} label={currentLabel} className="w-full px-4 py-4 md:min-h-full md:w-64 md:border-r md:border-blue-100/70 md:py-10">
-			<div className="sticky top-6 space-y-7">
+		<SectionNavSheet title={t("settings.nav.menu")} label={currentLabel} className="w-full px-4 py-4 md:w-56 md:shrink-0 md:py-6">
+			<div className="sticky top-6 space-y-2">
 				{settingsNavSections.map((section) => (
-					<div key={section.labelKey} className="space-y-3">
-						<h2 className="px-4 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+					<details key={`${section.labelKey}:${pathname}`} open={section.items.some(item => isActiveSettingsPath(pathname, item.href)) || undefined} className="group rounded-xl border border-neutral-200/70 bg-white/60">
+						<summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-medium text-neutral-700 [&::-webkit-details-marker]:hidden">
 							{t(section.labelKey)}
-						</h2>
-						<nav className="space-y-px">
+						<ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-neutral-400 group-open:rotate-180" />
+						</summary>
+						<nav aria-label={t(section.labelKey)} className="space-y-1 px-2 pb-2">
 							{section.items.map((item) => {
 								const active = isActiveSettingsPath(pathname, item.href);
 								return (
 									<Link
 										key={item.href}
 										href={item.href}
+										aria-current={active ? "page" : undefined}
 										className={cn(
-											"block rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+											"block min-h-11 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
 											active
 												? "bg-blue-100 text-blue-900"
 												: "text-neutral-600 hover:bg-white/70 hover:text-neutral-900",
@@ -40,7 +43,7 @@ export function SettingsNav() {
 								);
 							})}
 						</nav>
-					</div>
+					</details>
 				))}
 			</div>
 		</SectionNavSheet>

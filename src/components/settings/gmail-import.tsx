@@ -20,7 +20,7 @@ async function request<T>(path: string, body?: unknown, method = "POST"): Promis
 	if (!response.ok) throw new Error(data.error ?? "Google import request failed");
 	return data;
 }
-export function GmailImport() {
+export function GmailImport({ embedded = false }: { embedded?: boolean } = {}) {
 	const user = useCurrentUser(), { selectedMailbox } = useSelectedMailbox(), { t } = useLanguage();
 	const running = useRef(false);
 	const [busy, setBusy] = useState(false), [pausing, setPausing] = useState(false);
@@ -57,8 +57,8 @@ export function GmailImport() {
 		finally { running.current = false; setBusy(false); setActiveImport(false); setPausing(false); void query.refetch(); }
 	}
 	const jobs = query.data?.jobs.filter(job => job.mailboxId === selectedMailbox?.id) ?? [];
-	return <section id="gmail-import" className="space-y-4 rounded-3xl bg-white p-6 [&_button]:h-auto [&_button]:min-h-11 [&_button]:max-w-full [&_button]:whitespace-normal [&_select]:min-h-11">
-		<div><h2 className="text-xl font-semibold text-neutral-900">{t("gmail.title")}</h2><p className="mt-1 text-sm text-neutral-500">{t("gmail.description")}</p></div>
+	return <section id={embedded ? undefined : "gmail-import"} className={`space-y-4 ${embedded ? "" : "rounded-3xl bg-white p-6"} [&_button]:h-auto [&_button]:min-h-11 [&_button]:max-w-full [&_button]:whitespace-normal [&_select]:min-h-11`}>
+		{!embedded && <div><h2 className="text-xl font-semibold text-neutral-900">{t("gmail.title")}</h2><p className="mt-1 text-sm text-neutral-500">{t("gmail.description")}</p></div>}
 		{query.isPending && <p role="status" className="text-sm text-neutral-500">{t("common.loading")}</p>}
 		{query.data && !query.data.configured && <div className="space-y-2 rounded-xl bg-neutral-50 p-4 text-sm text-neutral-700">
 			<p>{t("gmail.setup")}</p><p className="break-all font-mono text-xs">{query.data.missing.join(", ")}</p>

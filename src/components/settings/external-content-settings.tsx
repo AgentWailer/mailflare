@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export function ExternalContentSettings() {
 	const { t } = useLanguage();
 	const { enabled, isLoading, saving, failed, setEnabled, retry } = useExternalContent();
-	return <section id="external-content" className="space-y-3">
+	return <section  className="space-y-3">
 		<label className="flex items-start gap-3 rounded-xl bg-neutral-50 p-4">
 			<span className="min-w-0 flex-1">
 				<span className="block text-sm font-medium text-neutral-900">{t("settings.externalContent.title")}</span>

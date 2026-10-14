@@ -1,21 +1,17 @@
+import { getServerTranslator } from "@/lib/i18n/server";
+import { SettingsSection, SettingsPageHeader } from "@/components/settings/settings-section";
 import { InboxRules } from "@/components/settings/inbox-rules";
 import { DomainRouting } from "@/components/settings/domain-routing/domain-routing";
 
-export default function SettingsRulesPage() {
-	return (
-		<div className="space-y-8">
-			{/* <div>
-				<h1 className="text-2xl md:text-3xl font-medium text-neutral-900">Rules</h1>
-				<p className="mt-1 text-sm text-neutral-500">
-					Rules for the selected inbox.
-				</p>
-			</div> */}
-			<div>
-				<DomainRouting />
-			</div>
-			<div className="py-6">
-				<InboxRules />
-			</div>
-		</div>
-	);
+export default async function SettingsPage() {
+	const t = await getServerTranslator();
+	return <div className="space-y-3 py-4">
+		<SettingsPageHeader title={t("settings.nav.rules")} description={t("settings.guide.rules")} />
+		<SettingsSection id="routing" title={t("routing.title")} description={t("routing.about")}>
+			<DomainRouting />
+		</SettingsSection>
+		<SettingsSection id="filters" title={t("rules.mailboxTitle")} description={t("settings.guide.filters")}>
+			<InboxRules />
+		</SettingsSection>
+	</div>;
 }

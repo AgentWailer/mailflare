@@ -10,6 +10,7 @@ import { ProfileForm } from "./profile-form";
 import { TimeZoneForm } from "./time-zone-form";
 import type { AccountSettingsResponse } from "./types";
 import { loadAccountSettings } from "./utils";
+import { SettingsSection, SettingsPageHeader } from "./settings-section";
 
 export function AccountSettings() {
 	const { t } = useLanguage();
@@ -40,63 +41,29 @@ export function AccountSettings() {
 		return (
 			<div className="space-y-6 py-4">
 				<Skeleton className="h-9 w-40" />
-				<Skeleton className="h-72 w-full rounded-3xl" />
+				{[0, 1, 2].map((key) => <Skeleton key={key} className="h-20 w-full rounded-2xl" />)}
 			</div>
 		);
 	}
 
 	return (
-		<div className="space-y-8 py-4">
-			{/* <div>
-				<h1 className="text-2xl md:text-3xl font-medium text-neutral-900">Account</h1>
-				<p className="mt-1 text-sm text-neutral-500">Manage your account details and sign-in password.</p>
-			</div> */}
-
-			<section className="space-y-4">
-				<div>
-					<h2 className="text-xl font-semibold text-neutral-900">{t("settings.account.detailsTitle")}</h2>
-					<p className="mt-1 text-sm text-neutral-500">{t("settings.account.detailsDescription")}</p>
-				</div>
-				<div className="space-y-1 overflow-hidden rounded-3xl">
-					<ProfileForm
-						initialName={user.name}
-						initialResetEmail={user.resetEmail ?? ""}
-						email={user.email}
-					/>
-
-					{user.canForwardEmail && (
-						<div className="space-y-4 rounded-lg bg-white p-6">
-							<div>
-								<h3 className="text-lg font-semibold text-neutral-900">{t("settings.account.forwardingTitle")}</h3>
-								<p className="mt-1 text-sm text-neutral-500">{t("settings.account.forwardingDescription")}</p>
-							</div>
-						<ForwardingEmailForm initialForwardingEmail={user.forwardingEmail ?? ""} />
-						</div>
-					)}
-
-					<div className="space-y-4 rounded-b-3xl rounded-t-lg bg-white p-6">
-						<div>
-							<h3 className="text-lg font-semibold text-neutral-900">{t("settings.account.signatureTitle")}</h3>
-							<p className="mt-1 text-sm text-neutral-500">{t("settings.account.signatureDescription")}</p>
-						</div>
-					<MailboxSignatureForm />
-					</div>
-				</div>
-			</section>
-
-			<section className="space-y-4">
-				<div>
-					<h2 className="text-xl font-semibold text-neutral-900">{t("settings.account.generalTitle")}</h2>
-					<p className="mt-1 text-sm text-neutral-500">{t("settings.account.generalDescription")}</p>
-				</div>
-				<div className="space-y-1 overflow-hidden rounded-3xl">
-					<div className="rounded-t-3xl rounded-b-lg bg-white p-6">
-						<h3 className="mb-3 text-lg font-semibold text-neutral-900">{t("language.label")}</h3>
-						<div className="max-w-xs [&>div]:px-0 [&_label]:sr-only"><LanguageSelector /></div>
-					</div>
-					<TimeZoneForm userId={user.id} initialTimeZone={user.timeZone} />
-				</div>
-			</section>
+		<div className="space-y-3 py-4">
+			<SettingsPageHeader title={t("settings.nav.account")} description={t("settings.account.detailsDescription")} />
+			<SettingsSection id="profile" title={t("settings.account.detailsTitle")} description={t("settings.guide.profile")}>
+				<ProfileForm initialName={user.name} initialResetEmail={user.resetEmail ?? ""} email={user.email} />
+			</SettingsSection>
+			{user.canForwardEmail && <SettingsSection id="forwarding" title={t("settings.account.forwardingTitle")} description={t("settings.account.forwardingDescription")}>
+				<ForwardingEmailForm initialForwardingEmail={user.forwardingEmail ?? ""} />
+			</SettingsSection>}
+			<SettingsSection id="signature" title={t("settings.account.signatureTitle")} description={t("settings.account.signatureDescription")}>
+				<MailboxSignatureForm />
+			</SettingsSection>
+			<SettingsSection id="language" title={t("language.label")} description={t("settings.guide.language")}>
+				<div className="max-w-xs [&>div]:px-0 [&_label]:sr-only"><LanguageSelector /></div>
+			</SettingsSection>
+			<SettingsSection id="time-zone" title={t("settings.timeZone.title")} description={t("settings.guide.timeZone")}>
+				<TimeZoneForm userId={user.id} initialTimeZone={user.timeZone} />
+			</SettingsSection>
 		</div>
 	);
 }

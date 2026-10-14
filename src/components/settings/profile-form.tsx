@@ -94,7 +94,7 @@ export function ProfileForm({
     <>
       <form
         onSubmit={onProfileSubmit}
-        className="space-y-6 rounded-b-lg rounded-t-3xl bg-white p-6"
+        className="space-y-6"
       >
         <div className="flex items-center gap-4">
           <ProfileAvatarForm name={name} colorSeed={email} />
@@ -144,7 +144,7 @@ export function ProfileForm({
 
       <form
         onSubmit={onRecoverySubmit}
-        className="space-y-4 rounded-lg bg-white p-6"
+        className="mt-6 space-y-4 border-t border-neutral-100 pt-5"
       >
         <div>
           <h3 className="text-lg font-semibold text-neutral-900">

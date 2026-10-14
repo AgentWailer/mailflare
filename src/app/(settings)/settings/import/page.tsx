@@ -2,7 +2,9 @@
 
 import type { FormEvent } from "react";
 import { useMemo, useState } from "react";
-import { Folder, Server, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
+import { SettingsSection, SettingsPageHeader } from "@/components/settings/settings-section";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useLanguage } from "@/components/language-provider";
 import { R2MboxImport } from "@/components/settings/r2-mbox-import";
 import { GmailImport } from "@/components/settings/gmail-import";
@@ -10,13 +12,7 @@ import type { TranslationKey } from "@/lib/i18n/types";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -67,6 +63,7 @@ const SECTION_LABEL_KEYS: Record<ImportSourceSection, TranslationKey> = {
 
 export default function SettingsImportPage() {
   const { t } = useLanguage();
+  const user = useCurrentUser();
   // System sections are translated; folders discovered on the source keep their own names.
   const sourceLabel = (source: ImportSourceItem) => source.sourceSection ? t(SECTION_LABEL_KEYS[source.sourceSection]) : source.label;
   const { selectedMailbox } = useSelectedMailbox();
@@ -226,27 +223,12 @@ export default function SettingsImportPage() {
 
   return (
     <div className="space-y-6">
-      {/* <div>
-        <h1 className="text-2xl md:text-3xl font-medium text-neutral-900">Import</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Move mail from selected source sections into the matching sections of
-          the current mailbox.
-        </p>
-      </div> */}
-
-      <GmailImport />
-      <R2MboxImport />
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold text-neutral-900">
-            {t("importPage.title")}
-          </h2>
-          <p className="mt-1 text-sm text-neutral-500">
-            {t("importPage.description")}
-          </p>
-        </div>
+      <SettingsPageHeader title={t("settings.nav.import")} description={t("settings.guide.import")} />
+      <SettingsSection id="gmail-import" title={t("gmail.title")} description={t("gmail.description")}><GmailImport embedded /></SettingsSection>
+      {user?.role === "admin" && <SettingsSection id="r2" title={t("mbox.title")} description={t("mbox.description")}><R2MboxImport embedded /></SettingsSection>}
+      <SettingsSection id="file-import" title={t("importPage.title")} description={t("settings.guide.importFile")}>
         <div className="space-y-1 overflow-hidden rounded-3xl">
-          <CardContent className="space-y-6 rounded-b-lg rounded-t-3xl bg-white p-6">
+          <CardContent className="space-y-6 p-0">
             <div className="flex flex-col gap-2">
               <Label htmlFor="import-source">{t("importPage.source")}</Label>
               <Select
@@ -523,7 +505,7 @@ export default function SettingsImportPage() {
             )}
           </CardContent>
         </div>
-      </section>
+      </SettingsSection>
     </div>
   );
 }

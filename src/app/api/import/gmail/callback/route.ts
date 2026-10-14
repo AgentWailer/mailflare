@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 	let result = "error";
 	let connectionId: string | undefined;
 	try { const connection = await completeGoogleAuthorization(env, auth.user.id, request); connectionId = connection.id; result = "connected"; } catch { /* Never echo authorization codes or token responses. */ }
-	const target = new URL(`/settings/import?gmail=${result}`, config.redirectUri!);
+	const target = new URL(`/settings/import?gmail=${result}#gmail-import`, config.redirectUri!);
 	if (connectionId) target.searchParams.set("googleConnection", connectionId);
 	const response = NextResponse.redirect(target, 303);
 	response.headers.set("Cache-Control", "private, no-store"); response.headers.set("Referrer-Policy", "no-referrer");

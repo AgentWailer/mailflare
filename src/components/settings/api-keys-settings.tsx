@@ -19,7 +19,7 @@ import type { ApiKeyScope } from "@/lib/api/scopes";
 import type { ManagedApiKey, McpKeyScope } from "./api-keys-settings-types";
 import { createManagedApiKey, keyPermissions, loadManagedApiKeys, MCP_KEY_SCOPES, revokeManagedApiKey, STANDARD_KEY_SCOPES } from "./api-keys-settings-utils";
 
-export function ApiKeysSettings() {
+export function ApiKeysSettings({ embedded = false }: { embedded?: boolean } = {}) {
 	const { t } = useLanguage();
 	const { mailboxes, selectedMailbox } = useSelectedMailbox();
 	const [keys, setKeys] = useState<ManagedApiKey[]>([]);
@@ -75,7 +75,7 @@ export function ApiKeysSettings() {
 
 	return <div className="space-y-6">
 		<div className="flex items-center justify-between gap-4">
-			<h1 className="text-2xl md:text-3xl font-medium">{t("apiKeys.title")}</h1>
+			{!embedded && <h1 className="text-2xl md:text-3xl font-medium">{t("apiKeys.title")}</h1>}
 		<Dialog open={createOpen} onOpenChange={(open) => { if (busy) return; setCreateOpen(open); setError(null); if (open && mailboxIds.length === 0) setMailboxIds([selectedMailbox?.id ?? mailboxes[0]?.id].filter((id): id is string => !!id)); if (!open) { setNewKey(null); setCopied(false); } }}>
 			<DialogTrigger asChild><Button type="button" className={mobilePrimaryActionAboveNavClass}><Plus className="h-4 w-4" />{t("apiKeys.new")}</Button></DialogTrigger>
 			<DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
@@ -93,7 +93,7 @@ export function ApiKeysSettings() {
 			</DialogContent>
 		</Dialog>
 		</div>
-		<p className="text-sm text-neutral-500">{t("apiKeys.description")}</p>
+		{!embedded && <p className="text-sm text-neutral-500">{t("apiKeys.description")}</p>}
 		{error && !createOpen && <p role="alert" className="text-sm text-red-600">{error}</p>}
 		<section className="space-y-3">
 			{loading && <SectionRowSkeleton />}

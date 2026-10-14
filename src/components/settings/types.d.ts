@@ -17,6 +17,7 @@ export type ProfileFormResponse = {
 
 export type AccountSettingsResponse = {
 	user?: {
+		timeZone: string | null;
 		id: string;
 		email: string;
 		name: string;

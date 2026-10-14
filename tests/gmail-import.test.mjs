@@ -11,7 +11,7 @@ await build({stdin:{contents:`
  export {createSession,hashSessionToken,getUserFromSession} from './src/lib/auth/session.ts';export {getDb} from './src/db/index.ts';
  export {gmailConfiguration,beginGoogleAuthorization,completeGoogleAuthorization,encryptGoogleTokens,decryptGoogleTokens,GMAIL_SCOPE} from './src/lib/import/gmail-oauth.ts';
  export {createGmailJob,advanceGmailJob,gmailPlacement,skipGmailMessage,publicGmailJob} from './src/lib/import/gmail-jobs.ts';
- export {GET as status} from './src/app/api/import/gmail/route.ts';export {POST as connect} from './src/app/api/import/gmail/connect/route.ts';
+ export {GET as status} from './src/app/api/import/gmail/route.ts';export {POST as connect} from './src/app/api/import/gmail/connect/route.ts';export {GET as callback} from './src/app/api/import/gmail/callback/route.ts';
  export {POST as create} from './src/app/api/import/gmail/jobs/route.ts';export {POST as advance} from './src/app/api/import/gmail/jobs/[id]/route.ts';
  export {DELETE as disconnect} from './src/app/api/import/gmail/connections/[id]/route.ts';
  export {exportDatabaseRecords,restoreDatabaseRecords} from './src/lib/backups/export.ts';
@@ -27,7 +27,8 @@ async function fixture(t,old=false){
  const objects=new Map();const env={DB,MAILFLARE_RUNTIME:'node',GMAIL_OAUTH_CLIENT_ID:'test-client',GMAIL_OAUTH_CLIENT_SECRET:'test-secret',GMAIL_OAUTH_REDIRECT_URI:'https://mailflare.test/api/import/gmail/callback',GMAIL_IMPORT_ENCRYPTION_KEY:btoa('k'.repeat(32)),BUCKET:{put:async(k,v)=>objects.set(k,v),delete:async k=>objects.delete(k)}};globalThis.__mailflareNodeEnv=env;
  const tokens={};for(const u of ['owner','other'])tokens[u]=await app.createSession(env,u);
  const request=(path='/api/import/gmail',body,actor='owner')=>new Request('https://mailflare.test'+path,{method:body===undefined?'GET':'POST',headers:{...(tokens[actor]?{Authorization:'Bearer '+tokens[actor]}:{}),'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
- const user=await app.getUserFromSession(env,tokens.owner);
+ // The legacy backup fixture intentionally predates current user columns.
+ const user=old?null:await app.getUserFromSession(env,tokens.owner);
  return {DB,env,objects,tokens,request,user};
 }
 const json=data=>Response.json(data);
@@ -155,10 +156,18 @@ test('disconnecting before an in-flight message writes cancels the job and keeps
 });
 test('backups before/after migration preserve encrypted connections and checkpoints; OAuth states and leases do not resume',async t=>{
  const f=await fixture(t,true);const old=await app.exportDatabaseRecords(f.DB);await app.restoreDatabaseRecords(f.DB,old.buffer);
- await app.applyMigrations(f.DB,join(process.cwd(),'drizzle/migrations'));await app.restoreDatabaseRecords(f.DB,old.buffer);await addConnection(f);google(t);
+ await app.applyMigrations(f.DB,join(process.cwd(),'drizzle/migrations'));await app.restoreDatabaseRecords(f.DB,old.buffer);f.user=await app.getUserFromSession(f.env,f.tokens.owner);await addConnection(f);google(t);
  const job=await app.createGmailJob(f.env,f.user,'google','box');await app.beginGoogleAuthorization(f.env,'owner',f.request('/api/import/gmail/connect',{}));
  f.DB.db.prepare("UPDATE gmail_import_jobs SET status='running',lease_token='stale',lease_until=? WHERE id=?").run(Date.now()+3600000,job.id);
  const backup=await app.exportDatabaseRecords(f.DB),doc=JSON.parse(new TextDecoder().decode(backup));assert(!('gmail_oauth_states' in doc.tables));assert.equal(doc.tables.gmail_import_connections.length,1);assert.equal(doc.tables.gmail_import_jobs.length,1);
  await app.restoreDatabaseRecords(f.DB,backup.buffer);const restored=f.DB.db.prepare('SELECT * FROM gmail_import_jobs').get();assert.equal(restored.status,'paused');assert.equal(restored.lease_token,null);assert.equal(restored.lease_until,0);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM gmail_oauth_states').get().n,0);
  assert.equal((await app.decryptGoogleTokens(f.env,'owner:google',f.DB.db.prepare('SELECT tokens FROM gmail_import_connections').get().tokens)).refresh_token,'refresh-test');
+});
+
+test('OAuth returns to the expanded Gmail settings section after success or failure',async t=>{
+ const f=await fixture(t);google(t);
+ const start=new URL(await app.beginGoogleAuthorization(f.env,'owner',f.request('/api/import/gmail/connect',{})));
+ const response=await app.callback(f.request('/api/import/gmail/callback?state='+start.searchParams.get('state')+'&code=test-code'));
+ assert.equal(response.status,303);const target=new URL(response.headers.get('Location'));assert.equal(target.pathname,'/settings/import');assert.equal(target.hash,'#gmail-import');assert.equal(target.searchParams.get('gmail'),'connected');assert(target.searchParams.get('googleConnection'));assert(!target.href.includes('test-code'));assert.equal(response.headers.get('Cache-Control'),'private, no-store');
+ const failed=await app.callback(f.request('/api/import/gmail/callback?error=access_denied'));assert.equal(new URL(failed.headers.get('Location')).hash,'#gmail-import');assert.equal(new URL(failed.headers.get('Location')).searchParams.get('gmail'),'error');
 });

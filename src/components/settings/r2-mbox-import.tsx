@@ -16,7 +16,7 @@ import { MboxImportIssues } from "./mbox-import-issues";
 
 type Job = ReturnType<typeof publicMboxJob> & { issues?: { total: number; pending: number }; sorting?: ReturnType<typeof publicMboxSortingJob> | null };
 type Status = { jobs: Job[]; backgroundQueueConfigured: boolean; sortingAvailable?: boolean; error?: string };
-export function R2MboxImport() {
+export function R2MboxImport({ embedded = false }: { embedded?: boolean } = {}) {
  const user = useCurrentUser(), { selectedMailbox } = useSelectedMailbox(), { t } = useLanguage();
  const [objectKey, setObjectKey] = useState("mbox-imports/workspace-002.mbox"), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
  const previous = useRef("");
@@ -56,8 +56,8 @@ export function R2MboxImport() {
   } catch (error) { setError(error instanceof Error ? error.message : t("import.failed")); }
   finally { setBusy(false); }
  }
- return <Card>
-  <CardHeader><CardTitle>{t("mbox.title")}</CardTitle><CardDescription>{t("mbox.description")}</CardDescription></CardHeader>
+ return <Card className={embedded ? "border-0" : undefined}>
+  {!embedded && <CardHeader><CardTitle>{t("mbox.title")}</CardTitle><CardDescription>{t("mbox.description")}</CardDescription></CardHeader>}
   <CardContent className="space-y-4 min-w-0">
    <p className="text-sm text-neutral-500">{t("mbox.uploadHint")}</p>
    <form onSubmit={event => { event.preventDefault(); void act(); }} className="space-y-2">
