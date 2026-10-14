@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test,{after} from 'node:test';
 import {build} from 'esbuild';
-import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,rmSync,writeFileSync,mkdirSync,readdirSync,readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const dir=mkdtempSync(join(process.cwd(),'node_modules','content-audit-test-'));after(()=>rmSync(dir,{recursive:true,force:true}));
@@ -120,4 +120,9 @@ test('the complete second pass cannot reclassify a conversation from quoted fina
 test('a lost response after committed checkpoint retries without duplicate changes or review suggestions',async t=>{
  const f=await fixture(t);f.add('receipt',{subject:'Ihre Rechnung',category:'promotions'});const job=await f.start();const batch=f.DB.batch.bind(f.DB);let failed=false;f.DB.batch=async statements=>{const result=await batch(statements);if(!failed){failed=true;throw Error('Lost checkpoint response');}return result;};
  await app.processContentAudit(f.env,job.id);assert.equal(f.row(job.id).processed,1);assert.equal(f.row(job.id).changed,1);assert.equal(f.row(job.id).status,'waiting');f.DB.db.prepare('UPDATE mail_content_audit_jobs SET retry_at=0 WHERE id=?').run(job.id);await f.drain(job.id);assert.equal(f.row(job.id).processed,1);assert.equal(f.row(job.id).changed,1);
+});
+test('restoring new learning fields to an older schema fails before deleting existing records',async t=>{
+ const f=await fixture(t);f.add('example');f.DB.db.exec("INSERT INTO mail_sorting_feedback(id,mailbox_id,message_id,sender,subject,category,corrected_at,excerpt,source) VALUES('feedback','box','example','sender@test.invalid','Subject','primary','2026-10-14','Reviewed text','reviewed_archive')");const backup=await app.exportDatabaseRecords(f.DB);
+ const older=new app.SqliteDatabase(':memory:');t.after(()=>older.db.close());const migrationDir=join(dir,'before-content-audit');mkdirSync(migrationDir);for(const name of readdirSync('drizzle/migrations').filter(name=>name.endsWith('.sql')&&name<'0076_'))writeFileSync(join(migrationDir,name),readFileSync(join('drizzle/migrations',name)));await app.applyMigrations(older,migrationDir);
+ older.db.exec("INSERT INTO users(id,email,password_hash,name,created_at) VALUES('sentinel','sentinel@test.invalid','hash','Sentinel',1)");await assert.rejects(()=>app.restoreDatabaseRecords(older,backup.buffer),/migrations before restoring content learning/);assert.equal(older.db.prepare('SELECT id FROM users').get().id,'sentinel');
 });

@@ -93,6 +93,8 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 	const availableTables = new Set((await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all<{name:string}>()).results.map(row=>row.name));
  for(const table of BACKUP_TABLES) if(!availableTables.has(table) && document.tables[table]?.length) throw new Error(`Apply pending database migrations before restoring ${table}.`);
  const restoreTables = BACKUP_TABLES.filter(table=>availableTables.has(table));
+ const feedbackColumns = availableTables.has("mail_sorting_feedback") ? new Set((await db.prepare("PRAGMA table_info(mail_sorting_feedback)").all<{name:string}>()).results.map(row=>row.name)) : new Set<string>();
+ if (document.tables.mail_sorting_feedback?.some(row => "excerpt" in row || "source" in row) && (!feedbackColumns.has("excerpt") || !feedbackColumns.has("source"))) throw new Error("Apply pending database migrations before restoring content learning examples.");
  const messageColumns = new Set((await db.prepare("PRAGMA table_info(messages)").all<{name:string}>()).results.map(row=>row.name));
 	const folderColumns = new Set((await db.prepare("PRAGMA table_info(folders)").all<{ name: string }>()).results.map((column) => column.name));
 	if (!folderColumns.has("parent_id") && document.tables.folders?.some(row => row.parent_id)) throw new Error("Apply pending database migrations before restoring nested labels.");
