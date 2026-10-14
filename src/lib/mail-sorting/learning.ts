@@ -6,14 +6,14 @@ export const LEARNING_EXAMPLE_LIMIT = 6;
 
 /** Only explicit category corrections from this mailbox become examples; archiving is not feedback. */
 export async function getSortingExamples(env: Pick<CloudflareEnv, "DB">, mailboxId: string, context?: { sender: string; subject?: string | null }) {
-	const rows = await env.DB.prepare(`SELECT sender AS from_addr, subject, category FROM mail_sorting_feedback
+	const rows = await env.DB.prepare(`SELECT sender AS from_addr, subject, category, excerpt, source FROM mail_sorting_feedback
 		WHERE mailbox_id = ? ORDER BY corrected_at DESC, id DESC LIMIT 90`)
-		.bind(mailboxId).all<{ from_addr: string; subject: string | null; category: MailCategory }>();
+		.bind(mailboxId).all<{ from_addr: string; subject: string | null; category: MailCategory; excerpt: string; source: string }>();
 	const sender = context ? getEmailAddress(context.sender).trim().toLowerCase() : "";
 	// Retrieve older corrections from this exact sender too; bulk imports must not crowd them out.
-	const sameSender = sender ? (await env.DB.prepare(`SELECT sender AS from_addr, subject, category FROM mail_sorting_feedback
+	const sameSender = sender ? (await env.DB.prepare(`SELECT sender AS from_addr, subject, category, excerpt, source FROM mail_sorting_feedback
 		WHERE mailbox_id=? AND sender=? ORDER BY corrected_at DESC, id DESC LIMIT 30`).bind(mailboxId, sender)
-		.all<{ from_addr: string; subject: string | null; category: MailCategory }>()).results : [];
+		.all<{ from_addr: string; subject: string | null; category: MailCategory; excerpt: string; source: string }>()).results : [];
 	const tokens = (subject: string | null | undefined) => new Set((subject?.normalize("NFKC").toLowerCase().match(/[\p{L}]{4,}/gu) ?? []).filter(word => !["ihre", "deine", "your", "this", "from", "eine"].includes(word)));
 	const wanted = tokens(context?.subject);
 	const seen = new Set<string>();
@@ -44,6 +44,8 @@ export async function getSortingExamples(env: Pick<CloudflareEnv, "DB">, mailbox
 		sender: getEmailAddress(row.from_addr).toLowerCase().slice(0, 200),
 		subject: row.subject?.slice(0, 200) ?? "",
 		category: row.category,
+		...(row.excerpt ? { visibleText: row.excerpt.slice(0, 1000) } : {}),
+		...(row.source === "reviewed_archive" ? { source: "reviewed_archive" as const } : {}),
 	}));
 }
 

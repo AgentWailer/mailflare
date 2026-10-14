@@ -10,6 +10,7 @@ import { processInboundMessage } from "@/lib/email/inbound";
 import { processAgentDraftJob } from "@/lib/agent/jobs/utils";
 import { processMboxJob } from "@/lib/import/mbox-jobs";
 import { processMboxSortingJob } from "@/lib/import/mbox-sorting";
+import { processContentAudit } from "@/lib/mail-sorting/audit-jobs";
 import { processOutboundQueue, type OutboundQueueMessage } from "@/lib/email/send";
 import { processWebhookRetry, type WebhookRetryMessage } from "@/lib/email/webhooks";
 import { isInboundQueueMessage, isWebhookRetryMessage } from "../worker-utils";
@@ -48,6 +49,7 @@ async function main() {
 		else if (message.kind === "import.mbox") await processMboxJob(env, message.jobId);
 		else if (message.kind === "messages.bulk") await processBulkJob(env, message.jobId);
 		else if (message.kind === "import.sort") await processMboxSortingJob(env, message.jobId);
+		else if (message.kind === "mail.content-audit") await processContentAudit(env, message.jobId);
 	});
 
 	const app = next({ dev, dir: process.cwd(), hostname: host, port });

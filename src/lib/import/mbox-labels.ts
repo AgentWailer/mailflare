@@ -12,7 +12,11 @@ const SYSTEM_LABELS: Record<string, string> = {
 };
 
 export function normalizeImportedLabel(label: string) {
- return /^Abrechnungen[ _]+nach[ _]+Kategorie$/i.test(label.trim()) ? "Rechnung" : label;
+ const value = label.trim();
+ if (/^Abrechnungen[ _]+nach[ _]+Kategorie$/i.test(value)) return "Rechnung";
+ if (/^(?:kategorie|category)\s*:?\s*"+Reisen"+$/i.test(value)) return "Reisen";
+ if (/^shopping$/i.test(value)) return "Einkäufe";
+ return label;
 }
 
 export function mboxPlacement(raw: ArrayBuffer) {

@@ -913,7 +913,7 @@ test('German account security events survive wrong CLEF spam answers, sender lea
   const result = await app.classifyIncomingMail(f.env, { ...input, subject });
   assert.equal(result.category, 'primary', subject);
   assert.equal(result.reason, 'protected_account_security', subject);
-  assert.equal(result.policyVersion, 4);
+  assert.equal(result.policyVersion, 5);
   assert.equal(app.resolveRoutineMail({ ...input, subject }), null);
  }
  assert.equal(calls, 0);
@@ -1011,7 +1011,7 @@ test("sender logos require login, mailbox access and an existing owner's contact
 test('five-category sorting separates real receipts/orders from coupons and protects security with zero AI charges', async t => {
  const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('promotions')};};
  for(const [subject,category] of [['Ihre Rechnung 2026-123','invoices'],['Zahlungsbeleg #123','invoices'],['Quittung für deine Fahrt','invoices'],['Your payment confirmation','invoices'],['Gutschrift zur Bestellung','invoices'],['Bestellung 123 ist eingegangen','orders'],['Versandbestätigung','orders'],['Order confirmation #123','orders'],['Sicherheitswarnung von Google','primary']]){
-  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,4);assert.equal(result.source,'rule');
+  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,5);assert.equal(result.source,'rule');
  }
  assert.equal(calls,0);
  const coupon=await app.classifyIncomingMail(f.env,{...f.input,subject:'Rechnung erstellen: 40% Rabatt',text:'Spare jetzt beim Kauf',headers:{'List-Unsubscribe':'<https://example.test>'}});assert.equal(coupon.category,'promotions');

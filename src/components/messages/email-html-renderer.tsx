@@ -6,6 +6,7 @@ import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
 import { createEmailTheme } from "./email-theme";
 import { useExternalContent } from "./use-external-content";
+import { preferNativeAmazonLinks } from "./native-app-links";
 
 const BASE_STYLE = `
 :host { display:block; min-width:0; isolation:isolate; contain:paint; }
@@ -42,6 +43,8 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		const content = document.createElement("template");
 		content.innerHTML = collapseQuotedEmailHtml(prepared.html, preserveLeadingQuote) ?? "";
 		root.replaceChildren(base, content.content);
+		const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+		preferNativeAmazonLinks(root, ios && ((navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia("(display-mode: standalone)").matches));
 		const mailBody = root.querySelector(prepared.bodyTag);
 		// An LTR scroller cannot reach left-side overflow from an RTL email.
 		if (mailBody) host.current.dir = window.getComputedStyle(mailBody).direction;

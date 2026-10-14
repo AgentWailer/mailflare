@@ -920,6 +920,8 @@ export const mailSortingFeedback = sqliteTable("mail_sorting_feedback", {
  subject: text("subject").notNull().default(""),
  category: text("category", { enum: ["primary", "promotions", "social", "invoices", "orders"] }).notNull(),
  correctedAt: text("corrected_at").notNull(),
+ excerpt: text("excerpt").notNull().default(""),
+ source: text("source").notNull().default("user"),
 }, (t) => [uniqueIndex("mail_sorting_feedback_message_idx").on(t.mailboxId, t.messageId), index("mail_sorting_feedback_mailbox_idx").on(t.mailboxId, sql`${t.correctedAt} desc`), index("mail_sorting_feedback_sender_idx").on(t.mailboxId,t.sender,sql`${t.correctedAt} desc`)]);
 
 export const mailSortingUsage = sqliteTable("mail_sorting_usage", {
@@ -927,6 +929,24 @@ export const mailSortingUsage = sqliteTable("mail_sorting_usage", {
  day: text("day").notNull(), requests: integer("requests").notNull().default(0),
  inputTokens: integer("input_tokens").notNull().default(0),
 }, (t) => [uniqueIndex("mail_sorting_usage_unique").on(t.mailboxId,t.day)]);
+
+export const mailContentAuditJobs = sqliteTable("mail_content_audit_jobs", {
+ id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+ mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+ status: text("status").notNull().default("pending"), phase: text("phase").notNull().default("rules"),
+ snapshot: integer("snapshot").notNull(), afterRow: integer("after_row").notNull().default(0),
+ total: integer("total").notNull().default(0), processed: integer("processed").notNull().default(0),
+ aiProcessed: integer("ai_processed").notNull().default(0), changed: integer("changed").notNull().default(0), reviewCount: integer("review_count").notNull().default(0),
+ error: text("error"), retryAt: integer("retry_at").notNull().default(0), consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+ leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0),
+ createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+}, t => [uniqueIndex("mail_content_audit_active_idx").on(t.mailboxId).where(sql`${t.status} IN ('pending','running','waiting','paused')`), index("mail_content_audit_recovery_idx").on(t.status,t.retryAt,t.leaseUntil)]);
+export const mailContentAuditIssues = sqliteTable("mail_content_audit_issues", {
+ id: text("id").primaryKey(), jobId: text("job_id").notNull().references(() => mailContentAuditJobs.id, { onDelete: "cascade" }),
+ messageId: text("message_id").references(() => messages.id, { onDelete: "cascade" }),
+ category: text("category").notNull(), suggestedCategory: text("suggested_category"), expectedDecision: text("expected_decision"),
+ reason: text("reason").notNull(), status: text("status").notNull().default("pending"), createdAt: integer("created_at").notNull(), reviewedAt: integer("reviewed_at"),
+}, t => [uniqueIndex("mail_content_audit_issue_unique").on(t.jobId,t.messageId), index("mail_content_audit_review_idx").on(t.jobId,t.status,t.createdAt)]);
 
 export const mboxImportJobs = sqliteTable("mbox_import_jobs", {
  id: text("id").primaryKey(),

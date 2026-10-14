@@ -4,6 +4,7 @@ import { runAgentMaintenance } from "@/lib/agent/maintenance";
 import { runTrashRetention } from "@/lib/email/trash-retention";
 import { recoverMboxJobs } from "@/lib/import/mbox-jobs";
 import { recoverMboxSortingJobs } from "@/lib/import/mbox-sorting";
+import { recoverContentAudits } from "@/lib/mail-sorting/audit-jobs";
 import { runDriveTrashRetention } from "@/lib/drive/retention";
 
 /** Fire the daily 02:00 UTC backup and the recurring maintenance jobs, matching the cron triggers in wrangler.jsonc. */
@@ -13,6 +14,7 @@ export function startScheduler(env: CloudflareEnv) {
 		recoverBulkJobs(env).catch((error) => console.error("Bulk action recovery failed", error));
 		recoverMboxJobs(env).catch((error) => console.error("MBOX recovery failed", error));
 		recoverMboxSortingJobs(env).catch((error) => console.error("Archive sorting recovery failed", error));
+		recoverContentAudits(env).catch((error) => console.error("Content audit recovery failed", error));
 		runAgentMaintenance(env).catch((error) => console.error("Agent maintenance failed", error));
 		runTrashRetention(env).catch((error) => console.error("Trash retention failed", error));
 		const now = new Date();

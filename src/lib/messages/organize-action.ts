@@ -8,6 +8,7 @@ import { getMessageLabels, validLabelIds } from "@/lib/mail-sorting/labels";
 import { createCategoryCorrection } from "@/lib/mail-sorting/learning";
 import { newId } from "@/lib/ids";
 import { getEmailAddress } from "@/lib/email/address";
+import { reviewText } from "@/lib/mail-sorting/content-review";
 
 import type { SessionUser } from "@/lib/auth/types";
 const selection = z.object({
@@ -127,9 +128,9 @@ export async function executeOrganizationAction(env: CloudflareEnv, user: Sessio
 			),
 		);
 		if (input.category && row.direction === "inbound") {
-			statements.push(env.DB.prepare(`INSERT INTO mail_sorting_feedback(id,mailbox_id,message_id,sender,subject,category,corrected_at)
-				VALUES(?,?,?,?,?,?,?) ON CONFLICT(mailbox_id,message_id) DO UPDATE SET category=excluded.category,corrected_at=excluded.corrected_at`)
-				.bind(newId("sfb"), input.mailboxId, row.id, getEmailAddress(row.fromAddr).trim().toLowerCase(), row.subject?.slice(0, 200) ?? "", input.category, new Date().toISOString()));
+			statements.push(env.DB.prepare(`INSERT INTO mail_sorting_feedback(id,mailbox_id,message_id,sender,subject,category,corrected_at,excerpt,source)
+				VALUES(?,?,?,?,?,?,?,?, 'user') ON CONFLICT(mailbox_id,message_id) DO UPDATE SET category=excluded.category,corrected_at=excluded.corrected_at,excerpt=excluded.excerpt,source='user'`)
+				.bind(newId("sfb"), input.mailboxId, row.id, getEmailAddress(row.fromAddr).trim().toLowerCase(), row.subject?.slice(0, 200) ?? "", input.category, new Date().toISOString(), reviewText({ text_body: row.textBody, html_body: row.htmlBody, snippet: row.snippet }).slice(0, 1000)));
 		}
 		if (input.rememberSender)
 			statements.push(

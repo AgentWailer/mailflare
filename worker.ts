@@ -27,6 +27,7 @@ import { runDriveTrashRetention } from "./src/lib/drive/retention";
 import { forwardMatchingMailboxRules } from "./src/lib/email/rule-forwarding";
 import { processMboxJob, recoverMboxJobs } from "./src/lib/import/mbox-jobs";
 import { processMboxSortingJob, recoverMboxSortingJobs } from "./src/lib/import/mbox-sorting";
+import { processContentAudit, recoverContentAudits } from "./src/lib/mail-sorting/audit-jobs";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
@@ -118,6 +119,8 @@ export default {
 					await processMboxJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "import.sort" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processMboxSortingJob(env, (msg.body as { jobId: string }).jobId);
+				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "mail.content-audit" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
+					await processContentAudit(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "messages.bulk" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processBulkJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "agent.draft" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
@@ -149,6 +152,7 @@ export default {
 		ctx.waitUntil(recoverMboxJobs(env));
 		ctx.waitUntil(recoverBulkJobs(env));
 		ctx.waitUntil(recoverMboxSortingJobs(env));
+		ctx.waitUntil(recoverContentAudits(env));
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		// Drive trash is emptied once a day, with the 02:00 UTC cron; the 5-minute cron is for queue-like upkeep.
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runDriveTrashRetention(env, new Date(controller.scheduledTime)));

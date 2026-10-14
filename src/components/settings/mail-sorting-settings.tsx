@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authFetch } from "@/lib/auth/client";
 import { MAIL_CATEGORIES, type MailCategory } from "@/lib/mail-sorting/categories";
+import { MailContentAudit } from "./mail-content-audit";
 type Settings = {
 	mode: "active" | "observe" | "off";
 	dailyLimit: number;
@@ -214,6 +215,7 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 				</>
 			)}
 			<p className="text-xs text-neutral-500">{t("smart.privacy")}</p>
+			{data && mailboxId && <MailContentAudit key={mailboxId} mailboxId={mailboxId} />}
 			{notice && (
 				<p role="status" className="text-sm">
 					{notice}
