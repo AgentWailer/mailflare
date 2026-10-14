@@ -12,7 +12,7 @@ type Job = { id: string; status: string; phase: string; total: number; processed
 type Issue = { id: string; messageId: string; category: MailCategory; suggestedCategory: MailCategory | null; subject: string; sender: string; snippet: string; reason: string };
 type State = { job: Job | null; issues: Issue[]; next: number | null };
 export function MailContentAudit({ mailboxId }: { mailboxId: string }) {
- const { t } = useLanguage();
+ const { t, locale } = useLanguage();
  const [data, setData] = useState<State | null>(null), [pending, setPending] = useState(false), [notice, setNotice] = useState("");
  const [cursor, setCursor] = useState(0), [revision, setRevision] = useState(0);
  useEffect(() => {
@@ -56,7 +56,7 @@ export function MailContentAudit({ mailboxId }: { mailboxId: string }) {
   </div>
   {job && <div role="status" className="space-y-2 rounded-xl bg-neutral-50 p-3 text-sm">
    <p>{t(job.status === "completed" ? "audit.completed" : job.status === "paused" ? "audit.paused" : job.status === "failed" ? "audit.failed" : job.phase === "rules" ? "audit.rules" : "audit.ai")}</p>
-   <p>{t("audit.progress", { processed: job.processed.toLocaleString(), total: job.total.toLocaleString(), changed: job.changed.toLocaleString(), ai: job.aiProcessed.toLocaleString() })}</p>
+   <p>{t("audit.progress", { processed: job.processed.toLocaleString(locale), total: job.total.toLocaleString(locale), changed: job.changed.toLocaleString(locale), ai: job.aiProcessed.toLocaleString(locale) })}</p>
    <div role="progressbar" aria-label={t("audit.rules")} aria-valuenow={percentage} aria-valuemin={0} aria-valuemax={100} className="h-1.5 overflow-hidden rounded bg-neutral-200"><div className="h-full bg-blue-600" style={{ width: `${percentage}%` }} /></div>
    {job.error === "daily_limit" && <p>{t("audit.quota")}</p>}
    {!!job.reviewCount && <p>{t("audit.reviewCount", { count: job.reviewCount })}</p>}
