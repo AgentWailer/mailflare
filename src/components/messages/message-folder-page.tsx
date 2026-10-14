@@ -310,6 +310,8 @@ export function MessageFolderPage({
 	const { t, locale } = useLanguage();
 	const readAllTask = useReadAllTask();
 	const router = useRouter();
+	const currentReader = useRef({ prefix: config.hrefPrefix, id: selectedMessageId });
+	useEffect(() => { currentReader.current = { prefix: config.hrefPrefix, id: selectedMessageId }; }, [config.hrefPrefix, selectedMessageId]);
 	const [readingLayout] = useReadingLayout();
 	const sharedSelection = useMessageSelection();
 	selection ??= sharedSelection ?? undefined;
@@ -362,9 +364,16 @@ export function MessageFolderPage({
 		() => selectedMessages.map((message) => message.id),
 		[selectedMessages],
 	);
-	const hasUnreadSelection = selectedMessages.some((message) => !message.read);
-	const selectionMailboxIds = [...new Set(selectedMessages.map(message => message.mailboxId ?? messages.find(row => row.id === message.id)?.mailboxId))];
- const selectionMailboxId = selectionMailboxIds.length === 1 ? selectionMailboxIds[0] ?? undefined : undefined;
+	// Opening a row targets it without changing the explicit checkbox selection.
+	// Only use a row in the current result, so navigation cannot act on stale mail.
+	const activeMessage = messages.find((message) => message.id === selectedMessageId);
+	const usingActiveMessage = selectedIds.length === 0 && !!activeMessage;
+	const actionIds = usingActiveMessage ? [activeMessage.id] : selectedIds;
+	const hasUnreadSelection = usingActiveMessage
+		? !activeMessage.read || (activeMessage.threadUnread ?? 0) > 0
+		: selectedMessages.some((message) => !message.read);
+	const selectionMailboxIds = usingActiveMessage ? [activeMessage.mailboxId] : [...new Set(selectedMessages.map(message => message.mailboxId ?? messages.find(row => row.id === message.id)?.mailboxId))];
+	const selectionMailboxId = selectionMailboxIds.length === 1 ? selectionMailboxIds[0] ?? undefined : undefined;
 	const allVisibleSelected = messages.length > 0 && messages.every((message) => selectedIds.includes(message.id));
 	// In conversation view a row stands for every message of its thread in this
 	// folder, so actions and drags carry all of them.
@@ -490,9 +499,9 @@ export function MessageFolderPage({
 			if (["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action) && selectedMessageId) router.replace(config.hrefPrefix);
 			return;
 		}
-		if (selectedIds.length === 0) return;
+		if (actionIds.length === 0) return;
 		if (action === "delete") {
-			const ids = expandSelectedIds(selectedIds);
+			const ids = expandSelectedIds(actionIds);
 			if (!window.confirm(getPermanentDeleteConfirmText(ids.length, t))) return;
 		}
 
@@ -501,10 +510,10 @@ export function MessageFolderPage({
 		const readValue = action === "read" ? true : action === "unread" ? false : null;
 		const changedMessages = readValue === null
 			? []
-			: messages.filter((message) => selectedIds.includes(message.id) && message.read !== readValue);
+			: messages.filter((message) => actionIds.includes(message.id) && message.read !== readValue);
 		if (readValue !== null) {
 			updateMessages((current) => current.map((message) =>
-				selectedIds.includes(message.id) ? { ...message, read: readValue } : message,
+				actionIds.includes(message.id) ? { ...message, read: readValue, ...(message.threadMessageIds ? { threadUnread: readValue ? 0 : message.threadMessageIds.length } : {}) } : message,
 			));
 			setSelectedMessages((current) => current.map((message) => ({ ...message, read: readValue })));
 			const inboxUnreadDelta = changedMessages
@@ -513,8 +522,9 @@ export function MessageFolderPage({
 			if (inboxUnreadDelta) dispatchMessageCountsDelta({ mailboxId: selectedMailbox?.id, inboxUnreadDelta });
 		}
 		try {
-			await runBulkMessageAction(expandSelectedIds(selectedIds), action, true, folderId);
+			await runBulkMessageAction(expandSelectedIds(actionIds), action, true, folderId);
 			setSelectedMessages([]);
+			if (currentReader.current.prefix === config.hrefPrefix && currentReader.current.id === selectedMessageId && actionIds.includes(selectedMessageId ?? "") && ["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action)) router.replace(config.hrefPrefix);
 		} catch (error) {
 			if (readValue !== null) {
 				updateMessages(previousMessages);
@@ -543,19 +553,20 @@ export function MessageFolderPage({
 						/>
 					</Tooltip>
 					{!hasCategoryTabs && <MessageRefreshButton onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
-					{selectedIds.length > 0 || (!compact && !isMobile) ? (
+					{actionIds.length > 0 || (!compact && !isMobile) ? (
 						<BulkMessageToolbar
-							messageIds={expandSelectedIds(selectedIds)}
+							messageIds={expandSelectedIds(actionIds)}
 							mailboxId={selectionMailboxId}
-							selectedCount={allMatchingSelected ? allSelection!.total : selectedIds.length}
+							selectedCount={allMatchingSelected ? allSelection!.total : actionIds.length}
 							hasUnreadSelection={allMatchingSelected ? allSelection!.unread > 0 : hasUnreadSelection}
-							hideSelectedCount={allMatchingSelected || allVisibleSelected}
+							hideSelectedCount={usingActiveMessage || allMatchingSelected || allVisibleSelected}
+							hideClearSelection={usingActiveMessage}
 							onAction={runSelectedAction}
 							onClearSelection={clearSelection}
 							onOrganizeAll={allMatchingSelected ? organizeAll : undefined}
 							allCanManage={allMatchingSelected ? allSelection?.canManage : undefined}
 							organizeDisabled={allMatchingSelected && allSelection?.mailboxIds.length !== 1}
-							pending={pendingBulkAction || readAllTask?.status === "running" || selectedIds.length === 0}
+							pending={pendingBulkAction || readAllTask?.status === "running" || actionIds.length === 0}
 							compact={compact}
 							folder={config.folderId ? undefined : config.folder}
 						/>

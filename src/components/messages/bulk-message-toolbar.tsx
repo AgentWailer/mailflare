@@ -23,6 +23,7 @@ export function BulkMessageToolbar({
 	selectedCount,
 	hasUnreadSelection,
 	hideSelectedCount = false,
+	hideClearSelection = false,
 	onAction,
 	onClearSelection,
 	pending,
@@ -52,7 +53,7 @@ export function BulkMessageToolbar({
 		{ value: "trash", label: t("navigation.trash"), Icon: Trash2, hidden: folder === "trash" },
 	].filter((option) => !option.hidden);
 	const { selectedMailbox } = useSelectedMailbox();
-	const folders = useMailboxFolders(selectedMailbox?.id);
+	const folders = useMailboxFolders(mailboxId ?? selectedMailbox?.id);
 	return (
 		<div className="flex min-w-0 items-center gap-0 md:gap-2 text-neutral-600 w-full">
 			{!hideSelectedCount && selectedCount > 0 && (
@@ -126,11 +127,11 @@ export function BulkMessageToolbar({
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>
 			</DropdownMenu.Root>
-			<Tooltip label={t("common.clearSelection")} className={compact ? "hidden" : "max-md:hidden"}>
+			{!hideClearSelection && <Tooltip label={t("common.clearSelection")} className={compact ? "hidden" : "max-md:hidden"}>
 				<Button variant="ghost" size="sm" onClick={onClearSelection} disabled={pending} aria-label={t("common.clearSelection")}>
 					<X className="h-4 w-4" />
 				</Button>
-			</Tooltip>
+			</Tooltip>}
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger asChild>
 					<Button variant="ghost" size="sm" className={compact ? "" : "md:hidden"} disabled={pending} aria-label={t("common.moreActions")}>
@@ -148,8 +149,8 @@ export function BulkMessageToolbar({
 						{canDeleteForever && (
 							<DropdownMenu.Item className={`${menuItemClass} text-red-600`} disabled={managePending} onSelect={() => onAction("delete")}><Trash2 className="h-4 w-4" />{t("common.deleteForever")}</DropdownMenu.Item>
 						)}
-						<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
-						<DropdownMenu.Item className={menuItemClass} onSelect={onClearSelection}><X className="h-4 w-4" />{t("common.clearSelection")}</DropdownMenu.Item>
+						{!hideClearSelection && <><DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
+						<DropdownMenu.Item className={menuItemClass} onSelect={onClearSelection}><X className="h-4 w-4" />{t("common.clearSelection")}</DropdownMenu.Item></>}
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>
 			</DropdownMenu.Root>

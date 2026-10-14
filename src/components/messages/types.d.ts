@@ -69,6 +69,7 @@ export type BulkMessageToolbarProps = {
 	selectedCount: number;
 	hasUnreadSelection: boolean;
 	hideSelectedCount?: boolean;
+	hideClearSelection?: boolean;
 	onAction: (action: BulkMessageAction, folderId?: string) => void;
 	onClearSelection: () => void;
 	pending: boolean;
