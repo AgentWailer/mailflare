@@ -1,3 +1,4 @@
+import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -38,6 +39,7 @@ export async function executeBulkMessageAction(env: CloudflareEnv, user: Session
 	const read = getReadValueForBulkAction(payload.action);
 	const db = getDb(env);
 	let folderId: string | null | undefined;
+	let targetMailboxId: string | undefined;
 
 	if (payload.action === "folder") {
 		if (!payload.folderId) {
@@ -56,6 +58,7 @@ export async function executeBulkMessageAction(env: CloudflareEnv, user: Session
 			return NextResponse.json({ error: "Folder not found" }, { status: 404 });
 		}
 		folderId = folder.id;
+		targetMailboxId = folder.mailboxId;
 	} else if (payload.action === "spam" || payload.action === "trash" || payload.action === "inbox" || payload.action === "archive") {
 		folderId = null;
 	}
@@ -76,7 +79,7 @@ export async function executeBulkMessageAction(env: CloudflareEnv, user: Session
 
 	const accessByMailbox = new Map<string, Awaited<ReturnType<typeof getMailboxAccessLevel>>>();
 	for (const message of selectedMessages) {
-		if (!message.mailboxId) continue;
+		if (!message.mailboxId || (targetMailboxId && message.mailboxId !== targetMailboxId)) continue;
 		if (!accessByMailbox.has(message.mailboxId)) accessByMailbox.set(message.mailboxId, await getMailboxAccessLevel(db, user, message.mailboxId));
 		const access = accessByMailbox.get(message.mailboxId);
 		const canUpdate = payload.action === "read" || payload.action === "unread" ? access?.canRead : access?.canManage;
@@ -106,6 +109,17 @@ export async function executeBulkMessageAction(env: CloudflareEnv, user: Session
 		if (normalMessageIds.length) await db.update(messages).set(values).where(inArray(messages.id, normalMessageIds));
 		return NextResponse.json({ ok: true });
 	}
+
+	if (payload.action === "folder" && folderId && targetMailboxId) {
+  const statements: D1PreparedStatement[] = [];
+  for (const id of allowedMessageIds) {
+   statements.push(env.DB.prepare("UPDATE messages SET folder_id=?,status='received' WHERE id=? AND mailbox_id=?").bind(folderId,id,targetMailboxId));
+   statements.push(...paperlessOutbox(env,targetMailboxId,id,user.id,[folderId]));
+  }
+  await env.DB.batch(statements);
+  await Promise.allSettled(allowedMessageIds.map(id=>enqueuePaperlessMessage(env,targetMailboxId!,id)));
+  return NextResponse.json({ok:true});
+ }
 
 	const changedIds = read === null ? allowedMessageIds
 		: selectedMessages.filter(message => allowedMessageIds.includes(message.id) && message.read !== read).map(message => message.id);

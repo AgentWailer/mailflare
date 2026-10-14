@@ -1,3 +1,4 @@
+import { processPaperlessJob, recoverPaperlessJobs } from "./src/lib/paperless/jobs";
 import { processBulkJob, recoverBulkJobs } from "./src/lib/messages/bulk-jobs";
 import { withStorage } from "./src/lib/storage";
 import { applyAppCachePolicy } from "./src/lib/http/cache-policy";
@@ -119,6 +120,8 @@ export default {
 					await processMboxJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "import.sort" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processMboxSortingJob(env, (msg.body as { jobId: string }).jobId);
+				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "paperless.document" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
+					await processPaperlessJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "mail.content-audit" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processContentAudit(env, (msg.body as { jobId: string }).jobId);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "messages.bulk" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
@@ -153,6 +156,7 @@ export default {
 		ctx.waitUntil(recoverBulkJobs(env));
 		ctx.waitUntil(recoverMboxSortingJobs(env));
 		ctx.waitUntil(recoverContentAudits(env));
+		ctx.waitUntil(recoverPaperlessJobs(env));
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		// Drive trash is emptied once a day, with the 02:00 UTC cron; the 5-minute cron is for queue-like upkeep.
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runDriveTrashRetention(env, new Date(controller.scheduledTime)));

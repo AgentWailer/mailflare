@@ -1,3 +1,4 @@
+import { recoverPaperlessJobs } from "@/lib/paperless/jobs";
 import { recoverBulkJobs } from "@/lib/messages/bulk-jobs";
 import { runScheduledDatabaseBackup } from "@/lib/backups/runner";
 import { runAgentMaintenance } from "@/lib/agent/maintenance";
@@ -11,6 +12,7 @@ import { runDriveTrashRetention } from "@/lib/drive/retention";
 export function startScheduler(env: CloudflareEnv) {
 	let lastRunDay = "";
 	const timer = setInterval(() => {
+		recoverPaperlessJobs(env).catch((error) => console.error("Paperless recovery failed", error));
 		recoverBulkJobs(env).catch((error) => console.error("Bulk action recovery failed", error));
 		recoverMboxJobs(env).catch((error) => console.error("MBOX recovery failed", error));
 		recoverMboxSortingJobs(env).catch((error) => console.error("Archive sorting recovery failed", error));

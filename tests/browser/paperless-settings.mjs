@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdtempSync,writeFileSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {createServer} from 'node:http';
+const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
+const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','paperless-browser-'));
+writeFileSync(join(dir,'link.tsx'),'export default function Link({children,...props}){return <a {...props}>{children}</a>}');
+writeFileSync(join(dir,'mailbox.ts'),'export function useSelectedMailbox(){return {selectedMailbox:{id:"box"}};}');
+writeFileSync(join(dir,'entry.tsx'),`import {createRoot} from 'react-dom/client';import {LanguageProvider} from '../../src/components/language-provider';import {PaperlessSettings} from '../../src/components/settings/paperless-settings';import messages from '../../public/locales/de.json';createRoot(document.getElementById('root')).render(<LanguageProvider initialLocale="de" initialMessages={messages}><main style={{maxWidth:900,margin:'auto',padding:16}}><PaperlessSettings/></main></LanguageProvider>);`);
+const de=JSON.parse(readFileSync(join(root,'public/locales/de.json'),'utf8'));
+const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(f=>f.startsWith('index.')&&f.endsWith('.css'))));
+let server,browser;
+try{
+ await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'next/link':join(dir,'link.tsx'),'@/components/mailbox-provider':join(dir,'mailbox.ts')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
+ server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(200,{'Content-Type':path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(path==='/fixture.js'?readFileSync(join(dir,'fixture.js')):path==='/fixture.css'?css:'<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
+ for(const width of [320,1440]){
+  const page=await browser.newPage({viewport:{width,height:1000}}),errors=[],actions=[];page.on('pageerror',e=>errors.push(e.message));
+  let state={available:true,connection:{baseUrl:'https://dms.steffenvonlindern.de',enabled:false,labelId:'paper',processedLabelId:'processed',hasToken:false},labels:[{id:'paper',name:'Paperless',parentId:null},{id:'processed',name:'Verarbeitet',parentId:'paper'}],jobs:[{id:'uncertain',messageId:'email',filename:'Rechnung mit längerem Dateinamen.pdf',subject:'Ihre Rechnung',status:'uncertain',error:'upload_uncertain',documentId:null,taskId:null}],counts:[{status:'uncertain',count:1}]};
+  await page.route('**/api/**',route=>{const req=route.request();if(req.method()==='POST'){const body=req.postDataJSON();actions.push(body);if(body.action==='save')state={...state,connection:{...state.connection,enabled:true,hasToken:true}};if(body.action==='retry')state={...state,jobs:[],counts:[{status:'pending',count:1}]};return route.fulfill({contentType:'application/json',body:'{"ok":true}'});}return route.fulfill({contentType:'application/json',body:JSON.stringify(state)});});
+  await page.goto('http://127.0.0.1:'+server.address().port);await page.getByLabel(de['paperless.url'],{exact:true}).waitFor();assert.equal(await page.getByLabel(de['paperless.url'],{exact:true}).inputValue(),'https://dms.steffenvonlindern.de');
+  await page.getByLabel(de['paperless.token'],{exact:true}).fill('entered-in-settings-only');await page.getByLabel(de['paperless.enable'],{exact:true}).check();await page.getByRole('button',{name:de['paperless.save'],exact:true}).click();await page.getByText(de['paperless.saved'],{exact:true}).waitFor();assert.equal(actions[0].token,'entered-in-settings-only');assert.equal(await page.getByLabel(de['paperless.token'],{exact:true}).inputValue(),'');
+  await page.getByRole('button',{name:de['paperless.retry'],exact:true}).click();await page.getByText(de['paperless.duplicateWarning'],{exact:true}).waitFor();assert.equal(actions.length,1);await page.getByRole('button',{name:de['paperless.confirmRetry'],exact:true}).click();await page.waitForFunction(()=>!document.querySelector('[role="alert"]'));assert.equal(actions[1].confirmUncertain,true);
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);await page.screenshot({path:`/tmp/mailflare-paperless-${width}.png`});console.log(JSON.stringify({width,connectionSave:true,tokenCleared:true,uncertainRetryConfirmed:true,noOverflow:true}));await page.close();
+ }
+}finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}

@@ -1,3 +1,4 @@
+import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
 import { getMessageLabels, validLabelIds } from "@/lib/mail-sorting/labels";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { messages } from "@/db/schema";
@@ -521,6 +522,7 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 		}
 		const flags = keywordsFromPatch(patch);
 		const set: Partial<MessageRow> = {};
+		let savedWithLabels=false;
 		if (flags.read !== undefined) set.read = flags.read;
 		if (flags.starred !== undefined) set.starred = flags.starred;
 		if (move) {
@@ -548,10 +550,18 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 						).bind(id, folderId),
 					),
 				];
+				const oldLabels=updateLabels.filter(label=>label.messageId===id);
+				if (Object.keys(set).length) {
+					const query=ctx.db.update(messages).set(set).where(eq(messages.id,id)).toSQL();
+					changes.push(ctx.env.DB.prepare(query.sql).bind(...query.params));
+					savedWithLabels=true;
+				}
+				changes.push(...paperlessOutbox(ctx.env,row.mailboxId,id,ctx.auth.user.id,move.labelIds.filter(labelId=>labelId!==row.folderId&&!oldLabels.some(label=>label.id===labelId))));
 				await ctx.env.DB.batch(changes);
+				await enqueuePaperlessMessage(ctx.env,row.mailboxId,id);
 			}
 		}
-		if (Object.keys(set).length)
+		if (Object.keys(set).length && !savedWithLabels)
 			await ctx.db.update(messages).set(set).where(eq(messages.id, id));
 		updated[id] = null;
 	}

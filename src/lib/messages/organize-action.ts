@@ -1,3 +1,4 @@
+import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
 import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -142,8 +143,10 @@ export async function executeOrganizationAction(env: CloudflareEnv, user: Sessio
 					category,
 				),
 			);
+		if (finalLabels) statements.push(...paperlessOutbox(env, input.mailboxId, row.id, user.id, finalLabels.filter(id => !currentLabels.some(label => label.messageId === row.id && label.id === id) && row.folderId !== id)));
 	}
 	await env.DB.batch(statements);
+	if (labels || input.addLabelIds) await Promise.allSettled(rows.map(row => enqueuePaperlessMessage(env,input.mailboxId,row.id)));
 	return NextResponse.json({ ok: true });
 }
 

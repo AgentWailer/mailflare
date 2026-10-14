@@ -1,3 +1,4 @@
+import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
 import { classifyIncomingMail } from "@/lib/mail-sorting/classifier";
 import { shouldNotifyMail } from "@/lib/mail-sorting/categories";
 import { messageLabels } from "@/db/schema";
@@ -204,6 +205,10 @@ export async function processInboundMessage(
 		if (destination.labelIds?.length) await db.insert(messageLabels).values(destination.labelIds.map(folderId=>({messageId,folderId}))).onConflictDoNothing();
 
 		await storeMessageAttachments(env, messageId, parsed.attachments);
+		if (destination.labelIds?.length) {
+			await env.DB.batch(paperlessOutbox(env,decision.mailbox.mailboxId,messageId,null,destination.labelIds));
+			await enqueuePaperlessMessage(env,decision.mailbox.mailboxId,messageId);
+		}
 		if (spamAnalysis) {
 			try {
 				await recordReputationObservation(env, decision.mailbox.mailboxId, getReputationKeys(parsed, spamAnalysis.fingerprint));

@@ -3,7 +3,7 @@ interface CloudflareEnv {
 	EMAIL: SendEmail;
 	BUCKET: R2Bucket;
 	INBOUND_QUEUE: Queue<import("./src/lib/email/inbound").InboundQueueMessage>;
-	AGENT_QUEUE?: Queue<{ kind: "agent.draft" | "import.mbox" | "import.sort" | "messages.bulk" | "mail.content-audit"; jobId: string }>;
+	AGENT_QUEUE?: Queue<{ kind: "agent.draft" | "import.mbox" | "import.sort" | "messages.bulk" | "mail.content-audit" | "paperless.document"; jobId: string }>;
 	AI?: Ai;
 	AI_MODEL?: string;
 	AI_BASE_URL?: string;
@@ -43,6 +43,8 @@ interface CloudflareEnv {
 	GMAIL_OAUTH_REDIRECT_URI?: string;
 	/** Base64-encoded 32-byte AES key; keep stable to resume encrypted Google connections. */
 	GMAIL_IMPORT_ENCRYPTION_KEY?: string;
+	/** Base64 32-byte AES-GCM key for Paperless API credentials. Keep stable across deploys/restores. */
+	PAPERLESS_ENCRYPTION_KEY?: string;
 	CF_API_KEY?: string;
 	CF_EMAIL?: string;
 	TURNSTILE_SECRET_KEY?: string;

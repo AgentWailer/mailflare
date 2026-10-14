@@ -1010,7 +1010,25 @@ export const gmailOauthStates = sqliteTable("gmail_oauth_states", {
 	sessionHash: text("session_hash").notNull(), verifier: text("verifier").notNull(), expiresAt: integer("expires_at").notNull(),
 });
 
+export const paperlessConnections = sqliteTable("paperless_connections", {
+ mailboxId: text("mailbox_id").primaryKey().references(() => mailboxes.id, {onDelete:"cascade"}),
+ userId: text("user_id").notNull().references(() => users.id, {onDelete:"cascade"}),
+ baseUrl: text("base_url").notNull(), credentials: text("credentials").notNull(), enabled: integer("enabled").notNull().default(0),
+ labelId: text("label_id").references(() => folders.id, {onDelete:"set null"}), processedLabelId: text("processed_label_id").references(() => folders.id, {onDelete:"set null"}),
+ createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+});
+export const paperlessJobs = sqliteTable("paperless_jobs", {
+ id: text("id").primaryKey(), mailboxId: text("mailbox_id").notNull().references(() => paperlessConnections.mailboxId, {onDelete:"cascade"}),
+ userId: text("user_id").notNull().references(() => users.id, {onDelete:"cascade"}),
+ messageId: text("message_id").notNull().references(() => messages.id, {onDelete:"cascade"}),
+ attachmentId: text("attachment_id").notNull().references(() => messageAttachments.id, {onDelete:"cascade"}),
+ baseUrl: text("base_url").notNull(), status: text("status").notNull().default("pending"), taskId: text("task_id"), documentId: integer("document_id"), error:text("error"),
+ attempts:integer("attempts").notNull().default(0), retryAt:integer("retry_at").notNull().default(0), leaseToken:text("lease_token"), leaseUntil:integer("lease_until").notNull().default(0),
+ createdAt:integer("created_at").notNull(),updatedAt:integer("updated_at").notNull(),
+}, t => [uniqueIndex("paperless_jobs_mailbox_attachment_idx").on(t.mailboxId,t.attachmentId), index("paperless_jobs_recovery_idx").on(t.status,t.retryAt,t.leaseUntil),index("paperless_jobs_mailbox_idx").on(t.mailboxId,t.createdAt),index("paperless_jobs_message_idx").on(t.messageId,t.status)]);
+
 export const schema = {
+	paperlessConnections, paperlessJobs,
 	gmailImportConnections, gmailImportJobs, gmailOauthStates,
 	users,
 	domains,

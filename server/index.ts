@@ -1,3 +1,4 @@
+import { processPaperlessJob } from "@/lib/paperless/jobs";
 import { processBulkJob } from "@/lib/messages/bulk-jobs";
 import { createServer } from "node:http";
 import { join, resolve } from "node:path";
@@ -49,6 +50,7 @@ async function main() {
 		else if (message.kind === "import.mbox") await processMboxJob(env, message.jobId);
 		else if (message.kind === "messages.bulk") await processBulkJob(env, message.jobId);
 		else if (message.kind === "import.sort") await processMboxSortingJob(env, message.jobId);
+		else if (message.kind === "paperless.document") await processPaperlessJob(env, message.jobId);
 		else if (message.kind === "mail.content-audit") await processContentAudit(env, message.jobId);
 	});
 
