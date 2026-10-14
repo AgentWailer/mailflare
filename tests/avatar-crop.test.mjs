@@ -20,3 +20,11 @@ test('uncropped source remains available privately; legacy avatars fall back and
  await app.deleteAvatarImages(bucket,'avatar');assert.equal(map.size,0);
  const form=new FormData();form.set('file',file('crop'));form.set('preview',file('preview'));form.set('original',new File(['bad'],'image.jpg',{type:'image/jpeg'}));assert.equal(app.getOptimizedAvatarFiles(form),null);
 });
+
+
+test('avatar browser caching is private, varies across account credentials and preserves etag revalidation',async()=>{
+ const bucket={get:async()=>({body:'image',httpMetadata:{contentType:'image/webp'},httpEtag:'"avatar-v1"'})};
+ const response=await app.getAvatarImageResponse(new Request('https://mail.test/api/profile/avatar'),bucket,'avatar');assert.equal(response.headers.get('Cache-Control'),'private, max-age=300');assert.equal(response.headers.get('Vary'),'Cookie, Authorization');
+ const unchanged=await app.getAvatarImageResponse(new Request('https://mail.test/api/profile/avatar',{headers:{'If-None-Match':'"avatar-v1"'}}),bucket,'avatar');assert.equal(unchanged.status,304);assert.equal(await unchanged.text(),'');
+ const versioned=await app.getAvatarImageResponse(new Request('https://mail.test/api/profile/avatar?v=new-photo'),bucket,'avatar');assert.equal(versioned.headers.get('Cache-Control'),'private, max-age=31536000, immutable');assert.equal(versioned.headers.get('Vary'),'Cookie, Authorization');
+});

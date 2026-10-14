@@ -2,7 +2,7 @@ import PostalMime from "postal-mime";
 import { formatPostalAddress, formatPostalAddressList } from "@/lib/email/address";
 import { normalizeMessageId, parseMessageIdList } from "@/lib/email/threading";
 import { normalizeAttachmentContent } from "@/lib/email/attachments";
-import { getLatestEmailContent, htmlToReadableText } from "@/lib/email/reply-content-utils";
+import { buildReadableSnippet } from "@/lib/email/snippet";
 import type { AttachmentContent } from "@/lib/email/attachment-types";
 
 export type ParsedEmail = {
@@ -49,6 +49,5 @@ export async function parseRawMime(raw: ArrayBuffer): Promise<ParsedEmail> {
 }
 
 export function buildSnippet(text: string | null, html: string | null, max = 200): string {
-	const source = getLatestEmailContent(text?.trim() || htmlToReadableText(html));
-	return source.replace(/\s+/g, " ").trim().slice(0, max);
+	return buildReadableSnippet(text, html, max);
 }

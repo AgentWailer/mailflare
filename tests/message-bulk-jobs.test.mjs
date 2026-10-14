@@ -81,7 +81,7 @@ test('disabled accounts and revoked/read-only grants stop write jobs; job status
  const f=await fixture(t);for(let i=0;i<1001;i++)f.add('mail-'+i,{mailbox:'shared'});
  const blocked=await app.createJob(f.request({input:{folder:'all',mailboxId:'shared',action:'trash'},scope,requestId:'forbidden'},'reader'));assert.equal(blocked.status,404);
  const allowed=await create(f,'read',{folder:'all',mailboxId:'shared'},'reader');await app.processBulkJob(f.env,allowed.id);f.DB.db.exec("DELETE FROM mailbox_access WHERE user_id='reader'");await app.processBulkJob(f.env,allowed.id);assert.equal(row(f,allowed.id).status,'failed');assert.equal(row(f,allowed.id).processed,960);
- const privateJob=await create(f,'read');const other=await (await app.jobStatus(f.request(null,'other'))).json();assert.equal(other.job,null);
+ f.add('owner-mail');const privateJob=await create(f,'read');const other=await (await app.jobStatus(f.request(null,'other'))).json();assert.equal(other.job,null);
  const request=new Request('https://mailflare.test/api/messages/bulk-jobs',{method:'PATCH',headers:{Authorization:'Bearer '+f.tokens.other,'Content-Type':'application/json'},body:JSON.stringify({id:privateJob.id,action:'retry'})});assert.equal((await app.controlJob(request)).status,404);
  f.DB.db.exec("UPDATE users SET disabled=1 WHERE id='owner'");await app.processBulkJob(f.env,privateJob.id);assert.equal(row(f,privateJob.id).status,'failed');
 });
@@ -175,4 +175,20 @@ test('rule actions replay safely after a lost checkpoint; deleted rule labels pr
  const original=f.DB.prepare.bind(f.DB);let fail=true;f.DB.prepare=sql=>{const statement=original(sql),bind=statement.bind.bind(statement);statement.bind=(...values)=>{const bound=bind(...values);if(sql.startsWith('UPDATE message_bulk_jobs SET after_row=')&&fail){fail=false;bound.first=async()=>{throw Error('Checkpoint unavailable');};}return bound;};return statement;};
  await app.processBulkJob(f.env,job.id);assert.equal(row(f,job.id).status,'waiting');assert(row(f,job.id).pending_chunk);f.DB.db.prepare('UPDATE message_bulk_jobs SET retry_at=0 WHERE id=?').run(job.id);await drain(f,job.id);assert.equal(row(f,job.id).processed,26);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM message_labels').get().n,26);
  id=await savedRule(f);job=await applySavedRule(f,id);f.DB.db.exec("DELETE FROM folders WHERE id='label'");await app.processBulkJob(f.env,job.id);assert.equal(row(f,job.id).status,'failed');assert.match(row(f,job.id).error,/label no longer exists/);
+});
+
+
+test('a sparse 60,000-message archive processes only unread mail, and repeated read jobs do no work',async t=>{
+ const f=await fixture(t);f.DB.db.transaction(()=>{for(let i=0;i<60000;i++)f.add('read-'+i);})();f.DB.db.exec('UPDATE messages SET read=1');for(let i=0;i<3;i++)f.add('unread-'+i);
+ const job=await create(f,'read',{folder:'all'});assert.equal(job.total,3);await drain(f,job.id);assert.equal(row(f,job.id).processed,3);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM messages WHERE read=0').get().n,0);
+ const again=await create(f,'read',{folder:'all'}); // create() identifies same request: the completed job remains idempotent.
+ assert.equal(again.id,job.id);
+ const queuedBefore=f.queued.length;const response=await app.createJob(f.request({input:{folder:'all',mailboxId:'box',action:'read'},scope,requestId:'actually-new-read'}));assert.equal(response.status,202);const next=(await response.json()).job;assert.equal(next.total,0);assert.equal(next.status,'done');assert.equal(f.queued.length,queuedBefore,'an empty action does not start a queue invocation');await drain(f,next.id);assert.equal(row(f,next.id).processed,0);
+ const plan=f.DB.db.prepare("EXPLAIN QUERY PLAN SELECT id,rowid FROM messages INDEXED BY messages_mailbox_read_actions_idx WHERE mailbox_id='box' AND read=0 AND rowid>0 AND rowid<=60003 ORDER BY rowid LIMIT 80").all().map(x=>x.detail).join(' ');assert.match(plan,/SEARCH .*messages_mailbox_read_actions_idx/);assert.match(plan,/rowid/);assert(!plan.includes('TEMP B-TREE'));
+});
+
+test('mark-unread jobs touch only read matches and respect explicit unread-only selection',async t=>{
+ const f=await fixture(t);f.add('already-unread');f.add('read-target');f.DB.db.exec("UPDATE messages SET read=1 WHERE id='read-target'");
+ const job=await create(f,'unread',{folder:'all'});assert.equal(job.total,1);await drain(f,job.id);assert.equal(row(f,job.id).processed,1);
+ const response=await app.createJob(f.request({input:{folder:'all',mailboxId:'box',action:'read',read:'read'},scope,requestId:'read-filter-noop'}));const noop=(await response.json()).job;assert.equal(noop.total,0);await drain(f,noop.id);assert.equal(row(f,noop.id).processed,0);
 });

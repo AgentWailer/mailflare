@@ -37,6 +37,7 @@ import {
 } from "./mailbox-selector-utils";
 
 function AccountAvatar({
+	priority = false,
 	name,
 	colorSeed = name,
 	hasAvatar = false,
@@ -55,6 +56,7 @@ function AccountAvatar({
 	if (hasAvatar && !imageFailed) {
 		return (
 			<ProgressiveAvatarImage
+				priority={priority}
 				src={avatarUrl}
 				alt={t("account.profilePicture", { name })}
 				className={`${sizeClass} shrink-0 rounded-full border border-neutral-200 object-cover`}
@@ -263,6 +265,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 				aria-expanded={open}
 			>
 				<AccountAvatar
+					priority
 					name={selectedName}
 					colorSeed={selectedEmail || selectedName}
 					hasAvatar={selectedHasAvatar}

@@ -1,5 +1,6 @@
 import { processBulkJob, recoverBulkJobs } from "./src/lib/messages/bulk-jobs";
 import { withStorage } from "./src/lib/storage";
+import { applyAppCachePolicy } from "./src/lib/http/cache-policy";
 import vinextHandler from "vinext/server/fetch-handler";
 import {
 	processInboundMessage,
@@ -51,7 +52,7 @@ export default {
 			return hub.fetch(hubRequest);
 		}
 
-		return vinextHandler.fetch(request, env, ctx);
+		return applyAppCachePolicy(request, await vinextHandler.fetch(request, env, ctx));
 	},
 
 	async email(message: ForwardableEmailMessage, rawEnv: CloudflareEnv, ctx: ExecutionContext) {

@@ -83,6 +83,7 @@ export function LoginClient({ adding = false }: { adding?: boolean }) {
   if (challengeToken) {
     return (
       <AuthShell
+        compact
         icon={ShieldCheck}
         title={t("auth.mfaTitle")}
         description={t("auth.mfaDescription")}
@@ -128,12 +129,13 @@ export function LoginClient({ adding = false }: { adding?: boolean }) {
 
   return (
     <AuthShell
+      compact
       icon={Mail}
       title={adding ? t("auth.addAnother") : t("auth.signIn")}
       description={
         adding
           ? t("auth.addDescription")
-          : t("auth.signInDescription")
+          : undefined
       }
     >
       <form method="post" onSubmit={onSubmit} className="space-y-5">

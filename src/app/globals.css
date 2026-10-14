@@ -530,7 +530,7 @@ button {
 /* Soft shadows turn dark */
 .dark .shadow-neutral-200, .dark .shadow-neutral-300 { --tw-shadow-color: rgb(0 0 0 / 0.6); }
 /* The source offer is reachable through the profile menu without a persistent app footer. */
-body:has(.mail-mobile-shell, [data-app-profile]) .fork-source { display: none; }
+body:has(.mail-mobile-shell, [data-app-profile], [data-auth-compact]) .fork-source { display: none; }
 
 /* On phones the settings/admin body is already white and padded, so white cards drop their own side padding to line up with the page header. */
 @media (max-width: 1023px) {

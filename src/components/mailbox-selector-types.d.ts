@@ -15,6 +15,7 @@ export type MailboxSelectorProps = {
 };
 
 export type AccountAvatarProps = {
+	priority?: boolean;
 	name: string;
 	colorSeed?: string;
 	hasAvatar?: boolean;

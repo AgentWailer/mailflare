@@ -170,7 +170,7 @@ function MessageListRow({
 					>
 						<span className="min-w-0 truncate">{message.subject ?? t("list.noSubject")}</span>
 					</span>
-					<span className="mt-0.5 flex min-w-0 items-center justify-between gap-2 pr-10 text-[13px] leading-5 text-neutral-500">
+					<span className="mt-0.5 flex min-w-0 items-center justify-between gap-2 pr-10 text-[13px] leading-5 text-neutral-600">
 						<span className="min-w-0 flex-1 truncate">{preview}</span>
 						<MessageLabelChips labels={message.labels} compact />
 					</span>
@@ -234,9 +234,10 @@ function MessageListRow({
 			</span>
 			<span className="flex min-w-0 items-center gap-2 text-neutral-700">
 				<MessageLabelChips labels={rowMessage.labels} />
-				<span className="min-w-0 truncate">
-					<span className={unread ? "font-semibold text-neutral-900" : ""}>{rowMessage.subject ?? t("list.noSubject")}</span>
-					<span className="text-neutral-500"> - {getMessagePreview(rowMessage, config.folder, t)}</span>
+				<span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+					<span title={rowMessage.subject ?? t("list.noSubject")} className={clsx("min-w-0 max-w-[65%] truncate", unread && "font-semibold text-neutral-900")}>{rowMessage.subject ?? t("list.noSubject")}</span>
+					<span aria-hidden="true" className="shrink-0 text-neutral-400">–</span>
+					<span title={getMessagePreview(rowMessage, config.folder, t)} className="min-w-0 flex-1 truncate text-neutral-600">{getMessagePreview(rowMessage, config.folder, t)}</span>
 				</span>
 			</span>
 			<time

@@ -3,4 +3,5 @@ export type ProgressiveAvatarImageProps = {
 	alt: string;
 	className?: string;
 	onError?: () => void;
+	priority?: boolean;
 };

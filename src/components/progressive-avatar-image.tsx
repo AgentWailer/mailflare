@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ProgressiveAvatarImageProps } from "./progressive-avatar-image-types";
 import { getAvatarPreviewUrl } from "./progressive-avatar-image-utils";
 
-export function ProgressiveAvatarImage({ src, alt, className, onError }: ProgressiveAvatarImageProps) {
+export function ProgressiveAvatarImage({ src, alt, className, onError, priority = false }: ProgressiveAvatarImageProps) {
 	const [previewReadyFor, setPreviewReadyFor] = useState<string | null>(null);
 	const [previewFailedFor, setPreviewFailedFor] = useState<string | null>(null);
 	const [fullReadyFor, setFullReadyFor] = useState<string | null>(null);
@@ -12,17 +12,18 @@ export function ProgressiveAvatarImage({ src, alt, className, onError }: Progres
 	const imageRef = useRef<HTMLImageElement>(null);
 	const onErrorRef = useRef(onError);
 	onErrorRef.current = onError;
-	const showFull = previewFailedFor === src || fullReadyFor === src;
+	const showFull = priority || previewFailedFor === src || fullReadyFor === src;
 
 	useEffect(() => {
+		if (priority) return;
 		const image = imageRef.current;
 		if (!image?.complete) return;
 		if (image.naturalWidth > 0) setPreviewReadyFor(src);
 		else setPreviewFailedFor(src);
-	}, [src]);
+	}, [priority, src]);
 
 	useEffect(() => {
-		if (previewReadyFor !== src) return;
+		if (priority || previewReadyFor !== src) return;
 		let cancelled = false;
 		const image = new Image();
 		image.onload = () => {
@@ -40,14 +41,15 @@ export function ProgressiveAvatarImage({ src, alt, className, onError }: Progres
 			image.onload = null;
 			image.onerror = null;
 		};
-	}, [previewReadyFor, src]);
+	}, [priority, previewReadyFor, src]);
 
 	if (failedFor === src) return null;
 
 	return (
 		// eslint-disable-next-line @next/next/no-img-element
 		<img
-			loading="lazy"
+			loading={priority ? "eager" : "lazy"}
+			fetchPriority={priority ? "high" : "auto"}
 			decoding="async"
 			ref={imageRef}
 			src={showFull ? src : getAvatarPreviewUrl(src)}

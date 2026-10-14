@@ -28,7 +28,7 @@ export async function latestBulkJob(env: CloudflareEnv, userId: string) {
 export async function createBulkJob(env: CloudflareEnv, user: SessionUser, input: BulkScopeInput, scope: unknown, requestId: string) {
  if (input.action === "select") throw new Error("Select is not a background action");
  const existing = await env.DB.prepare("SELECT * FROM message_bulk_jobs WHERE user_id=? AND request_id=?").bind(user.id, requestId).first<BulkJob>();
- if (existing) { await enqueue(env, existing.id); return publicBulkJob(existing); }
+ if (existing) { if (["pending", "running", "waiting"].includes(existing.status)) await enqueue(env, existing.id); return publicBulkJob(existing); }
  if (!env.AGENT_QUEUE) throw new Error("Background queue is not configured");
  // Old selections/jobs were captured before categorized mail joined the inbox.
  // Preserve their narrower scope rather than expanding an in-flight archive/delete.
@@ -39,8 +39,8 @@ export async function createBulkJob(env: CloudflareEnv, user: SessionUser, input
  const id = newId("bulkjob"), now = Date.now();
  const payload = { ...capturedInput, snapshot: selected.snapshot, actorId: user.id, mailboxIds: selected.mailboxIds, after: 0 };
  try {
-  await env.DB.prepare("INSERT INTO message_bulk_jobs(id,user_id,request_id,payload,scope,total,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
-   .bind(id, user.id, requestId, JSON.stringify(payload), JSON.stringify(scope), selected.total, now, now).run();
+  await env.DB.prepare("INSERT INTO message_bulk_jobs(id,user_id,request_id,payload,scope,status,total,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)")
+   .bind(id, user.id, requestId, JSON.stringify(payload), JSON.stringify(scope), selected.total === 0 ? "completed" : "pending", selected.total, now, now).run();
  } catch (error) {
   const duplicate = await env.DB.prepare("SELECT * FROM message_bulk_jobs WHERE user_id=? AND request_id=?").bind(user.id, requestId).first<BulkJob>();
   if (duplicate) return publicBulkJob(duplicate);
@@ -49,7 +49,7 @@ export async function createBulkJob(env: CloudflareEnv, user: SessionUser, input
   throw error;
  }
  // The durable record is the outbox: cron will enqueue it even if this send fails.
- await enqueue(env, id).catch(() => {});
+ if (selected.total > 0) await enqueue(env, id).catch(() => {});
  return publicBulkJob((await load(env, id))!);
 }
 export async function controlBulkJob(env: CloudflareEnv, userId: string, id: string, action: "retry" | "dismiss") {

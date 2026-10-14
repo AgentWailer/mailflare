@@ -86,3 +86,37 @@ old pending listeners from starting another query under the new session.
 Regression tests exercise live session expiry/revocation and disabled users,
 delegated permission removal, exact pagination and labels, refresh coalescing,
 failed and successful stale responses, and account isolation.
+
+## Login entry, previews, bulk reads and profile photos
+
+The root now renders the existing login entry rather than a marketing page. Valid
+cookie sessions redirect directly to `/inbox`; the public auth guard still supports
+saved bearer sessions. `/login?add=1`, first-run setup and MFA keep their existing
+checks. Login and MFA use a compact single-column shell.
+
+Preview generation removes tracking URLs, Markdown link targets, HTML-only fallback
+notices and invisible padding before truncation. A meaningful HTML/preheader excerpt
+can replace an empty or boilerplate-only text part. Existing poor previews are
+repaired only on the authorized visible page: at most 25 IDs, 16K text characters and 64K
+HTML characters per message, with conditional metadata writes. Normal subsequent list loads
+remain body-free; no archive-wide regeneration or AI request is required. Desktop
+rows reserve space for preview text beside long subjects and use stronger contrast.
+
+Read/unread scope actions add an opposite-state predicate before preview counting
+and chunk selection. Migration `0075_message_read_actions_index.sql` supplies a
+small `(mailbox_id, read)` index with implicit rowid ordering. Sparse mailboxes skip
+already-correct rows; saved chunks, snapshot boundaries and grant checks remain in
+place. Direct ID actions also avoid unchanged updates/audit entries. A regression
+fixture with 60,000 read messages and three unread messages processes exactly three;
+a fresh repeat processes zero and finishes immediately without queue delivery.
+
+The header profile photo loads its full optimized image eagerly at high priority,
+without the sequential blurred-preview step. Private avatar responses vary by
+Cookie and Authorization and cache in the browser for five minutes; existing
+versioned URLs still invalidate local upload changes immediately. Fingerprinted
+assets retain their public immutable policy, while personalized HTML/RSC and API
+responses without an explicit policy use private/no-store.
+
+Cloudflare zone `steffenvonlindern.de` was checked on 2026-10-14: Brotli was off and
+was enabled/verified; HTTP/3 and Early Hints were already on. The cache-rules phase
+had no entrypoint rule set. No cache-everything rule was added.

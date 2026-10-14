@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { folders, messages } from "@/db/schema";
@@ -71,7 +71,7 @@ export async function executeBulkMessageAction(env: CloudflareEnv, user: Session
 		return NextResponse.json({ error: "No changes requested" }, { status: 400 });
 	}
 
-	const selectedMessages = await db.select({ id: messages.id, mailboxId: messages.mailboxId, status: messages.status, rawR2Key: messages.rawR2Key }).from(messages).where(inArray(messages.id, messageIds));
+	const selectedMessages = await db.select({ id: messages.id, mailboxId: messages.mailboxId, status: messages.status, read: messages.read, rawR2Key: messages.rawR2Key }).from(messages).where(inArray(messages.id, messageIds));
 	const allowedMessageIds: string[] = [];
 
 	const accessByMailbox = new Map<string, Awaited<ReturnType<typeof getMailboxAccessLevel>>>();
@@ -107,9 +107,13 @@ export async function executeBulkMessageAction(env: CloudflareEnv, user: Session
 		return NextResponse.json({ ok: true });
 	}
 
-	await db.update(messages).set(values).where(inArray(messages.id, allowedMessageIds));
+	const changedIds = read === null ? allowedMessageIds
+		: selectedMessages.filter(message => allowedMessageIds.includes(message.id) && message.read !== read).map(message => message.id);
+	if (!changedIds.length) return NextResponse.json({ ok: true });
+	const updated = await db.update(messages).set(values).where(and(inArray(messages.id, changedIds),
+		read !== null ? ne(messages.read, read) : undefined)).returning({ id: messages.id });
 	await createBulkAuditLogs(env,
-		allowedMessageIds.map((messageId) => ({
+		updated.map(({ id: messageId }) => ({
 			actorUserId: user.id,
 			messageId,
 			action: payload.action === "read" || payload.action === "unread" ? "email.read" : "email.delete",

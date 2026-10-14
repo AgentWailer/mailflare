@@ -13,6 +13,7 @@ import { hasMailboxPermission, listAccessibleMailboxes } from "@/lib/mailboxes/a
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
 import { getRequestTimeZone } from "@/lib/time/utils";
 import { getMessageListColumns, loadConversationPage } from "./utils";
+import { repairVisiblePreviews } from "@/lib/messages/preview-repair";
 import type { ListMessage } from "./types";
 
 export async function GET(request: Request) {
@@ -111,7 +112,10 @@ export async function GET(request: Request) {
 	const labelsPromise = groupByThread
 		? getConversationLabels(db, keys, where).then(labels => labels.map(({ threadKey, ...label }) => ({ messageId: threadKey, ...label })))
 		: getMessageLabels(db, rows.map(row => row.id));
-	const [members, countRows, jobs, contactEntries, labels] = await Promise.all([membersPromise, threadCountsPromise, jobsPromise, contactsPromise, labelsPromise]);
+	const [members, countRows, jobs, contactEntries, labels, repairedPreviews] = await Promise.all([
+		membersPromise, threadCountsPromise, jobsPromise, contactsPromise, labelsPromise,
+		repairVisiblePreviews(db, rows).catch(() => new Map<string, string>()),
+	]);
 	for (const member of members) {
 		const ids = threadMessageIds.get(member.key) ?? [];
 		ids.push(member.id); threadMessageIds.set(member.key, ids);
@@ -144,7 +148,7 @@ export async function GET(request: Request) {
 			fromContactHasAvatar: avatarMap?.get(normalizeEmailAddress(message.fromAddr)) ?? false,
 			toContactHasAvatar: avatarMap?.get(normalizeEmailAddress(getFirstEmailAddressEntry(message.toAddr))) ?? false,
 			labels: labelsByKey.get(groupByThread ? message.threadId ?? message.id : message.id) ?? [],
-			snippet: message.snippet,
+			snippet: repairedPreviews.get(message.id) ?? message.snippet,
 			...(scheduledAtByMessageId.has(message.id) ? { scheduledAt: scheduledAtByMessageId.get(message.id) } : {}),
 			fromContactName:
 				(message.direction === "outbound" ? accountName : null) ??

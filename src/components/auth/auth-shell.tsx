@@ -6,6 +6,7 @@ import { LanguageSelector } from "@/components/language-selector";
 import type { AuthShellProps } from "./types";
 
 export function AuthShell({
+  compact = false,
   icon: Icon,
   title,
   description,
@@ -23,9 +24,13 @@ export function AuthShell({
   }, [branding.iconUrl]);
 
   return (
-    <div className="min-h-dvh bg-[#f1f4fa] px-4 py-6 text-neutral-900 sm:px-6 lg:flex lg:items-center lg:px-10 lg:py-10">
-      <main className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-4xl bg-white lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-        <section className="flex flex-col p-7 sm:p-10 lg:p-14">
+    <div data-auth-compact={compact ? "" : undefined} className={compact
+      ? "flex min-h-dvh items-center justify-center bg-[#f1f4fa] px-4 py-8 text-neutral-900"
+      : "min-h-dvh bg-[#f1f4fa] px-4 py-6 text-neutral-900 sm:px-6 lg:flex lg:items-center lg:px-10 lg:py-10"}>
+      <main className={compact
+        ? "w-full max-w-sm rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8"
+        : "mx-auto grid w-full max-w-6xl overflow-hidden rounded-4xl bg-white lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"}>
+        <section className={compact ? "flex flex-col" : "flex flex-col p-7 sm:p-10 lg:p-14"}>
           <div className="flex items-center gap-2">
             <span className="flex items-center justify-center overflow-hidden">
               {iconFailed ? (
@@ -47,19 +52,19 @@ export function AuthShell({
             </span>
           </div>
 
-          <div className="mt-2 lg:mt-8">
-            <h1 className="max-w-md text-xl font-medium leading-tight tracking-tight text-neutral-950 sm:text-4xl">
+          <div className={compact ? "mt-6" : "mt-2 lg:mt-8"}>
+            <h1 className={compact ? "text-2xl font-medium text-neutral-950" : "max-w-md text-xl font-medium leading-tight tracking-tight text-neutral-950 sm:text-4xl"}>
               {title}
             </h1>
             {description && (
-              <p className="mt-5 max-w-md text-base leading-7 text-neutral-600">
+              <p className={compact ? "mt-2 text-sm leading-6 text-neutral-600" : "mt-5 max-w-md text-base leading-7 text-neutral-600"}>
                 {description}
               </p>
             )}
           </div>
         </section>
 
-        <section className="flex min-w-0 flex-col justify-center p-7 sm:p-10 lg:p-14">
+        <section className={compact ? "mt-6 min-w-0" : "flex min-w-0 flex-col justify-center p-7 sm:p-10 lg:p-14"}>
           {steps && (
             <div className="mb-7 flex flex-wrap gap-2 text-xs font-semibold">
               {steps.map((step, index) => (
@@ -79,9 +84,9 @@ export function AuthShell({
             </div>
           )}
           <div className="w-full">{children}</div>
-          <div className="mt-8 max-w-48">
+          {!compact && <div className="mt-8 max-w-48">
             <LanguageSelector />
-          </div>
+          </div>}
           {footer && (
             <div className="mt-8 text-sm font-medium text-blue-700">
               {footer}

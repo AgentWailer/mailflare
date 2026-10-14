@@ -1,5 +1,6 @@
 import type { Message } from "@/hooks/types";
 import { authFetch } from "@/lib/auth/client";
+import { cleanSnippetText } from "@/lib/email/snippet";
 import { markMessagesReadInCaches } from "@/hooks/utils";
 import { getEmailDisplayName, splitEmailAddressList } from "@/lib/email/address";
 import { formatUserDate, getUserTimeZone, zonedDateFields } from "@/lib/time/utils";
@@ -45,8 +46,9 @@ export function isMessageListRowUnread(message: Message): boolean {
 }
 
 export function getMessagePreview(message: Message, folder: MessageFolderConfig["folder"], t: Translator = defaultTranslator) {
-	if (folder === "drafts") return message.snippet || message.toAddr || t("list.noContent");
-	return message.snippet || t("thread.noPreview");
+	const snippet = cleanSnippetText(message.snippet);
+	if (folder === "drafts") return snippet || message.toAddr || t("list.noContent");
+	return snippet || t("thread.noPreview");
 }
 
 export function formatMessageListTimestamp(createdAt: string): string {

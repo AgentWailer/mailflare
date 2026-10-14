@@ -7,6 +7,7 @@ export type AuthShellStep = {
 };
 
 export type AuthShellProps = {
+	compact?: boolean;
 	icon: LucideIcon;
 	title: string;
 	description?: ReactNode;

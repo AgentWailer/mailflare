@@ -54,9 +54,10 @@ export async function getAvatarImageResponse(
 		"Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
 		"X-Content-Type-Options": "nosniff",
 		"Content-Security-Policy": "default-src 'none'; img-src 'self'; sandbox",
+		"Vary": "Cookie, Authorization",
 		"Cache-Control": url.searchParams.has("v")
 			? "private, max-age=31536000, immutable"
-			: "private, no-cache",
+			: "private, max-age=300",
 		ETag: object.httpEtag,
 	});
 	if (request.headers.get("If-None-Match") === object.httpEtag) {

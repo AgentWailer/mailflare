@@ -1179,3 +1179,13 @@ test('ungrouped pages batch count and rows without losing exact pagination or la
  const page=await res.json();assert.equal(page.total,4);assert.equal(page.messages[0].id,'social');assert.equal(page.messages[0].labels[0].name,'Work');assert.equal('htmlBody' in page.messages[0],false);assert.equal('textBody' in page.messages[0],false);
  assert.deepEqual(batches,[2,2],'mailbox access and count/page each take one batch');
 });
+
+
+test('poor legacy previews are repaired from bounded visible bodies once without exposing mail bodies or touching foreign mail',async t=>{
+ const f=await fixture(t);
+ f.DB.db.exec("UPDATE messages SET snippet='https://tracking.test/click?id=123',text_body='Please use an email client supporting HTML email, or click this link to view the email online: https://tracking.test/click',html_body='<p>Ihre Rechnung über 49,90 Euro ist verfügbar.</p>' WHERE id='primary';UPDATE messages SET snippet='https://foreign.test/private' WHERE id='foreign'");
+ const result=await (await app.list(f.request('/api/messages?mailboxId=box&direction=inbound'))).json();const row=result.messages.find(x=>x.id==='primary');
+ assert.equal(row.snippet,'Ihre Rechnung über 49,90 Euro ist verfügbar.');assert.equal('textBody' in row,false);assert.equal('htmlBody' in row,false);
+ assert.equal(f.DB.db.prepare("SELECT snippet FROM messages WHERE id='primary'").get().snippet,row.snippet);assert.equal(f.DB.db.prepare("SELECT snippet FROM messages WHERE id='foreign'").get().snippet,'https://foreign.test/private');
+ const sql=[];const prepare=f.DB.prepare.bind(f.DB);t.mock.method(f.DB,'prepare',query=>{sql.push(query);return prepare(query);});await app.list(f.request('/api/messages?mailboxId=box&direction=inbound'));assert(!sql.some(query=>query.includes('substr(')),'subsequent normal list loads use only cached metadata');
+});
