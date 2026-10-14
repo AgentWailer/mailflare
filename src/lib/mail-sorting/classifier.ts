@@ -172,6 +172,9 @@ export async function classifyIncomingMail(
 		if (override && isMailCategory(override.category) &&
 			(override.category === "primary" || !isProtectedRoutineMail(input)))
 			return finalize({ category: override.category, suggestedCategory: override.category, source: "override", reason: "sender_override" });
+		if (input.conservativeReview && !securityNotice &&
+			(/^(?:re|aw)\s*:/i.test(input.subject?.trim() ?? "") || Object.keys(input.headers ?? {}).some(key => key.toLowerCase() === "in-reply-to")))
+			return finalize({ ...fallback, reason: "conversation_review", reviewRequired: true });
 		const transaction = resolveTransactionMail(input);
 		if (!securityNotice && transaction && input.spamScore < 40 && !authentication.some(id => id.endsWith("_failed")))
 			return finalize(transaction);

@@ -38,7 +38,9 @@ export function deterministicReview(message: ReviewMessage): SortingDecision | n
   headers };
  if (isAccountSecurityNotice(input)) return { category: "primary", source: "rule", reason: "protected_account_security" };
  // A reply may mention an invoice from quoted history; protect the conversation.
- if (/^(?:re|aw|fw|fwd|wg)\s*:/i.test(message.subject?.trim() ?? "") || message.in_reply_to) return null;
+ if (/^(?:re|aw)\s*:/i.test(message.subject?.trim() ?? "") || message.in_reply_to)
+  return message.category === "primary" ? { category: "primary", source: "rule", reason: "protected_conversation" } : null;
+ if (/^(?:fw|fwd|wg)\s*:/i.test(message.subject?.trim() ?? "")) return null;
  return resolveTransactionMail(input) ?? resolveRoutineMail(input);
 }
 export function shouldAuditWithAi(message: ReviewMessage) {
