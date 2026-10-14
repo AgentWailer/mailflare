@@ -47,7 +47,36 @@ try{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
  browser=await browserType.launch({headless:true,...(browserName==='chromium'&&process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),...(browserName==='chromium'?{args:['--no-sandbox']}: {})});
 
- if(process.env.MAILFLARE_STARTUP_ONLY){
+ if(process.env.MAILFLARE_SWIPE_ONLY){
+  for(const viewport of [{width:320,height:700},{width:390,height:844}]){
+   const page=await browser.newPage({viewport,hasTouch:true}),requests=[],errors=[];page.on('pageerror',error=>errors.push(error.message));
+   await page.route('**/api/**',route=>{
+    const path=new URL(route.request().url()).pathname;
+    if(path==='/api/messages/bulk'){requests.push({route,payload:route.request().postDataJSON()});return;}
+    return route.fulfill({contentType:'application/json',body:JSON.stringify({job:null,folders:[],accounts:[],messages:[]})});
+   });
+   await page.goto(origin+'/inbox');const cdp=await page.context().newCDPSession(page);
+   const row=id=>page.locator('.mail-mobile-row').filter({has:page.locator('a[href="/inbox/'+id+'"]')});
+   async function swipe(id,dx,dy=0){
+    await row(id).evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));const box=await row(id).boundingBox();assert(box);const x=dx<0?box.x+box.width-50:box.x+70,y=box.y+box.height/2;
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    for(let i=1;i<=5;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx*i/5,y:y+dy*i/5}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+   }
+   await row('msg-0').waitFor();await swipe('msg-0',-35);assert.equal(requests.length,0,'a short drag does not archive');assert.equal(await row('msg-0').count(),1);
+   await swipe('msg-0',0,-20);assert.equal(requests.length,0,'vertical scrolling does not archive');
+   await swipe('msg-0',-130);assert.equal(await row('msg-0').count(),0,'the row is removed before any server response');assert.equal(requests.length,1);assert.deepEqual(requests[0].payload.messageIds,['msg-0','older']);assert.equal(requests[0].payload.action,'archive');assert.equal(await page.evaluate(()=>location.pathname),'/inbox','swiping does not open the message');
+   await swipe('msg-1',-130);assert.equal(await row('msg-1').count(),0);assert.equal(requests.length,2);
+   await requests[0].route.fulfill({contentType:'application/json',body:'{"ok":true}'});
+   await requests[1].route.fulfill({status:503,contentType:'application/json',body:'{"error":"failed"}'});
+   await row('msg-1').waitFor();assert.equal(await row('msg-0').count(),0);assert(await page.getByRole('alert').filter({hasText:de['error.updateSelected']}).isVisible(),'failure is visible after rollback');
+   const subject=row('msg-4').getByText('Nachricht 4',{exact:true});assert((await subject.locator('..').getAttribute('class')).includes('font-semibold'));
+   await swipe('msg-4',130);assert.equal(requests.length,3);assert.equal(requests[2].payload.action,'read');assert.equal(await row('msg-4').count(),1);assert(!(await subject.locator('..').getAttribute('class')).includes('font-semibold'),'right swipe updates read styling before the response');
+   await requests[2].route.fulfill({contentType:'application/json',body:'{"ok":true}'});assert.deepEqual(errors,[]);
+   console.log(JSON.stringify({viewport,archiveImmediate:true,conversationMembersPreserved:true,concurrentRollback:true,readImmediate:true,shortAndVerticalDragsIgnored:true}));await page.close();
+  }
+ }else if(process.env.MAILFLARE_STARTUP_ONLY){
   for(const viewport of [{width:390,height:844},{width:1440,height:900}]){
    const page=await browser.newPage({viewport,hasTouch:viewport.width<768}),errors=[];page.on('pageerror',error=>errors.push(error.message));
    await page.route('**/api/**',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({job:null,folders:[],accounts:[],user:{id:'owner',email:'owner@example.test',name:'Owner'}})}));

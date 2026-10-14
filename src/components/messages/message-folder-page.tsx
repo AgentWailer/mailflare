@@ -36,6 +36,7 @@ import { useReadingLayout } from "./use-reading-layout";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
 import { MessageNavigationProgress, useMessageNavigation } from "./message-navigation";
 import { useConversationView } from "./use-conversation-view";
+import { useOptimisticArchive } from "./use-optimistic-archive";
 import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction, SelectedMessage } from "./types";
 import {
 	formatMessageListTimestamp,
@@ -324,13 +325,15 @@ export function MessageFolderPage({
 	const setUnreadOnly = selection?.setUnreadOnly ?? setInternalUnreadOnly;
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const { messages, isLoading: messagesLoading, isRefreshing, error, total, limit, updateMessages, refresh } = useMessages(config.folder, selectedMailbox?.id, {
+	const { messages: sourceMessages, isLoading: messagesLoading, isRefreshing, error, total: sourceTotal, limit, updateMessages, refresh } = useMessages(config.folder, selectedMailbox?.id, {
 		query,
 		limit: pageSize,
 		offset,
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
+	const { messages, total, archiveRow, archiveFailed } = useOptimisticArchive(sourceMessages, sourceTotal,
+		JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped, offset]));
 	const isLoading = mailboxesLoading || messagesLoading;
 	const { counts } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
 	usePageLoading(isLoading);
@@ -427,6 +430,17 @@ export function MessageFolderPage({
 	}
 
 	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	async function runRowMessageAction(messageId: string, action: RowMessageAction) {
+		if (action !== "archive") return runBulkMessageAction(expandSelectedIds([messageId]), action, action !== "read" && action !== "unread");
+		const message = messages.find(row => row.id === messageId);
+		if (!message) return;
+		try {
+			await archiveRow(message);
+			setSelectedMessages(current => current.filter(row => row.id !== messageId));
+		} catch {
+			// The optimistic archive restores this row and exposes an inline error.
+		}
+	}
 	async function emptyFolder() {
 		if (!permanentDeleteFolder || !selectedMailbox?.id || readAllTask?.status === "running") return;
 		if (!window.confirm(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
@@ -630,6 +644,7 @@ export function MessageFolderPage({
 			{hasCategoryTabs && <InboxCategoryTabs folder={config.folder} compact={compact} onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
 			{selectionError && <p role="alert" className="shrink-0 px-4 py-2 text-xs text-red-700">{t("list.allSelectionFailed")}</p>}
 			{error && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("list.loadFailed")}</p>}
+			{archiveFailed && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("error.updateSelected")}</p>}
 
 			<PullRefreshList enabled={isMobile} busy={isLoading || isRefreshing || pendingBulkAction} onRefresh={refresh} empty={!isLoading && !error && messages.length === 0}>
 				{messages.map((message) => (
@@ -642,9 +657,7 @@ export function MessageFolderPage({
 						compact={compact || isMobile}
 						currentAccountName={currentAccountName}
 						onSelectedChange={updateSelectedMessage}
-						onMessageAction={(messageId, action) =>
-							runBulkMessageAction(expandSelectedIds([messageId]), action, action !== "read" && action !== "unread")
-						}
+						onMessageAction={runRowMessageAction}
 						dragMessageIds={expandSelectedIds(selectedIds.includes(message.id) ? selectedIds : [message.id])}
 					/>
 				))}
