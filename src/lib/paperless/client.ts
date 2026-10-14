@@ -58,7 +58,7 @@ async function api(baseUrl: string, credentials: PaperlessCredentials, path: str
 export async function testPaperlessConnection(url: string, credentials: PaperlessCredentials) {
  const tasks = await api(url,credentials,"tasks/?page_size=1");
  if (!Array.isArray(tasks) && !Array.isArray(tasks?.results)) throw new PaperlessError("invalid_response");
- const docs = await api(url,credentials,"documents/?page_size=1");
+ const docs = await api(url,credentials,"documents/?page_size=1&fields=id&truncate_content=true");
  if (!Array.isArray(docs) && !Array.isArray(docs?.results)) throw new PaperlessError("invalid_response");
 }
 export function pdfCandidate(filename: string, type: string) { return /\.pdf$/i.test(filename) || type.split(";",1)[0].trim().toLowerCase() === "application/pdf"; }
