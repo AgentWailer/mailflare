@@ -39,11 +39,10 @@ export async function getMailboxAccessLevel(
 }
 
 export async function listAccessibleMailboxes(db: AppDatabase, user: Pick<SessionUser, "id" | "email" | "role">) {
-	const ownedRows = await db
-		.select({
-			id: mailboxes.id,
-			userId: mailboxes.userId,
-			domainId: mailboxes.domainId,
+	const columns = {
+		id: mailboxes.id,
+		userId: mailboxes.userId,
+		domainId: mailboxes.domainId,
 		localPart: mailboxes.localPart,
 		displayName: mailboxes.displayName,
 		signature: mailboxes.signature,
@@ -51,56 +50,34 @@ export async function listAccessibleMailboxes(db: AppDatabase, user: Pick<Sessio
 		autoReplySubject: mailboxes.autoReplySubject,
 		autoReplyBody: mailboxes.autoReplyBody,
 		useAllDomains: mailboxes.useAllDomains,
-			avatarKey: mailboxes.avatarKey,
-			type: mailboxes.type,
-			disabled: mailboxes.disabled,
-			createdAt: mailboxes.createdAt,
-			hostname: domains.hostname,
-		})
-		.from(mailboxes)
+		avatarKey: mailboxes.avatarKey,
+		type: mailboxes.type,
+		disabled: mailboxes.disabled,
+		createdAt: mailboxes.createdAt,
+		hostname: domains.hostname,
+	};
+	const ownedQuery = db.select(columns).from(mailboxes)
 		.innerJoin(domains, eq(mailboxes.domainId, domains.id))
 		.where(and(eq(mailboxes.userId, user.id), eq(mailboxes.disabled, false)));
-	const owned = ownedRows
-		.map((row) => {
-			const { avatarKey, ...mailbox } = row;
-			return {
-				...mailbox,
-				hasAvatar: !!avatarKey,
-				permission: "full_access" as MailboxPermission,
-				isPrimary: `${row.localPart}@${row.hostname}` === user.email,
-			};
-		});
-
-	if (!(await isTeamMailboxSharingEnabled(db))) return owned;
-	const sharedRows = await db
-		.select({
-			id: mailboxes.id,
-			userId: mailboxes.userId,
-			domainId: mailboxes.domainId,
-		localPart: mailboxes.localPart,
-		displayName: mailboxes.displayName,
-		signature: mailboxes.signature,
-		autoReplyEnabled: mailboxes.autoReplyEnabled,
-		autoReplySubject: mailboxes.autoReplySubject,
-		autoReplyBody: mailboxes.autoReplyBody,
-		useAllDomains: mailboxes.useAllDomains,
-			avatarKey: mailboxes.avatarKey,
-			type: mailboxes.type,
-			disabled: mailboxes.disabled,
-			createdAt: mailboxes.createdAt,
-			hostname: domains.hostname,
-			permission: mailboxAccess.permission,
-		})
-		.from(mailboxAccess)
+	const sharingEnabled = await isTeamMailboxSharingEnabled(db);
+	const sharedQuery = db.select({ ...columns, permission: mailboxAccess.permission }).from(mailboxAccess)
 		.innerJoin(mailboxes, eq(mailboxAccess.mailboxId, mailboxes.id))
 		.innerJoin(domains, eq(mailboxes.domainId, domains.id))
-		.where(
-			and(
-				eq(mailboxAccess.userId, user.id),
-				eq(mailboxes.type, "shared"),
-				eq(mailboxes.disabled, false),
-			),
-		);
+		.where(and(eq(mailboxAccess.userId, user.id), eq(mailboxes.type, "shared"), eq(mailboxes.disabled, false)));
+	// Keep grants live while loading owned and delegated mailboxes in one round trip.
+	const [ownedRows, sharedRows] = sharingEnabled
+		? await db.batch([ownedQuery, sharedQuery])
+		: [await ownedQuery, []];
+	const owned = ownedRows.map((row) => {
+		const { avatarKey, ...mailbox } = row;
+		return {
+			...mailbox,
+			hasAvatar: !!avatarKey,
+			permission: "full_access" as MailboxPermission,
+			isPrimary: `${row.localPart}@${row.hostname}` === user.email,
+		};
+	});
+
 	const shared = sharedRows.map((row) => {
 		const { avatarKey, ...mailbox } = row;
 		return {

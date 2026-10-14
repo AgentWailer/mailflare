@@ -45,9 +45,10 @@ export function getMessageQueryParams(
 const messageCountsCache = new Map<string, MessageCounts>();
 const messageCountsRequests = new Map<string, { promise: Promise<MessageCounts | undefined>; generation: number }>();
 const messageListCache = new Map<string, MessageListResponse>();
-const messageListRequests = new Map<string, Promise<MessageListResponse>>();
+const messageListRequests = new Map<string, { promise: Promise<MessageListResponse>; generation: number }>();
 let messageCacheGeneration = 0;
 let messageCountsGeneration = 0;
+let messageClientGeneration = 0;
 
 export function clearMessageCountsCache() {
 	messageCountsGeneration += 1;
@@ -59,7 +60,7 @@ export function clearMessageCountsCache() {
 export function clearMessageListCache() {
 	messageCacheGeneration += 1;
 	messageListCache.clear();
-	messageListRequests.clear();
+	// Retain pending requests so multiple listeners schedule only one fresh follow-up.
 }
 
 /**
@@ -99,6 +100,7 @@ if (typeof window !== "undefined") {
 }
 
 export function clearMessageClientState() {
+	messageClientGeneration += 1;
 	messageCacheGeneration += 1;
 	messageCountsGeneration += 1;
 	messageCountsCache.clear();
@@ -147,7 +149,14 @@ export async function fetchMessageCounts(mailboxId?: string | null, force = fals
 export async function fetchMessageList(params: URLSearchParams, force = false): Promise<MessageListResponse> {
 	const key = params.toString();
 	if (!force && messageListCache.has(key)) return messageListCache.get(key) ?? {};
-	if (!force && messageListRequests.has(key)) return messageListRequests.get(key) ?? {};
+	const pending = messageListRequests.get(key);
+	if (pending) {
+		if (pending.generation === messageCacheGeneration) return pending.promise;
+		const clientGeneration = messageClientGeneration;
+		return pending.promise.catch(() => ({})).then((response) =>
+			clientGeneration === messageClientGeneration ? fetchMessageList(params, true) : response,
+		);
+	}
 
 	const requestGeneration = messageCacheGeneration;
 	const request = authFetch(`/api/messages?${key}`, { cache: force ? "no-store" : "default" })
@@ -163,12 +172,12 @@ export async function fetchMessageList(params: URLSearchParams, force = false): 
 			return response;
 		})
 		.finally(() => {
-			if (messageListRequests.get(key) === request) {
+			if (messageListRequests.get(key)?.promise === request) {
 				messageListRequests.delete(key);
 			}
 		});
 
-	messageListRequests.set(key, request);
+	messageListRequests.set(key, { promise: request, generation: requestGeneration });
 	return request;
 }
 

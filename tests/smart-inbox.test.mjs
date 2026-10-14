@@ -24,7 +24,9 @@ await build({
 		contents: `
  export {SqliteDatabase} from './server/runtime/sqlite-database.ts';
  export {applyMigrations} from './server/runtime/migrate.ts';
- export {createSession} from './src/lib/auth/session.ts';
+ export {createSession,getUserFromSession,deleteSession} from './src/lib/auth/session.ts';
+ export {getCurrentUser} from './src/lib/auth/cookies.ts';
+ export {listAccessibleMailboxes} from './src/lib/mailboxes/access.ts';
  export {classifyIncomingMail,resolveClefDecision} from './src/lib/mail-sorting/classifier.ts';
  export {shouldNotifyMail,isPrimaryInboxMail} from './src/lib/mail-sorting/categories.ts';
  export {getUnreadBadgeCount} from './src/lib/push/badge.ts';
@@ -1137,4 +1139,43 @@ test('first category conversation pages use body-free metadata indexes for count
   if(category==='invoices'||category==='orders')assert(page.messages.every(message=>message.threadMessageIds.length===2));else assert(page.messages.every(message=>message.threadMessageIds.length===1));
  }
  assert.equal(f.DB.db.prepare("SELECT count(*) n FROM sqlite_master WHERE name IN ('messages_mailbox_thread_key_idx','messages_thread_key_idx')").get().n,0);
+});
+
+
+test('one session lookup preserves user preferences and immediately respects expiry, revocation and account disabling', async t => {
+ const f = await fixture(t);
+ const token = await app.createSession(f.env, 'owner');
+ f.DB.db.exec("UPDATE users SET time_zone='Europe/Berlin',label_order='{\"box\":[\"work\"]}',allow_external_content=0 WHERE id='owner'");
+ const sql=[];const prepare=f.DB.prepare.bind(f.DB);t.mock.method(f.DB,'prepare',query=>{sql.push(query);return prepare(query);});
+ assert.equal(await app.getUserFromSession(f.env,undefined),null);assert.equal(sql.length,0);
+ const user=await app.getUserFromSession(f.env,token);assert.equal(sql.length,1);
+ assert.equal(user.id,'owner');assert.equal(user.timeZone,'Europe/Berlin');assert.equal(user.allowExternalContent,false);assert.equal(user.labelOrder,'{"box":["work"]}');assert(user.createdAt instanceof Date);
+ f.DB.db.exec("UPDATE users SET disabled=1 WHERE id='owner'");
+ const request=new Request('https://mailflare.test',{headers:{Authorization:'Bearer '+token}});
+ assert.equal(await app.getCurrentUser(f.env,request),null);
+ f.DB.db.exec("UPDATE users SET disabled=0 WHERE id='owner';UPDATE sessions SET expires_at=0 WHERE user_id='owner'");
+ assert.equal(await app.getUserFromSession(f.env,token),null);
+ const fresh=await app.createSession(f.env,'owner');await app.deleteSession(f.env,fresh);assert.equal(await app.getUserFromSession(f.env,fresh),null);
+ assert.equal(await app.getUserFromSession(f.env,'unknown-token'),null);
+});
+
+test('batched mailbox discovery preserves identity and current delegated permissions', async t => {
+ const f=await fixture(t);
+ f.DB.db.exec("UPDATE mailboxes SET avatar_key='avatars/owner',signature='Regards' WHERE id='box';UPDATE mailboxes SET type='shared' WHERE id='otherbox';INSERT INTO mailbox_access(id,mailbox_id,user_id,permission,created_at) VALUES('grant','otherbox','owner','read_only',1)");
+ let calls=0;const batch=f.DB.batch.bind(f.DB);t.mock.method(f.DB,'batch',queries=>{calls++;return batch(queries);});
+ const user={id:'owner',email:'owner@example.test',role:'user'};
+ const boxes=await app.listAccessibleMailboxes(f.db,user);assert.equal(calls,1);
+ assert.deepEqual(boxes.map(x=>[x.id,x.permission,x.isPrimary,x.hasAvatar]),[['box','full_access',true,true],['otherbox','read_only',false,false]]);
+ assert.equal(boxes[0].signature,'Regards');assert.equal('avatarKey' in boxes[0],false);
+ f.DB.db.exec("DELETE FROM mailbox_access WHERE id='grant'");assert.deepEqual((await app.listAccessibleMailboxes(f.db,user)).map(x=>x.id),['box']);
+ f.DB.db.exec("UPDATE mailboxes SET disabled=1 WHERE id='box'");assert.deepEqual(await app.listAccessibleMailboxes(f.db,user),[]);
+});
+
+test('ungrouped pages batch count and rows without losing exact pagination or labels', async t => {
+ const f=await fixture(t);
+ f.DB.db.exec("INSERT INTO message_labels(message_id,folder_id) VALUES('social','work')");
+ const batches=[];const batch=f.DB.batch.bind(f.DB);t.mock.method(f.DB,'batch',queries=>{batches.push(queries.length);return batch(queries);});
+ const res=await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&limit=1&offset=2'));assert.equal(res.status,200);
+ const page=await res.json();assert.equal(page.total,4);assert.equal(page.messages[0].id,'social');assert.equal(page.messages[0].labels[0].name,'Work');assert.equal('htmlBody' in page.messages[0],false);assert.equal('textBody' in page.messages[0],false);
+ assert.deepEqual(batches,[2,2],'mailbox access and count/page each take one batch');
 });

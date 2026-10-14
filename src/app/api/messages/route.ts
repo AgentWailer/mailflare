@@ -74,15 +74,17 @@ export async function GET(request: Request) {
 		const rowById = new Map(rows.map((row) => [row.id, row]));
 		rows = page.ids.map((id) => rowById.get(id)).filter((row): row is ListMessage => !!row);
 	} else {
-		const [totalRow] = await db.select({ total: count() }).from(messages).where(where);
-		total = totalRow?.total ?? 0;
-		rows = await db
-			.select(messageListColumns)
-			.from(messages)
-			.where(where)
-			.orderBy(desc(messages.createdAt))
-			.limit(limit)
-			.offset(offset);
+		const [totals, pageRows] = await db.batch([
+			db.select({ total: count() }).from(messages).where(where),
+			db.select(messageListColumns)
+				.from(messages)
+				.where(where)
+				.orderBy(desc(messages.createdAt))
+				.limit(limit)
+				.offset(offset),
+		]);
+		total = totals[0]?.total ?? 0;
+		rows = pageRows;
 	}
 	// All enrichment depends only on this page: launch it together instead of
 	// making the browser wait for each independent D1 metadata round trip.

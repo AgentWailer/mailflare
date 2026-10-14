@@ -66,3 +66,23 @@ Sidebar preloads now follow the stored conversation preference, matching the
 actual default page cache key. Previously a click requested a single-message page
 and the destination requested a separate grouped page. Drafts stay ungrouped.
 Tests verify that duplicate preload callers join the same request.
+
+## Reducing request overhead and overlapping refreshes
+
+Authenticated API calls now resolve the live session and user in one joined query.
+Token hashing, expiry checks, account disabling and revocation remain enforced on
+fresh database state. Mailbox discovery batches owned and delegated mailbox queries
+while retaining the same disabled-mailbox and grant predicates; it does not cache
+permissions. Ungrouped message pages also batch their exact count and page query.
+These changes save three sequential D1 round trips on an ungrouped message request
+and two on the default conversation request, without changing list data or scope.
+
+Forced list refreshes share the pending query for the same scope and generation.
+Changes while a query is pending schedule one fresh follow-up instead of overlapping
+requests. Stale responses cannot refill the cache, and a failed old query still
+allows the fresh follow-up. Account changes start requests immediately and prevent
+old pending listeners from starting another query under the new session.
+
+Regression tests exercise live session expiry/revocation and disabled users,
+delegated permission removal, exact pagination and labels, refresh coalescing,
+failed and successful stale responses, and account isolation.

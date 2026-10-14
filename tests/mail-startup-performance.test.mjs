@@ -17,7 +17,7 @@ const sidebar=write('sidebar.ts',`export const useSidebar=()=>({minimal:false,mo
 const mailbox=write('mailbox.ts',`export const useSelectedMailbox=()=>({selectedMailbox:{id:'box'}});`);
 const compose=write('compose.ts',`export const useCompose=()=>({openComposer:()=>{}});`);
 const branding=write('branding.ts',`export const useBranding=()=>({appName:'Mailflare',iconUrl:'/icon-96.png'});`);
-await build({stdin:{contents:`export {NavItem} from './src/components/components-nav';export {LoadingTransition} from './src/components/loading-transition';export {usePageLoading} from './src/components/page-loading';export {getMessageQueryParams} from './src/hooks/utils';export {preloadMailboxPage} from './src/components/components-nav-utils';export {fetchMessageCounts,clearMessageCountsCache,clearMessageClientState} from './src/hooks/utils';`,resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'next/navigation':navigation,'next/link':link,'@/components/sidebar-state':sidebar,'@/components/mailbox-provider':mailbox,'@/components/branding-provider':branding},plugins:[{name:'relative-fixture-contexts',setup(build){const mocks={'./sidebar-state':sidebar,'./mailbox-provider':mailbox,'./compose/compose-context':compose};build.onResolve({filter:/^\.(\/sidebar-state|\/mailbox-provider|\/compose\/compose-context)$/},args=>({path:mocks[args.path]}));}}],logLevel:'silent'});
+await build({stdin:{contents:`export {NavItem} from './src/components/components-nav';export {LoadingTransition} from './src/components/loading-transition';export {usePageLoading} from './src/components/page-loading';export {getMessageQueryParams} from './src/hooks/utils';export {preloadMailboxPage} from './src/components/components-nav-utils';export {fetchMessageList,clearMessageListCache,fetchMessageCounts,clearMessageCountsCache,clearMessageClientState} from './src/hooks/utils';`,resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'next/navigation':navigation,'next/link':link,'@/components/sidebar-state':sidebar,'@/components/mailbox-provider':mailbox,'@/components/branding-provider':branding},plugins:[{name:'relative-fixture-contexts',setup(build){const mocks={'./sidebar-state':sidebar,'./mailbox-provider':mailbox,'./compose/compose-context':compose};build.onResolve({filter:/^\.(\/sidebar-state|\/mailbox-provider|\/compose\/compose-context)$/},args=>({path:mocks[args.path]}));}}],logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href);
 const React=await import('react'),{act}=React,{createRoot}=await import('react-dom/client');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -69,4 +69,28 @@ test('sidebar preloading follows disabled conversation grouping and keeps drafts
  const urls=[];reset(t,async input=>{urls.push(String(input));return Response.json({messages:[],total:0});});localStorage.setItem('mailflare-conversation-view','off');
  await app.preloadMailboxPage('/social','box');assert.equal(new URL(urls[0],'https://mailflare.test').searchParams.get('group'),null);
  localStorage.setItem('mailflare-conversation-view','on');await app.preloadMailboxPage('/drafts','box');assert.equal(new URL(urls[1],'https://mailflare.test').searchParams.get('group'),null);
+});
+
+
+test('simultaneous forced list refreshes reuse one request',async t=>{
+ let resolve,calls=0;reset(t,()=>{calls++;return new Promise(r=>resolve=r);});const params=new URLSearchParams('mailboxId=box');
+ const all=[app.fetchMessageList(params,true),app.fetchMessageList(params,true),app.fetchMessageList(params,true)];assert.equal(calls,1);resolve(Response.json({messages:[{id:'fresh'}]}));assert.deepEqual(await Promise.all(all),Array(3).fill({messages:[{id:'fresh'}]}));
+});
+
+test('list invalidations wait for one fresh follow-up even if the previous query fails',async t=>{
+ const pending=[];let calls=0;reset(t,()=>{calls++;return new Promise((resolve,reject)=>pending.push({resolve,reject}));});const params=new URLSearchParams('mailboxId=box');
+ const old=app.fetchMessageList(params);const oldFailure=assert.rejects(old,/offline/);app.clearMessageListCache();const a=app.fetchMessageList(params,true);app.clearMessageListCache();const b=app.fetchMessageList(params,true);assert.equal(calls,1);
+ pending[0].reject(Error('offline'));await oldFailure;await pause(0);assert.equal(calls,2);pending[1].resolve(Response.json({messages:[{id:'fresh'}]}));assert.deepEqual(await Promise.all([a,b]),Array(2).fill({messages:[{id:'fresh'}]}));assert.deepEqual(await app.fetchMessageList(params),{messages:[{id:'fresh'}]});assert.equal(calls,2);
+});
+
+test('an old list response cannot refill the cache or start a follow-up after switching accounts',async t=>{
+ const pending=[];let calls=0;reset(t,()=>{calls++;return new Promise(resolve=>pending.push(resolve));});const params=new URLSearchParams('mailboxId=box');
+ const old=app.fetchMessageList(params);app.clearMessageListCache();const waiter=app.fetchMessageList(params,true);app.clearMessageClientState();localStorage.setItem('mailflare-session-token','new-account');const current=app.fetchMessageList(params);assert.equal(calls,2);
+ pending[1](Response.json({messages:[{id:'new-account'}]}));await current;pending[0](Response.json({messages:[{id:'old-account'}]}));await Promise.all([old,waiter]);assert.deepEqual(await app.fetchMessageList(params),{messages:[{id:'new-account'}]});assert.equal(calls,2);
+});
+
+test('a successful stale list result is followed by fresh data and never cached',async t=>{
+ const pending=[];let calls=0;reset(t,()=>{calls++;return new Promise(resolve=>pending.push(resolve));});const params=new URLSearchParams('mailboxId=box');
+ const old=app.fetchMessageList(params);app.clearMessageListCache();const fresh=app.fetchMessageList(params,true);pending[0](Response.json({messages:[{id:'stale'}]}));await old;await pause(0);assert.equal(calls,2);
+ const second=app.fetchMessageList(params);assert.equal(calls,2);pending[1](Response.json({messages:[{id:'fresh'}]}));assert.deepEqual(await Promise.all([fresh,second]),Array(2).fill({messages:[{id:'fresh'}]}));
 });
