@@ -584,5 +584,6 @@ body:has(.mail-mobile-shell, [data-app-profile]) .fork-source { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.pull-refresh-motion { transition: none !important; }
+	.pull-refresh-motion,
+	.swipe-row-motion { transition: none !important; }
 }

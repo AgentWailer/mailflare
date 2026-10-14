@@ -19,18 +19,29 @@ export function usePullToRefresh({ enabled, busy, onRefresh }: { enabled: boolea
 		let start: { x: number; y: number; active: boolean } | null = null;
 		let pulled = 0;
 		let frame = 0;
+		let nextDistance = 0;
+		let listeningForMove = false;
 		let disposed = false;
 		const display = (value: number) => {
-			cancelAnimationFrame(frame);
-			frame = requestAnimationFrame(() => { if (!disposed) setDistance(value); });
+			nextDistance = value;
+			if (frame) return;
+			frame = requestAnimationFrame(() => { frame = 0; if (!disposed) setDistance(nextDistance); });
 		};
-		const cancel = () => { setDragging(false); start = null; pulled = 0; if (!refreshingRef.current) display(0); };
+		const stopListeningForMove = () => {
+			if (listeningForMove) element.removeEventListener("touchmove", onMove);
+			listeningForMove = false;
+		};
+		const cancel = () => { stopListeningForMove(); setDragging(false); start = null; pulled = 0; if (!refreshingRef.current) display(0); };
 		const onStart = (event: TouchEvent) => {
-			if (event.touches.length !== 1) { cancel(); return; }
+			cancel();
+			if (event.touches.length !== 1) return;
 			if (refreshingRef.current || latest.current.busy || element.scrollTop > 0) return;
 			if ((event.target as Element)?.closest?.('button,input,select,textarea,[contenteditable="true"]')) return;
 			const touch = event.touches[0];
 			start = { x: touch.clientX, y: touch.clientY, active: false };
+			// Ordinary scrolling away from the top must not wait on a blocking move listener.
+			element.addEventListener("touchmove", onMove, { passive: false });
+			listeningForMove = true;
 		};
 		const onMove = (event: TouchEvent) => {
 			if (!start) return;
@@ -68,14 +79,13 @@ export function usePullToRefresh({ enabled, busy, onRefresh }: { enabled: boolea
 		};
 		display(refreshingRef.current ? 48 : 0);
 		element.addEventListener("touchstart", onStart, { passive: true });
-		element.addEventListener("touchmove", onMove, { passive: false });
 		element.addEventListener("touchend", onEnd, { passive: true });
 		element.addEventListener("touchcancel", cancel, { passive: true });
 		return () => {
 			disposed = true;
 			cancelAnimationFrame(frame);
 			element.removeEventListener("touchstart", onStart);
-			element.removeEventListener("touchmove", onMove);
+			stopListeningForMove();
 			element.removeEventListener("touchend", onEnd);
 			element.removeEventListener("touchcancel", cancel);
 		};

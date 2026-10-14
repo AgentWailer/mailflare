@@ -10,7 +10,7 @@ for(const key of ['window','document','HTMLElement','TouchEvent'])Object.defineP
 for(const key of ['requestAnimationFrame','cancelAnimationFrame'])globalThis[key]=dom.window[key].bind(dom.window);
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const dir=mkdtempSync(join(process.cwd(),'node_modules','mailflare-pull-test-'));after(()=>{rmSync(dir,{recursive:true,force:true});dom.window.close();});
-await build({stdin:{contents:`export {usePullToRefresh} from './src/components/messages/use-pull-to-refresh';export {PullRefreshList} from './src/components/messages/pull-refresh-list';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,format:'esm',platform:'node',packages:'external',tsconfig:'tsconfig.json',logLevel:'silent'});
+await build({stdin:{contents:`export {usePullToRefresh} from './src/components/messages/use-pull-to-refresh';export {PullRefreshList} from './src/components/messages/pull-refresh-list';export {SwipeableRow} from './src/components/messages/swipeable-row';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,format:'esm',platform:'node',packages:'external',tsconfig:'tsconfig.json',logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href),React=await import('react'),{act}=React,{createRoot}=await import('react-dom/client');
 let current,root;
 function Screen(props){current=app.usePullToRefresh(props);return React.createElement('div',{ref:current.scrollRef},React.createElement('button',null,'Button'));}
@@ -33,4 +33,37 @@ test('pull animation leaves message rows mounted without rerendering them for ea
  for(let i=1;i<=8;i++)await touch('touchmove',[point(50,50+i*15)],list);
  assert.equal(renders,1,'gesture updates only the animated wrappers');assert.equal(document.querySelector('[data-row]'),row);
  await touch('touchcancel',[],list);assert.equal(renders,1);
+});
+
+test('normal scrolling has no blocking move listener; only an eligible top pull attaches one',async t=>{
+ await mount(t);const list=current.scrollRef.current,adds=[],removes=[];const add=list.addEventListener.bind(list),remove=list.removeEventListener.bind(list);
+ t.mock.method(list,'addEventListener',(name,listener,options)=>{adds.push({name,options});return add(name,listener,options);});t.mock.method(list,'removeEventListener',(name,listener)=>{removes.push(name);return remove(name,listener);});
+ list.scrollTop=50;await touch('touchstart',[point(50,50)]);assert.equal(adds.filter(e=>e.name==='touchmove').length,0);
+ list.scrollTop=0;await touch('touchstart',[point(50,50)]);assert.equal(adds.filter(e=>e.name==='touchmove'&&e.options.passive===false).length,1);
+ await touch('touchmove',[point(50,20)]);assert(removes.includes('touchmove'),'an upward scroll immediately drops the blocking listener');assert.equal((await touch('touchmove',[point(50,10)])).defaultPrevented,false);
+ await touch('touchstart',[point(50,50)]);await touch('touchmove',[point(50,200)]);assert(current.ready);await touch('touchcancel',[]);assert.equal(current.distance,0);
+});
+
+test('high-frequency pull updates share one animation frame with the latest finger position',async t=>{
+ const pending=new Map();let id=0;t.mock.method(globalThis,'requestAnimationFrame',callback=>{pending.set(++id,callback);return id;});t.mock.method(globalThis,'cancelAnimationFrame',key=>pending.delete(key));
+ await mount(t);async function flush(){await act(async()=>{const callbacks=[...pending.values()];pending.clear();callbacks.forEach(callback=>callback(0));});}await flush();
+ const list=current.scrollRef.current;await act(async()=>{
+  list.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,cancelable:true,touches:[point(50,50)]}));
+  for(let y=70;y<=200;y+=10)list.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,cancelable:true,touches:[point(50,y)]}));
+ });
+ assert.equal(pending.size,1);await flush();assert(current.ready);assert(Math.abs(current.distance-96*(1-Math.exp(-150/120)))<0.001);
+ await act(async()=>list.dispatchEvent(new TouchEvent('touchcancel',{bubbles:true,touches:[]})));await flush();assert.equal(current.distance,0);
+});
+
+
+test('swipe updates coalesce per frame, resist long drags and commit without waiting for another frame',async t=>{
+ const pending=new Map();let id=0;t.mock.method(globalThis,'requestAnimationFrame',callback=>{pending.set(++id,callback);return id;});t.mock.method(globalThis,'cancelAnimationFrame',key=>pending.delete(key));
+ await mount(t);pending.clear();let commits=0;const Icon=()=>React.createElement('span');const action={label:'Archive',icon:Icon,className:'bg-green',onTrigger:()=>commits++};
+ await act(async()=>root.render(React.createElement(app.SwipeableRow,{startAction:action,endAction:action},React.createElement('span',null,'Message'))));
+ const row=document.querySelector('[style*="touch-action"]')??document.querySelector('.swipe-row-motion.relative');row.setPointerCapture=()=>{};
+ function pointer(type,x,y=50){const event=new window.MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y});Object.defineProperties(event,{pointerId:{value:1},pointerType:{value:'touch'}});row.dispatchEvent(event);}
+ await act(async()=>{pointer('pointerdown',300);for(let x=280;x>=-200;x-=20)pointer('pointermove',x);});assert.equal(pending.size,1);assert.equal(commits,0);
+ await act(async()=>{const callbacks=[...pending.values()];pending.clear();callbacks.forEach(callback=>callback(0));});const offset=Math.abs(Number(row.style.transform.match(/translate3d\(([-\d.]+)px/)[1]));assert(offset>88&&offset<152,'long swipes stretch with increasing resistance');
+ await act(async()=>pointer('pointermove',-220));assert.equal(pending.size,1);await act(async()=>pointer('pointerup',-220));assert.equal(commits,1);assert.equal(pending.size,0);assert.equal(row.style.transform,'');
+ const backdrop=document.querySelector('.swipe-row-motion.absolute');assert(backdrop,'the backdrop remains mounted for the return fade');assert.equal(backdrop.style.opacity,'0');
 });

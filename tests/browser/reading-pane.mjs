@@ -64,7 +64,7 @@ try{
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
    }
-   await row('msg-0').waitFor();await swipe('msg-0',-35);assert.equal(requests.length,0,'a short drag does not archive');assert.equal(await row('msg-0').count(),1);
+   await row('msg-0').waitFor();assert.equal(await row('msg-0').locator('..').evaluate(el=>getComputedStyle(el).willChange),'auto','resting rows do not retain a promoted layer');await swipe('msg-0',-35);assert.equal(requests.length,0,'a short drag does not archive');assert.equal(await row('msg-0').count(),1);
    await swipe('msg-0',0,-20);assert.equal(requests.length,0,'vertical scrolling does not archive');
    await swipe('msg-0',-130);assert.equal(await row('msg-0').count(),0,'the row is removed before any server response');assert.equal(requests.length,1);assert.deepEqual(requests[0].payload.messageIds,['msg-0','older']);assert.equal(requests[0].payload.action,'archive');assert.equal(await page.evaluate(()=>location.pathname),'/inbox','swiping does not open the message');
    await swipe('msg-1',-130);assert.equal(await row('msg-1').count(),0);assert.equal(requests.length,2);
@@ -73,7 +73,7 @@ try{
    await row('msg-1').waitFor();assert.equal(await row('msg-0').count(),0);assert(await page.getByRole('alert').filter({hasText:de['error.updateSelected']}).isVisible(),'failure is visible after rollback');
    const subject=row('msg-4').getByText('Nachricht 4',{exact:true});assert((await subject.locator('..').getAttribute('class')).includes('font-semibold'));
    await swipe('msg-4',130);assert.equal(requests.length,3);assert.equal(requests[2].payload.action,'read');assert.equal(await row('msg-4').count(),1);assert(!(await subject.locator('..').getAttribute('class')).includes('font-semibold'),'right swipe updates read styling before the response');
-   await requests[2].route.fulfill({contentType:'application/json',body:'{"ok":true}'});assert.deepEqual(errors,[]);
+   await requests[2].route.fulfill({contentType:'application/json',body:'{"ok":true}'});await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await row('msg-4').locator('..').evaluate(el=>getComputedStyle(el).transitionDuration),'0s','reduced motion removes swipe return animation');assert.deepEqual(errors,[]);
    console.log(JSON.stringify({viewport,archiveImmediate:true,conversationMembersPreserved:true,concurrentRollback:true,readImmediate:true,shortAndVerticalDragsIgnored:true}));await page.close();
   }
  }else if(process.env.MAILFLARE_STARTUP_ONLY){
@@ -155,9 +155,9 @@ try{
    async function drag(dx,dy){const box=await scroll.boundingBox(),x=box.x+120,y=box.y+50;await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let i=1;i<=8;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx*i/8,y:y+dy*i/8}]});await page.waitForTimeout(20);}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
    if(viewport.width<768){
     await drag(0,40);assert.equal(requests,1,'a short pull does not refresh');
-    await scroll.evaluate(el=>el.scrollTop=180);await drag(0,140);assert.equal(requests,1,'normal scrolling does not refresh');await scroll.evaluate(el=>el.scrollTop=0);
+    await scroll.evaluate(el=>el.scrollTop=180);await drag(0,140);assert.equal(requests,1,'normal scrolling does not refresh');assert(await scroll.evaluate(el=>el.scrollTop>0&&el.scrollTop<180),'native touch scrolling changes the scroll position');await scroll.evaluate(el=>el.scrollTop=0);
     revision=2;await drag(0,150);await page.getByText(de['list.refreshing'],{exact:true}).waitFor();assert(await page.getByText('Aktualisiert 1 Mail 0',{exact:true}).isVisible(),'existing mail remains visible while refreshing');assert.equal(requests,2);release();await page.getByText('Aktualisiert 2 Mail 0',{exact:true}).waitFor();await page.waitForFunction(()=>new DOMMatrix(document.querySelector('[data-pull-content]').style.transform).m42===0);
-    await page.waitForTimeout(40);const returning=await page.locator('[data-pull-content]').evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m42);assert(returning>0&&returning<48,'the list returns through intermediate positions instead of snapping');await page.waitForFunction(()=>Math.abs(new DOMMatrix(getComputedStyle(document.querySelector('[data-pull-content]')).transform).m42)<0.1);
+    await page.waitForTimeout(40);const returning=await page.locator('[data-pull-content]').evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m42);assert(returning>0&&returning<48,'the list returns through intermediate positions instead of snapping');await page.waitForFunction(()=>Math.abs(new DOMMatrix(getComputedStyle(document.querySelector('[data-pull-content]')).transform).m42)<0.1);assert.equal(await page.locator('[data-pull-content]').evaluate(el=>getComputedStyle(el).willChange),'auto','the list releases its promoted layer when resting');await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('[data-pull-content]').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
    }else{await drag(0,150);assert.equal(requests,1,'desktop scrolling does not use pull to refresh');}
    console.log(JSON.stringify({viewport,nativeTouchPullRefresh:viewport.width<768,normalScrollingPreserved:true,noDesktopGesture:viewport.width>=768}));await page.close();
   }
