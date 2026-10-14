@@ -70,6 +70,7 @@ function MessageListRow({
 	onSelectedChange,
 	onMessageAction,
 	dragMessageIds,
+	canDrag = true,
 }: MessageListRowProps) {
 	const { t } = useLanguage();
 	const Icon = config.icon;
@@ -81,7 +82,7 @@ function MessageListRow({
 	useEffect(() => setStarred(message.starred), [message.starred]);
 	const rowMessage = { ...message, read, starred, threadUnread };
 	const unread = isMessageListRowUnread(rowMessage);
-	const draggable = config.folder === "inbox" && message.direction === "inbound";
+	const draggable = canDrag && message.direction === "inbound" && config.folder !== "drafts" && config.folder !== "scheduled";
 	const party = getMessageParty(rowMessage, config.folder, currentAccountName, t);
 	const preview = getMessagePreview(rowMessage, config.folder, t);
 	const href = `${config.hrefPrefix}/${message.id}`;
@@ -660,6 +661,7 @@ export function MessageFolderPage({
 						onSelectedChange={updateSelectedMessage}
 						onMessageAction={runRowMessageAction}
 						dragMessageIds={expandSelectedIds(selectedIds.includes(message.id) ? selectedIds : [message.id])}
+						canDrag={!selectedMailbox?.permission || selectedMailbox.permission === "full_access"}
 					/>
 				))}
 				{!isLoading && !error && messages.length === 0 && (

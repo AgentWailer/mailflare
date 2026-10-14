@@ -20,12 +20,14 @@ export async function GET(request: Request) {
  const mailboxId=new URL(request.url).searchParams.get("mailboxId");
  if (!mailboxId || !(await getMailboxAccessLevel(getDb(env),auth.user,mailboxId))?.canManage) return NextResponse.json({error:"Mailbox not found"},{status:404,headers});
  const c=await loadConnection(env,mailboxId);
+ let hasAccessCredentials=false;
+ if(c?.credentials)try { const saved=await decryptCredentials(env,mailboxId,c.base_url,c.credentials);hasAccessCredentials=!!(saved.accessId&&saved.accessSecret); } catch { /* Reconnection remains possible; never return decrypted credentials. */ }
  const [labels,jobs,counts]=await Promise.all([
   env.DB.prepare("SELECT id,name,parent_id parentId FROM folders WHERE mailbox_id=? ORDER BY name").bind(mailboxId).all(),
   env.DB.prepare(`SELECT j.id,j.base_url baseUrl,j.message_id messageId,j.status,j.error,j.document_id documentId,j.task_id taskId,a.filename,m.subject,j.updated_at updatedAt FROM paperless_jobs j JOIN messages m ON m.id=j.message_id JOIN message_attachments a ON a.id=j.attachment_id WHERE j.mailbox_id=? ORDER BY CASE WHEN j.status IN ('failed','uncertain','paused') THEN 0 ELSE 1 END,j.updated_at DESC LIMIT 30`).bind(mailboxId).all(),
   env.DB.prepare("SELECT status,count(*) count FROM paperless_jobs WHERE mailbox_id=? GROUP BY status").bind(mailboxId).all(),
  ]);
- return NextResponse.json({available:!!env.PAPERLESS_ENCRYPTION_KEY&&!!env.AGENT_QUEUE,connection:c?{baseUrl:c.base_url,enabled:!!c.enabled,labelId:c.label_id,processedLabelId:c.processed_label_id,hasToken:!!c.credentials}:null,labels:labels.results,jobs:jobs.results,counts:counts.results},{headers});
+ return NextResponse.json({available:!!env.PAPERLESS_ENCRYPTION_KEY&&!!env.AGENT_QUEUE,connection:c?{baseUrl:c.base_url,enabled:!!c.enabled,labelId:c.label_id,processedLabelId:c.processed_label_id,hasToken:!!c.credentials,hasAccessCredentials}:null,labels:labels.results,jobs:jobs.results,counts:counts.results},{headers});
 }
 export async function POST(request: Request) {
  const env=getEnv(),auth=await requireSessionUser(env,request);if(auth.error)return auth.error;

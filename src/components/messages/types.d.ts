@@ -29,6 +29,7 @@ export type MessageListRowProps = {
 	onSelectedChange: (messageId: string, selected: boolean) => void;
 	onMessageAction: (messageId: string, action: RowMessageAction) => Promise<void>;
 	dragMessageIds: string[];
+	canDrag?: boolean;
 };
 
 export type RowMessageAction = "archive" | "trash" | "read" | "unread";

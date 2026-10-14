@@ -38,14 +38,32 @@ function headers(credentials: PaperlessCredentials) {
  if (credentials.accessId && credentials.accessSecret) { result["CF-Access-Client-Id"] = credentials.accessId; result["CF-Access-Client-Secret"] = credentials.accessSecret; }
  return result;
 }
+async function deniedResponseCode(response: Response, uploading: boolean) {
+ if (response.headers.get("cf-mitigated") === "challenge") { await response.body?.cancel(); return "cloudflare_challenge"; }
+ // Match only known error phrases. Never retain/log an upstream response body.
+ const reader=response.body?.getReader();let prefix="",remaining=8192;
+ try { if(reader)while(remaining>0){const part=await reader.read();if(part.done)break;const bytes=part.value.subarray(0,remaining);prefix+=new TextDecoder().decode(bytes);remaining-=bytes.length;} } catch { /* Status remains useful when the body is unreadable. */ }
+ finally { await reader?.cancel().catch(()=>{}); }
+ if (/insufficient permissions|do not have permission|does not have permission/i.test(prefix)) return uploading?"document_permission_denied":"permission_denied";
+ if (/invalid token|authentication credentials were not provided|incorrect authentication credentials/i.test(prefix)) return "paperless_token_rejected";
+ if (/csrf verification failed|csrf failed/i.test(prefix)) return "paperless_csrf";
+ if (/cloudflareaccess\.com|cdn-cgi\/access|<title>\s*access denied/i.test(prefix)) return "cloudflare_access_denied";
+ return response.status===401?"unauthorized_401":"unauthorized_403";
+}
 async function api(baseUrl: string, credentials: PaperlessCredentials, path: string, init: RequestInit = {}, uploading = false) {
  let response: Response;
  try { response = await fetch(`${normalizePaperlessUrl(baseUrl)}/api/${path}`, { ...init, headers: { ...headers(credentials), ...init.headers }, redirect:"manual", signal:AbortSignal.timeout(uploading ? 90_000 : 15_000) }); }
  catch { throw new PaperlessError(uploading ? "upload_uncertain" : "connection_failed", !uploading, uploading); }
  if (!response.ok) {
+  if (response.status === 401 || response.status === 403) throw new PaperlessError(await deniedResponseCode(response,uploading));
+  if (response.status >= 300 && response.status < 400) {
+   let code="redirect_blocked";
+   try { const location=new URL(response.headers.get("Location")??"",baseUrl);
+    if (location.hostname.endsWith(".cloudflareaccess.com") || location.pathname.startsWith("/cdn-cgi/access")) code="cloudflare_access_login";
+   } catch { /* Keep generic redirect message. */ }
+   await response.body?.cancel();throw new PaperlessError(code,false,uploading);
+  }
   await response.body?.cancel();
-  if (response.status >= 300 && response.status < 400) throw new PaperlessError("redirect_blocked", false, uploading);
-  if (response.status === 401 || response.status === 403) throw new PaperlessError("unauthorized");
   if (response.status === 429) throw new PaperlessError("rate_limited", true);
   if (response.status >= 500) throw new PaperlessError(uploading ? "upload_uncertain" : "server_unavailable", !uploading, uploading);
   throw new PaperlessError(response.status === 413 ? "pdf_too_large" : "request_rejected");

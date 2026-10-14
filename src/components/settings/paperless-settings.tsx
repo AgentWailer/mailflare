@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { notifyLabelsChanged } from "@/components/messages/use-mailbox-folders";
 type Label={id:string;name:string;parentId:string|null};
 type Job={id:string;baseUrl:string;messageId:string;status:string;error:string|null;filename:string;subject:string;taskId:string|null;documentId:number|null};
-type State={available:boolean;connection:{baseUrl:string;enabled:boolean;labelId:string|null;processedLabelId:string|null;hasToken:boolean}|null;labels:Label[];jobs:Job[];counts:{status:string;count:number}[]};
+type State={available:boolean;connection:{baseUrl:string;enabled:boolean;labelId:string|null;processedLabelId:string|null;hasToken:boolean;hasAccessCredentials?:boolean}|null;labels:Label[];jobs:Job[];counts:{status:string;count:number}[]};
 export function PaperlessSettings() {
  const {selectedMailbox}=useSelectedMailbox();
  return <PaperlessForm key={selectedMailbox?.id??"none"} mailboxId={selectedMailbox?.id}/>;
@@ -39,7 +39,10 @@ function PaperlessForm({mailboxId}:{mailboxId?:string}) {
   try{
    const response=await authFetch("/api/settings/paperless",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,mailboxId})});
    const result=await response.json() as {error?:string};if(!response.ok){const key=`paperless.error.${result.error}` as Parameters<typeof t>[0];setNotice(t(key)===key?t("paperless.error.settings_failed"):t(key));return;}
-   if(body.action==="save"){setToken("");setAccessId("");setAccessSecret("");notifyLabelsChanged();}
+   if(body.action==="save"){
+    setData(previous=>previous?{...previous,connection:{baseUrl:url,enabled,labelId:labelId||previous.connection?.labelId||null,processedLabelId:processedId||previous.connection?.processedLabelId||null,hasToken:true,hasAccessCredentials:!!(accessId&&accessSecret)||!!previous.connection?.hasAccessCredentials}}:previous);
+    setToken("");setAccessId("");setAccessSecret("");notifyLabelsChanged();
+   }
    setConfirmJob(null);setRevision(n=>n+1);setNotice(t("paperless.saved"));
   }catch{setNotice(t("paperless.error.settings_failed"));}finally{setPending(false);}
  }
@@ -52,13 +55,14 @@ function PaperlessForm({mailboxId}:{mailboxId?:string}) {
    {!data.available&&<p role="status" className="text-sm">{t("paperless.unavailable")}</p>}
    <form className="space-y-3" onSubmit={event=>{event.preventDefault();void action({action:"save",baseUrl:url,enabled,labelId:labelId||null,processedLabelId:processedId||null,...(token?{token}:{}),...(accessId?{accessId}:{}),...(accessSecret?{accessSecret}:{})});}}>
     <label className="block space-y-1 text-sm"><span>{t("paperless.url")}</span><Input type="url" required value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://dms.example.com" autoComplete="off"/></label>
-    <label className="block space-y-1 text-sm"><span>{t("paperless.token")}</span><Input type="password" value={token} onChange={e=>setToken(e.target.value)} placeholder={data.connection?.hasToken?t("paperless.tokenSaved"):""} autoComplete="new-password" required={!data.connection?.hasToken}/></label>
+    <label className="block space-y-1 text-sm"><span className="flex flex-wrap items-center justify-between gap-2"><span>{t("paperless.token")}</span>{data.connection?.hasToken&&!token&&<span aria-hidden="true" className="text-xs font-medium text-green-700">{t("paperless.saved")}</span>}</span><Input type="password" value={token} onChange={e=>setToken(e.target.value)} placeholder={data.connection?.hasToken?"••••••••••••":""} autoComplete="new-password" required={!data.connection?.hasToken}/></label>
     <p className="text-xs text-neutral-500">{t("paperless.tokenHint")}</p>
+    {data.connection?.hasToken&&<p className="text-xs text-neutral-500">{t("paperless.tokenSaved")}</p>}
     <div className="grid gap-3 sm:grid-cols-2">
      <label className="block space-y-1 text-sm"><span>{t("paperless.trigger")}</span><select className="min-h-11 w-full rounded-lg border border-neutral-200 bg-white px-2" value={labelId} onChange={e=>setLabelId(e.target.value)}><option value="">{t("paperless.createTrigger")}</option>{data.labels.map(label=><option key={label.id} value={label.id}>{labelName(label)}</option>)}</select></label>
      <label className="block space-y-1 text-sm"><span>{t("paperless.processed")}</span><select className="min-h-11 w-full rounded-lg border border-neutral-200 bg-white px-2" value={processedId} onChange={e=>setProcessedId(e.target.value)}><option value="">{t("paperless.createProcessed")}</option>{data.labels.filter(l=>l.id!==labelId).map(label=><option key={label.id} value={label.id}>{labelName(label)}</option>)}</select></label>
     </div>
-    <details className="rounded-lg border border-neutral-200 p-3 text-sm"><summary className="cursor-pointer">{t("paperless.access")}</summary><div className="mt-3 space-y-3"><p className="text-xs text-neutral-500">{t("paperless.accessHint")}</p><label className="block space-y-1"><span>{t("paperless.accessId")}</span><Input value={accessId} onChange={e=>setAccessId(e.target.value)} autoComplete="off"/></label><label className="block space-y-1"><span>{t("paperless.accessSecret")}</span><Input type="password" value={accessSecret} onChange={e=>setAccessSecret(e.target.value)} autoComplete="new-password"/></label></div></details>
+    <details className="rounded-lg border border-neutral-200 p-3 text-sm"><summary className="cursor-pointer">{t("paperless.access")}</summary><div className="mt-3 space-y-3"><p className="text-xs text-neutral-500">{t("paperless.accessHint")}</p><label className="block space-y-1"><span className="flex flex-wrap items-center justify-between gap-2"><span>{t("paperless.accessId")}</span>{data.connection?.hasAccessCredentials&&!accessId&&<span aria-hidden="true" className="text-xs font-medium text-green-700">{t("paperless.saved")}</span>}</span><Input placeholder={data.connection?.hasAccessCredentials?"••••••••••••":""} value={accessId} onChange={e=>setAccessId(e.target.value)} autoComplete="off"/></label><label className="block space-y-1"><span className="flex flex-wrap items-center justify-between gap-2"><span>{t("paperless.accessSecret")}</span>{data.connection?.hasAccessCredentials&&!accessSecret&&<span aria-hidden="true" className="text-xs font-medium text-green-700">{t("paperless.saved")}</span>}</span><Input placeholder={data.connection?.hasAccessCredentials?"••••••••••••":""} type="password" value={accessSecret} onChange={e=>setAccessSecret(e.target.value)} autoComplete="new-password"/></label></div></details>
     <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/>{t("paperless.enable")}</label>
     <p className="text-xs text-neutral-500">{t("paperless.history")}</p>
     <Button type="submit" disabled={pending||!data.available}>{t("paperless.save")}</Button>

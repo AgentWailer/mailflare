@@ -105,7 +105,7 @@ test('editing unrelated labels on old Paperless mail never starts an export',asy
  const f=await fixture(t);f.add('old',{labels:['paper']});await f.save();f.DB.db.exec("INSERT INTO folders(id,user_id,mailbox_id,name,created_at) VALUES('work','owner','box','Work',1)");await f.tag('old',['work']);assert.equal(f.jobs().length,0);
 });
 test('new Paperless task schema and Cloudflare Access service tokens are supported',async t=>{
- const f=await fixture(t);await f.save({accessId:'access-id',accessSecret:'access-secret'});f.add('mail');await f.tag('mail');await f.run();const upload=f.calls.find(c=>c.url.includes('post_document'));assert.equal(upload.init.headers['CF-Access-Client-Id'],'access-id');assert.equal(upload.init.headers['CF-Access-Client-Secret'],'access-secret');
+ const f=await fixture(t);await f.save({accessId:'access-id',accessSecret:'access-secret'});const state=await (await app.GET(f.request())).json();assert.equal(state.connection.hasAccessCredentials,true);assert(!JSON.stringify(state).includes('access-secret'));f.add('mail');await f.tag('mail');await f.run();const upload=f.calls.find(c=>c.url.includes('post_document'));assert.equal(upload.init.headers['CF-Access-Client-Id'],'access-id');assert.equal(upload.init.headers['CF-Access-Client-Secret'],'access-secret');
  globalThis.fetch=async()=>Response.json({results:[{task_id:task,status:'success',related_document_ids:[88]}]});await f.run();assert.equal(f.jobs()[0].document_id,88);assert.equal(f.jobs()[0].status,'completed');
 });
 test('prefilled disabled connection accepts the first token and stopped destination jobs remain isolated',async t=>{
@@ -116,4 +116,13 @@ test('JMAP label changes commit the PDF outbox with read/status flags',async t=>
  const f=await fixture(t);await f.save();f.add('mail');const inbox=app.encodeMailboxRef({kind:'role',mailboxId:'box',role:'inbox'}),paper=app.encodeMailboxRef({kind:'folder',mailboxId:'box',folderId:'paper'});
  const ctx={env:f.env,db:app.getDb(f.env),auth:{user:f.user,mailboxIds:['box']},accountId:'owner',origin:'https://mailflare.test',createdIds:{}};
  const response=await app.emailSet(ctx,{update:{mail:{mailboxIds:{[inbox]:true,[paper]:true},keywords:{$seen:true}}}});assert.equal(response.updated.mail,null);assert.equal(f.jobs().length,1);assert.equal(f.DB.db.prepare("SELECT read FROM messages WHERE id='mail'").get().read,1);
+});
+test('upload errors identify document permissions, token rejection and Cloudflare challenges without storing response bodies',async t=>{
+ const f=await fixture(t);await f.save();
+ for(const [id,status,body,headers,expected] of [
+  ['permission',403,'Insufficient permissions',{},'document_permission_denied'],
+  ['token',401,'{"detail":"Invalid token."}',{},'paperless_token_rejected'],
+  ['waf',403,'<html>private challenge payload</html>',{'cf-mitigated':'challenge'},'cloudflare_challenge'],
+  ['generic',403,'private upstream page',{},'unauthorized_403']
+ ]){f.add(id);await f.tag(id);globalThis.fetch=async()=>new Response(body,{status,headers});await f.run('paperless_'+id+'-pdf-0');const job=f.jobs().find(j=>j.message_id===id);assert.equal(job.status,'failed');assert.equal(job.error,expected);assert.equal(job.task_id,null);}
 });

@@ -14,9 +14,11 @@ export function LabelVisibilitySettings() {
 	const canManage = !!selectedMailbox && (!selectedMailbox.permission || selectedMailbox.permission === "full_access");
 	const folders = useMailboxFolders(selectedMailbox?.id);
 	const { hiddenLabelIds, isLoading, failed, saving, setVisible, retry } = useLabelVisibility(selectedMailbox?.id);
-	return <section id="labels" className="scroll-mt-4 space-y-3" aria-label={t("labels.visibility.title")}>
+	return <details id="labels" className="scroll-mt-4 space-y-3" aria-label={t("labels.visibility.title")}>
+		<summary className="cursor-pointer rounded-lg py-2 text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">
+			<span className="text-base font-semibold">{t("labels.visibility.title")}</span>
+		</summary>
 		<div>
-			<h3 className="text-base font-semibold text-neutral-900">{t("labels.visibility.title")}</h3>
 			<p className="mt-1 text-sm text-neutral-500">{t("labels.visibility.description")}</p>
 			<p className="mt-1 text-sm text-neutral-500">{t("labels.hierarchyDescription")}</p>
 			{selectedMailbox && <p className="mt-2 break-all text-sm text-neutral-700">{selectedMailbox.localPart}@{selectedMailbox.hostname}</p>}
@@ -31,5 +33,5 @@ export function LabelVisibilitySettings() {
 			</button>
 		</div>{canManage && selectedMailbox && <LabelParentSelect mailboxId={selectedMailbox.id} folder={folder} folders={folders} />}
 		</div>)}
-	</section>;
+	</details>;
 }

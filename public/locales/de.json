@@ -2268,5 +2268,14 @@
 	"paperless.error.invalid_settings": "Verbindungseinstellungen prüfen.",
 	"paperless.error.settings_failed": "Die Verbindung konnte nicht gespeichert oder geladen werden.",
 	"paperless.error.restore_requires_review": "Aus Sicherung wiederhergestellt. Vor dem Fortsetzen Paperless prüfen.",
-	"paperless.error.cancelled_by_user": "Auftrag manuell beendet."
+	"paperless.error.cancelled_by_user": "Auftrag manuell beendet.",
+	"paperless.error.document_permission_denied": "Paperless verweigert das Anlegen von Dokumenten. Dem Benutzer des API-Tokens in Paperless das Recht „Dokumente hinzufügen“ (documents.add_document) geben und erneut versuchen.",
+	"paperless.error.permission_denied": "Paperless verweigert den Zugriff. Der Benutzer des API-Tokens braucht Leserechte für Dokumente und Aufgaben.",
+	"paperless.error.paperless_token_rejected": "Paperless lehnt seinen API-Token ab. Den Paperless-Token prüfen; er ist unabhängig von den Cloudflare-Access-Zugangsdaten.",
+	"paperless.error.paperless_csrf": "Der Server lehnt den Upload mit einem CSRF-Fehler ab. Paperless-API-Anmeldung und Proxy-Konfiguration prüfen.",
+	"paperless.error.cloudflare_challenge": "Cloudflare verlangt eine interaktive Sicherheitsprüfung. Die passende WAF-Regel für die authentifizierten Paperless-API-Aufrufe prüfen.",
+	"paperless.error.cloudflare_access_denied": "Cloudflare Access lehnt den Aufruf ab. Die Service-Token-Richtlinie für die Paperless-API prüfen.",
+	"paperless.error.cloudflare_access_login": "Cloudflare Access leitet zur Anmeldung um. Diesen Service-Token in einer Service-Auth-Richtlinie für die Paperless-Adresse erlauben.",
+	"paperless.error.unauthorized_401": "Die API antwortet mit HTTP 401: Anmeldung abgelehnt. Paperless-Token und Cloudflare-Access-Zugangsdaten prüfen.",
+	"paperless.error.unauthorized_403": "Die API antwortet mit HTTP 403: Zugriff verweigert. In Paperless das Recht zum Hinzufügen von Dokumenten sowie Cloudflare-WAF-/Access-Regeln prüfen."
 }

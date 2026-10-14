@@ -2382,5 +2382,14 @@
 	"paperless.error.invalid_settings": "Check the connection settings.",
 	"paperless.error.settings_failed": "Could not save or load the connection.",
 	"paperless.error.restore_requires_review": "Restored from backup. Check Paperless before resuming.",
-	"paperless.error.cancelled_by_user": "Job stopped manually."
+	"paperless.error.cancelled_by_user": "Job stopped manually.",
+	"paperless.error.document_permission_denied": "Paperless refused document creation. In Paperless, grant the token account permission to add documents (documents.add_document), then retry.",
+	"paperless.error.permission_denied": "Paperless refused access. The token account needs permission to view documents and tasks.",
+	"paperless.error.paperless_token_rejected": "Paperless rejected its API token. Check the Paperless token; it is separate from the Cloudflare Access credentials.",
+	"paperless.error.paperless_csrf": "The server rejected the upload with a CSRF error. Check the Paperless API authentication and proxy configuration.",
+	"paperless.error.cloudflare_challenge": "Cloudflare requires an interactive security challenge. Review the matching WAF rule for the authenticated Paperless API requests.",
+	"paperless.error.cloudflare_access_denied": "Cloudflare Access denied this request. Check the service-token policy for the Paperless API.",
+	"paperless.error.cloudflare_access_login": "Cloudflare Access redirected to login. Allow this service token in a Service Auth policy for the Paperless address.",
+	"paperless.error.unauthorized_401": "The API returned HTTP 401: authentication rejected. Check the Paperless token and Cloudflare Access credentials.",
+	"paperless.error.unauthorized_403": "The API returned HTTP 403: access denied. Check Paperless document-creation permissions and any Cloudflare WAF/Access rules."
 }

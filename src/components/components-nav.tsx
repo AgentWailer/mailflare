@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
-import { getMessageDragData } from "@/lib/messages/drag-utils";
+import { getMessageDragData, hasMessageDragData } from "@/lib/messages/drag-utils";
 import { useSelectedMailbox } from "./mailbox-provider";
 import { useSidebar } from "./sidebar-state";
 import { useCompose } from "./compose/compose-context";
@@ -59,12 +59,19 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
   const dropProps = link.onMessageDrop
     ? {
       onDragOver: (event: DragEvent) => {
+        if (!hasMessageDragData(event.dataTransfer)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
         setDragOver(true);
       },
-      onDragLeave: () => setDragOver(false),
+      onDragLeave: (event: DragEvent) => {
+        if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+        setDragOver(false);
+      },
       onDrop: (event: DragEvent) => {
+        if (!hasMessageDragData(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
         const payload = getMessageDragData(event.dataTransfer);
         setDragOver(false);
         if (!payload) return;
