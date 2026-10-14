@@ -1081,3 +1081,37 @@ test('Freenet invoices, orders and social remain in inbox as well as their categ
  const queried=await app.emailQuery(ctx,{filter:{inMailbox:'box~inbox'}});assert.deepEqual(queried.ids,['primary','promotion','social']);
  const edited=await app.emailSet(ctx,{update:{primary:{'mailboxIds/box~f~follow':true}}});assert.equal(edited.updated.primary,null);assert.equal(f.DB.db.prepare("SELECT category FROM messages WHERE id='primary'").get().category,'invoices');assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='primary'").get().status,'received');
 });
+
+test('large imported mail keeps exact startup counts and selects metadata through covering indexes', async t => {
+ const f = await fixture(t);
+ const insert = f.DB.db.prepare("INSERT INTO messages(id,user_id,mailbox_id,direction,from_addr,to_addr,status,category,read,created_at,text_body,html_body) VALUES(?,'owner','box','inbound','sender@example.test','owner@example.test','received','invoices',0,?, ?, ?)");
+ const body = 'Long imported MIME content '.repeat(600);
+ f.DB.db.transaction(() => { for(let i=0;i<3000;i++){ insert.run('import-'+i,100+i,body,body); f.DB.db.prepare("INSERT INTO message_labels(message_id,folder_id) VALUES(?,'work')").run('import-'+i); } })();
+ const plans = [], prepare = f.DB.prepare.bind(f.DB);
+ f.DB.prepare = query => {
+  const statement=prepare(query), bind=statement.bind.bind(statement);
+  statement.bind=(...params)=>{
+   if(query.startsWith('select') && query.includes('messages')) plans.push({query, details:f.DB.db.prepare('EXPLAIN QUERY PLAN '+query).all(...params).map(row=>row.detail)});
+   return bind(...params);
+  };return statement;
+ };
+ const result=await (await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json();
+ assert.equal(result.counts.folders.inbox.unread,3002);assert.equal(result.counts.folders.invoices.unread,3000);assert.equal(result.counts.customFolders.work.unread,3000);
+ const countsPlan=plans.find(plan=>plan.query.includes('group by') && !plan.query.includes('message_labels'));
+ assert(countsPlan.details.some(detail=>/COVERING INDEX messages_counts_cover_idx/.test(detail)),JSON.stringify(countsPlan));
+ assert(!countsPlan.details.some(detail=>/TEMP B-TREE FOR GROUP BY/.test(detail)),JSON.stringify(countsPlan));
+ const labelsPlan=plans.find(plan=>plan.query.includes('message_labels') && plan.query.includes('sum('));
+ assert(labelsPlan.details.some(detail=>/COVERING INDEX messages_(?:counts|page)_cover_idx/.test(detail)),JSON.stringify(labelsPlan));
+ plans.length=0;
+ const list=await (await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received&category=primary&limit=25'))).json();assert.equal(list.total,3002);assert.equal(list.messages.length,25);
+ const totalPlan=plans.find(plan=>plan.query.includes('count(*)'));
+ assert(totalPlan.details.some(detail=>/COVERING INDEX messages_/.test(detail)),JSON.stringify(totalPlan));
+ assert(list.messages.every(message=>message.textBody===undefined&&message.htmlBody===undefined));
+});
+
+test('optimized message-list authorization still checks current valid shared-mailbox read grants', async t => {
+ const f=await fixture(t);f.DB.db.exec("UPDATE mailboxes SET type='shared' WHERE id='otherbox';INSERT INTO mailbox_access(id,user_id,mailbox_id,permission,created_at) VALUES('shared-grant','owner','otherbox','read_only',1)");
+ const read=await app.list(f.request('/api/messages?mailboxId=otherbox'));assert.equal(read.status,200);assert.equal((await read.json()).messages[0].id,'foreign');
+ f.DB.db.exec("UPDATE mailbox_access SET permission='invalid-legacy-value' WHERE id='shared-grant'");assert.equal((await app.list(f.request('/api/messages?mailboxId=otherbox'))).status,404);
+ f.DB.db.exec("DELETE FROM mailbox_access WHERE id='shared-grant'");assert.equal((await app.list(f.request('/api/messages?mailboxId=otherbox'))).status,404);
+});

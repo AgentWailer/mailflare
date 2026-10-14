@@ -43,7 +43,7 @@ export function getMessageQueryParams(
 }
 
 const messageCountsCache = new Map<string, MessageCounts>();
-const messageCountsRequests = new Map<string, Promise<MessageCounts | undefined>>();
+const messageCountsRequests = new Map<string, { promise: Promise<MessageCounts | undefined>; generation: number }>();
 const messageListCache = new Map<string, MessageListResponse>();
 const messageListRequests = new Map<string, Promise<MessageListResponse>>();
 let messageCacheGeneration = 0;
@@ -52,7 +52,8 @@ let messageCountsGeneration = 0;
 export function clearMessageCountsCache() {
 	messageCountsGeneration += 1;
 	messageCountsCache.clear();
-	messageCountsRequests.clear();
+	// Keep in-flight requests: multiple refresh listeners must not start overlapping
+	// archive-wide aggregates. A changed generation schedules one fresh follow-up.
 }
 
 export function clearMessageListCache() {
@@ -109,7 +110,11 @@ export function clearMessageClientState() {
 export async function fetchMessageCounts(mailboxId?: string | null, force = false): Promise<MessageCounts | undefined> {
 	const key = mailboxId ?? "all";
 	if (!force && messageCountsCache.has(key)) return messageCountsCache.get(key);
-	if (!force && messageCountsRequests.has(key)) return messageCountsRequests.get(key);
+	const pending = messageCountsRequests.get(key);
+	if (pending) {
+		if (pending.generation === messageCountsGeneration) return pending.promise;
+		return pending.promise.catch(() => undefined).then(() => fetchMessageCounts(mailboxId, true));
+	}
 
 	const requestGeneration = messageCacheGeneration;
 	const countsGeneration = messageCountsGeneration;
@@ -130,12 +135,12 @@ export async function fetchMessageCounts(mailboxId?: string | null, force = fals
 		}
 		return counts;
 	})().finally(() => {
-		if (messageCountsRequests.get(key) === request) {
+		if (messageCountsRequests.get(key)?.promise === request) {
 			messageCountsRequests.delete(key);
 		}
 	});
 
-	messageCountsRequests.set(key, request);
+	messageCountsRequests.set(key, { promise: request, generation: countsGeneration });
 	return request;
 }
 

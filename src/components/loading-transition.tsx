@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useIsFetching } from "@tanstack/react-query";
 import { useBranding } from "@/components/branding-provider";
 import { useLanguage } from "@/components/language-provider";
 import { PageLoadingContext } from "@/components/page-loading";
@@ -10,7 +9,6 @@ import type { LoadingTransitionProps } from "./loading-transition-types";
 
 const MINIMUM_LOADING_TIME = 600;
 const COMPLETION_TIME = 220;
-const MAXIMUM_DATA_WAIT = 10_000;
 let hasShownInitialLoadingTransition = false;
 
 export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
@@ -25,9 +23,7 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 	const [iconUrl, setIconUrl] = useState(branding.iconUrl);
 	const [pageMounted, setPageMounted] = useState(false);
 	const [pendingLoads, setPendingLoads] = useState(0);
-	const [dataWaitExpired, setDataWaitExpired] = useState(false);
 	const loadingIds = useRef(new Set<string>());
-	const fetchingQueries = useIsFetching();
 
 	const reportLoading = useCallback((id: string, loading: boolean) => {
 		if (loading) loadingIds.current.add(id);
@@ -35,7 +31,8 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 		setPendingLoads(loadingIds.current.size);
 	}, []);
 	const loadingContext = useMemo(() => ({ reportLoading }), [reportLoading]);
-	const canComplete = ready && pageMounted && (dataWaitExpired || (pendingLoads === 0 && fetchingQueries === 0));
+	// Authentication gates the shell; mailbox data has local loaders and must not hide the menu.
+	const canComplete = ready && pageMounted;
 
 	useEffect(() => {
 		setIconUrl(branding.iconUrl);
@@ -52,12 +49,6 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 	useEffect(() => {
 		if (!ready) return;
 		const timer = window.setTimeout(() => setPageMounted(true), 50);
-		return () => window.clearTimeout(timer);
-	}, [ready]);
-
-	useEffect(() => {
-		if (!ready) return;
-		const timer = window.setTimeout(() => setDataWaitExpired(true), MAXIMUM_DATA_WAIT);
 		return () => window.clearTimeout(timer);
 	}, [ready]);
 

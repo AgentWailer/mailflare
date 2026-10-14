@@ -278,6 +278,16 @@ export const messages = sqliteTable(
 	(t) => [
 		index("messages_user_created_idx").on(t.userId, t.createdAt),
 		index("messages_mailbox_idx").on(t.mailboxId),
+		// Startup aggregates and list predicates must not read imported MIME/body pages.
+		index("messages_counts_cover_idx").on(
+			t.mailboxId, t.folderId, t.category, t.direction, t.status, t.read,
+			t.starred, t.snoozedUntil, t.id, t.threadId, t.createdAt,
+		),
+		index("messages_page_cover_idx").on(
+			t.mailboxId, t.status, t.folderId, t.direction,
+			sql`${t.createdAt} desc`, sql`${t.id} desc`,
+			t.category, t.snoozedUntil, t.threadId, t.read,
+		),
 		index("messages_category_idx").on(t.mailboxId,t.category,t.status,sql`${t.createdAt} desc`),
 		index("messages_folder_idx").on(t.folderId),
 		index("messages_thread_idx").on(t.mailboxId, t.threadId),

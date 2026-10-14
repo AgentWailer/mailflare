@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 		}
 	}
 
-	const rows = await db
+	const rowsQuery = db
 		.select({
 			mailboxId: messages.mailboxId,
 			folderId: messages.folderId,
@@ -61,12 +61,14 @@ export async function GET(request: Request) {
 			messages.snoozedUntil,
 		);
 
-	const [scheduledRow] = await db
+	const scheduledQuery = db
 		.select({ total: count() })
 		.from(messages)
 		.where(and(...conditions, scheduledMessageCondition(db)));
+	const labelsQuery = db.select({id:messageLabels.folderId,total:count(),unread:sql<number>`sum(case when ${messages.direction}='inbound' and ${messages.read}=0 then 1 else 0 end)`}).from(messageLabels).innerJoin(messages,eq(messageLabels.messageId,messages.id)).innerJoin(folders,eq(messageLabels.folderId,folders.id)).where(and(...conditions,eq(folders.mailboxId,messages.mailboxId),notInArray(messages.status,["spam","trash","template"]))).groupBy(messageLabels.folderId);
+	// One D1 round trip and one consistent snapshot for the independent tallies.
+	const [rows, [scheduledRow], labels] = await db.batch([rowsQuery, scheduledQuery, labelsQuery]);
 	const counts = buildMessageCounts(rows);
-	const labels = await db.select({id:messageLabels.folderId,total:count(),unread:sql<number>`sum(case when ${messages.direction}='inbound' and ${messages.read}=0 then 1 else 0 end)`}).from(messageLabels).innerJoin(messages,eq(messageLabels.messageId,messages.id)).innerJoin(folders,eq(messageLabels.folderId,folders.id)).where(and(...conditions,eq(folders.mailboxId,messages.mailboxId),notInArray(messages.status,["spam","trash","template"]))).groupBy(messageLabels.folderId);
  counts.customFolders = Object.fromEntries(labels.map(label=>[label.id,{total:label.total,unread:label.unread}]));
 	counts.folders.scheduled.total = scheduledRow?.total ?? 0;
 

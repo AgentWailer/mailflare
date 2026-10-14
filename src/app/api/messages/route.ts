@@ -9,7 +9,7 @@ import { getDb } from "@/db";
 import { messages, outboundJobs } from "@/db/schema";
 import { getContactDisplayNameMap, getContactAvatarMap } from "@/lib/contacts/service";
 import { getFirstEmailAddressEntry, normalizeEmailAddress } from "@/lib/email/address";
-import { getMailboxAccessLevel, listAccessibleMailboxes } from "@/lib/mailboxes/access";
+import { hasMailboxPermission, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
 import { getRequestTimeZone } from "@/lib/time/utils";
 import { getMessageListColumns, loadConversationPage } from "./utils";
@@ -33,12 +33,12 @@ export async function GET(request: Request) {
 	const groupByThread = url.searchParams.get("group") === "thread" && status !== "draft";
 
 	const db = getDb(env);
-	const accessibleMailboxes = await listAccessibleMailboxes(db, user);
+	const accessibleMailboxes = (await listAccessibleMailboxes(db, user)).filter(mailbox => hasMailboxPermission(mailbox.permission, "read_only"));
 	const accessibleMailboxIds = accessibleMailboxes.map((mailbox) => mailbox.id);
 	const conditions: SQL[] = [];
 	if (mailboxId) {
-		const access = await getMailboxAccessLevel(db, user, mailboxId);
-		if (!access?.canRead) {
+		// The list already enforces ownership, current grants and disabled mailboxes.
+		if (!accessibleMailboxIds.includes(mailboxId)) {
 			return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 		}
 		conditions.push(eq(messages.mailboxId, mailboxId));

@@ -10,10 +10,7 @@ import { useSidebar } from "./sidebar-state";
 import { useCompose } from "./compose/compose-context";
 import { useLanguage } from "./language-provider";
 import { Tooltip } from "./ui/tooltip";
-import {
-  preloadMailboxPage,
-  waitForNavigationProgress,
-} from "./components-nav-utils";
+import { preloadMailboxPage } from "./components-nav-utils";
 import type { NavLink } from "./components-nav-types";
 
 type Props = {
@@ -107,7 +104,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
     return minimal && link.label ? <Tooltip label={link.label} placement="right" className="mx-auto">{composeButton}</Tooltip> : composeButton;
   }
 
-  async function navigate(event: MouseEvent<HTMLAnchorElement>) {
+  function navigate(event: MouseEvent<HTMLAnchorElement>) {
     if (
       !link.preloadMessages ||
       active ||
@@ -119,27 +116,10 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
       return;
     event.preventDefault();
     setNavigationProgress(12);
-    const timer = window.setInterval(() => {
-      setNavigationProgress((current) =>
-        current === null ? 12 : Math.min(90, current + 8),
-      );
-    }, 80);
-    try {
-      router.prefetch(link.href!);
-      await Promise.all([
-        preloadMailboxPage(link.href!, selectedMailbox?.id),
-        waitForNavigationProgress(),
-      ]);
-      setNavigationProgress(100);
-      await waitForNavigationProgress(160);
-      router.push(link.href!);
-    } catch {
-      setNavigationProgress(null);
-      // Opening the folder must still work when its optional prefetch fails.
-      router.push(link.href!);
-    } finally {
-      window.clearInterval(timer);
-    }
+    // Start the request for the destination, but never gate navigation on it.
+    // The destination hook reuses the pending request and keeps its own loader.
+    void preloadMailboxPage(link.href!, selectedMailbox?.id).catch(() => {});
+    router.push(link.href!);
   }
 
   const navLink = (
