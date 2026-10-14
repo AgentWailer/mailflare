@@ -7,7 +7,7 @@ const { chromium } = await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE || 'pl
 const root = process.cwd(), dir = mkdtempSync(join(root, 'node_modules', 'settings-sections-browser-'));
 const write = (name, body) => writeFileSync(join(dir, name), body);
 write('mailbox.ts', `const box={id:'box',localPart:'owner',hostname:'example.test',permission:'full_access'};export const useSelectedMailbox=()=>({selectedMailbox:box,mailboxes:[box],isLoading:false});`);
-write('navigation.ts', `export const usePathname=()=>location.pathname;export const useSearchParams=()=>new URLSearchParams(location.search);export const useRouter=()=>({replace:()=>{},push:()=>{},prefetch:()=>{},refresh:()=>{}});`);
+write('navigation.ts', `export const usePathname=()=>location.pathname;export const useSearchParams=()=>new URLSearchParams(location.search);export const useRouter=()=>({replace:()=>{},push:path=>{window.lastSettingsNavigation=path},prefetch:()=>{},refresh:()=>{}});`);
 write('link.tsx', `export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>;}`);
 write('server.ts', `import de from '../../public/locales/de.json';import {createTranslator} from '@/lib/i18n/utils';export const getServerTranslator=async()=>createTranslator('de',de);`);
 write('loading.ts', 'export const usePageLoading=()=>({startLoading:()=>{},stopLoading:()=>{}});');
@@ -23,7 +23,7 @@ try {
  const base=`http://127.0.0.1:${server.address().port}`;
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const width of [320,390,1440]) {
-  for(const [pageName,expectedCount] of [['account',5],['inbox',11],['security',2],['rules',2],['api-keys',1],['app-passwords',1],['import',3],['export',1]]) {
+  for(const [pageName,expectedCount] of [['account',4],['inbox',11],['security',2],['rules',2],['api-keys',1],['app-passwords',1],['import',3],['export',1]]) {
    const page=await browser.newPage({viewport:{width,height:1000}}),errors=[],requests=[],writes=[];page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/api/**',route=>{const req=route.request(),path=new URL(req.url()).pathname;requests.push(path);if(req.method()!=='GET')writes.push({path,body:req.postDataJSON()});return route.fulfill({contentType:'application/json',body:JSON.stringify(responseFor(path))});});
    await page.goto(`${base}/settings/${pageName}`);
@@ -32,18 +32,24 @@ try {
    assert.equal(await page.locator('[data-settings-section] input:visible').count(),0);
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${pageName} closed overflow at ${width}`);
    if(pageName==='inbox') {
+    assert(await page.getByRole('combobox',{name:'Design',exact:true}).isVisible());assert(await page.getByRole('combobox',{name:'Lesebereich',exact:true}).isVisible());
     assert(!requests.includes('/api/settings/paperless'));const header=page.locator('#labels > h3 > button');await header.click();await page.getByRole('switch').first().waitFor();await header.focus();await page.keyboard.press('Space');assert.equal(await header.getAttribute('aria-expanded'),'false');
     await page.locator('#paperless > h3 > button').click();await page.getByRole('textbox',{name:'Paperless-Adresse',exact:true}).waitFor();
     const url=page.getByRole('textbox',{name:'Paperless-Adresse',exact:true});await url.fill('https://dms.changed.test');await page.locator('#paperless > h3 > button').click();await page.locator('#paperless > h3 > button').click();assert.equal(await url.inputValue(),'https://dms.changed.test');
    } else if(pageName==='account') {
+    assert(await page.getByRole('combobox',{name:'Sprache',exact:true}).isVisible());assert(await page.getByRole('combobox',{name:'Design',exact:true}).isVisible());
     await page.locator('#profile > h3 > button').click();await page.locator('#name').fill('Changed name');await page.locator('#profile > h3 > button').click();await page.locator('#profile > h3 > button').click();assert.equal(await page.locator('#name').inputValue(),'Changed name');
    } else {
     await cards.first().locator('h3 > button').first().click();await page.waitForTimeout(100);
    }
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${pageName} open overflow at ${width}`);assert.deepEqual(errors,[],pageName);assert.equal(writes.length,0);
+   if(pageName==='account') {await page.locator('#profile > h3 > button').click();await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`/tmp/mailflare-settings-account-${width}.png`});}
    if(pageName==='inbox') {await page.locator('#paperless > h3 > button').click();await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`/tmp/mailflare-settings-inbox-${width}.png`});}
-   if(width<768) {const launcher=page.getByRole('button',{name:pageName==='inbox'?'Posteingang':undefined,exact:pageName==='inbox'}).filter({has:page.locator('svg.lucide-chevron-up')});await launcher.click();const nav=page.getByRole('dialog',{name:'Einstellungsmenü'});await nav.waitFor();assert.equal(await nav.locator('details[open]').count(),1);await nav.locator('details').filter({hasText:'Import & Export'}).locator('summary').click();await page.keyboard.press('Escape');} else {assert.equal(await page.locator('aside details[open]').count(),1);}
-   console.log(JSON.stringify({width,pageName,allTopicsCollapsedInitially:true,formsPreserved:true,noOverflow:true,noUnexpectedWrites:true}));await page.close();
+   if(width<768) {
+    const navigation=page.getByRole('combobox',{name:'Einstellungsmenü',exact:true});assert(await navigation.isVisible());assert.equal(await navigation.locator('option').count(),8);await navigation.selectOption('/settings/security');assert.equal(await page.evaluate(()=>window.lastSettingsNavigation),'/settings/security');
+   } else {assert.equal(await page.locator('aside a:visible').count(),8);assert.equal(await page.locator('aside [aria-current="page"]').count(),1);}
+
+   console.log(JSON.stringify({width,pageName,advancedTopicsCollapsedInitially:true,frequentOptionsDirectlyVisible:true,formsPreserved:true,noOverflow:true,noUnexpectedWrites:true}));await page.close();
   }
  }
  // Deep links must open the intended section, including the OAuth return destination.

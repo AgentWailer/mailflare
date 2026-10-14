@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
+import { AppearanceSettings } from "./appearance-settings";
 import { LanguageSelector } from "@/components/language-selector";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ForwardingEmailForm } from "./forwarding-email-form";
@@ -10,7 +11,7 @@ import { ProfileForm } from "./profile-form";
 import { TimeZoneForm } from "./time-zone-form";
 import type { AccountSettingsResponse } from "./types";
 import { loadAccountSettings } from "./utils";
-import { SettingsSection, SettingsPageHeader } from "./settings-section";
+import { SettingsSection, SettingsPageHeader, SettingsGroup } from "./settings-section";
 
 export function AccountSettings() {
 	const { t } = useLanguage();
@@ -33,22 +34,13 @@ export function AccountSettings() {
 		};
 	}, [t]);
 
-	if (error) {
-		return <p className="py-8 text-sm text-red-600">{error}</p>;
-	}
-
-	if (!user) {
-		return (
-			<div className="space-y-6 py-4">
-				<Skeleton className="h-9 w-40" />
-				{[0, 1, 2].map((key) => <Skeleton key={key} className="h-20 w-full rounded-2xl" />)}
-			</div>
-		);
-	}
-
 	return (
 		<div className="space-y-3 py-4">
 			<SettingsPageHeader title={t("settings.nav.account")} description={t("settings.account.detailsDescription")} />
+			<SettingsGroup id="general" title={t("settings.account.generalTitle")}>
+				<div className="grid gap-4 sm:grid-cols-2"><div id="language" className="[&>div]:px-0"><LanguageSelector /></div><AppearanceSettings compact /></div>
+			</SettingsGroup>
+			{error ? <p className="py-4 text-sm text-red-600">{error}</p> : !user ? <div className="space-y-3">{[0, 1, 2].map(key => <Skeleton key={key} className="h-20 w-full rounded-2xl" />)}</div> : <>
 			<SettingsSection id="profile" title={t("settings.account.detailsTitle")} description={t("settings.guide.profile")}>
 				<ProfileForm initialName={user.name} initialResetEmail={user.resetEmail ?? ""} email={user.email} />
 			</SettingsSection>
@@ -58,12 +50,10 @@ export function AccountSettings() {
 			<SettingsSection id="signature" title={t("settings.account.signatureTitle")} description={t("settings.account.signatureDescription")}>
 				<MailboxSignatureForm />
 			</SettingsSection>
-			<SettingsSection id="language" title={t("language.label")} description={t("settings.guide.language")}>
-				<div className="max-w-xs [&>div]:px-0 [&_label]:sr-only"><LanguageSelector /></div>
-			</SettingsSection>
 			<SettingsSection id="time-zone" title={t("settings.timeZone.title")} description={t("settings.guide.timeZone")}>
 				<TimeZoneForm userId={user.id} initialTimeZone={user.timeZone} />
 			</SettingsSection>
+			</>}
 		</div>
 	);
 }

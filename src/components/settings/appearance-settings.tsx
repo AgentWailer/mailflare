@@ -18,7 +18,7 @@ const OPTIONS: { value: ThemePreference; labelKey: TranslationKey }[] = [
 	{ value: "dark", labelKey: "settings.theme.dark" },
 ];
 
-export function AppearanceSettings() {
+export function AppearanceSettings({ compact = false }: { compact?: boolean } = {}) {
 	const { t } = useLanguage();
 	const [preference, setPreference] = useState<ThemePreference>("system");
 
@@ -30,17 +30,17 @@ export function AppearanceSettings() {
 	}, []);
 
 	return (
-		<label className="flex items-start gap-3 rounded-xl bg-neutral-50 p-4">
+		<label className={compact ? "flex min-w-0 flex-col gap-1" : "flex items-start gap-3 rounded-xl bg-neutral-50 p-4"}>
 			<span className="flex-1">
-				<span className="block text-sm font-medium text-neutral-900">{t("settings.theme.label")}</span>
-				<span className="mt-1 block text-sm text-neutral-500">
+				<span className={compact ? "block text-xs text-neutral-600" : "block text-sm font-medium text-neutral-900"}>{t("settings.theme.label")}</span>
+				{!compact && <span className="mt-1 block text-sm text-neutral-500">
 					{t("settings.theme.description")}
-				</span>
+				</span>}
 			</span>
 			<Select
 				value={preference}
 				aria-label={t("settings.theme.label")}
-				className="py-1.5 text-sm text-neutral-900"
+				className={compact ? "min-h-11 w-full rounded-lg py-2 text-sm text-neutral-900" : "py-1.5 text-sm text-neutral-900"}
 				onChange={(event) => {
 					const next = event.target.value;
 					if (!isThemePreference(next)) return;

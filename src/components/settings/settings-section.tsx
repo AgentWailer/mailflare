@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { useLanguage } from "@/components/language-provider";
 
 type SettingsSectionProps = {
 	id: string;
@@ -59,10 +58,16 @@ export function SettingsSection({ id, title, description, children }: SettingsSe
 }
 
 export function SettingsPageHeader({ title, description }: { title: string; description?: string }) {
-	const { t } = useLanguage();
 	return <header className="mb-6 space-y-2">
 		<h1 className="text-2xl font-semibold tracking-tight text-neutral-900">{title}</h1>
 		{description && <p className="text-sm leading-6 text-neutral-600">{description}</p>}
-		<p className="text-xs leading-5 text-neutral-500">{t("settings.guide.hint")}</p>
 	</header>;
+}
+
+/** Frequently used controls stay visible and need no disclosure click. */
+export function SettingsGroup({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+	return <section id={id} data-settings-quick className="scroll-mt-4 space-y-4 rounded-2xl border border-neutral-200/80 bg-white p-4 sm:p-5">
+		<h2 className="text-base font-semibold text-neutral-900">{title}</h2>
+		{children}
+	</section>;
 }

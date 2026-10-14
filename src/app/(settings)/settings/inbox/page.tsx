@@ -1,5 +1,5 @@
 import { getServerTranslator } from "@/lib/i18n/server";
-import { SettingsSection, SettingsPageHeader } from "@/components/settings/settings-section";
+import { SettingsSection, SettingsPageHeader, SettingsGroup } from "@/components/settings/settings-section";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { InboxReadingLayoutSettings } from "@/components/settings/inbox-reading-layout-settings";
 import { InboxThreadingSettings } from "@/components/settings/inbox-threading-settings";
@@ -20,13 +20,10 @@ export default async function SettingsInboxPage() {
 		<SettingsPageHeader title={t("settings.nav.inbox")} description={t("settings.guide.inbox")} />
 		<section className="space-y-3" aria-label={t("settingsPage.inbox.experience")}>
 			<h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t("settingsPage.inbox.experience")}</h2>
-			<SettingsSection id="appearance" title={t("settingsPage.inbox.appearance")} description={t("settings.guide.appearance")}>
-				<div className="space-y-5">
-					<AppearanceSettings />
-					<div><h4 className="mb-2 text-sm font-medium">{t("settingsPage.inbox.readingLayout")}</h4><InboxReadingLayoutSettings /></div>
-					<div><h4 className="mb-2 text-sm font-medium">{t("settingsPage.inbox.threading")}</h4><InboxThreadingSettings /></div>
-				</div>
-			</SettingsSection>
+			<SettingsGroup id="appearance" title={t("settingsPage.inbox.appearance")}>
+				<div className="grid gap-4 sm:grid-cols-2"><AppearanceSettings compact /><InboxReadingLayoutSettings compact /></div>
+			</SettingsGroup>
+			<SettingsSection id="conversations" title={t("settingsPage.inbox.threading")} description={t("settingsPage.inbox.threadingDescription")}><InboxThreadingSettings /></SettingsSection>
 			<SettingsSection id="labels" title={t("labels.visibility.title")} description={t("settings.guide.labels")}>
 				<LabelVisibilitySettings embedded />
 			</SettingsSection>
