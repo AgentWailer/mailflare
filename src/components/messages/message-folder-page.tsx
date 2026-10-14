@@ -324,15 +324,16 @@ export function MessageFolderPage({
 	const setUnreadOnly = selection?.setUnreadOnly ?? setInternalUnreadOnly;
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const { messages, isLoading, isRefreshing, error, total, limit, updateMessages, refresh } = useMessages(config.folder, selectedMailbox?.id, {
+	const { messages, isLoading: messagesLoading, isRefreshing, error, total, limit, updateMessages, refresh } = useMessages(config.folder, selectedMailbox?.id, {
 		query,
 		limit: pageSize,
 		offset,
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
+	const isLoading = mailboxesLoading || messagesLoading;
 	const { counts } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
-	usePageLoading(mailboxesLoading || isLoading);
+	usePageLoading(isLoading);
 	const headerIcons = config.headerIcons ?? [];
 	const hasActiveFilters = !!query.trim();
 	const folderCount = config.folderId
