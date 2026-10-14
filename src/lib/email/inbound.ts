@@ -1,3 +1,4 @@
+import { safeErrorCategory } from "@/lib/security/logging";
 import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
 import { classifyIncomingMail } from "@/lib/mail-sorting/classifier";
 import { shouldNotifyMail } from "@/lib/mail-sorting/categories";
@@ -47,19 +48,19 @@ export async function processInboundMessage(
 	const decision = await resolveInboundAddress(db, payload.to, payload.from);
 
 	if (!decision) {
-		console.warn(`No routing for inbound address: ${payload.to}`);
+		console.warn("No routing for inbound address");
 		return;
 	}
 
 	if (decision.action === "reject") {
-		console.warn(`Rejected inbound: ${payload.to}`);
+		console.warn("Rejected inbound");
 		return;
 	}
 
 	// A forward decision only reaches the queue when the rule keeps a copy; without a
 	// destination mailbox there is nothing to store.
 	if (decision.action === "forward" && !decision.keepCopy) {
-		console.info(`Forward ${payload.to} -> ${decision.forwardTo}`);
+		console.info("Forwarding inbound message");
 		return;
 	}
 
@@ -72,7 +73,7 @@ export async function processInboundMessage(
 		try {
 			const [existing] = await db.select().from(messages).where(eq(messages.id, stored.id)).limit(1);
 			if (existing && Date.now() - existing.createdAt.getTime() < 30 * 60_000) await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: existing.id, ownerUserId: decision.mailbox.userId, sender: existing.fromAddr, headers: payload.headers, status: existing.category === "primary" ? existing.status : "archived", folderId: existing.folderId, spamVerdict: existing.spamVerdict, spamAnalysisError: existing.spamAnalysisError });
-		} catch (error) { console.error("Auto-draft recovery failed", error); }
+		} catch (error) { console.error("Auto-draft recovery failed", safeErrorCategory(error)); }
 		return;
 	}
 
@@ -86,7 +87,7 @@ export async function processInboundMessage(
 	const parsed = await parseRawMime(buffer);
 	const attachmentLimitReason = inboundAttachmentLimitReason(parsed.attachments);
 	if (attachmentLimitReason) {
-		console.warn(`Inbound attachment limit reached for ${payload.to}: ${attachmentLimitReason}`);
+		console.warn("Inbound attachment limit reached");
 		await env.BUCKET.delete(payload.rawR2Key);
 		return;
 	}
@@ -118,7 +119,7 @@ export async function processInboundMessage(
 			});
 		} catch (error) {
 			spamAnalysisError = error instanceof Error ? error.message.slice(0, 300) : "Spam analysis failed";
-			console.error(`Spam analysis failed for ${messageId}`, error);
+			console.error(`Spam analysis failed for ${messageId}`, safeErrorCategory(error));
 		}
 	}
 	if (destination.status === "spam" && spamAnalysis) {
@@ -164,12 +165,7 @@ export async function processInboundMessage(
 			references: parsed.references,
 		});
 	} catch (error) {
-		console.error("Inbound thread lookup failed", {
-			rawR2Key: payload.rawR2Key,
-			recipient: payload.to,
-			referenceCount: parsed.references.length,
-			error,
-		});
+		console.error("Inbound thread lookup failed", safeErrorCategory(error));
 		threadId = normalizeMessageId(parsed.messageId) ?? newId("thr");
 	}
 
@@ -213,7 +209,7 @@ export async function processInboundMessage(
 			try {
 				await recordReputationObservation(env, decision.mailbox.mailboxId, getReputationKeys(parsed, spamAnalysis.fingerprint));
 			} catch (error) {
-				console.error(`Spam reputation observation failed for ${messageId}`, error);
+				console.error(`Spam reputation observation failed for ${messageId}`, safeErrorCategory(error));
 			}
 			console.info(JSON.stringify({
 				messageId,
@@ -238,7 +234,7 @@ export async function processInboundMessage(
 				headers: payload.headers,
 			});
 		} catch (error) {
-			console.error(`Auto-reply failed for mailbox ${decision.mailbox.mailboxId}`, error);
+			console.error(`Auto-reply failed for mailbox ${decision.mailbox.mailboxId}`, safeErrorCategory(error));
 		}
 	}
 
@@ -270,7 +266,7 @@ export async function processInboundMessage(
 	});
 	try {
 		await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: messageId, ownerUserId: decision.mailbox.userId, sender: fromAddr, headers: payload.headers, status: category === "primary" ? status : "archived", folderId, spamVerdict: spamAnalysis?.verdict, spamAnalysisError });
-	} catch (error) { console.error("Auto-draft scheduling failed", error); }
+	} catch (error) { console.error("Auto-draft scheduling failed", safeErrorCategory(error)); }
 }
 
 export async function storeRawToR2(

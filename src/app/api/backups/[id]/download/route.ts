@@ -16,14 +16,16 @@ export async function GET(
 		assertPrimaryAdmin(user);
 		const { id } = await params;
 		const [backup] = await getDb(env).select().from(backups).where(eq(backups.id, id)).limit(1);
-		if (!backup?.r2Key) return NextResponse.json({ error: "Backup file not found" }, { status: 404 });
+		if (backup?.status !== "completed" || !backup.r2Key) return NextResponse.json({ error: "Backup file not found" }, { status: 404 });
 		const object = await env.BUCKET.get(backup.r2Key);
 		if (!object) return NextResponse.json({ error: "Backup file not found" }, { status: 404 });
 		return new Response(object.body, {
 			headers: {
-				"Content-Type": "application/sql",
-				"Content-Disposition": `attachment; filename="${backup.filename ?? `${backup.id}.sql`}"`,
+				"Content-Type": "application/json",
+				"Content-Disposition": `attachment; filename="${backup.filename ?? `${backup.id}.json`}"`,
 				"Content-Length": String(object.size),
+				"Cache-Control": "private, no-store",
+				"X-Content-Type-Options": "nosniff",
 			},
 		});
 	} catch {

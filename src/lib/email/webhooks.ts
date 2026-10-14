@@ -1,3 +1,4 @@
+import { safeErrorCategory } from "@/lib/security/logging";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import type { AppDatabase } from "@/db";
@@ -58,7 +59,7 @@ export async function dispatchWebhooks(
 			const delivery = await createDelivery(db, hook.id, eventType, body);
 			await attemptDelivery(env, db, hook, delivery);
 		} catch (error) {
-			console.error(`Webhook dispatch failed for ${hook.id}`, error);
+			console.error(`Webhook dispatch failed for ${hook.id}`, safeErrorCategory(error));
 		}
 	}
 }
@@ -151,7 +152,7 @@ async function scheduleRetry(env: CloudflareEnv, deliveryId: string, delaySecond
 	try {
 		await env.OUTBOUND_QUEUE.send(message, { delaySeconds });
 	} catch (error) {
-		console.error(`Failed to schedule webhook retry for ${deliveryId}`, error);
+		console.error(`Failed to schedule webhook retry for ${deliveryId}`, safeErrorCategory(error));
 	}
 }
 

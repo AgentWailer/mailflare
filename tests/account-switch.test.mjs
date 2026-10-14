@@ -83,3 +83,10 @@ test('a rejected switch keeps the active account session',async t=>{
  app.setClientSessionToken('active');t.mock.method(globalThis,'fetch',async()=>Response.json({error:'Account session expired'},{status:401}));
  assert.equal(await app.switchBrowserAccount('expired'),'Account session expired');assert.equal(app.getClientSessionToken(),'active');
 });
+
+
+test('authenticated fetch never sends the session to a different origin',async t=>{
+ app.setClientSessionToken('private-session');let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return Response.json({ok:true});});
+ for(const target of ['https://external.test/collect','//external.test/collect',new URL('https://external.test/'),new Request('https://external.test/')]) await assert.rejects(app.authFetch(target),/Mailflare origin/);
+ assert.equal(calls,0);assert.equal(app.getClientSessionToken(),'private-session');await app.authFetch('/api/auth/me');assert.equal(calls,1);
+});

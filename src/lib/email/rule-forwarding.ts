@@ -1,3 +1,4 @@
+import { safeErrorCategory } from "@/lib/security/logging";
 import { and, desc, asc, eq } from "drizzle-orm";
 import { getDb, type AppDatabase } from "@/db";
 import { domains, routingRules } from "@/db/schema";
@@ -64,18 +65,18 @@ export async function forwardMatchingMailboxRules(
 				if (await forward(target, { [MAILFLARE_FORWARDED_HEADER]: "1" })) {
 					// A statistics failure must not trigger a second forwarding target.
 					try { await recordRuleMatch(db, rule.id); }
-					catch (error) { console.error("Mailbox forwarding statistics failed", { ruleId: rule.id, error }); }
+					catch (error) { console.error("Mailbox forwarding statistics failed", { ruleId: rule.id, error: safeErrorCategory(error) }); }
 					return [target.toLowerCase()];
 				}
 			} catch (error) {
-				console.error("Mailbox rule forwarding failed", { ruleId: rule.id, error });
+				console.error("Mailbox rule forwarding failed", { ruleId: rule.id, error: safeErrorCategory(error) });
 			}
 			// The highest-priority matching rule wins; failures still keep the local copy.
 			return [];
 		}
 		return [];
 	} catch (error) {
-		console.error("Mailbox rule forwarding unavailable; keeping original message", error);
+		console.error("Mailbox rule forwarding unavailable; keeping original message", safeErrorCategory(error));
 		return [];
 	}
 }

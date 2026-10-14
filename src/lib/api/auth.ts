@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/cookies";
+import { resolveCurrentUser } from "@/lib/auth/cookies";
 import { authenticateApiKeyValue, hasScope } from "@/lib/api/key-auth";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
 
@@ -21,9 +21,9 @@ export const requireScope = hasScope;
  * status.
  */
 export async function requireSessionUser(env: CloudflareEnv, request: Request) {
-	const user = await getCurrentUser(env, request);
+	const { user, failure } = await resolveCurrentUser(env, request);
 	if (!user) {
-		return { user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) } as const;
+		return { user: null, error: NextResponse.json({ error: failure === "origin" ? "Invalid origin" : "Unauthorized" }, { status: failure === "origin" ? 403 : 401 }) } as const;
 	}
 	return { user, error: null } as const;
 }

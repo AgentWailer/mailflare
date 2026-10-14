@@ -1,3 +1,4 @@
+import { safeErrorCategory } from "@/lib/security/logging";
 import { getDb } from "@/db";
 import { aiUsage } from "@/db/schema";
 import { newId } from "@/lib/ids";
@@ -16,6 +17,6 @@ export async function recordAiUsage({ env, details, usage, source }: RecordAiUsa
 			costUsdMicros: calculateAgentCostUsdMicros(usage, details.rates),
 		});
 	} catch (error) {
-		console.error("Could not record AI usage", error);
+		console.error("Could not record AI usage", safeErrorCategory(error));
 	}
 }

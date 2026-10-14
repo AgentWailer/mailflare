@@ -1,3 +1,4 @@
+import { safeErrorCategory } from "@/lib/security/logging";
 import { getDb } from "@/db";
 import { recordRuleMatch, resolveInboundAddress, type RoutingDecision } from "@/lib/email/routing";
 import { MAILFLARE_FORWARDED_HEADER } from "@/lib/email/account-forwarding";
@@ -21,7 +22,7 @@ export async function resolveIncomingMail(
 		}
 		return decision;
 	} catch (error) {
-		console.error(`Routing resolution failed for ${to}`, error);
+		console.error("Routing resolution failed", safeErrorCategory(error));
 		return null;
 	}
 }
@@ -42,7 +43,7 @@ export async function forwardMessage(
 		await message.forward(destination, headers);
 		return true;
 	} catch (error) {
-		console.error(`Forwarding failed for ${message.to} -> ${destination}`, error);
+		console.error("Forwarding failed", safeErrorCategory(error));
 		return false;
 	}
 }

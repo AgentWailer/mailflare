@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const directory = mkdtempSync(join(root, 'node_modules', 'mailflare-security-test-'));
 after(() => rmSync(directory, { recursive: true, force: true }));
-writeFileSync(join(directory, 'headers.mjs'), 'export async function cookies() { return { get: () => undefined }; }');
+writeFileSync(join(directory, 'headers.mjs'), 'export async function cookies() { return { get: name => name==="ep_session" && globalThis.__securityCookie ? {value:globalThis.__securityCookie} : undefined }; }');
 await build({ stdin: { contents: `
  export { SqliteDatabase } from './server/runtime/sqlite-database.ts';
  export { applyMigrations } from './server/runtime/migrate.ts';
@@ -18,13 +18,18 @@ await build({ stdin: { contents: `
  export { GET as getContact, PATCH as updateContact } from './src/app/api/contacts/route.ts';
  export { GET as listDomains, POST as createDomain } from './src/app/api/domains/route.ts';
  export { GET as sharedFile } from './src/app/api/shared-files/[id]/route.ts';
+ export { GET as message } from './src/app/api/messages/[messageId]/route.ts';
+ export { GET as metadata } from './src/app/api/messages/[messageId]/metadata/route.ts';
+ export { GET as original } from './src/app/api/messages/[messageId]/original/route.ts';
+ export { GET as backupDownload } from './src/app/api/backups/[id]/download/route.ts';
+ export { POST as logout } from './src/app/api/auth/logout/route.ts';
  export { GET as attachment } from './src/app/api/messages/[messageId]/attachments/[attachmentId]/route.ts';
 `, resolveDir: root, sourcefile: 'security-entry.ts' }, outfile: join(directory, 'entry.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', tsconfig: join(root, 'tsconfig.json'), alias: { 'next/headers': join(directory, 'headers.mjs'), 'next/server': 'next/server.js', 'cloudflare:workers': './server/runtime/cloudflare-workers.ts' }, logLevel: 'silent' });
 const app = await import(pathToFileURL(join(directory, 'entry.mjs')).href);
 
 async function fixture(t) {
  const database = new app.SqliteDatabase(':memory:');
- t.after(() => { database.db.close(); delete globalThis.__mailflareNodeEnv; });
+ t.after(() => { database.db.close(); delete globalThis.__mailflareNodeEnv; delete globalThis.__securityCookie; });
  await app.applyMigrations(database, join(root, 'drizzle/migrations'));
  database.db.exec(`
  INSERT INTO users (id,email,password_hash,name,role,created_at) VALUES ('owner','owner@example.test','hash','Owner','user',1),('other','other@example.test','hash','Other','admin',1);
@@ -34,14 +39,14 @@ async function fixture(t) {
  INSERT INTO message_attachments (id,message_id,filename,content_type,size,r2_key,created_at) VALUES ('file','message','invoice.html','text/html',7,'private/file',1);
  `);
  const reads = [];
- const env = { DB: database, MAILFLARE_RUNTIME: 'node', BUCKET: { get: async key => { reads.push(key); return { body: 'content', size: 7, writeHttpMetadata: headers => headers.set('Content-Type', 'text/html') }; } } };
+ const env = { DB: database, MAILFLARE_RUNTIME: 'node', BUCKET: { get: async key => { reads.push(key); return { body: 'content', arrayBuffer:async()=>new TextEncoder().encode('From: sender@example.test\r\n\r\nContent').buffer, size: 7, writeHttpMetadata: headers => headers.set('Content-Type', 'text/html') }; } } };
  globalThis.__mailflareNodeEnv = env;
  const tokens = {};
  for (const id of ['owner', 'other']) tokens[id] = await app.createSession(env, id);
  const request = (user, path = '/api/mailboxes', method = 'GET') => new Request('https://mailflare.test'+path, { method, headers: user ? { Authorization: 'Bearer '+(tokens[user] ?? 'invalid') } : {}, ...(method==='POST' ? { body: 'not JSON' } : {}) });
  const download = user => app.attachment(request(user, '/api/messages/message/attachments/file'), { params: Promise.resolve({ messageId: 'message', attachmentId: 'file' }) });
  const shared = () => app.sharedFile(request(null, '/api/shared-files/link'), { params: Promise.resolve({ id: 'link' }) });
- return { database, env, reads, request, download, shared };
+ return { database, env, reads, request, download, shared, tokens };
 }
 
 test('mailbox listing and creation return 401 before parsing or touching mailbox state', async t => {
@@ -112,4 +117,42 @@ test('shared attachment access requires a current explicit grant and revocation 
  f.database.db.exec("DELETE FROM mailbox_access WHERE id='grant'");
  assert.equal((await f.download('other')).status, 404);
  assert.deepEqual(f.reads, ['private/file']);
+});
+
+
+test('legacy folder writes reject cross-origin cookie requests before changing labels', async t => {
+ const f = await fixture(t);globalThis.__securityCookie=f.tokens.owner;
+ for(const headers of [{Origin:'https://untrusted.example.test','Sec-Fetch-Site':'same-site'},{Origin:'https://evil.test','Sec-Fetch-Site':'same-origin'},{}]) {
+  const request=new Request('https://mailflare.test/api/folders',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({mailboxId:'mailbox',name:'Unwanted'})});
+  assert.equal((await app.createFolder(request)).status,403);
+ }
+ assert.equal(f.database.db.prepare('SELECT count(*) n FROM folders').get().n,0);
+ const valid=new Request('https://mailflare.test/api/folders',{method:'POST',headers:{Origin:'https://mailflare.test','Sec-Fetch-Site':'same-origin','Content-Type':'application/json'},body:JSON.stringify({mailboxId:'mailbox',name:'Valid label'})});
+ assert.equal((await app.createFolder(valid)).status,200);
+ assert.equal(f.database.db.prepare('SELECT count(*) n FROM folders').get().n,1);
+});
+
+test('message contents, metadata and raw originals reject anonymous and foreign administrators',async t=>{
+ const f=await fixture(t);f.database.db.prepare("UPDATE messages SET raw_r2_key='private/raw' WHERE id='message'").run();
+ for(const handler of [app.message,app.metadata,app.original]) {
+  const params={params:Promise.resolve({messageId:'message'})};
+  assert.equal((await handler(f.request(null),params)).status,401);
+  assert.equal((await handler(f.request('other'),params)).status,404);
+ }
+ assert.deepEqual(f.reads,[]);
+ assert.equal((await app.message(f.request('owner'),{params:Promise.resolve({messageId:'message'})})).status,200);
+});
+
+test('cross-origin logout cannot invalidate the current browser session',async t=>{
+ const f=await fixture(t);globalThis.__securityCookie=f.tokens.owner;
+ const response=await app.logout(new Request('https://mailflare.test/api/auth/logout',{method:'POST',headers:{Origin:'https://untrusted.example.test','Sec-Fetch-Site':'same-site'}}));
+ assert.equal(response.status,403);assert.equal(f.database.db.prepare('SELECT count(*) n FROM sessions').get().n,2);
+});
+
+
+test('database backups are readable only by the primary administrator and never browser-cached',async t=>{
+ const f=await fixture(t);f.database.db.exec("INSERT INTO backups(id,status,trigger,r2_key,filename,created_at) VALUES('backup','completed','manual','private/backup','backup.json',1)");
+ const params={params:Promise.resolve({id:'backup'})};
+ assert.equal((await app.backupDownload(f.request(null),params)).status,403);assert.equal((await app.backupDownload(f.request('other'),params)).status,403);assert.deepEqual(f.reads,[]);
+ f.database.db.exec("UPDATE users SET role='admin',is_primary_admin=1 WHERE id='owner'");const response=await app.backupDownload(f.request('owner'),params);assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.equal(response.headers.get('Content-Type'),'application/json');
 });

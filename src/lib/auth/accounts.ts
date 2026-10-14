@@ -1,3 +1,4 @@
+import { hasValidSessionMutationOrigin } from "./origin";
 import { and, eq, gt, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { sessions, users } from "@/db/schema";
@@ -34,13 +35,7 @@ export function cookieOptions(maxAge = COOKIE_MAX_AGE) {
 
 /** Cross-site POSTs must not be able to switch or add accounts. */
 export function isSameOrigin(request: Request): boolean {
-	const origin = request.headers.get("Origin");
-	if (!origin) return true;
-	try {
-		return new URL(origin).host === new URL(request.url).host;
-	} catch {
-		return false;
-	}
+	return hasValidSessionMutationOrigin(request);
 }
 
 export type AccountSummary = {

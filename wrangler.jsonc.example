@@ -40,6 +40,13 @@
 	],
 	"observability": {
 		"enabled": true,
+		"redact_query_string": true,
+		"logs": {
+			"enabled": true,
+			"invocation_logs": false,
+			"persist": false,
+		},
+		"traces": { "enabled": false, "persist": false },
 	},
 	"upload_source_maps": true,
 	"send_email": [

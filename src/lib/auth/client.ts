@@ -51,6 +51,11 @@ export function getAuthHeaders(headers?: HeadersInit): Headers {
 }
 
 export async function authFetch(input: RequestInfo | URL, init: AuthFetchOptions = {}): Promise<Response> {
+	// Never attach a mailbox session to an external URL supplied by another component.
+	if (typeof window !== "undefined") {
+		const target = new URL(input instanceof Request ? input.url : String(input), window.location.href);
+		if (target.origin !== window.location.origin) throw new TypeError("Authenticated requests must stay on the Mailflare origin");
+	}
 	const { redirectOnUnauthorized = true, headers, ...requestInit } = init;
 	const sessionToken = getClientSessionToken();
 	const response = await fetch(input, {

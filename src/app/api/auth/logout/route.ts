@@ -1,3 +1,4 @@
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getEnv } from "@/lib/cloudflare";
@@ -6,6 +7,7 @@ import { ACCOUNTS_COOKIE, cookieOptions, parseAccountTokens, resolveAccounts, se
 import { recordAuthActivity } from "@/lib/auth/activity";
 
 export async function POST(request: Request) {
+	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const env = getEnv();
 	const jar = await cookies();
 	const authorization = request.headers.get("Authorization");
