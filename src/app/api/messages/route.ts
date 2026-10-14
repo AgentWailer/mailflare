@@ -1,3 +1,4 @@
+import { getListAttachmentCounts } from "@/lib/messages/list-attachments";
 import { getMessageLabels, getConversationLabels } from "@/lib/mail-sorting/labels";
 import { NextResponse } from "next/server";
 import { eq, desc, and, count, isNotNull, inArray, notInArray, sql, sum } from "drizzle-orm";
@@ -112,9 +113,10 @@ export async function GET(request: Request) {
 	const labelsPromise = groupByThread
 		? getConversationLabels(db, keys, where).then(labels => labels.map(({ threadKey, ...label }) => ({ messageId: threadKey, ...label })))
 		: getMessageLabels(db, rows.map(row => row.id));
-	const [members, countRows, jobs, contactEntries, labels, repairedPreviews] = await Promise.all([
+	const [members, countRows, jobs, contactEntries, labels, repairedPreviews, attachmentCounts] = await Promise.all([
 		membersPromise, threadCountsPromise, jobsPromise, contactsPromise, labelsPromise,
 		repairVisiblePreviews(db, rows).catch(() => new Map<string, string>()),
+		getListAttachmentCounts(db, rows, groupByThread, where),
 	]);
 	for (const member of members) {
 		const ids = threadMessageIds.get(member.key) ?? [];
@@ -145,6 +147,7 @@ export async function GET(request: Request) {
 		const accountName = message.mailboxId ? mailboxNameMap.get(message.mailboxId) : null;
 		return {
 			...message,
+			attachmentCount: attachmentCounts.get(groupByThread ? message.threadId ?? message.id : message.id) ?? 0,
 			fromContactHasAvatar: avatarMap?.get(normalizeEmailAddress(message.fromAddr)) ?? false,
 			toContactHasAvatar: avatarMap?.get(normalizeEmailAddress(getFirstEmailAddressEntry(message.toAddr))) ?? false,
 			labels: labelsByKey.get(groupByThread ? message.threadId ?? message.id : message.id) ?? [],

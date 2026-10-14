@@ -1189,3 +1189,23 @@ test('poor legacy previews are repaired from bounded visible bodies once without
  assert.equal(f.DB.db.prepare("SELECT snippet FROM messages WHERE id='primary'").get().snippet,row.snippet);assert.equal(f.DB.db.prepare("SELECT snippet FROM messages WHERE id='foreign'").get().snippet,'https://foreign.test/private');
  const sql=[];const prepare=f.DB.prepare.bind(f.DB);t.mock.method(f.DB,'prepare',query=>{sql.push(query);return prepare(query);});await app.list(f.request('/api/messages?mailboxId=box&direction=inbound'));assert(!sql.some(query=>query.includes('substr(')),'subsequent normal list loads use only cached metadata');
 });
+test('list attachment counts exclude inline/trash files and stay scoped to matching conversation members',async t=>{
+ const f=await fixture(t);
+ f.DB.db.exec(`
+ UPDATE messages SET thread_id='thread' WHERE id IN ('primary','promotion','foreign','spam');
+ INSERT INTO message_labels(message_id,folder_id) VALUES('primary','work'),('promotion','work'),('social','work');
+ INSERT INTO message_attachments(id,message_id,filename,content_type,size,disposition,r2_key,created_at,trashed_at) VALUES
+ ('pdf','primary','invoice.pdf','application/pdf',100,'attachment','pdf',1,NULL),
+ ('logo','primary','logo.png','image/png',20,'inline','logo',1,NULL),
+ ('deleted','primary','deleted.pdf','application/pdf',20,'attachment','deleted',1,1),
+ ('older-pdf','promotion','old.pdf','application/pdf',20,'attachment','old',1,NULL),
+ ('foreign-file','foreign','private.pdf','application/pdf',20,'attachment','foreign',1,NULL),
+ ('spam-file','spam','spam.pdf','application/pdf',20,'attachment','spam',1,NULL);`);
+ const list=async query=>(await (await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&'+query))).json()).messages;
+ const single=await list('status=received&folderId=work');assert.equal(single.find(m=>m.id==='primary').attachmentCount,1);assert.equal(single.find(m=>m.id==='promotion').attachmentCount,1);assert.equal(single.find(m=>m.id==='social').attachmentCount,0);
+ const grouped=await list('status=received&folderId=work&group=thread');assert.equal(grouped.find(m=>m.id==='primary').attachmentCount,2);
+ const inbox=await list('status=received&category=primary&group=thread');assert.equal(inbox.find(m=>m.id==='primary').attachmentCount,1);
+ // A newer message without a file still represents the older member's attachment.
+ f.DB.db.exec("DELETE FROM message_attachments WHERE id='pdf'");const older=await list('status=received&folderId=work&group=thread');assert.equal(older.find(m=>m.id==='primary').attachmentCount,1);
+ assert(single.every(m=>!('attachments' in m)&&!('textBody' in m)&&!('htmlBody' in m)));
+});

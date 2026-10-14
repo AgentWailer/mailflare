@@ -47,6 +47,8 @@ export type Message = {
 	threadUnread?: number;
 	/** In conversation view: every message this row stands for within the current folder. */
 	threadMessageIds?: string[];
+	/** Available file attachments, across matching members when this row represents a conversation. */
+	attachmentCount?: number;
 	createdAt: string;
 };
 

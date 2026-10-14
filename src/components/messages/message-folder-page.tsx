@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
-import { Archive, Check, ChevronLeft, ChevronRight, ListFilter, LoaderCircle, Mail, MailOpen, Star, Trash2, X } from "lucide-react";
+import { Archive, Check, ChevronLeft, ChevronRight, ListFilter, LoaderCircle, Mail, MailOpen, Paperclip, Star, Trash2, X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -88,6 +88,9 @@ function MessageListRow({
 	const href = `${config.hrefPrefix}/${message.id}`;
 	const navigation = useMessageNavigation(href, rowMessage);
 	const outbound = message.direction === "outbound";
+ const attachmentCount = message.attachmentCount ?? 0;
+ const attachmentLabel = attachmentCount > 0 ? t("thread.attachmentCount", {count:attachmentCount}) : "";
+ const attachmentIndicator = attachmentCount > 0 ? <span role="img" aria-label={attachmentLabel} title={attachmentLabel} className="inline-flex shrink-0 items-center text-neutral-500"><Paperclip aria-hidden="true" className="h-3.5 w-3.5" /></span> : null;
 	const avatar = <SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-10 w-10 text-lg" : "h-6 w-6 text-xs"} />;
 
 	async function runRowAction(action: RowMessageAction) {
@@ -170,6 +173,7 @@ function MessageListRow({
 							}`}
 					>
 						<span className="min-w-0 truncate">{message.subject ?? t("list.noSubject")}</span>
+						{attachmentIndicator}
 					</span>
 					<span className="mt-0.5 flex min-w-0 items-center justify-between gap-2 pr-10 text-[13px] leading-5 text-neutral-600">
 						<span className="min-w-0 flex-1 truncate">{preview}</span>
@@ -240,6 +244,7 @@ function MessageListRow({
 					<span aria-hidden="true" className="shrink-0 text-neutral-400">–</span>
 					<span title={getMessagePreview(rowMessage, config.folder, t)} className="min-w-0 flex-1 truncate text-neutral-600">{getMessagePreview(rowMessage, config.folder, t)}</span>
 				</span>
+				{attachmentIndicator}
 			</span>
 			<time
 				dateTime={message.createdAt}
