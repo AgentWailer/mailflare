@@ -135,6 +135,18 @@ pre {
 	to { transform: translateY(0); }
 }
 
+@keyframes swipe-action-click {
+	0%, 100% { transform: scale(1); }
+	45% { transform: scale(1.14); }
+}
+
+.swipe-action-indicator[data-ready="true"] {
+	background: rgb(255 255 255 / 0.2);
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+	animation: swipe-action-click 150ms ease-out;
+}
+
 @keyframes settings-navigation-hide {
 	from { transform: translateY(0); }
 	to { transform: translateY(100%); }
@@ -188,6 +200,7 @@ pre {
 
 @media (prefers-reduced-motion: reduce) {
 	.settings-navigation-sheet { animation: none !important; }
+	.swipe-action-indicator { animation: none !important; }
 	.refine-preview { animation: none; background-color: #eff6ff; }
 	.dialog-overlay,
 	.dialog-content {

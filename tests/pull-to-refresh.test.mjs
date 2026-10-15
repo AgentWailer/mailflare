@@ -56,14 +56,29 @@ test('high-frequency pull updates share one animation frame with the latest fing
 });
 
 
-test('swipe updates coalesce per frame, resist long drags and commit without waiting for another frame',async t=>{
+test('swipe follows the finger per frame and only commits an armed release',async t=>{
  const pending=new Map();let id=0;t.mock.method(globalThis,'requestAnimationFrame',callback=>{pending.set(++id,callback);return id;});t.mock.method(globalThis,'cancelAnimationFrame',key=>pending.delete(key));
- await mount(t);pending.clear();let commits=0;const Icon=()=>React.createElement('span');const action={label:'Archive',icon:Icon,className:'bg-green',onTrigger:()=>commits++};
- await act(async()=>root.render(React.createElement(app.SwipeableRow,{startAction:action,endAction:action},React.createElement('span',null,'Message'))));
- const row=document.querySelector('[style*="touch-action"]')??document.querySelector('.swipe-row-motion.relative');row.setPointerCapture=()=>{};
- function pointer(type,x,y=50){const event=new window.MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y});Object.defineProperties(event,{pointerId:{value:1},pointerType:{value:'touch'}});row.dispatchEvent(event);}
- await act(async()=>{pointer('pointerdown',300);for(let x=280;x>=-200;x-=20)pointer('pointermove',x);});assert.equal(pending.size,1);assert.equal(commits,0);
- await act(async()=>{const callbacks=[...pending.values()];pending.clear();callbacks.forEach(callback=>callback(0));});const offset=Math.abs(Number(row.style.transform.match(/translate3d\(([-\d.]+)px/)[1]));assert(offset>88&&offset<152,'long swipes stretch with increasing resistance');
- await act(async()=>pointer('pointermove',-220));assert.equal(pending.size,1);await act(async()=>pointer('pointerup',-220));assert.equal(commits,1);assert.equal(pending.size,0);assert.equal(row.style.transform,'');
- const backdrop=document.querySelector('.swipe-row-motion.absolute');assert(backdrop,'the backdrop remains mounted for the return fade');assert.equal(backdrop.style.opacity,'0');
+ await mount(t);pending.clear();let commits=0;const Icon=props=>React.createElement('span',props);const action={label:'Archive',icon:Icon,className:'bg-green',onTrigger:()=>commits++};
+ await act(async()=>root.render(React.createElement(app.SwipeableRow,{startAction:action,endAction:action},React.createElement('a',{href:'/message'},'Message'),React.createElement('button',null,'Star'))));
+ const row=document.querySelector('[data-swipe-surface]'),wrapper=document.querySelector('[data-swipe-row]');row.setPointerCapture=()=>{};
+ function pointer(type,x,y=50,options={}){const event=new window.MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y});Object.defineProperties(event,{pointerId:{value:options.id??1},pointerType:{value:options.kind??'touch'},isPrimary:{value:options.primary??true}});(options.target??row).dispatchEvent(event);return event;}
+ async function send(type,x,y=50,options={}){await act(async()=>pointer(type,x,y,options));}
+ async function paint(){await act(async()=>{const callbacks=[...pending.values()];pending.clear();callbacks.forEach(callback=>callback(0));});}
+ await act(async()=>{pointer('pointerdown',300);for(let x=280;x>=100;x-=20)pointer('pointermove',x);});assert.equal(pending.size,1);assert.equal(commits,0);await paint();
+ assert.equal(row.style.transform,'translate3d(-200px,0,0)','foreground must remain at the finger instead of resisting');assert.equal(wrapper.dataset.swipeReady,'true');assert.equal(document.querySelector('[data-swipe-icon]').style.transform,'scale(1)');
+ await send('pointermove',255);await paint();assert.equal(wrapper.dataset.swipeReady,'false');assert.equal(row.style.transform,'translate3d(-45px,0,0)');await send('pointerup',255);assert.equal(commits,0,'returning below the threshold cancels');
+ await send('pointerdown',300);await send('pointermove',150);assert.equal(commits,0);await send('pointerup',150);assert.equal(commits,1,'release uses the latest movement even before the next frame');assert.equal(pending.size,0);assert.equal(row.style.transform,'');assert.equal(document.querySelector('[data-swipe-backdrop]').style.opacity,'0');
+ // A stale or bogus pointer-up position can never turn a tiny movement into an archive.
+ await send('pointerdown',300);await send('pointermove',298);await send('pointerup',0);assert.equal(commits,1);
+ await send('pointerdown',300);await send('pointermove',280);await send('pointerup',0);assert.equal(commits,1);
+ await send('pointerdown',300);await send('pointermove',140);await send('pointerup',295);assert.equal(commits,1,'a final reversal at release cancels even without another move event');
+ await send('pointerdown',300);await send('pointermove',140);await paint();await send('lostpointercapture',140,50,{target:row.querySelector('a')});assert.equal(wrapper.dataset.swipeReady,'true','transferring capture from the message link keeps the swipe active');await send('pointercancel',140);
+ for(const cancel of ['pointercancel','lostpointercapture']){await send('pointerdown',300);await send('pointermove',140);await paint();await send(cancel,140);await send('pointerup',140);assert.equal(commits,1,cancel);assert.equal(row.style.transform,'');}
+ await send('pointerdown',300);await send('pointermove',140);await send('pointerdown',150,50,{id:2,primary:false});await send('pointerup',140);assert.equal(commits,1,'multitouch cancels instead of committing');
+ await send('pointerdown',300);await send('pointermove',140);await send('pointerdown',150,50,{id:2,primary:false,target:document.body});await send('pointerup',140);assert.equal(commits,1,'a second finger outside the row also cancels');
+ await send('pointerdown',300);await send('pointermove',285,90);await send('pointermove',100,90);await send('pointerup',100,90);assert.equal(commits,1,'vertical intent cannot become a swipe later');
+ await send('pointerdown',300,50,{target:row.querySelector('button')});await send('pointermove',100);await send('pointerup',100);assert.equal(commits,1,'controls never start a swipe');
+ await send('pointerdown',300,50,{kind:'mouse'});await send('pointermove',100,50,{kind:'mouse'});await send('pointerup',100,50,{kind:'mouse'});assert.equal(commits,1,'mouse drag stays available to desktop drag-and-drop');
+ await send('pointerdown',300);await send('pointermove',140);await paint();await act(async()=>window.dispatchEvent(new window.Event('blur')));await send('pointerup',140);assert.equal(commits,1,'leaving the window cancels');
+ await send('pointerdown',40);await send('pointermove',180);await send('pointerup',180);assert.equal(commits,2,'the opposite action also waits for release');
 });

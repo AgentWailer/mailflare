@@ -65,13 +65,27 @@ try{
    });
    await page.goto(origin+'/inbox');const cdp=await page.context().newCDPSession(page);
    const row=id=>page.locator('.mail-mobile-row').filter({has:page.locator('a[href="/inbox/'+id+'"]')});
-   async function swipe(id,dx,dy=0){
-    await row(id).evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));const box=await row(id).boundingBox();assert(box);const x=dx<0?box.x+box.width-50:box.x+70,y=box.y+box.height/2;
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
-    for(let i=1;i<=5;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx*i/5,y:y+dy*i/5}]});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+   let finger;
+   async function begin(id,direction=-1){
+    await row(id).evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));const box=await row(id).boundingBox();assert(box);finger={x:direction<0?box.x+box.width-50:box.x+70,y:box.y+box.height/2};
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...finger,id:1}]});
    }
+   async function move(dx,dy=0){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:finger.x+dx,y:finger.y+dy,id:1}]});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));}
+   async function end(type='touchEnd'){await cdp.send('Input.dispatchTouchEvent',{type,touchPoints:[]});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));}
+   async function swipe(id,dx,dy=0){await begin(id,Math.sign(dx));for(let i=1;i<=5;i++)await move(dx*i/5,dy*i/5);await end();}
+   await row('msg-0').waitFor();const surface=()=>row('msg-0').locator('..'),wrapper=()=>row('msg-0').locator('../..');
+   await begin('msg-0');await move(-2);await page.waitForTimeout(1100);assert.equal(requests.length,0,'holding a tiny drag never archives');await end();await page.goto(origin+'/inbox');await row('msg-0').waitFor();
+   await begin('msg-0');let previousScale=0;
+   for(const distance of [25,60,90,150]){
+    await move(-distance);const result=await surface().evaluate(el=>({x:new DOMMatrixReadOnly(getComputedStyle(el).transform).m41,transition:getComputedStyle(el).transitionDuration}));assert(Math.abs(result.x+distance)<1,'the row stays directly at the finger '+JSON.stringify({distance,...result}));assert.equal(result.transition,'0s','no easing while held');
+    const scale=await wrapper().locator('[data-swipe-icon]').evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).a);assert(scale>previousScale,'archive symbol grows with distance');previousScale=scale;assert.equal(requests.length,0);
+    if(distance===60)await page.screenshot({path:`/tmp/mailflare-swipe-progress-${viewport.width}.png`});
+   }
+   assert.equal(await wrapper().getAttribute('data-swipe-ready'),'true');assert.equal(previousScale,1);assert((await wrapper().locator('[data-swipe-backdrop]').getAttribute('class')).includes('bg-emerald-600'));
+   await page.screenshot({path:`/tmp/mailflare-swipe-ready-${viewport.width}.png`});await page.waitForTimeout(1100);assert.equal(requests.length,0,'even an armed swipe waits for release');
+   await move(-30);assert.equal(await wrapper().getAttribute('data-swipe-ready'),'false');await move(0);await end();assert.equal(requests.length,0,'returning the finger cancels');assert.equal(await row('msg-0').count(),1);
+   await begin('msg-0');await move(-150);await end('touchCancel');assert.equal(requests.length,0,'cancelled native touch cannot archive');assert.equal(await surface().evaluate(el=>el.style.transform),'');
+   await begin('msg-0');await move(-150);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:finger.x-150,y:finger.y,id:1},{x:finger.x-100,y:Math.min(viewport.height-30,finger.y+130),id:2}]});await end();assert.equal(requests.length,0,'a second finger cancels the gesture');
    await row('msg-0').waitFor();assert.equal(await row('msg-0').locator('..').evaluate(el=>getComputedStyle(el).willChange),'auto','resting rows do not retain a promoted layer');await swipe('msg-0',-35);assert.equal(requests.length,0,'a short drag does not archive');assert.equal(await row('msg-0').count(),1);
    await swipe('msg-0',0,-20);assert.equal(requests.length,0,'vertical scrolling does not archive');
    await swipe('msg-0',-130);assert.equal(await row('msg-0').count(),0,'the row is removed before any server response');assert.equal(requests.length,1);assert.deepEqual(requests[0].payload.messageIds,['msg-0','older']);assert.equal(requests[0].payload.action,'archive');assert.equal(await page.evaluate(()=>location.pathname),'/inbox','swiping does not open the message');
@@ -82,7 +96,7 @@ try{
    const subject=row('msg-4').getByText('Nachricht 4',{exact:true});assert((await subject.locator('..').getAttribute('class')).includes('font-semibold'));
    await swipe('msg-4',130);assert.equal(requests.length,3);assert.equal(requests[2].payload.action,'read');assert.equal(await row('msg-4').count(),1);assert(!(await subject.locator('..').getAttribute('class')).includes('font-semibold'),'right swipe updates read styling before the response');
    await requests[2].route.fulfill({contentType:'application/json',body:'{"ok":true}'});await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await row('msg-4').locator('..').evaluate(el=>getComputedStyle(el).transitionDuration),'0s','reduced motion removes swipe return animation');assert.deepEqual(errors,[]);
-   console.log(JSON.stringify({viewport,archiveImmediate:true,conversationMembersPreserved:true,concurrentRollback:true,readImmediate:true,shortAndVerticalDragsIgnored:true}));await page.close();
+   console.log(JSON.stringify({viewport,archiveImmediate:true,conversationMembersPreserved:true,concurrentRollback:true,readImmediate:true,shortAndVerticalDragsIgnored:true,fingerTracking:true,progressiveIcon:true,releaseOnly:true,reverseAndCancelSafe:true}));await page.close();
   }
  }else if(process.env.MAILFLARE_STARTUP_ONLY){
   for(const viewport of [{width:390,height:844},{width:1440,height:900}]){
