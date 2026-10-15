@@ -20,6 +20,7 @@ import { ShortcutsProvider } from "@/components/shortcuts";
 import clsx from "clsx";
 import { useDashboardState } from "./dashboard-state";
 import { useAssistantAvailability } from "./use-assistant-availability";
+import { MessageCategoryLayout } from "@/components/messages/message-category-layout";
 
 export default function DashboardLayout({
   children,
@@ -59,7 +60,7 @@ export default function DashboardLayout({
                       <AssistantOpenContext.Provider value={assistantVisible}>
                         <AssistantRequestContext.Provider value={assistantEnabled ? (request) => { setAssistantRequest(request); window.dispatchEvent(new CustomEvent("mailflare:assistant-request", { detail: request })); setAssistantOpen(true); setAssistantFullSize(false); } : null}>
                         <main className="mail-mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
-                          {children}
+                          <MessageCategoryLayout>{children}</MessageCategoryLayout>
                         </main>
                         </AssistantRequestContext.Provider>
                       </AssistantOpenContext.Provider>

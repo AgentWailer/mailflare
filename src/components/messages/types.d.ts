@@ -49,6 +49,8 @@ export type MessageFolderPageProps = {
 export type MessageSplitLayoutProps = {
 	children: ReactNode;
 	config: MessageFolderConfig;
+	/** Render the overview here so category route changes cannot replace the list. */
+	renderOverview?: boolean;
 };
 
 export type MessageListVisibility = {

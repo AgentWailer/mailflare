@@ -46,4 +46,8 @@ Nach `npm run build` führt `npm run test:performance` die Funktionsprüfungen, 
 
 Die Budgetgrenzen betragen 1,35 MB Start-JavaScript für die Mailbox und 1,25 MB für geschlossene Konto-/Posteingangs-Einstellungen. Weitere Assertions sichern genau einen anfänglichen Identitäts-/Ordnerabruf, ausbleibende automatische Routen-Vorladung, lazy geladene Formulare, Erhalt von Eingaben und bedienbare Domains trotz laufendem DNS-Audit ab.
 
+Der erste Kategorienwechsel wird zusätzlich mit `tests/browser/category-tabs.mjs` geprüft. Vor der Korrektur entfernte die erste Navigation nach „Rechnung“ die Kategorienleiste und den Lesebereich aus dem DOM: Jede Kategorie hatte ein eigenes Route-Layout. Nun besitzt das gemeinsame Dashboard-Layout diese Ansicht oberhalb der Route-Ladegrenze. Die Kategorie-Seiten liefern nur ihren Routeninhalt; Liste und Leser bleiben montiert. Auswahl, Seitenposition und Ungelesen-Filter werden beim Wechsel zurückgesetzt, ohne alte Nachrichten unter einer neuen Kategorie anzuzeigen.
+
+Der Browsertest verzögert erstmals besuchte Routen und Listen absichtlich und prüft die Identität der sichtbaren DOM-Elemente bei allen fünf Kategorien, Browser-Zurück/Vorwärts und genau einem Dokumentabruf. Er läuft bei Desktop-Lesebereich unten/rechts/aus und mobil unten/aus. Die zugehörigen Komponententests prüfen auch die getrennte Auswahl und das Verhalten ohne Lesebereich.
+
 Die globale Typprüfung hat unverändert die bekannten 15 Fehler; keine neuen Typfehler. Neue Backend-/Cache-/Lazy-Loading-Module werden zusätzlich gezielt mit ESLint geprüft.

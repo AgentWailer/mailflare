@@ -23,6 +23,7 @@ import type { MessageSplitLayoutProps, SelectedMessage } from "./types";
 export function MessageSplitLayout({
 	children,
 	config,
+	renderOverview = false,
 }: MessageSplitLayoutProps) {
 	const pathname = usePathname();
 	const [opening, setOpening] = useState<{ from: string; message: Message; href: string } | null>(null);
@@ -31,6 +32,13 @@ export function MessageSplitLayout({
 	const [selectedMessages, setSelectedMessages] = useState<SelectedMessage[]>([]);
 	const [offset, setOffset] = useState(0);
 	const [unreadOnly, setUnreadOnly] = useState(false);
+	const [selectionScope, setSelectionScope] = useState(config.hrefPrefix);
+	if (selectionScope !== config.hrefPrefix) {
+		setSelectionScope(config.hrefPrefix);
+		setSelectedMessages([]);
+		setOffset(0);
+		setUnreadOnly(false);
+	}
 	const [listWidth, setListWidth] = useState(360);
 	const [listHeight, setListHeight] = useState(280);
 	const [widthReady, setWidthReady] = useState(false);
@@ -90,7 +98,7 @@ export function MessageSplitLayout({
 
 	const selection = { selectedMessages, setSelectedMessages, offset, setOffset, unreadOnly, setUnreadOnly };
 	const openingContext = { pendingMessageId: pendingMessage?.id ?? null, open: (message: Message, href: string) => { if (href.startsWith(detailPrefix)) setOpening({ from: pathname, message, href }); }, cancel: () => setOpening(null) };
-	if (!rendersPane) return <MessageOpeningContext.Provider value={openingContext}><MessageSelectionContext.Provider value={selection}>{children}</MessageSelectionContext.Provider></MessageOpeningContext.Provider>;
+	if (!rendersPane) return <MessageOpeningContext.Provider value={openingContext}><MessageSelectionContext.Provider value={selection}>{renderOverview && isOverview ? <MessageFolderPage config={config} selection={selection} /> : children}</MessageSelectionContext.Provider></MessageOpeningContext.Provider>;
 
 	return (
 		<MessageOpeningContext.Provider value={openingContext}><MessageSelectionContext.Provider value={selection}>
