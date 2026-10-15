@@ -4,7 +4,7 @@ import { classifyIncomingMail } from "@/lib/mail-sorting/classifier";
 import { shouldNotifyMail } from "@/lib/mail-sorting/categories";
 import { messageLabels } from "@/db/schema";
 import { prepareSpamContent } from "@/lib/spam/tokenizer";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messages, outboundJobs, users } from "@/db/schema";
 import { newId } from "@/lib/ids";
@@ -65,7 +65,10 @@ export async function processInboundMessage(
 	}
 
 	if (!decision.mailbox) return;
-	const [stored] = await db.select({ id: messages.id }).from(messages).where(and(
+	// D1 can otherwise choose a mailbox index and read every MIME/body row
+	// before concluding that this new object has not been received before.
+	const [stored] = await db.select({ id: sql<string>`${messages.id}` })
+		.from(sql`${messages} indexed by messages_raw_r2_key_idx`).where(and(
 		eq(messages.mailboxId, decision.mailbox.mailboxId),
 		eq(messages.rawR2Key, payload.rawR2Key),
 	)).limit(1);

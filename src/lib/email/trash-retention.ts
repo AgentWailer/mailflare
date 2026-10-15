@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messages, users } from "@/db/schema";
 import { permanentlyDeleteMessages } from "@/lib/email/permanent-delete";
@@ -22,8 +22,15 @@ export async function runTrashRetention(env: CloudflareEnv, now = new Date()): P
 		const days = normalizeTrashRetentionDays(owner.days);
 		if (!days || budget <= 0) continue;
 		const expired = await db
-			.select({ id: messages.id, mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key, status: messages.status })
-			.from(messages)
+			.select({
+				id: sql<string>`${messages.id}`,
+				mailboxId: sql<string | null>`${messages.mailboxId}`,
+				rawR2Key: sql<string | null>`${messages.rawR2Key}`,
+				status: sql<string>`${messages.status}`,
+			})
+			// Start with the expiration range, not every message owned by this user.
+			// Scanning the body-bearing rows blocks unrelated mailbox requests on D1.
+			.from(sql`${messages} indexed by messages_trashed_at_idx`)
 			.where(and(
 				eq(messages.userId, owner.id),
 				inArray(messages.status, ["trash", "spam"]),
