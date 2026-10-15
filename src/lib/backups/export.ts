@@ -14,6 +14,7 @@ const INSERT_BATCH_SIZE = 50;
 export function getBackupTableOrder(): readonly DatabaseBackupTable[] { return BACKUP_TABLES; }
 
 export function getBackupConfigurationStatus(_env?: CloudflareEnv) {
+	if (_env && _env.MAILFLARE_RUNTIME !== "node" && !_env.RESCUE_BUCKET) return { configured: false, missing: ["RESCUE_BUCKET"] };
 	return { configured: true, missing: [] };
 }
 
@@ -26,6 +27,9 @@ const INTERNAL_TABLE_PATTERNS = ["sqlite_%", "_cf%", "messages_fts%"];
  * restored, so it is neither exported nor part of the coverage check.
  */
 const INTERNAL_TABLES = [
+	// Rescue-copy index is reconstructed from the manifest, not restored into live jobs.
+	"backup_snapshot_objects",
+	"backup_snapshot_links",
 	// Transient CHECK-constraint rebuild during 0069; canonical feedback is backed up.
 	"mail_sorting_feedback_v4",
 	// Short-lived, single-use OAuth state and PKCE verifiers must never be restored.

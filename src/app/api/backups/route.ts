@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 		return NextResponse.json({
 			settings,
 			backups: backupList,
-			configuration: getBackupConfigurationStatus(env),
+			configuration: {...getBackupConfigurationStatus(env), configured: getBackupConfigurationStatus(env).configured && (!env.RESCUE_BUCKET || !!settings?.rescuePublicKey), missing: env.RESCUE_BUCKET && !settings?.rescuePublicKey ? ["recovery-key"] : getBackupConfigurationStatus(env).missing, rescue: !!env.RESCUE_BUCKET, recoveryKeyConfigured: !!settings?.rescuePublicKey},
 		});
 	} catch {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });

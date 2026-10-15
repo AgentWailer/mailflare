@@ -6,6 +6,7 @@ import { safeErrorCategory } from "@/lib/security/logging";
 import { createScheduledBackupIfDue, getBackupSettings } from "./service";
 import { BACKUP_PREFIX, createBackupFilename } from "./utils";
 import { initialBackupCursor, nextDatabaseBackupPart, planDatabaseBackup, type BackupExportCursor, type BackupExportPlan } from "./stream";
+import { processRescueBackup } from "./rescue-runner";
 
 type Checkpoint = {
 	version: 1; plan: BackupExportPlan; cursor: BackupExportCursor;
@@ -30,6 +31,8 @@ export async function enqueueDatabaseBackup(env: CloudflareEnv, backupId: string
 
 /** One bounded part per invocation; checkpoints survive closing the browser and duplicate deliveries. */
 export async function processDatabaseBackup(env: CloudflareEnv, backupId: string): Promise<void> {
+	const kind = await env.DB.prepare("SELECT kind FROM backups WHERE id=?").bind(backupId).first<{kind:string}>();
+	if (kind?.kind === "rescue") return processRescueBackup(env, backupId);
 	const now = Date.now(), lease = newId("lease");
 	const job = await env.DB.prepare("UPDATE backups SET status='running',started_at=coalesce(started_at,?),lease_token=?,lease_until=? WHERE id=? AND status IN ('queued','running') AND lease_until<? RETURNING checkpoint")
 		.bind(Math.floor(now / 1000), lease, now + LEASE_MS, backupId, now).first<{ checkpoint: string | null }>();
@@ -111,6 +114,8 @@ export async function runScheduledDatabaseBackup(env: CloudflareEnv, now: Date):
 }
 
 export async function deleteExpiredBackups(env: CloudflareEnv): Promise<number> {
+	// The single rescue point has no age expiry; replacement performs bounded cleanup after verification.
+	if (env.RESCUE_BUCKET) return 0;
 	const settings = await getBackupSettings(env);
 	if (!settings?.retentionEnabled) return 0;
 	const cutoff = new Date(Date.now() - settings.retentionDays * 86_400_000);

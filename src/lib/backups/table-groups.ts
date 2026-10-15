@@ -1,5 +1,7 @@
 import type { BackupTableGroupId, DatabaseBackupTable } from "./types";
 
+// backup_snapshot_objects/backup_snapshot_links are operational rescue indexes; see INTERNAL_TABLES in export.ts.
+
 export const BACKUP_TABLE_GROUPS: { id: BackupTableGroupId; label: string; tables: DatabaseBackupTable[] }[] = [
 	{ id: "accounts", label: "Accounts and mailboxes", tables: ["gmail_import_connections", "users", "domains", "mailboxes", "mailbox_access", "mailbox_aliases", "contacts", "api_keys", "mcp_key_mailboxes", "sessions", "password_reset_tokens", "mfa_recovery_codes", "login_challenges"] },
 	{ id: "mail", label: "Mail and related data", tables: ["mbox_import_jobs", "mbox_import_issues", "message_bulk_jobs", "mbox_sorting_jobs", "gmail_import_jobs", "folders", "messages", "message_labels", "drive_items", "drive_shares", "message_attachments", "shared_attachment_links", "outbound_jobs", "email_templates", "calendar_events", "booking_events", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback"] },

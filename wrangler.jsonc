@@ -81,6 +81,7 @@
 		},
 	],
 	"r2_buckets": [
+		{ "binding": "RESCUE_BUCKET", "bucket_name": "mailflare-rescue" },
 		{
 			"binding": "BUCKET",
 			"bucket_name": "mailflare-raw","preview_bucket_name": "mailflare-raw",

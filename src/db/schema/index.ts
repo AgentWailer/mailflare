@@ -1,4 +1,4 @@
-import { real, sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { real, sqliteTable, text, integer, index, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
@@ -687,11 +687,12 @@ export const auditLogs = sqliteTable(
 
 export const backupSettings = sqliteTable("backup_settings", {
 	id: text("id").primaryKey(),
-	enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+	rescuePublicKey: text("rescue_public_key"),
+	enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
 	scheduleType: text("schedule_type", { enum: ["daily", "weekly", "monthly"] })
 		.notNull()
-		.default("daily"),
-	scheduleValue: integer("schedule_value"),
+		.default("weekly"),
+	scheduleValue: integer("schedule_value").default(0),
 	retentionEnabled: integer("retention_enabled", { mode: "boolean" }).notNull().default(false),
 	retentionDays: integer("retention_days").notNull().default(30),
 	excludedTableGroups: text("excluded_table_groups").notNull().default("[]"),
@@ -749,6 +750,10 @@ export const backups = sqliteTable(
 	"backups",
 	{
 		id: text("id").primaryKey(),
+		kind: text("kind", { enum: ["database", "rescue"] }).notNull().default("database"),
+		verifiedAt: integer("verified_at", { mode: "timestamp" }),
+		objectCount: integer("object_count").notNull().default(0),
+		objectBytes: integer("object_bytes").notNull().default(0),
 		status: text("status", { enum: ["queued", "running", "completed", "failed"] })
 			.notNull()
 			.default("queued"),
@@ -772,6 +777,20 @@ export const backups = sqliteTable(
 		index("backups_status_idx").on(t.status),
 	],
 );
+
+// Operational rescue indexes. Rebuilt from the encrypted manifest on recovery;
+// intentionally excluded from canonical database exports (backups/export.ts).
+export const backupSnapshotObjects = sqliteTable("backup_snapshot_objects", {
+	backupId: text("backup_id").notNull().references(() => backups.id, { onDelete: "cascade" }),
+	sourceKey: text("source_key").notNull(), sourceEtag: text("source_etag").notNull().default(""),
+	size: integer("size").notNull().default(0), blobKey: text("blob_key").notNull().default(""),
+	destinationEtag: text("destination_etag"), metadata: text("metadata").notNull().default("{}"),
+	checksums: text("checksums").notNull().default("[]"), state: text("state").notNull().default("pending"), checkpoint: text("checkpoint"),
+}, table => [primaryKey({ columns: [table.backupId, table.sourceKey] }), index("backup_snapshot_objects_blob_idx").on(table.blobKey), index("backup_snapshot_objects_state_idx").on(table.backupId,table.state,table.sourceKey)]);
+export const backupSnapshotLinks = sqliteTable("backup_snapshot_links", {
+	backupId: text("backup_id").notNull().references(() => backups.id, { onDelete: "cascade" }),
+	kind: text("kind").notNull(), token: text("token").notNull(),
+}, table => [primaryKey({ columns: [table.backupId,table.kind,table.token] })]);
 
 export const mailboxAgentSettings = sqliteTable("mailbox_agent_settings", {
 	mailboxId: text("mailbox_id").primaryKey().references(() => mailboxes.id, { onDelete: "cascade" }),

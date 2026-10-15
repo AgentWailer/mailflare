@@ -16,6 +16,11 @@ export type BackupSettings = {
 
 export type BackupItem = {
 	id: string;
+	kind?: "database" | "rescue";
+	phase?: "database" | "inventory" | "objects" | "manifest" | "publish" | "cleanup" | null;
+	verifiedAt?: string | null;
+	objectCount?: number;
+	objectBytes?: number;
 	status: BackupStatus;
 	trigger: "manual" | "scheduled";
 	filename: string | null;
@@ -32,5 +37,7 @@ export type BackupsResponse = {
 	configuration: {
 		configured: boolean;
 		missing: string[];
+		rescue?: boolean;
+		recoveryKeyConfigured?: boolean;
 	};
 };

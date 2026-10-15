@@ -2,6 +2,8 @@ interface CloudflareEnv {
 	DB: D1Database;
 	EMAIL: SendEmail;
 	BUCKET: R2Bucket;
+	/** Private rescue store, deliberately separate from the live object store. */
+	RESCUE_BUCKET?: R2Bucket;
 	INBOUND_QUEUE: Queue<import("./src/lib/email/inbound").InboundQueueMessage>;
 	AGENT_QUEUE?: Queue<{ kind: "agent.draft" | "import.mbox" | "import.sort" | "messages.bulk" | "mail.content-audit" | "paperless.document" | "database.backup"; jobId: string }>;
 	AI?: Ai;

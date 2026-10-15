@@ -9,9 +9,11 @@ export async function POST(request: Request) {
 	try {
 		const user = await requireUser(env, request);
 		assertPrimaryAdmin(user);
+		if (Number(request.headers.get("Content-Length") ?? 0) > 20 * 1024 * 1024) return NextResponse.json({error:"Use the streaming recovery tools for large backups."},{status:413});
 		const form = await request.formData();
 		const file = form.get("backup");
 		if (!(file instanceof File)) return NextResponse.json({ error: "Choose a backup file" }, { status: 400 });
+		if (file.size > 10 * 1024 * 1024) return NextResponse.json({error:"Use the streaming recovery tools for large backups."},{status:413});
 		await restoreDatabaseRecords(env.DB, await file.arrayBuffer());
 		return NextResponse.json({ ok: true });
 	} catch (error) {

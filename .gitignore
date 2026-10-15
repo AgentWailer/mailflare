@@ -62,3 +62,6 @@ mailflare-landing
 .agents
 skills-lock.json
 /dist/
+__pycache__/
+.recovery-venv/
+mailflare-wiederherstellungsschluessel*.json

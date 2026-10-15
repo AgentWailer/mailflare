@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
@@ -32,8 +32,9 @@ import { Select } from "@/components/ui/select";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { BACKUP_TABLE_GROUPS } from "@/lib/backups/table-groups";
+import { RecoveryKeySetup } from "@/components/backups/recovery-key-setup";
 import type { TranslationKey } from "@/lib/i18n/types";
-import type { BackupItem, BackupSettings } from "./types";
+import type { BackupItem, BackupSettings, BackupsResponse } from "./types";
 import {
   WEEKDAYS,
   downloadBackup,
@@ -51,8 +52,7 @@ export default function BackupsPage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const restoreInput = useRef<HTMLInputElement | null>(null);
-  const savedSettings = useRef<BackupSettings | null>(null);
-  const [settings, setSettings] = useState<BackupSettings | null>(null);
+  const [draftSettings, setSettings] = useState<BackupSettings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const backups = useQuery({
     queryKey: ["backups"],
@@ -65,17 +65,16 @@ export default function BackupsPage() {
         : false,
   });
 
-  useEffect(() => {
-    if (backups.data?.settings && !settings) {
-      savedSettings.current = backups.data.settings;
-      setSettings(backups.data.settings);
-    }
-  }, [backups.data?.settings, settings]);
+  const settings = draftSettings ?? backups.data?.settings ?? null;
+  function commitSettings(nextSettings: BackupSettings) {
+    queryClient.setQueryData<BackupsResponse>(["backups"], previous => previous ? {...previous, settings: nextSettings} : previous);
+    setSettings(null);
+  }
 
   const saveSettings = useMutation({
     mutationFn: saveBackupSettings,
     onSuccess: (_data, nextSettings) => {
-      savedSettings.current = nextSettings;
+      commitSettings(nextSettings);
       setSettingsOpen(false);
       return queryClient.invalidateQueries({ queryKey: ["backups"] });
     },
@@ -84,8 +83,8 @@ export default function BackupsPage() {
   const autoSaveSettings = useMutation({
     mutationFn: saveBackupSettings,
     onMutate: (nextSettings) => setSettings(nextSettings),
-    onSuccess: (_data, nextSettings) => { savedSettings.current = nextSettings; },
-    onError: () => { if (savedSettings.current) setSettings(savedSettings.current); },
+    onSuccess: (_data, nextSettings) => commitSettings(nextSettings),
+    onError: () => setSettings(null),
   });
 
   const runBackup = useMutation({
@@ -113,19 +112,20 @@ export default function BackupsPage() {
     restore.error;
   const configuration = backups.data?.configuration;
   const backupConfigured = configuration?.configured === true;
+  const rescueMode = configuration?.rescue === true;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-medium text-neutral-900">
-            {t("backups.title")}
+            {t(rescueMode ? "backups.rescueTitle" : "backups.title")}
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            {t("backups.description")}
+            {t(rescueMode ? "backups.rescueDescription" : "backups.description")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
           <Input
             ref={restoreInput}
             type="file"
@@ -135,6 +135,7 @@ export default function BackupsPage() {
               const file = event.target.files?.[0];
               event.target.value = "";
               if (!file || !window.confirm(t("backups.restoreConfirm"))) return;
+              if (file.size > 10 * 1024 * 1024) { window.alert(t("backups.restoreGuide")); return; }
               restore.mutate(file);
             }}
           />
@@ -150,19 +151,22 @@ export default function BackupsPage() {
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content align="end" sideOffset={6} className="z-50 min-w-48 rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg">
-                <DropdownMenu.Item disabled={restore.isPending} onSelect={() => restoreInput.current?.click()} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-neutral-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                {rescueMode ? <DropdownMenu.Item asChild><a href="https://github.com/AgentWailer/mailflare/blob/main/docs/rescue-backup.md" target="_blank" rel="noopener noreferrer" className="block rounded-md px-3 py-2 text-neutral-900 hover:bg-neutral-100">{t("backups.restoreGuide")}</a></DropdownMenu.Item> : <DropdownMenu.Item disabled={restore.isPending} onSelect={() => restoreInput.current?.click()} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-neutral-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                   <Upload className="h-4 w-4" />
                   {restore.isPending ? t("backups.restoring") : t("backups.restore")}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item disabled={!settings || autoSaveSettings.isPending} onSelect={() => setSettingsOpen(true)} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-neutral-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                </DropdownMenu.Item>}
+                {!rescueMode && <DropdownMenu.Item disabled={!settings || autoSaveSettings.isPending} onSelect={() => setSettingsOpen(true)} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-neutral-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                   <Settings className="h-4 w-4" />
                   {t("backups.settings")}
-                </DropdownMenu.Item>
+                </DropdownMenu.Item>}
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
         </div>
       </div>
+
+      {rescueMode && <section className="rounded-3xl bg-white p-6 text-sm text-neutral-600"><p className="font-medium text-neutral-900">{t("backups.rescuePolicy")}</p><p className="mt-2">{t("backups.rescuePrivacy")}</p><p className="mt-2">{t("backups.timeTravelDescription")} <a className="text-blue-700 underline" href="https://developers.cloudflare.com/d1/reference/time-travel/" target="_blank" rel="noopener noreferrer">D1 Time Travel</a></p></section>}
+      {rescueMode && !configuration?.recoveryKeyConfigured && <RecoveryKeySetup onConfigured={()=>{void backups.refetch().then(()=>setSettings(null));}}/>}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
@@ -193,7 +197,7 @@ export default function BackupsPage() {
         </p>
       )}
 
-      {configuration && !configuration.configured && (
+      {configuration && !configuration.configured && !rescueMode && (
         <Card className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
           <CardHeader className="py-0">
             <div className="flex items-start gap-3">
@@ -252,7 +256,7 @@ export default function BackupsPage() {
                 <Switch
                   id="automatic-backup-switch"
                   checked={settings.enabled}
-                  disabled={autoSaveSettings.isPending}
+                  disabled={autoSaveSettings.isPending || !backupConfigured}
                   onCheckedChange={(enabled) => autoSaveSettings.mutate({ ...settings, enabled })}
                 />
               </div>
@@ -333,14 +337,14 @@ export default function BackupsPage() {
                           }
                           onBlur={(event) => {
                             if (event.currentTarget.checkValidity()) autoSaveSettings.mutate(settings);
-                            else setSettings({ ...settings, scheduleValue: savedSettings.current?.scheduleValue ?? 1 });
+                            else setSettings({ ...settings, scheduleValue: backups.data?.settings?.scheduleValue ?? 1 });
                           }}
                         />
                       </div>
                     )}
                   </div>
 
-                  <div className="grid gap-4 border-t border-neutral-100 pt-5">
+                  {!rescueMode && <div className="grid gap-4 border-t border-neutral-100 pt-5">
                     <div className="flex items-center justify-between gap-4">
                       <Label htmlFor="retention-switch">{t("backups.deleteOld")}</Label>
                       <Switch
@@ -377,13 +381,13 @@ export default function BackupsPage() {
                           }
                           onBlur={(event) => {
                             if (event.currentTarget.checkValidity()) autoSaveSettings.mutate(settings);
-                            else setSettings({ ...settings, retentionDays: savedSettings.current?.retentionDays ?? 30 });
+                            else setSettings({ ...settings, retentionDays: backups.data?.settings?.retentionDays ?? 30 });
                           }}
                         />
                         <span className="text-sm text-neutral-500 absolute z-10 right-6">{t("backups.days")}</span>
                       </div>
                     </div>
-                  </div>
+                  </div>}
                 </>
               )}
             </>
@@ -396,7 +400,7 @@ export default function BackupsPage() {
           <DatabaseBackup className="h-5 w-5 text-neutral-500" />
           <h2 className="font-semibold text-neutral-900">{t("backups.history")}</h2>
         </div>
-        <div className="grid grid-cols-[1fr_110px_110px_170px_120px] gap-4 border-b border-neutral-100 bg-neutral-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        <div className="hidden grid-cols-[1fr_110px_110px_170px_120px] gap-4 border-b border-neutral-100 bg-neutral-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 md:grid">
           <span>{t("backups.col.file")}</span>
           <span>{t("backups.col.status")}</span>
           <span>{t("backups.col.size")}</span>
@@ -410,12 +414,14 @@ export default function BackupsPage() {
         {(backups.data?.backups ?? []).map((backup: BackupItem) => (
           <div
             key={backup.id}
-            className="grid grid-cols-[1fr_110px_110px_170px_120px] items-center gap-4 border-b border-neutral-100 px-4 py-3 last:border-b-0"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-neutral-100 px-4 py-3 last:border-b-0 md:grid-cols-[1fr_110px_110px_170px_120px] md:gap-4"
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-neutral-900">
                 {backup.filename ?? backup.id}
               </p>
+              {backup.kind === "rescue" && <p className="text-xs text-neutral-500">{t("backups.rescueObjects",{count:backup.objectCount??0})}{backup.verifiedAt ? ` · ${t("backups.rescueVerified")} ${formatBackupDate(backup.verifiedAt)}` : ""}</p>}
+              {backup.kind === "rescue" && backup.phase && <p className="text-xs text-neutral-500">{t(`backups.phase.${backup.phase}` as TranslationKey)}</p>}
               <p className="truncate text-xs text-neutral-500">
                 {backup.trigger === "manual" ? t("backups.manual") : t("backups.scheduled")}
                 {backup.error ? `: ${backup.error}` : ""}
@@ -430,11 +436,11 @@ export default function BackupsPage() {
             <span className="text-sm text-neutral-600">
               {formatBackupDate(backup.createdAt)}
             </span>
-            <div className="flex gap-1">
+            <div className="col-span-2 flex justify-end gap-1 md:col-span-1">
               <Button
                 size="sm"
                 variant="ghost"
-                title={t("backups.download")}
+                title={t(backup.kind === "rescue" ? "backups.downloadManifest" : "backups.download")}
                 disabled={backup.status !== "completed" || download.isPending}
                 onClick={() => download.mutate(backup)}
               >
@@ -446,6 +452,7 @@ export default function BackupsPage() {
                 title={t("backups.delete")}
                 disabled={
                   deleteBackup.isPending ||
+                  backup.kind === "rescue" ||
                   backup.status === "queued" ||
                   backup.status === "running"
                 }
