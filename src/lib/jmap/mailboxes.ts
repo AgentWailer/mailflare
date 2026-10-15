@@ -81,7 +81,7 @@ async function loadCounts(
 		if (!row.mailboxId) continue;
 		add(encodeMailboxRef({ kind: "account", mailboxId: row.mailboxId }), row);
 		if (
-			row.direction === "inbound" && (row.status === "received" || row.status === "archived" && (row.category === "invoices" || row.category === "orders")) &&
+			row.direction === "inbound" && row.status === "received" &&
 			(row.category === "promotions" || row.category === "social" || row.category === "invoices" || row.category === "orders")
 		) {
 			add(

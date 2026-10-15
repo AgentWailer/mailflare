@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
 	if (folder === "inbox" || folder === "promotions" || folder === "social" || folder === "invoices" || folder === "orders") {
 		conditions.push(eq(messages.direction, "inbound"));
-		conditions.push(folderId || folder === "invoices" || folder === "orders" ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
+		conditions.push(folderId ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
 		if (!folderId) {
 			conditions.push(folder === "inbox" ? inArray(messages.category, INBOX_CATEGORIES) : eq(messages.category,folder));
 			if(folder === "inbox") conditions.push(isNull(messages.folderId));

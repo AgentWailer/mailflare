@@ -10,6 +10,11 @@ New unread invoices and orders retain their existing notification eligibility;
 advertising and social updates remain silent. The app badge counts the unread mail
 actually visible in the inbox, including social mail.
 
+Category views show received, unarchived messages. Archiving an invoice or order
+removes it from its category list, counters, navigation and folder-wide actions.
+Its stored category and assigned labels remain intact; the message stays available
+in Archive and All mail. This also applies to JMAP and assistant category searches.
+
 Categories are additional views. New invoices, orders and social mail remain in the
 inbox and appear in their own categories too; only advertising and spam skip the
 inbox automatically. Explicit archive, move, snooze and filter `skipInbox` actions

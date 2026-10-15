@@ -233,3 +233,25 @@ test('startup label counts use one indexed pass rather than folders times the en
  f.add('foreign',{mailbox:'private'});f.DB.db.exec("INSERT INTO message_labels(message_id,folder_id) VALUES ('foreign','label')");
  const ownerData=await(await app.counts(f.request(null,'owner','/api/messages/counts'))).json();assert.equal(Object.values(ownerData.counts.customFolders).reduce((n,row)=>n+row.total,0),48000,'mismatched label ownership cannot disclose or inflate another mailbox');
 });
+
+test('invoice and order categories contain only unarchived mail in lists, counts and folder-wide actions',async t=>{
+ const f=await fixture(t);
+ for(const category of ['invoices','orders']){
+  const active=category+'-open',archived=category+'-archived';f.add(active,{category});f.add(archived,{category,status:'archived'});
+  f.DB.db.prepare('UPDATE messages SET thread_id=? WHERE id IN (?,?)').run(category,active,archived);
+  f.DB.db.prepare("INSERT INTO message_labels(message_id,folder_id) VALUES (?,'label'),(?,'label')").run(active,archived);
+  const path='/api/messages?mailboxId=box&direction=inbound&status=received&category='+category;
+  for(const group of ['', '&group=thread']){const data=await(await app.list(f.request(null,'owner',path+group))).json();assert.equal(data.total,1);assert.deepEqual(data.messages.map(row=>row.id),[active]);if(group)assert.deepEqual(data.messages[0].threadMessageIds,[active]);}
+  const selected=await f.scopeChunk({folder:category,mailboxId:'box',action:'select'});assert.equal(selected.total,1);assert.equal(selected.unread,1);
+  const before=(await(await app.counts(f.request(null,'owner','/api/messages/counts?mailboxId=box'))).json()).counts;assert.deepEqual(before.folders[category],{total:1,unread:1});
+  assert.equal((await app.idBulk(f.request({messageIds:[active],action:'archive'}))).status,200);
+  const after=(await(await app.counts(f.request(null,'owner','/api/messages/counts?mailboxId=box'))).json()).counts;assert.deepEqual(after.folders[category],{total:0,unread:0});
+  assert.equal((await(await app.list(f.request(null,'owner',path))).json()).total,0);
+  assert.equal(f.DB.db.prepare('SELECT category FROM messages WHERE id=?').get(active).category,category);
+  assert.equal(f.DB.db.prepare("SELECT count(*) n FROM message_labels WHERE folder_id='label' AND message_id IN (?,?)").get(active,archived).n,2,'archiving retains assigned labels');
+  const result=await app.createJob(f.request({input:{folder:category,mailboxId:'box',action:'read'},scope,requestId:'empty-'+category}));assert.equal(result.status,202);const job=(await result.json()).job;assert.equal(job.total,0);assert.equal(job.status,'done');
+  assert.equal(f.DB.db.prepare('SELECT read FROM messages WHERE id=?').get(archived).read,0,'a category-wide action cannot touch its hidden archived messages');
+ }
+ const all=await(await app.list(f.request(null,'owner','/api/messages?mailboxId=box&direction=inbound'))).json();assert.equal(all.total,4);
+ const archive=await(await app.list(f.request(null,'owner','/api/messages?mailboxId=box&status=archived'))).json();assert.equal(archive.total,4);
+});

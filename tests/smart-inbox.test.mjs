@@ -45,6 +45,7 @@ await build({
  export {resolveInboxRuleDestination,matchesRule} from './src/lib/email/routing.ts';
  export {exportDatabaseRecords,restoreDatabaseRecords} from './src/lib/backups/export.ts';
  export {getDb} from './src/db/index.ts';
+ export {runEmailTool} from './src/lib/agent/tools.ts';
  export {resolveRoutineMail} from './src/lib/mail-sorting/routine.ts';
  export {requireSessionUser} from './src/lib/api/auth.ts';
  export {emailQuery} from './src/lib/jmap/emails.ts';
@@ -1028,22 +1029,25 @@ test('CLEF receives six choices and financial uncertainty cannot become advertis
  const invalid=choice('orders');invalid.category.probabilities.orders=NaN;assert.equal(app.resolveClefDecision(invalid,.8,0).source,'fallback');
 });
 
-test('invoice/order lists, counters and navigation include archive while preserving label memberships and access isolation', async t => {
+test('invoice/order lists, counters and navigation exclude archive while preserving labels and access isolation', async t => {
  const f=await fixture(t);f.DB.db.exec("UPDATE messages SET category='invoices' WHERE id='primary';UPDATE messages SET category='orders',status='archived' WHERE id='promotion';INSERT INTO message_labels(message_id,folder_id) VALUES('primary','work');UPDATE messages SET category='invoices' WHERE id='foreign'");
- for(const [category,id] of [['invoices','primary'],['orders','promotion']]){
-  const list=await(await app.list(f.request('/api/messages?mailboxId=box&status=received&category='+category))).json();assert.deepEqual(list.messages.map(x=>x.id),[id]);
-  const nav=await(await app.navigation(f.request('/api/messages/navigation?mailboxId=box&folder='+category))).json();assert.deepEqual(nav.messages.map(x=>x.id),[id]);
+ const {user}=await app.requireSessionUser(f.env,f.request('/api/messages'));
+ for(const [category,ids] of [['invoices',['primary']],['orders',[]]]){
+  const list=await(await app.list(f.request('/api/messages?mailboxId=box&status=received&category='+category))).json();assert.deepEqual(list.messages.map(x=>x.id),ids);
+  const nav=await(await app.navigation(f.request('/api/messages/navigation?mailboxId=box&folder='+category))).json();assert.deepEqual(nav.messages.map(x=>x.id),ids);
+  const assistant=await app.runEmailTool({env:f.env,user,mailboxId:'box',origin:'chat'},'list_emails',{folder:category,limit:20});assert.deepEqual(assistant.emails.map(x=>x.id),ids);
   const params=app.getMessageQueryParams(category,'box');assert.equal(params.get('category'),category);assert.equal(params.get('status'),'received');
  }
- const counts=await(await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json();assert.equal(counts.counts.folders.invoices.total,1);assert.equal(counts.counts.folders.orders.total,1);assert.equal(counts.counts.folders.archived.total,1);assert.equal(counts.counts.folders.inbox.total,2);assert.equal(counts.counts.customFolders.work.total,1);
+ const counts=await(await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json();assert.equal(counts.counts.folders.invoices.total,1);assert.equal(counts.counts.folders.orders.total,0);assert.equal(counts.counts.folders.archived.total,1);assert.equal(counts.counts.folders.inbox.total,2);assert.equal(counts.counts.customFolders.work.total,1);
  assert.equal((await app.list(f.request('/api/messages?mailboxId=otherbox&status=received&category=invoices'))).status,404);
 });
 
-test('financial categories work through JMAP including archived receipts and label-only edits', async t => {
+test('JMAP hides archived receipts from categories while preserving archive and label-only edits', async t => {
  const f=await fixture(t);f.DB.db.exec("UPDATE messages SET category='invoices',status='archived' WHERE id='primary';UPDATE messages SET category='orders' WHERE id='promotion'");
  const {user}=await app.requireSessionUser(f.env,f.request('/api/messages'));const ctx={env:f.env,db:f.db,auth:{user,userId:'owner',mailboxIds:null},accountId:'owner',origin:'https://mailflare.test',createdIds:{}};
- const emails=await app.emailGet(ctx,{ids:['primary','promotion']});assert.equal(emails.list[0].mailboxIds['box~c~invoices'],true);assert.equal(emails.list[0].mailboxIds['box~archive'],true);assert.equal(emails.list[1].mailboxIds['box~c~orders'],true);
- const boxes=await app.mailboxGet(ctx,{});assert.equal(boxes.list.find(x=>x.id==='box~c~invoices').totalEmails,1);assert.equal(boxes.list.find(x=>x.id==='box~c~orders').totalEmails,1);
+ const emails=await app.emailGet(ctx,{ids:['primary','promotion']});assert.equal(emails.list[0].mailboxIds['box~c~invoices'],undefined);assert.equal(emails.list[0].mailboxIds['box~archive'],true);assert.equal(emails.list[1].mailboxIds['box~c~orders'],true);
+ const boxes=await app.mailboxGet(ctx,{});assert.equal(boxes.list.find(x=>x.id==='box~c~invoices').totalEmails,0);assert.equal(boxes.list.find(x=>x.id==='box~c~orders').totalEmails,1);
+ const queried=await app.emailQuery(ctx,{filter:{inMailbox:'box~c~invoices'}});assert.deepEqual(queried.ids,[]);
  const changed=await app.emailSet(ctx,{update:{primary:{'mailboxIds/box~f~work':true}}});assert.equal(changed.updated.primary,null);assert.equal(f.DB.db.prepare("SELECT status FROM messages WHERE id='primary'").get().status,'archived');assert.equal(f.DB.db.prepare("SELECT category FROM messages WHERE id='primary'").get().category,'invoices');
 });
 
@@ -1073,9 +1077,9 @@ test('Freenet invoices, orders and social remain in inbox as well as their categ
  ('archived-invoice','owner','box','inbound','billing@example.test','owner@example.test','Invoice','archived','invoices',0,4,NULL),
  ('snoozed-invoice','owner','box','inbound','billing@example.test','owner@example.test','Invoice','received','invoices',0,3,4102444800);`);
  const inbox=await(await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received'))).json();assert.deepEqual(inbox.messages.map(x=>x.id),['primary','promotion','social']);
- const invoices=await(await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received&category=invoices'))).json();assert.deepEqual(invoices.messages.map(x=>x.id),['primary','archived-invoice']);
+ const invoices=await(await app.list(f.request('/api/messages?mailboxId=box&direction=inbound&status=received&category=invoices'))).json();assert.deepEqual(invoices.messages.map(x=>x.id),['primary']);
  const nav=await(await app.navigation(f.request('/api/messages/navigation?mailboxId=box&folder=inbox'))).json();assert.deepEqual(nav.messages.map(x=>x.id),['primary','promotion','social']);
- const counts=(await(await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json()).counts;assert.deepEqual(counts.folders.inbox,{total:3,unread:3});assert.equal(counts.folders.invoices.total,2);assert.equal(counts.folders.orders.total,1);assert.equal(counts.mailboxes[0].inbox,3);
+ const counts=(await(await app.counts(f.request('/api/messages/counts?mailboxId=box'))).json()).counts;assert.deepEqual(counts.folders.inbox,{total:3,unread:3});assert.equal(counts.folders.invoices.total,1);assert.equal(counts.folders.orders.total,1);assert.equal(counts.mailboxes[0].inbox,3);
  const {user}=await app.requireSessionUser(f.env,f.request('/api/messages'));assert.equal(await app.getUnreadBadgeCount(f.db,user),3);
  const ctx={env:f.env,db:f.db,auth:{user,userId:'owner',mailboxIds:null},accountId:'owner',origin:'https://mailflare.test',createdIds:{}};
  const email=(await app.emailGet(ctx,{ids:['primary']})).list[0];assert.equal(email.mailboxIds['box~inbox'],true);assert.equal(email.mailboxIds['box~c~invoices'],true);assert.equal(email.mailboxIds['box~f~work'],true);
@@ -1136,7 +1140,7 @@ test('first category conversation pages use body-free metadata indexes for count
    assert(plan.details.some(detail=>/COVERING INDEX messages_(conversation|category_page)_cover_idx/.test(detail)),JSON.stringify({category,plan}));
   }
   assert(page.messages.every(message=>message.labels.some(label=>label.id==='work')));
-  if(category==='invoices'||category==='orders')assert(page.messages.every(message=>message.threadMessageIds.length===2));else assert(page.messages.every(message=>message.threadMessageIds.length===1));
+  assert(page.messages.every(message=>message.threadMessageIds.length===1));
  }
  assert.equal(f.DB.db.prepare("SELECT count(*) n FROM sqlite_master WHERE name IN ('messages_mailbox_thread_key_idx','messages_thread_key_idx')").get().n,0);
 });

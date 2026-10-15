@@ -13,7 +13,6 @@ export function messageListFilterConditions(db: ReturnType<typeof getDb>, params
 	const folderId = params.get("folderId");
 	const status = params.get("status");
 	const requestedCategory = params.get("category") ?? "primary";
-	const financialView = !folderId && (requestedCategory === "invoices" || requestedCategory === "orders") && status === "received";
 	const query = params.get("q")?.trim();
 	const title = params.get("title")?.trim();
 	const read = params.get("read");
@@ -28,7 +27,7 @@ export function messageListFilterConditions(db: ReturnType<typeof getDb>, params
 		conditions.push(labelCondition(folderId));
 	}
 	if (status) {
-		conditions.push((folderId && status === "received") || financialView ? inArray(messages.status,["received","archived"]) : eq(messages.status, status));
+		conditions.push(folderId && status === "received" ? inArray(messages.status,["received","archived"]) : eq(messages.status, status));
 	}
 	// Composer templates are stored as messages but never listed.
 	if (status !== "template") {

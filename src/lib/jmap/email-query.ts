@@ -41,7 +41,7 @@ export function mailboxRefCondition(ref: MailboxRef): SQL {
 		return and(
 			base,
 			eq(messages.category, ref.category),
-			ref.category === "invoices" || ref.category === "orders" ? inArray(messages.status, ["received", "archived"]) : eq(messages.status, "received"),
+			eq(messages.status, "received"),
 			eq(messages.direction, "inbound"),
 		)!;
 	const status = roleToStatus(ref.role);

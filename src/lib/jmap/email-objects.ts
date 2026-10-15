@@ -44,7 +44,7 @@ export function mailboxIdsFor(
 				encodeMailboxRef({ kind: "folder", mailboxId: row.mailboxId, folderId })
 			] = true;
 	if (
-		row.direction === "inbound" && (row.status === "received" || row.status === "archived" && (row.category === "invoices" || row.category === "orders")) &&
+		row.direction === "inbound" && row.status === "received" &&
 		(row.category === "promotions" || row.category === "social" || row.category === "invoices" || row.category === "orders")
 	)
 		ids[
