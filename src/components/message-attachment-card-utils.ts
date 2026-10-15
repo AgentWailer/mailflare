@@ -8,6 +8,7 @@ import {
 	Image,
 	Music,
 	Presentation,
+	WalletCards,
 } from "lucide-react";
 import type { MessageAttachment } from "@/app/(dashboard)/inbox/[messageId]/types";
 import type { AttachmentVisual } from "./message-attachment-card-types";
@@ -19,6 +20,9 @@ export function getAttachmentVisual(
 	const type = attachment.type.toLowerCase();
 	const filename = attachment.filename.toLowerCase();
 	const previewKind = getAttachmentPreviewKind(attachment);
+	if (previewKind === "wallet") {
+		return { icon: WalletCards, iconClassName: "bg-neutral-100 text-neutral-800", labelKey: "attachment.wallet", thumbnail: null };
+	}
 
 	if (previewKind === "image") {
 		return {

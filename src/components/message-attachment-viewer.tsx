@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useEffect, useState } from "react";
-import { ArrowDownToLine, FileWarning } from "lucide-react";
+import { ArrowDownToLine, FileWarning, WalletCards } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -86,6 +86,12 @@ export function MessageAttachmentViewer({
 					{open && previewKind === "pdf" && (
 						<Suspense fallback={<div role="status" className="p-6 text-sm">{t("nav.loadingPage")}</div>}><PdfAttachmentPreview key={previewUrl} url={previewUrl} /></Suspense>
 					)}
+					{previewKind === "wallet" && <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
+						<WalletCards className="h-12 w-12 text-neutral-700" aria-hidden="true" />
+						<h2 className="text-lg font-semibold">{t("attachment.wallet")}</h2>
+						<p className="text-sm text-neutral-600">{t("attachment.walletDescription")}</p>
+						<Button asChild><a href={getAttachmentFileUrl(messageId, attachment.id, "open")} target="_blank" rel="noopener noreferrer">{t("attachment.openWallet")}</a></Button>
+					</div>}
 					{previewKind === "audio" && (
 						<audio src={previewUrl} controls className="w-[min(560px,90%)]" />
 					)}

@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { getAttachmentForUser } from "@/lib/email/attachments";
+import { isWalletPass, WALLET_PASS_CONTENT_TYPE } from "@/lib/email/wallet-pass";
 import type { AttachmentRouteParams } from "./types";
 import {
 	getAttachmentContentDisposition,
@@ -20,13 +21,15 @@ export async function GET(request: Request, { params }: AttachmentRouteParams) {
 	const url = new URL(request.url);
 	const previewRequested = url.searchParams.get("preview") === "1";
 	const downloadRequested = url.searchParams.get("download") === "1";
+	const wallet = isWalletPass(attachment.contentType, attachment.filename);
+	const nativeOpenRequested = wallet && url.searchParams.get("open") === "1";
 	const inline =
 		!downloadRequested &&
-		(attachment.disposition === "inline" ||
+		(nativeOpenRequested || attachment.disposition === "inline" ||
 			(previewRequested && isPreviewableAttachmentType(attachment.contentType)));
 	const headers = new Headers();
 	object.writeHttpMetadata(headers);
-	headers.set("Content-Type", attachment.contentType);
+	headers.set("Content-Type", wallet ? WALLET_PASS_CONTENT_TYPE : attachment.contentType);
 	headers.set("Content-Length", String(attachment.size));
 	headers.set("Content-Disposition", getAttachmentContentDisposition(attachment.filename, inline));
 	headers.set("X-Content-Type-Options", "nosniff");

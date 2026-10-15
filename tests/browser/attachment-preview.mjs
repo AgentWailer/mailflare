@@ -22,11 +22,12 @@ function pdfFixture(){
 const pdf=pdfFixture(),filename='Receipt-with-a-long-filename-2026.pdf';
 const message={id:'receipt',mailboxId:'box',direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender@example.test',toAddr:'owner@example.test',subject:'Receipt for the trip',snippet:'Your receipt is attached.',labels:[],hasAttachments:true,createdAt:'2026-10-15T12:00:00Z'};
 const attachment={id:'pdf-file',messageId:'receipt',filename,type:'application/pdf',size:pdf.length,disposition:'attachment'};
+const walletAttachment={id:'wallet-file',messageId:'receipt',filename:'Flight.pkpass',type:'application/octet-stream',size:4,disposition:'attachment'};
 function json(path){
  if(path==='/api/auth/me')return {user:{id:'owner',name:'Test User',email:'owner@example.test',role:'user',hasAvatar:false},hasMailboxes:true,isSetup:true};
  if(path==='/api/mailboxes')return {mailboxes:[{id:'box',domainId:'domain',localPart:'owner',hostname:'example.test',displayName:'Test User',isPrimary:true,type:'personal',permission:'full_access',senderAddresses:['owner@example.test']}]};
  if(path==='/api/messages')return {messages:[message],total:1,limit:25,offset:0};
- if(path==='/api/messages/receipt')return {message,body:{textBody:'Your complete receipt is attached.',htmlBody:null},attachments:[attachment]};
+ if(path==='/api/messages/receipt')return {message,body:{textBody:'Your complete receipt is attached.',htmlBody:null},attachments:[attachment,walletAttachment]};
  if(path==='/api/agent/availability')return {enabled:false};
  if(path==='/api/branding')return {appName:'Mailflare',hasCustomIcon:false};
  return {folders:[],messages:[],jobs:[],job:null,hiddenLabelIds:[],ok:true};
@@ -37,8 +38,10 @@ try{
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Preview exited');await pause(200);}assert(ready);
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const viewport of [{width:320,height:700},{width:390,height:844},{width:844,height:390},{width:1440,height:900}]){
-  const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[],requests=[];let detailCalls=0,preload=false,pdfFailure=false;
+  const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[],requests=[];let detailCalls=0,preload=false,pdfFailure=false,walletOpens=0;
   page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
+  // Context routing also covers a popup's initial navigation request.
+  await page.context().route('**/api/messages/receipt/attachments/wallet-file*',async route=>{walletOpens++;assert.equal(new URL(route.request().url()).search,'?open=1');return route.fulfill({contentType:'text/html',body:'<p>Native Wallet handoff boundary</p>'});});
   await page.route('**/api/**',async route=>{const request=route.request(),url=new URL(request.url());if(request.headers()['x-mailflare-preload']==='1')preload=true;
    if(url.pathname==='/api/messages/receipt'&&++detailCalls===1)return route.fulfill({status:500,body:''});
    if(url.pathname.endsWith('/attachments/pdf-file'))return route.fulfill({status:pdfFailure?503:200,contentType:'application/pdf',body:pdfFailure?'':pdf});
@@ -48,6 +51,10 @@ try{
   for(let i=0;i<100&&!preload;i++)await pause(50);assert(preload,'test runs after background folder preloading begins');
   await page.locator('[data-message-row="receipt"] a[href="/inbox/receipt"]').click();await page.getByText('Your complete receipt is attached.',{exact:true}).waitFor();assert.equal(detailCalls,2,'an empty HTTP 500 recovers without a retry click');
   assert(!requests.some(url=>/pdf\.worker|\/pdf-[\w-]+\.js|\/pdfjs-/.test(url)),'PDF engine and resources stay deferred');
+  // Chromium has no Wallet: verify user-activated top-level navigation, while the
+  // server tests verify actual pass MIME, cookies, grants and private headers.
+  const walletLink=page.getByRole('link').filter({hasText:'Flight.pkpass'});assert.equal(walletOpens,0,'passes are not downloaded speculatively');assert.equal(await walletLink.getAttribute('download'),null);
+  const popupPromise=page.waitForEvent('popup');await walletLink.click();const popup=await popupPromise;await popup.waitForLoadState();assert.equal(new URL(popup.url()).pathname,'/api/messages/receipt/attachments/wallet-file');assert.equal(new URL(popup.url()).search,'?open=1');assert.equal(new URL(popup.url()).origin,origin);await popup.close();assert.equal(walletOpens,1);assert.equal(await page.locator('[data-attachment-viewer]').count(),0,'Wallet is handed off directly instead of showing an unsupported preview');
   await page.getByRole('button').filter({hasText:filename}).click();const dialog=page.locator('[data-attachment-viewer]');await dialog.waitFor();
   const first=page.locator('[data-pdf-page="1"][data-pdf-rendered="true"]');await first.waitFor({timeout:20000});
   const bounds=await dialog.boundingBox();assert(bounds);if(viewport.width<1024){assert(Math.abs(bounds.x)<1&&Math.abs(bounds.y)<1);assert(Math.abs(bounds.width-viewport.width)<1&&Math.abs(bounds.height-viewport.height)<1,'mobile preview fills the viewport');}
@@ -63,6 +70,6 @@ try{
   if(viewport.width===390){await page.setViewportSize({width:844,height:390});await page.waitForFunction(()=>Math.abs(document.querySelector('[data-attachment-viewer]').getBoundingClientRect().height-innerHeight)<1);await page.screenshot({path:'/tmp/mailflare-pdf-mobile-landscape.png'});await page.setViewportSize(viewport);}
   await page.screenshot({path:`/tmp/mailflare-pdf-${viewport.width}.png`});await dialog.getByRole('button',{name:'Close',exact:true}).click();await dialog.waitFor({state:'hidden'});
   if(viewport.width===390){pdfFailure=true;await page.getByRole('button').filter({hasText:filename}).click();await dialog.getByRole('alert').waitFor();assert(await dialog.getByRole('link',{name:'Download',exact:true}).isVisible());pdfFailure=false;await dialog.getByRole('button',{name:'Try again',exact:true}).click();await first.waitFor();await dialog.getByRole('button',{name:'Close',exact:true}).click();await dialog.waitFor({state:'hidden'});}
-  assert.deepEqual(errors,[]);assert(!requests.some(url=>!url.startsWith(origin)),'PDFs and rendering resources stay on the application origin');console.log(JSON.stringify({viewport,transientReaderFailureRecovered:true,fullscreen:viewport.width<1024,allPages:true,bothEdgesRendered:true,zoom:true,download:true}));await page.close();
+  assert.deepEqual(errors,[]);assert(!requests.some(url=>!url.startsWith(origin)),'PDFs and rendering resources stay on the application origin');console.log(JSON.stringify({viewport,transientReaderFailureRecovered:true,fullscreen:viewport.width<1024,allPages:true,bothEdgesRendered:true,zoom:true,download:true,walletHandoff:true}));await page.close();
  }
 }finally{await browser?.close();if(preview){preview.kill('SIGTERM');await new Promise(resolve=>{if(preview.exitCode!==null)return resolve();preview.once('exit',resolve);setTimeout(()=>{preview.kill('SIGKILL');resolve();},5000).unref();});}writeFileSync('/tmp/mailflare-pdf-browser-preview.log',serverLog);rmSync(temporary,{recursive:true,force:true});}

@@ -13,4 +13,5 @@ export type AttachmentPreviewKind =
 	| "pdf"
 	| "text"
 	| "unsupported"
+	| "wallet"
 	| "video";

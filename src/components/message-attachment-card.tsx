@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowDownToLine, Play } from "lucide-react";
+import { ArrowDownToLine, ArrowUpRight, Play } from "lucide-react";
 import { formatAttachmentSize } from "@/app/(dashboard)/inbox/[messageId]/utils";
 import { useLanguage } from "@/components/language-provider";
 import type { MessageAttachmentCardProps } from "./message-attachment-card-types";
-import { getAttachmentFileUrl } from "./message-attachment-viewer-utils";
+import { getAttachmentFileUrl, getAttachmentPreviewKind } from "./message-attachment-viewer-utils";
 import { getAttachmentVisual } from "./message-attachment-card-utils";
 
 export function MessageAttachmentCard({
@@ -16,13 +16,10 @@ export function MessageAttachmentCard({
 	const visual = getAttachmentVisual(attachment);
 	const Icon = visual.icon;
 	const previewUrl = getAttachmentFileUrl(messageId, attachment.id, "preview");
+	const wallet = getAttachmentPreviewKind(attachment) === "wallet";
+	const className = "group flex w-full items-center gap-3 rounded-lg border border-neutral-200 p-2.5 text-left transition-colors hover:border-blue-200 hover:bg-blue-50/40";
 
-	return (
-		<button
-			type="button"
-			onClick={() => onPreview(attachment)}
-			className="group flex w-full items-center gap-3 rounded-lg border border-neutral-200 p-2.5 text-left transition-colors hover:border-blue-200 hover:bg-blue-50/40"
-		>
+	const content = <>
 			{visual.thumbnail === "image" && (
 				<img
 					src={previewUrl}
@@ -58,7 +55,9 @@ export function MessageAttachmentCard({
 					{t(visual.labelKey)} · {formatAttachmentSize(attachment.size)}
 				</span>
 			</span>
-			<ArrowDownToLine className="h-4 w-4 shrink-0 text-neutral-400 transition-colors group-hover:text-blue-600" />
-		</button>
-	);
+			{wallet ? <ArrowUpRight className="h-4 w-4 shrink-0 text-neutral-400" /> : <ArrowDownToLine className="h-4 w-4 shrink-0 text-neutral-400 transition-colors group-hover:text-blue-600" />}
+	</>;
+	// A user-activated top-level URL lets iOS handle the signed pass in Wallet.
+	return wallet ? <a href={getAttachmentFileUrl(messageId, attachment.id, "open")} target="_blank" rel="noopener noreferrer" className={className}>{content}</a>
+		: <button type="button" onClick={() => onPreview(attachment)} className={className}>{content}</button>;
 }
