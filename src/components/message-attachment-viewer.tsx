@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { ArrowDownToLine, FileWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,8 @@ import {
 	getAttachmentFileUrl,
 	getAttachmentPreviewKind,
 } from "./message-attachment-viewer-utils";
+
+const PdfAttachmentPreview = lazy(() => import("./pdf-attachment-preview"));
 
 export function MessageAttachmentViewer({
 	attachment,
@@ -64,13 +66,16 @@ export function MessageAttachmentViewer({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="flex h-[min(88vh,900px)] w-[min(1100px,calc(100vw-32px))] flex-col overflow-hidden">
-				<DialogHeader className="shrink-0 pr-10">
-					<DialogTitle className="truncate">{attachment.filename}</DialogTitle>
-					<DialogDescription>{attachment.type}</DialogDescription>
+			<DialogContent data-attachment-viewer style={{ paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }} className="flex h-[min(92dvh,1000px)] w-[min(1200px,calc(100vw-48px))] max-h-[calc(100dvh-48px)] flex-col overflow-hidden p-0 md:p-0 max-lg:inset-0 max-lg:h-[100dvh] max-lg:max-h-[100dvh] max-lg:w-full max-lg:translate-x-0 max-lg:translate-y-0 max-lg:rounded-none" closeClassName="right-[max(8px,env(safe-area-inset-right))] top-[max(8px,env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center p-0">
+				<DialogHeader className="mb-0 flex shrink-0 flex-row items-center gap-2 space-y-0 border-b border-neutral-200 pb-2 pl-3 pr-14 pt-[max(8px,env(safe-area-inset-top))]">
+					<DialogTitle className="min-w-0 flex-1 truncate text-sm">{attachment.filename}</DialogTitle>
+					<DialogDescription className="sr-only">{attachment.type}</DialogDescription>
+					<Button asChild variant="ghost" size="sm" className="h-11 w-11 shrink-0 p-0">
+						<a href={downloadUrl} download={attachment.filename} aria-label={t("attachment.download")} title={t("attachment.download")}><ArrowDownToLine className="h-5 w-5" /></a>
+					</Button>
 				</DialogHeader>
 
-				<div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg bg-neutral-100">
+				<div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-neutral-100">
 					{previewKind === "image" && (
 						<img
 							src={previewUrl}
@@ -78,12 +83,8 @@ export function MessageAttachmentViewer({
 							className="max-h-full max-w-full object-contain"
 						/>
 					)}
-					{previewKind === "pdf" && (
-						<iframe
-							src={previewUrl}
-							title={attachment.filename}
-							className="h-full w-full border-0 bg-white"
-						/>
+					{open && previewKind === "pdf" && (
+						<Suspense fallback={<div role="status" className="p-6 text-sm">{t("nav.loadingPage")}</div>}><PdfAttachmentPreview key={previewUrl} url={previewUrl} /></Suspense>
 					)}
 					{previewKind === "audio" && (
 						<audio src={previewUrl} controls className="w-[min(560px,90%)]" />
@@ -112,15 +113,6 @@ export function MessageAttachmentViewer({
 							</p>
 						</div>
 					)}
-				</div>
-
-				<div className="flex shrink-0 justify-end">
-					<Button asChild>
-						<a href={downloadUrl} download={attachment.filename}>
-							<ArrowDownToLine className="h-4 w-4" />
-							{t("attachment.download")}
-						</a>
-					</Button>
 				</div>
 			</DialogContent>
 		</Dialog>

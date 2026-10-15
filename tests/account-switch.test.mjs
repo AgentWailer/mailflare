@@ -95,8 +95,37 @@ test('authenticated fetch never sends the session to a different origin',async t
 test('temporary message failures never poison the detail cache and the next attempt can succeed',async t=>{
  app.clearMessageDetailCache();app.setClientSessionToken('active');let calls=0;
  t.mock.method(globalThis,'fetch',async()=>{calls++;if(calls===1)return Response.json({error:'Unavailable'},{status:503});if(calls===2)throw Error('offline');if(calls===3)return Response.json({error:'invalid response'});return Response.json({message:{id:'retry'},body:{textBody:'Recovered',htmlBody:null}});});
- for(let i=0;i<3;i++){await assert.rejects(app.fetchCachedMessageDetail('retry'));assert.equal(app.getCachedMessageDetail('retry'),undefined);}
+ for(let i=0;i<2;i++){await assert.rejects(app.fetchCachedMessageDetail('retry'));assert.equal(app.getCachedMessageDetail('retry'),undefined);}
  assert.equal((await app.fetchCachedMessageDetail('retry')).body.textBody,'Recovered');assert.equal(calls,4);
+});
+
+test('empty server failures and a connection failure recover inside the one shared reader request',async t=>{
+ app.clearMessageDetailCache();app.setClientSessionToken('active');let calls=0;
+ t.mock.method(globalThis,'fetch',async(url,init)=>{calls++;assert.equal(init.cache,'no-store');if(calls===1)return new Response(null,{status:500});if(calls===2)throw new TypeError('Failed to fetch');return Response.json({message:{id:'recover'},body:{textBody:'Recovered'}});});
+ app.preloadMessageDetail({id:'recover'});const a=app.fetchCachedMessageDetail('recover'),b=app.fetchCachedMessageDetail('recover');
+ assert.equal((await a).body.textBody,'Recovered');assert.equal((await b).body.textBody,'Recovered');assert.equal(calls,3);assert.equal(app.getCachedMessageDetail('recover').body.textBody,'Recovered');
+});
+
+test('persistent server failures stop after three attempts and remain manually retryable',async t=>{
+ app.clearMessageDetailCache();let calls=0;let fail=true;
+ t.mock.method(globalThis,'fetch',async()=>{calls++;return fail?new Response(null,{status:503}):Response.json({message:{id:'persistent'},body:{textBody:'Ready'}});});
+ await assert.rejects(app.fetchCachedMessageDetail('persistent'));assert.equal(calls,3);assert.equal(app.getCachedMessageDetail('persistent'),undefined);
+ fail=false;assert.equal((await app.fetchCachedMessageDetail('persistent')).body.textBody,'Ready');assert.equal(calls,4);
+});
+
+test('permanent errors, invalid responses and explicit aborts are not retried',async t=>{
+ for(const value of [new Response(null,{status:403}),new Response(null,{status:404}),new Response('invalid json'),Response.json({error:'Not a message'}),new DOMException('Cancelled','AbortError')]){
+  app.clearMessageDetailCache();let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;if(value instanceof Error)throw value;return value;});
+  await assert.rejects(app.fetchCachedMessageDetail('permanent'));assert.equal(calls,1);assert.equal(app.getCachedMessageDetail('permanent'),undefined);
+ }
+});
+
+test('an account change during retry backoff never sends the old message request with the new session',async t=>{
+ app.clearMessageDetailCache();app.setClientSessionToken('old');let calls=0;
+ t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response(null,{status:500});});
+ const pending=app.fetchCachedMessageDetail('old-private');const rejected=assert.rejects(pending,{name:'AbortError'});
+ await new Promise(resolve=>setTimeout(resolve,30));app.setClientSessionToken('new');await rejected;
+ assert.equal(calls,1);assert.equal(app.getCachedMessageDetail('old-private'),undefined);
 });
 
 test('intent, click and reader share one pending detail request without downloading all messages',async t=>{
