@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AUTH_SESSION_CHANGED_EVENT, authFetch } from "@/lib/auth/client";
+import { AUTH_SESSION_CHANGED_EVENT } from "@/lib/auth/client";
+import { clearSessionSnapshot, fetchSessionSnapshot } from "@/lib/auth/session-client";
 
 export type CurrentUser = {
 	id: string;
@@ -20,6 +21,7 @@ let cachedUser: CurrentUser | null = null;
 let inflight: Promise<CurrentUser | null> | null = null;
 
 export function clearCurrentUserCache(): void {
+	clearSessionSnapshot();
 	cacheGeneration += 1;
 	cachedUser = null;
 	inflight = null;
@@ -29,8 +31,7 @@ export function fetchCurrentUser(): Promise<CurrentUser | null> {
 	if (cachedUser) return Promise.resolve(cachedUser);
 	if (!inflight) {
 		const generation = cacheGeneration;
-		inflight = authFetch("/api/auth/me", { redirectOnUnauthorized: false })
-			.then((response) => (response.ok ? response.json() : null))
+		inflight = fetchSessionSnapshot().then(snapshot => snapshot.data)
 			.then((data) => {
 				const user = (data as { user?: CurrentUser } | null)?.user ?? null;
 				if (generation === cacheGeneration) cachedUser = user;

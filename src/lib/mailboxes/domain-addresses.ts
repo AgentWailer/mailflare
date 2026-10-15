@@ -22,33 +22,24 @@ export async function getMailboxDomainAddresses(
 	db: AppDatabase,
 	mailbox: MailboxDomainAddressInput,
 ): Promise<string[]> {
-	const [primaryDomain] = await db
-		.select({ hostname: domains.hostname, userId: domains.userId })
-		.from(domains)
-		.where(eq(domains.id, mailbox.domainId))
-		.limit(1);
+	const primaryDomainQuery = db.select({ hostname: domains.hostname, userId: domains.userId })
+		.from(domains).where(eq(domains.id, mailbox.domainId)).limit(1);
+	const aliasesQuery = db.select({ localPart: mailboxAliases.localPart, hostname: domains.hostname })
+		.from(mailboxAliases).innerJoin(domains, eq(mailboxAliases.domainId, domains.id))
+		.where(eq(mailboxAliases.mailboxId, mailbox.id));
+	const [[primaryDomain], aliases] = await db.batch([primaryDomainQuery, aliasesQuery]);
 	if (!primaryDomain) return [];
-
 	const primaryAddress = `${mailbox.localPart}@${primaryDomain.hostname}`.toLowerCase();
-	const aliasAddresses = await getMailboxAliasAddresses(db, mailbox.id);
-	if (!mailbox.useAllDomains) {
-		return [...new Set([primaryAddress, ...aliasAddresses])];
-	}
+	const aliasAddresses = aliases.map(alias => `${alias.localPart}@${alias.hostname}`.toLowerCase());
+	if (!mailbox.useAllDomains) return [...new Set([primaryAddress, ...aliasAddresses])];
 
-	const availableDomains = await db
-		.select({ id: domains.id, hostname: domains.hostname })
-		.from(domains)
-		.where(and(eq(domains.userId, primaryDomain.userId), eq(domains.status, "active")));
-	const assignedMailboxes = await db
-		.select({ id: mailboxes.id, domainId: mailboxes.domainId, localPart: mailboxes.localPart })
-		.from(mailboxes);
-	const assignedAliases = await db
-		.select({
-			mailboxId: mailboxAliases.mailboxId,
-			domainId: mailboxAliases.domainId,
-			localPart: mailboxAliases.localPart,
-		})
-		.from(mailboxAliases);
+	// These inventories are independent: one D1 round trip, not three serial waits.
+	const [availableDomains, assignedMailboxes, assignedAliases] = await db.batch([
+		db.select({ id: domains.id, hostname: domains.hostname }).from(domains)
+			.where(and(eq(domains.userId, primaryDomain.userId), eq(domains.status, "active"))),
+		db.select({ id: mailboxes.id, domainId: mailboxes.domainId, localPart: mailboxes.localPart }).from(mailboxes),
+		db.select({ mailboxId: mailboxAliases.mailboxId, domainId: mailboxAliases.domainId, localPart: mailboxAliases.localPart }).from(mailboxAliases),
+	]);
 	const normalizedLocalPart = normalizeRecipientLocalPart(mailbox.localPart);
 	const assignedDomainIds = new Set(
 		[

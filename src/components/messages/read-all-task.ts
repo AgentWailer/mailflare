@@ -36,7 +36,9 @@ export async function refreshBulkTask() {
   if (token !== getClientSessionToken() || version !== generation || submitting) return;
   // A failed submission retains its retry payload unless the same request reached the server.
   if (pending && task?.status === "failed" && job?.requestId !== pending.requestId) return;
-  if (job && (job.id !== task?.id || job.processed !== task?.processed || job.status !== task?.status)) changed();
+  // The first status is already reflected in the fresh startup queries. Invalidating
+  // them here discards the first list/count response and runs the entire load twice.
+  if (task && job && (job.id !== task.id || job.processed !== task.processed || job.status !== task.status)) changed();
   session = token;publish(job);
  } catch { /* A network failure does not interrupt server processing. */ }
  finally { if (readingGeneration === version) readingGeneration = null; if (version === generation) schedule(); }

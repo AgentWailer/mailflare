@@ -8,6 +8,8 @@ const dir=mkdtempSync(join(process.cwd(),'node_modules','mailflare-read-all-test
 after(()=>rmSync(dir,{recursive:true,force:true}));
 writeFileSync(join(dir,'headers.mjs'),'export async function cookies(){return {get:name=>name==="ep_session"&&globalThis.__readAllCookie?{value:globalThis.__readAllCookie}:undefined};}');
 await build({stdin:{contents:`
+ export {getDb} from './src/db';
+ export {labelCountsQuery} from './src/app/api/messages/counts/label-counts';
  export {SqliteDatabase} from './server/runtime/sqlite-database';
  export {applyMigrations} from './server/runtime/migrate';
  export {createSession} from './src/lib/auth/session';
@@ -191,4 +193,43 @@ test('mark-unread jobs touch only read matches and respect explicit unread-only 
  const f=await fixture(t);f.add('already-unread');f.add('read-target');f.DB.db.exec("UPDATE messages SET read=1 WHERE id='read-target'");
  const job=await create(f,'unread',{folder:'all'});assert.equal(job.total,1);await drain(f,job.id);assert.equal(row(f,job.id).processed,1);
  const response=await app.createJob(f.request({input:{folder:'all',mailboxId:'box',action:'read',read:'read'},scope,requestId:'read-filter-noop'}));const noop=(await response.json()).job;assert.equal(noop.total,0);await drain(f,noop.id);assert.equal(row(f,noop.id).processed,0);
+});
+
+test('archive-all skips a 60,000-message existing archive, spam and trash before creating the job',async t=>{
+ const f=await fixture(t);f.DB.db.transaction(()=>{for(let i=0;i<60000;i++)f.add('archived-'+i,{status:'archived'});})();
+ f.add('inbox');f.add('labelled');f.DB.db.exec("UPDATE messages SET folder_id='label' WHERE id IN ('labelled','archived-0')");
+ for(const status of ['spam','trash','draft','queued','template'])f.add('excluded-'+status,{status});f.add('foreign',{mailbox:'private'});
+ const revision=f.DB.db.prepare("SELECT revision FROM jmap_mailbox_revisions WHERE mailbox_id='box'").get().revision;
+ const job=await create(f,'archive',{folder:'all'});assert.equal(job.total,2);await drain(f,job.id);assert.equal(row(f,job.id).processed,2);
+ assert.equal(f.DB.db.prepare("SELECT revision FROM jmap_mailbox_revisions WHERE mailbox_id='box'").get().revision,revision+2,'only actual changes create sync revisions');
+ assert.equal(f.DB.db.prepare("SELECT folder_id FROM messages WHERE id='archived-0'").get().folder_id,'label','existing archived metadata stays untouched');
+ for(const status of ['spam','trash','draft','queued','template'])assert.equal(f.DB.db.prepare('SELECT status FROM messages WHERE id=?').get('excluded-'+status).status,status);
+ const response=await app.createJob(f.request({input:{folder:'all',mailboxId:'box',action:'archive'},scope,requestId:'second-archive'}));const next=(await response.json()).job;assert.equal(next.total,0);assert.equal(next.status,'done');
+});
+
+test('old archive jobs and saved retries skip messages already archived without new audit or sync writes',async t=>{
+ const f=await fixture(t);for(let i=0;i<3;i++)f.add('mail-'+i);const job=await create(f,'archive',{folder:'all'});
+ f.DB.db.exec("UPDATE messages SET status='archived' WHERE id IN ('mail-0','mail-1')");
+ f.DB.db.prepare('UPDATE message_bulk_jobs SET pending_chunk=? WHERE id=?').run(JSON.stringify({messageIds:['mail-0','mail-1','mail-2'],after:3,done:true}),job.id);
+ const revision=f.DB.db.prepare("SELECT revision FROM jmap_mailbox_revisions WHERE mailbox_id='box'").get().revision;
+ await drain(f,job.id);assert.equal(f.DB.db.prepare("SELECT revision FROM jmap_mailbox_revisions WHERE mailbox_id='box'").get().revision,revision+1);
+ assert.equal(f.DB.db.prepare('SELECT count(*) n FROM audit_logs').get().n,1);
+});
+
+
+test('startup label counts use one indexed pass rather than folders times the entire archive',async t=>{
+ const f=await fixture(t);
+ const folders=f.DB.db.prepare("INSERT INTO folders(id,user_id,mailbox_id,name,created_at) VALUES (?,'owner','box',?,1)");
+ const assign=f.DB.db.prepare('INSERT INTO message_labels(message_id,folder_id) VALUES (?,?)');
+ f.DB.db.transaction(()=>{for(let i=0;i<40;i++)folders.run('label-'+i,'Label '+i);for(let i=0;i<60000;i++){f.add('mail-'+i,{status:i%5===0?'spam':'archived'});assign.run('mail-'+i,'label-'+(i%40));}})();
+ const query=app.labelCountsQuery(app.getDb(f.env),[]),compiled=query.toSQL();
+ const plan=f.DB.db.prepare('EXPLAIN QUERY PLAN '+compiled.sql).all(...compiled.params).map(row=>row.detail);
+ assert.match(plan[0],/messages.*COVERING INDEX messages_counts_cover_idx/,'start with a small covering index even without ANALYZE statistics');
+ assert.match(plan[1],/message_labels.*message_labels_unique.*message_id/,'look up labels by each message rather than iterating the folders');
+ assert.match(plan[2],/folders.*id=/);
+ const results=await query;assert.equal(results.reduce((n,row)=>n+row.total,0),48000);assert.equal(results.reduce((n,row)=>n+row.unread,0),48000);
+ const response=await app.counts(f.request(null,'owner','/api/messages/counts?mailboxId=box'));assert.equal(response.status,200);assert.match(response.headers.get('Server-Timing'),/auth;dur=.*access;dur=.*counts;dur=/);
+ const data=await response.json();assert.equal(Object.values(data.counts.customFolders).reduce((n,row)=>n+row.total,0),48000);
+ f.add('foreign',{mailbox:'private'});f.DB.db.exec("INSERT INTO message_labels(message_id,folder_id) VALUES ('foreign','label')");
+ const ownerData=await(await app.counts(f.request(null,'owner','/api/messages/counts'))).json();assert.equal(Object.values(ownerData.counts.customFolders).reduce((n,row)=>n+row.total,0),48000,'mismatched label ownership cannot disclose or inflate another mailbox');
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
+import { fetchSessionSnapshot } from "@/lib/auth/session-client";
 import { usePathname } from "next/navigation";
 import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "./column-width-preferences";
 import { isMobileViewport, useIsMobile } from "./sidebar-mobile-utils";
@@ -50,11 +51,7 @@ export function SidebarProvider({ children, expandedWidth = 260, mobileOverlay =
 		// The sidebar preference is cosmetic, so every failure here degrades to the default.
 		// Guard the parse: an error response may carry an empty or non-JSON body, and an
 		// unhandled rejection here surfaces as a confusing SyntaxError overlay in dev.
-		void fetch("/api/auth/me", { cache: "no-store" })
-			.then(async (response) => {
-				if (!response.ok) return null;
-				return (await response.json().catch(() => null)) as { user?: { id?: string } } | null;
-			})
+		void fetchSessionSnapshot().then(snapshot => snapshot.data)
 			.then((data) => {
 				const userId = data?.user?.id;
 					if (!userId) return;

@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchSessionSnapshot } from "@/lib/auth/session-client";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, Check, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound } from "lucide-react";
@@ -9,7 +11,6 @@ import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
 import { isIdentityMailbox } from "@/components/mailbox-provider-utils";
 import { useMessageCounts } from "@/hooks/use-message-counts";
-import { authFetch } from "@/lib/auth/client";
 import { getAvatarColorStyle } from "@/lib/avatar-colors";
 import { logoutClientSession } from "@/lib/auth/logout";
 import { fetchBrowserAccounts, switchBrowserAccount, type BrowserAccount } from "@/lib/auth/accounts-client";
@@ -164,8 +165,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 	}, [open]);
 
 	useEffect(() => {
-		authFetch("/api/auth/me", { redirectOnUnauthorized: false })
-			.then((response) => (response.ok ? response.json() : null))
+		fetchSessionSnapshot().then(snapshot => snapshot.data)
 			.then((data) => {
 				const authData = data as { user?: MailboxSelectorUser } | null;
 				setUser(authData?.user ?? null);

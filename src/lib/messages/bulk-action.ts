@@ -1,5 +1,5 @@
 import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { folders, messages } from "@/db/schema";
@@ -15,6 +15,7 @@ import {
 	isPermanentlyDeletableStatus,
 } from "@/app/api/messages/bulk/utils";
 
+import { bulkActionConditions } from "./bulk-action-conditions";
 import type { SessionUser } from "@/lib/auth/types";
 
 export async function executeBulkMessageAction(env: CloudflareEnv, user: SessionUser, payload: BulkMessagePayload): Promise<NextResponse> {
@@ -121,11 +122,11 @@ export async function executeBulkMessageAction(env: CloudflareEnv, user: Session
   return NextResponse.json({ok:true});
  }
 
-	const changedIds = read === null ? allowedMessageIds
-		: selectedMessages.filter(message => allowedMessageIds.includes(message.id) && message.read !== read).map(message => message.id);
-	if (!changedIds.length) return NextResponse.json({ ok: true });
-	const updated = await db.update(messages).set(values).where(and(inArray(messages.id, changedIds),
-		read !== null ? ne(messages.read, read) : undefined)).returning({ id: messages.id });
+	// Recheck at the write boundary: saved chunks and concurrent user actions may
+	// already have reached the requested state. No update means no audit/sync churn.
+	const updated = await db.update(messages).set(values).where(and(
+		inArray(messages.id, allowedMessageIds), ...bulkActionConditions(payload.action),
+	)).returning({ id: messages.id });
 	await createBulkAuditLogs(env,
 		updated.map(({ id: messageId }) => ({
 			actorUserId: user.id,

@@ -1,20 +1,24 @@
-import { and, count, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { requestTiming } from "@/lib/server-timing";
+import { and, count, eq, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { messages, messageLabels, folders } from "@/db/schema";
+import { messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
 import { buildMessageCounts } from "./utils";
+import { labelCountsQuery } from "./label-counts";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
 
 export async function GET(request: Request) {
+	const timing = requestTiming();
 	const env = getEnv();
 	const user = await getCurrentUser(env, request);
 	if (!user) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
+	timing.mark("auth");
 
 	const url = new URL(request.url);
 	const mailboxId = url.searchParams.get("mailboxId");
@@ -36,6 +40,7 @@ export async function GET(request: Request) {
 		}
 	}
 
+	timing.mark("access");
 	const rowsQuery = db
 		.select({
 			mailboxId: messages.mailboxId,
@@ -65,12 +70,13 @@ export async function GET(request: Request) {
 		.select({ total: count() })
 		.from(messages)
 		.where(and(...conditions, scheduledMessageCondition(db)));
-	const labelsQuery = db.select({id:messageLabels.folderId,total:count(),unread:sql<number>`sum(case when ${messages.direction}='inbound' and ${messages.read}=0 then 1 else 0 end)`}).from(messageLabels).innerJoin(messages,eq(messageLabels.messageId,messages.id)).innerJoin(folders,eq(messageLabels.folderId,folders.id)).where(and(...conditions,eq(folders.mailboxId,messages.mailboxId),notInArray(messages.status,["spam","trash","template"]))).groupBy(messageLabels.folderId);
+	const labelsQuery = labelCountsQuery(db, conditions);
 	// One D1 round trip and one consistent snapshot for the independent tallies.
 	const [rows, [scheduledRow], labels] = await db.batch([rowsQuery, scheduledQuery, labelsQuery]);
+	timing.mark("counts");
 	const counts = buildMessageCounts(rows);
  counts.customFolders = Object.fromEntries(labels.map(label=>[label.id,{total:label.total,unread:label.unread}]));
 	counts.folders.scheduled.total = scheduledRow?.total ?? 0;
 
-	return NextResponse.json({ counts });
+	return NextResponse.json({ counts }, { headers: timing.headers() });
 }

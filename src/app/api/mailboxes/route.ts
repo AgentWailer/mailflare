@@ -1,3 +1,4 @@
+import { requestTiming } from "@/lib/server-timing";
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
@@ -12,22 +13,27 @@ import { ensureMailboxDomainRouting, getMailboxDomainAddresses } from "@/lib/mai
 import { ensurePersonalMailbox } from "./utils";
 
 export async function GET(request: Request) {
+	const timing = requestTiming();
 	const env = getEnv();
 	const { user, error } = await requireSessionUser(env, request);
 	if (error) return error;
+	timing.mark("auth");
 	const db = getDb(env);
 	const rows = await ensurePersonalMailbox(env, db, user);
 	const entitlements = await getLicenseEntitlements(env);
-	return NextResponse.json({
-		mailboxes: await Promise.all(rows.map(async (mailbox) => ({
+	timing.mark("access");
+	const options = await Promise.all(rows.map(async (mailbox) => ({
 			...mailbox,
 			...(mailbox.userId === user.id && tracksAccountIdentity(mailbox, user.email)
 				? { displayName: user.name, hasAvatar: !!user.avatarKey }
 				: {}),
 			senderAddresses: await getMailboxDomainAddresses(db, mailbox),
-		}))),
+		})));
+	timing.mark("addresses");
+	return NextResponse.json({
+		mailboxes: options,
 		canCreateShared: user.role === "admin" && entitlements.canShareMailboxes,
-	});
+	}, { headers: timing.headers() });
 }
 
 export async function POST(request: Request) {

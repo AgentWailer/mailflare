@@ -9,6 +9,7 @@ import { messageListFilterConditions } from "@/lib/messages/list-filter";
 import { executeBulkMessageAction } from "@/lib/messages/bulk-action";
 import { executeOrganizationAction } from "@/lib/messages/organize-action";
 import { applyRuleToMessages, hasHistoricalRuleActions, ruleApplicationSchema, ruleNeedsContent } from "./apply-rule";
+import { bulkActionConditions } from "./bulk-action-conditions";
 import { getRequestTimeZone } from "@/lib/time/utils";
 
 export const bulkScopeSchema = z.object({
@@ -65,7 +66,7 @@ export async function executeBulkScope(env: CloudflareEnv, user: import("@/lib/a
 	const snapshot = options.preview ? Math.min(input.snapshot ?? Number.MAX_SAFE_INTEGER, boundary?.value ?? 0) : input.snapshot ?? boundary?.value ?? 0;
 	const scope = and(
 		mailboxIds.length ? inArray(messages.mailboxId, mailboxIds) : sql`0`,
-		...(input.action === "read" || input.action === "unread" ? [eq(messages.read, input.action === "unread")] : []),
+		...bulkActionConditions(input.action),
 		...(input.action === "applyRule" ? [inArray(messages.status, input.ruleApplication!.includeSpamTrash ? ["received", "archived", "spam", "trash"] : ["received", "archived"])] : []),
 		...messageListFilterConditions(db, params, getRequestTimeZone(new Request(`https://mailflare.internal/?${params}`), user.timeZone)),
 		sql`${messages}.rowid <= ${snapshot}`,
@@ -81,7 +82,8 @@ export async function executeBulkScope(env: CloudflareEnv, user: import("@/lib/a
 	const batchSize = input.action === "applyRule" ? Math.min(ruleNeedsContent(input.ruleApplication!) ? 5 : 25, Math.max(1, Math.floor(80 / (input.ruleApplication!.labelIds.length + 1)))) : trainsSpam ? 1 : ["organize", "delete"].includes(input.action) ? 5 : 80;
 	// Scan forward once; sorting the whole remaining archive on each chunk is unnecessary.
 	const readAction = input.action === "read" || input.action === "unread";
-	const accessPath = readAction ? sql`indexed by messages_mailbox_read_actions_idx` : sql`not indexed`;
+	const accessPath = readAction ? sql`indexed by messages_mailbox_read_actions_idx`
+		: input.action === "archive" ? sql`indexed by messages_page_cover_idx` : sql`not indexed`;
 	const candidates = options.pending ? [] : (await db.all<{ id: string; rowId: number }>(sql`select ${messages.id} as id, rowid as rowId from ${messages} ${accessPath} where ${scope} order by rowid limit ${batchSize}`));
 	const chunk = options.pending ?? { messageIds: candidates.map(row => row.id), done: candidates.length < batchSize, after: Math.max(input.after, ...candidates.map(row => row.rowId)) };
 	if (options.beforeApply) await options.beforeApply(chunk);

@@ -1,3 +1,4 @@
+import { requestTiming } from "@/lib/server-timing";
 import { getListAttachmentCounts } from "@/lib/messages/list-attachments";
 import { getMessageLabels, getConversationLabels } from "@/lib/mail-sorting/labels";
 import { NextResponse } from "next/server";
@@ -18,11 +19,13 @@ import { repairVisiblePreviews } from "@/lib/messages/preview-repair";
 import type { ListMessage } from "./types";
 
 export async function GET(request: Request) {
+	const timing = requestTiming();
 	const env = getEnv();
 	const user = await getCurrentUser(env, request);
 	if (!user) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
+	timing.mark("auth");
 
 	const url = new URL(request.url);
 	const mailboxId = url.searchParams.get("mailboxId");
@@ -55,6 +58,7 @@ export async function GET(request: Request) {
 		if (error instanceof Error && error.message === "Invalid category") return NextResponse.json({ error: "Invalid category" }, { status: 400 });
 		throw error;
 	}
+	timing.mark("access");
 	const where = and(...conditions);
 	// Messages that were never threaded (older rows, drafts) stand alone.
 	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
@@ -88,6 +92,7 @@ export async function GET(request: Request) {
 		total = totals[0]?.total ?? 0;
 		rows = pageRows;
 	}
+	timing.mark("list");
 	// All enrichment depends only on this page: launch it together instead of
 	// making the browser wait for each independent D1 metadata round trip.
 	const keys = rows.map(row => row.threadId ?? row.id);
@@ -118,6 +123,7 @@ export async function GET(request: Request) {
 		repairVisiblePreviews(db, rows).catch(() => new Map<string, string>()),
 		getListAttachmentCounts(db, rows, groupByThread, where),
 	]);
+	timing.mark("metadata");
 	for (const member of members) {
 		const ids = threadMessageIds.get(member.key) ?? [];
 		ids.push(member.id); threadMessageIds.set(member.key, ids);
@@ -166,5 +172,5 @@ export async function GET(request: Request) {
 		};
 	});
 
-	return NextResponse.json({ messages: enrichedRows, total, limit, offset, grouped: groupByThread });
+	return NextResponse.json({ messages: enrichedRows, total, limit, offset, grouped: groupByThread }, { headers: timing.headers() });
 }
