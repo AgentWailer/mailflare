@@ -130,6 +130,24 @@ pre {
 	}
 }
 
+@keyframes settings-navigation-show {
+	from { transform: translateY(100%); }
+	to { transform: translateY(0); }
+}
+
+@keyframes settings-navigation-hide {
+	from { transform: translateY(0); }
+	to { transform: translateY(100%); }
+}
+
+.settings-navigation-sheet[data-state="open"] {
+	animation: settings-navigation-show 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.settings-navigation-sheet[data-state="closed"] {
+	animation: settings-navigation-hide 130ms ease-in both;
+}
+
 .dialog-overlay[data-state="open"] {
 	animation: dialog-overlay-show 180ms ease-out both;
 }
@@ -169,6 +187,7 @@ pre {
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.settings-navigation-sheet { animation: none !important; }
 	.refine-preview { animation: none; background-color: #eff6ff; }
 	.dialog-overlay,
 	.dialog-content {
