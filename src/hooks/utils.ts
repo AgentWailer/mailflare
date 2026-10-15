@@ -1,5 +1,5 @@
 import { getMessageFolderParams } from "@/lib/messages/folder-params";
-import { authFetch } from "@/lib/auth/client";
+import { authFetch, getClientSessionToken } from "@/lib/auth/client";
 import { parseSearchQuery } from "@/lib/search/query-utils";
 import { getUserTimeZone } from "@/lib/time/utils";
 import { setCachedMessageRead } from "@/lib/messages/detail-cache";
@@ -45,10 +45,12 @@ export function getMessageQueryParams(
 const messageCountsCache = new Map<string, MessageCounts>();
 const messageCountsRequests = new Map<string, { promise: Promise<MessageCounts | undefined>; generation: number }>();
 const messageListCache = new Map<string, MessageListResponse>();
+const prefetchedMessageListAt = new Map<string, number>();
 const messageListRequests = new Map<string, { promise: Promise<MessageListResponse>; generation: number }>();
 let messageCacheGeneration = 0;
 let messageCountsGeneration = 0;
 let messageClientGeneration = 0;
+let messageClientToken: string | null = null;
 
 export function clearMessageCountsCache() {
 	messageCountsGeneration += 1;
@@ -60,6 +62,7 @@ export function clearMessageCountsCache() {
 export function clearMessageListCache() {
 	messageCacheGeneration += 1;
 	messageListCache.clear();
+	prefetchedMessageListAt.clear();
 	// Retain pending requests so multiple listeners schedule only one fresh follow-up.
 }
 
@@ -100,16 +103,35 @@ if (typeof window !== "undefined") {
 }
 
 export function clearMessageClientState() {
+	messageClientToken = getClientSessionToken();
 	messageClientGeneration += 1;
 	messageCacheGeneration += 1;
 	messageCountsGeneration += 1;
 	messageCountsCache.clear();
 	messageCountsRequests.clear();
 	messageListCache.clear();
+	prefetchedMessageListAt.clear();
 	messageListRequests.clear();
 }
 
+function ensureMessageClientSession() {
+	if (messageClientToken !== getClientSessionToken()) clearMessageClientState();
+}
+
+export function getMessageClientGeneration() {
+	ensureMessageClientSession();
+	return messageClientGeneration;
+}
+
+/** Let foreground lists and counters finish before starting speculative work. */
+export function hasPendingMessageRequests() {
+	ensureMessageClientSession();
+	return messageListRequests.size > 0 || messageCountsRequests.size > 0;
+}
+
 export async function fetchMessageCounts(mailboxId?: string | null, force = false): Promise<MessageCounts | undefined> {
+	ensureMessageClientSession();
+	const requestToken = getClientSessionToken();
 	const key = mailboxId ?? "all";
 	if (!force && messageCountsCache.has(key)) return messageCountsCache.get(key);
 	const pending = messageCountsRequests.get(key);
@@ -132,6 +154,7 @@ export async function fetchMessageCounts(mailboxId?: string | null, force = fals
 			counts &&
 			requestGeneration === messageCacheGeneration &&
 			countsGeneration === messageCountsGeneration
+			&& requestToken === getClientSessionToken()
 		) {
 			messageCountsCache.set(key, counts);
 		}
@@ -146,9 +169,12 @@ export async function fetchMessageCounts(mailboxId?: string | null, force = fals
 	return request;
 }
 
-export async function fetchMessageList(params: URLSearchParams, force = false): Promise<MessageListResponse> {
+export async function fetchMessageList(params: URLSearchParams, force = false, background = false): Promise<MessageListResponse> {
+	ensureMessageClientSession();
+	const requestToken = getClientSessionToken();
 	const key = params.toString();
-	if (!force && messageListCache.has(key)) return messageListCache.get(key) ?? {};
+	const cached = getCachedMessageList(params);
+	if (!force && cached) return cached;
 	const pending = messageListRequests.get(key);
 	if (pending) {
 		if (pending.generation === messageCacheGeneration) return pending.promise;
@@ -159,15 +185,20 @@ export async function fetchMessageList(params: URLSearchParams, force = false): 
 	}
 
 	const requestGeneration = messageCacheGeneration;
-	const request = authFetch(`/api/messages?${key}`, { cache: force ? "no-store" : "default" })
+	const request = authFetch(`/api/messages?${key}`, {
+		cache: force ? "no-store" : "default",
+		...(background ? { priority: "low", headers: { "X-Mailflare-Preload": "1" }, redirectOnUnauthorized: false } : {}),
+	})
 		.then((res) => {
 			if (!res.ok) throw new Error(`Message request failed (${res.status})`);
 			return res.json();
 		})
 		.then((data) => {
 			const response = data as MessageListResponse;
-			if (requestGeneration === messageCacheGeneration) {
+			if (requestGeneration === messageCacheGeneration && requestToken === getClientSessionToken()) {
 				messageListCache.set(key, response);
+				if (background) prefetchedMessageListAt.set(key, Date.now());
+				else prefetchedMessageListAt.delete(key);
 			}
 			return response;
 		})
@@ -182,5 +213,12 @@ export async function fetchMessageList(params: URLSearchParams, force = false): 
 }
 
 export function getCachedMessageList(params: URLSearchParams): MessageListResponse | undefined {
-	return messageListCache.get(params.toString());
+	ensureMessageClientSession();
+	const key = params.toString();
+	const prefetchedAt = prefetchedMessageListAt.get(key);
+	if (prefetchedAt !== undefined && Date.now() - prefetchedAt >= 120_000) {
+		messageListCache.delete(key);
+		prefetchedMessageListAt.delete(key);
+	}
+	return messageListCache.get(key);
 }

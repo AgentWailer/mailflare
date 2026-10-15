@@ -37,6 +37,7 @@ import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-ro
 import { MessageNavigationProgress, useMessageNavigation } from "./message-navigation";
 import { useConversationView } from "./use-conversation-view";
 import { useOptimisticArchive } from "./use-optimistic-archive";
+import { useMailboxPreload } from "./use-mailbox-preload";
 import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction, SelectedMessage } from "./types";
 import {
 	formatMessageListTimestamp,
@@ -322,7 +323,7 @@ export function MessageFolderPage({
 	selection ??= sharedSelection ?? undefined;
 	const title = config.titleKey ? t(config.titleKey) : config.title;
 	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
-	const { query } = useMailSearch();
+	const { query, input } = useMailSearch();
 	const isMobile = useIsMobile();
 	const [internalOffset, setInternalOffset] = useState(0);
 	const offset = selection?.offset ?? internalOffset;
@@ -349,6 +350,7 @@ export function MessageFolderPage({
 	const { messages, total, archiveRow, archiveFailed } = useOptimisticArchive(sourceMessages, sourceTotal,
 		JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped, offset]));
 	const isLoading = mailboxesLoading || messagesLoading;
+	useMailboxPreload({ ready: !isLoading && !isRefreshing && !error && !selectedMessageId && !pendingBulkAction && readAllTask?.status !== "running", mailboxId: selectedMailbox?.id, href: config.hrefPrefix, grouped: conversationView, search: input ?? query });
 	const { counts } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
 	usePageLoading(isLoading);
 	const headerIcons = config.headerIcons ?? [];

@@ -28,7 +28,7 @@ function response(path){
 async function screen(width,{failDetail=false,holdRoute=false,slowCounts=false}={}){
  const page=await browser.newPage({viewport:{width,height:900}}),events=[],errors=[];const state={failDetail,release:null,held:false};
  page.on('pageerror',error=>errors.push(error.message));
- page.on('request',request=>events.push({at:Date.now(),path:new URL(request.url()).pathname,type:request.resourceType(),prefetch:request.headers()['next-router-prefetch'],rsc:request.headers().rsc}));
+ page.on('request',request=>events.push({at:Date.now(),path:new URL(request.url()).pathname,type:request.resourceType(),prefetch:request.headers()['next-router-prefetch'],rsc:request.headers().rsc,background:request.headers()['x-mailflare-preload']==='1'}));
  await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;if(state.failDetail&&path==='/api/messages/cold-0')return route.abort('failed');await pause(slowCounts&&path==='/api/messages/counts'?6000:100);await route.fulfill({contentType:'application/json',body:JSON.stringify(response(path))}).catch(()=>{});});
  if(holdRoute)await page.route('**/inbox/cold-0*',async route=>{
   if(route.request().headers().rsc!=='1')return route.continue();state.held=true;const reply=await route.fetch();await new Promise(resolve=>state.release=resolve);await route.fulfill({response:reply}).catch(()=>{});
@@ -47,17 +47,17 @@ try{
   const {page,events,errors,state,start,listAt,first}=await screen(width,{holdRoute:true});
   await pause(300);
   assert.equal(events.filter(event=>event.path==='/api/auth/me').length,1,'shell identity consumers reuse the guard validation');
-  assert.equal(events.filter(event=>event.path==='/api/messages').length,1,'previous completed bulk job must not invalidate the initial list');
+  assert.equal(events.filter(event=>event.path==='/api/messages'&&!event.background).length,1,'previous completed bulk job must not invalidate the initial list');
   assert.equal(events.filter(event=>event.path==='/api/messages/counts').length,1,'startup counters are queried once');
   const beforeClick=await page.evaluate(()=>performance.getEntriesByType('resource').filter(entry=>entry.name.endsWith('.js')).map(entry=>({name:new URL(entry.name).pathname,bytes:entry.transferSize})));
   assert(beforeClick.reduce((sum,entry)=>sum+entry.bytes,0)<1_350_000,'startup JavaScript budget stays below 1.35 MB without compression');
   assert(!beforeClick.some(entry=>/\/(?:compose-form|agent-panel)-/.test(entry.name)),'closed editor and assistant are not downloaded at startup');
-  assert.equal(events.filter(event=>event.rsc&&event.prefetch).length,0,'visible folder and mail links must not start RSC prefetch traffic');
+  assert.equal(events.filter(event=>event.rsc&&event.prefetch&&event.at<listAt).length,0,'folder route prefetch must wait until the visible list is ready');
   await first.click();const clicked=Date.now();await page.locator('[data-message-opening]').waitFor();const acknowledgementMs=Date.now()-clicked;assert(acknowledgementMs<1000,'first click must receive immediate feedback');assert.equal(await page.locator('[data-message-opening] h1').textContent(),'Cold start mail 0');
   await page.waitForFunction(()=>true);for(let i=0;i<100&&!state.release;i++)await pause(20);assert(state.held&&state.release,'real router navigation is pending');
   assert(events.some(event=>event.path==='/api/messages/cold-0'),'body starts before the route response returns');assert.equal(await page.getByText('Message content cold-0',{exact:true}).count(),0);
   state.release();await page.getByText('Message content cold-0',{exact:true}).waitFor({timeout:15000});assert.equal(await page.locator('[data-message-opening]').count(),0);assert.equal(new URL(page.url()).pathname,'/inbox/cold-0');
-  assert.deepEqual(errors,[]);const metrics={width,listMs:listAt-start,readerAfterClickMs:Date.now()-clicked,requestCount:events.length,acknowledgementMs,initialJsBytes:beforeClick.reduce((total,entry)=>total+entry.bytes,0),firstClickAcknowledged:true,parallelDetail:true,noAutomaticRoutePrefetch:true};results.push(metrics);console.log(JSON.stringify(metrics));if(width===1440){await page.getByRole('button',{name:'AI summary',exact:true}).click();const prompt=page.getByPlaceholder('Enter a prompt here');await prompt.waitFor();await page.waitForFunction(()=>document.querySelector('textarea[name=message]')?.value.includes('cold-0'));assert((await prompt.inputValue()).includes('cold-0'),'the first request survives deferred assistant loading');console.log(JSON.stringify({firstDeferredAssistantRequestPreserved:true}));}await page.close();
+  assert.deepEqual(errors,[]);const metrics={width,listMs:listAt-start,readerAfterClickMs:Date.now()-clicked,requestCount:events.length,acknowledgementMs,initialJsBytes:beforeClick.reduce((total,entry)=>total+entry.bytes,0),firstClickAcknowledged:true,parallelDetail:true,noEagerRoutePrefetch:true};results.push(metrics);console.log(JSON.stringify(metrics));if(width===1440){await page.getByRole('button',{name:'AI summary',exact:true}).click();const prompt=page.getByPlaceholder('Enter a prompt here');await prompt.waitFor();await page.waitForFunction(()=>document.querySelector('textarea[name=message]')?.value.includes('cold-0'));assert((await prompt.inputValue()).includes('cold-0'),'the first request survives deferred assistant loading');console.log(JSON.stringify({firstDeferredAssistantRequestPreserved:true}));}await page.close();
  }
  // Slow optional counts never gate the menu, list or first message interaction.
  {

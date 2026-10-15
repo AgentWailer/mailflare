@@ -2,6 +2,8 @@
 
 Die Änderungen optimieren Datenabrufe und Codeaufteilung. Klassen, Abstände, Menüstruktur, Animationen und erreichbare Funktionen bleiben gleich.
 
+Nachtrag: Auf ausdrücklichen Wunsch werden die übrigen Mailordner inzwischen nach dem Anzeigen der aktiven Liste gestuft vorgeladen, beginnend mit „Alle E-Mails“. Ablauf und Tests stehen in [mailbox-preloading.md](mailbox-preloading.md). Die unten genannten Grenzen für den kritischen Startpfad und das bedarfsgesteuerte Laden von Einstellungen gelten weiterhin.
+
 ## Geprüfte Bereiche
 
 - Posteingang, Kategorien und Leser: echter Produktions-Router, erster Klick, schnelle Folgeauswahl, Zurück, Fehler/Wiederholung, Checkbox/Stern/Archivieren und vollständige klickbare Zeilen.
