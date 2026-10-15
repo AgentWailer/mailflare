@@ -1,0 +1,71 @@
+// Actual production assets and router. Private APIs use synthetic data; no live mailbox is read.
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createServer} from 'node:net';
+const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
+const temporary=mkdtempSync(join(tmpdir(),'mailflare-cold-browser-'));
+const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const port=server.address().port;await new Promise(resolve=>server.close(resolve));
+let origin=process.env.MAILFLARE_COLD_START_ORIGIN,preview,browser,serverLog='';
+const user={id:'cold-user',email:'owner@example.test',name:'Test User',role:'admin',isPrimaryAdmin:true,canManageMailboxes:true,canManageDomains:true,canManageUsers:true,hasAvatar:false};
+const messages=Array.from({length:25},(_,i)=>({id:'cold-'+i,mailboxId:'cold-box',direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender'+i+'@example.test',toAddr:'owner@example.test',subject:'Cold start mail '+i,snippet:'Preview '+i,labels:[],createdAt:'2026-10-15T06:00:00Z'}));
+const counts={folders:Object.fromEntries(['inbox','promotions','social','invoices','orders','starred','all','snoozed','sent','scheduled','drafts','archived','spam','trash'].map(key=>[key,{total:25,unread:0}])),customFolders:{},mailboxes:[]};
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms)),results=[];
+function response(path){
+ if(path==='/api/auth/me')return {user,hasMailboxes:true,isSetup:true};
+ if(path==='/api/mailboxes')return {mailboxes:[{id:'cold-box',domainId:'domain',localPart:'owner',hostname:'example.test',displayName:'Test User',isPrimary:true,type:'personal',permission:'full_access',senderAddresses:['owner@example.test']}]};
+ if(path==='/api/messages')return {messages,total:25,offset:0,limit:25};
+ if(/^\/api\/messages\/cold-\d+$/.test(path)){const id=path.split('/').at(-1);return {message:messages.find(message=>message.id===id),body:{textBody:'Message content '+id,htmlBody:null},attachments:[]};}
+ if(path==='/api/agent/availability')return {enabled:true};
+ if(path==='/api/branding')return {appName:'Mailflare',hasCustomIcon:false};
+ if(path==='/api/agent/settings')return {settings:{mailboxId:'cold-box',enabled:true,dailyLimit:100,instructions:''},models:[],canManage:true,providerConfigured:true,reviewers:[]};
+ return {folders:[],jobs:[],accounts:[],messages:[],counts,hiddenLabelIds:[],ok:true};
+}
+async function screen(width,{failDetail=false,holdRoute=false}={}){
+ const page=await browser.newPage({viewport:{width,height:900}}),events=[],errors=[];const state={failDetail,release:null,held:false};
+ page.on('pageerror',error=>errors.push(error.message));
+ page.on('request',request=>events.push({at:Date.now(),path:new URL(request.url()).pathname,type:request.resourceType(),prefetch:request.headers()['next-router-prefetch'],rsc:request.headers().rsc}));
+ await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;if(state.failDetail&&path==='/api/messages/cold-0')return route.abort('failed');await pause(100);await route.fulfill({contentType:'application/json',body:JSON.stringify(response(path))}).catch(()=>{});});
+ if(holdRoute)await page.route('**/inbox/cold-0*',async route=>{
+  if(route.request().headers().rsc!=='1')return route.continue();state.held=true;const reply=await route.fetch();await new Promise(resolve=>state.release=resolve);await route.fulfill({response:reply}).catch(()=>{});
+ });
+ const cdp=await page.context().newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});await cdp.send('Emulation.setCPUThrottlingRate',{rate:4});await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:100,downloadThroughput:1500000,uploadThroughput:750000});
+ const start=Date.now();await page.goto(origin+'/inbox',{waitUntil:'domcontentloaded',timeout:60000});const first=page.getByText('Cold start mail 0',{exact:true}).first();await first.waitFor({timeout:30000});const listAt=Date.now();
+ return {page,events,errors,state,start,listAt,first};
+}
+try{
+ if(!origin){origin=`http://127.0.0.1:${port}`;preview=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(port)],{cwd:process.cwd(),env:{...process.env,XDG_CONFIG_HOME:temporary,CLOUDFLARE_REMOTE_BINDINGS:'false'},stdio:['ignore','pipe','pipe']});for(const stream of [preview.stdout,preview.stderr])stream.on('data',data=>serverLog+=data.toString());
+  let ready=false;for(let i=0;i<100;i++){try{const r=await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)});if(r.ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Local preview exited');await pause(200);}assert(ready,'production preview starts');
+ }
+ browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
+ for(const width of [1440,390]){
+  const {page,events,errors,state,start,listAt,first}=await screen(width,{holdRoute:true});
+  const beforeClick=await page.evaluate(()=>performance.getEntriesByType('resource').filter(entry=>entry.name.endsWith('.js')).map(entry=>({name:new URL(entry.name).pathname,bytes:entry.transferSize})));
+  assert(!beforeClick.some(entry=>/\/(?:compose-form|agent-panel)-/.test(entry.name)),'closed editor and assistant are not downloaded at startup');
+  assert.equal(events.filter(event=>event.rsc&&event.prefetch).length,0,'visible folder and mail links must not start RSC prefetch traffic');
+  await first.click();const clicked=Date.now();await page.locator('[data-message-opening]').waitFor();const acknowledgementMs=Date.now()-clicked;assert(acknowledgementMs<1000,'first click must receive immediate feedback');assert.equal(await page.locator('[data-message-opening] h1').textContent(),'Cold start mail 0');
+  await page.waitForFunction(()=>true);for(let i=0;i<100&&!state.release;i++)await pause(20);assert(state.held&&state.release,'real router navigation is pending');
+  assert(events.some(event=>event.path==='/api/messages/cold-0'),'body starts before the route response returns');assert.equal(await page.getByText('Message content cold-0',{exact:true}).count(),0);
+  state.release();await page.getByText('Message content cold-0',{exact:true}).waitFor({timeout:15000});assert.equal(await page.locator('[data-message-opening]').count(),0);assert.equal(new URL(page.url()).pathname,'/inbox/cold-0');
+  assert.deepEqual(errors,[]);const metrics={width,listMs:listAt-start,readerAfterClickMs:Date.now()-clicked,requestCount:events.length,acknowledgementMs,initialJsBytes:beforeClick.reduce((total,entry)=>total+entry.bytes,0),firstClickAcknowledged:true,parallelDetail:true,noAutomaticRoutePrefetch:true};results.push(metrics);console.log(JSON.stringify(metrics));if(width===1440){await page.getByRole('button',{name:'AI summary',exact:true}).click();const prompt=page.getByPlaceholder('Enter a prompt here');await prompt.waitFor();await page.waitForFunction(()=>document.querySelector('textarea[name=message]')?.value.includes('cold-0'));assert((await prompt.inputValue()).includes('cold-0'),'the first request survives deferred assistant loading');console.log(JSON.stringify({firstDeferredAssistantRequestPreserved:true}));}await page.close();
+ }
+ // An early second click must win over an older route response.
+ {
+  const {page,state,first}=await screen(1440,{holdRoute:true});await first.click();for(let i=0;i<100&&!state.release;i++)await pause(20);assert(state.release);await page.getByText('Cold start mail 1',{exact:true}).first().click();await page.getByText('Message content cold-1',{exact:true}).waitFor();state.release();await pause(500);assert.equal(new URL(page.url()).pathname,'/inbox/cold-1');assert.equal(await page.getByText('Message content cold-0',{exact:true}).count(),0);console.log(JSON.stringify({rapidClicksLatestWins:true}));await page.close();
+ }
+ // Back remains usable even while the first route response is still pending.
+ {
+  const {page,state,first}=await screen(390,{holdRoute:true});await first.click();await page.locator('[data-message-opening]').waitFor();for(let i=0;i<100&&!state.release;i++)await pause(20);assert(state.release);await page.clock.install();await page.clock.fastForward(16000);await page.locator('[data-message-retry]').waitFor();await page.locator('[data-message-back]').click();assert.equal(await page.locator('[data-message-opening]').count(),0);assert.equal(await page.locator('[data-message-navigation-progress]').count(),0,'cancelling must clear the navigation indicator');state.release();await pause(500);assert.equal(new URL(page.url()).pathname,'/inbox');await page.getByText('Cold start mail 0',{exact:true}).first().waitFor();console.log(JSON.stringify({earlyBackCancels:true}));await page.close();
+ }
+ // First-load transport failure must offer a retry rather than leave a dead reader.
+ {
+  const {page,state,first,errors}=await screen(1440,{failDetail:true});await first.click();const retry=page.getByRole('button',{name:'Try again',exact:true});await retry.waitFor({timeout:20000});assert(await page.getByRole('alert').filter({hasText:'This email could not be loaded'}).isVisible());state.failDetail=false;await retry.click();await page.getByText('Message content cold-0',{exact:true}).waitFor();assert.deepEqual(errors,[]);console.log(JSON.stringify({failedFirstLoadRecoverable:true}));await page.getByRole('button',{name:'Compose',exact:true}).first().click();const close=page.getByRole('button',{name:'Close composer',exact:true});await close.waitFor();await close.click();await page.getByText('Message content cold-0',{exact:true}).waitFor();assert.deepEqual(errors,[]);console.log(JSON.stringify({firstDeferredComposerOpensAndCloses:true}));await page.close();
+ }
+ // Clicking an already-selected failed mail must retry; same-URL router pushes alone do nothing.
+ {
+  const {page,state,first}=await screen(1440,{failDetail:true});await first.click();await page.getByRole('button',{name:'Try again',exact:true}).waitFor();state.failDetail=false;await page.getByText('Cold start mail 0',{exact:true}).first().click();await page.getByText('Message content cold-0',{exact:true}).waitFor();assert.equal(await page.locator('[data-message-opening]').count(),0);console.log(JSON.stringify({sameSelectedRowCanRetry:true}));await page.close();
+ }
+ writeFileSync('/tmp/mailflare-cold-after.json',JSON.stringify(results,null,2));
+}finally{await browser?.close();if(preview){preview.kill('SIGTERM');await new Promise(resolve=>{if(preview.exitCode!==null)return resolve();preview.once('exit',resolve);setTimeout(()=>{preview.kill('SIGKILL');resolve();},5000).unref();});}writeFileSync('/tmp/mailflare-cold-preview.log',serverLog);rmSync(temporary,{recursive:true,force:true});}

@@ -273,7 +273,7 @@ export function DashboardNav({ className }: { className?: string }) {
       {!minimal && (
         <div className="mt-2 ml-3 mr-2 flex min-h-11 shrink-0 items-center gap-1 pl-3">
           <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t("smart.labels")}</span>
-          <Link href="/settings/inbox#labels" aria-label={t("labels.visibility.title")} title={t("labels.visibility.title")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"><Settings2 className="h-4 w-4" /></Link>
+          <Link prefetch={false} href="/settings/inbox#labels" aria-label={t("labels.visibility.title")} title={t("labels.visibility.title")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"><Settings2 className="h-4 w-4" /></Link>
           {canManageLabels && (
             <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
               <DialogTrigger asChild>
@@ -355,7 +355,7 @@ export function DashboardNav({ className }: { className?: string }) {
       
       {!minimal && visibleFolders.length === 0 && (
         <div className="px-4 py-1.5 text-xs text-neutral-500">
-          {folders.length ? <Link href="/settings/inbox#labels" className="text-blue-700">{t("labels.visibility.allHidden")}</Link> : t("navigation.noFolders")}
+          {folders.length ? <Link prefetch={false} href="/settings/inbox#labels" className="text-blue-700">{t("labels.visibility.allHidden")}</Link> : t("navigation.noFolders")}
         </div>
       )}
       <SidebarLabelTree key={selectedMailbox?.id ?? "none"} mailboxId={selectedMailbox?.id ?? "none"} folders={folders} hiddenIds={hiddenLabelIds} counts={counts.customFolders} canManage={canManageLabels}

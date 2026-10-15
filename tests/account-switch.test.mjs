@@ -21,7 +21,7 @@ export {MailboxProvider,useSelectedMailbox} from './src/components/mailbox-provi
 export {setClientSessionToken,getClientSessionToken,authFetch} from './src/lib/auth/client.ts';
 export {switchBrowserAccount} from './src/lib/auth/accounts-client.ts';
 export {fetchCurrentUser,clearCurrentUserCache,useCurrentUser} from './src/hooks/use-current-user.ts';
-export {fetchCachedMessageDetail,getCachedMessageDetail,clearMessageDetailCache} from './src/lib/messages/detail-cache.ts';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',tsconfig:'tsconfig.json',alias:Object.fromEntries(['@/components/branding-provider','@/components/pwa-service-worker','@/components/app-badge-sync','@/components/theme-sync','@/components/new-message-popup','@/hooks/use-message-polling'].map(key=>[key,join(dir,'chrome.mjs')])),logLevel:'silent'});
+export {fetchCachedMessageDetail,getCachedMessageDetail,clearMessageDetailCache,preloadMessageDetail} from './src/lib/messages/detail-cache.ts';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',tsconfig:'tsconfig.json',alias:Object.fromEntries(['@/components/branding-provider','@/components/pwa-service-worker','@/components/app-badge-sync','@/components/theme-sync','@/components/new-message-popup','@/hooks/use-message-polling'].map(key=>[key,join(dir,'chrome.mjs')])),logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href),React=await import('react'),{act}=React,{createRoot}=await import('react-dom/client');
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
 const mailbox=id=>({id,domainId:'domain',localPart:id,hostname:'example.test',type:'personal',permission:'full_access',isPrimary:true});
@@ -89,4 +89,18 @@ test('authenticated fetch never sends the session to a different origin',async t
  app.setClientSessionToken('private-session');let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return Response.json({ok:true});});
  for(const target of ['https://external.test/collect','//external.test/collect',new URL('https://external.test/'),new Request('https://external.test/')]) await assert.rejects(app.authFetch(target),/Mailflare origin/);
  assert.equal(calls,0);assert.equal(app.getClientSessionToken(),'private-session');await app.authFetch('/api/auth/me');assert.equal(calls,1);
+});
+
+
+test('temporary message failures never poison the detail cache and the next attempt can succeed',async t=>{
+ app.clearMessageDetailCache();app.setClientSessionToken('active');let calls=0;
+ t.mock.method(globalThis,'fetch',async()=>{calls++;if(calls===1)return Response.json({error:'Unavailable'},{status:503});if(calls===2)throw Error('offline');if(calls===3)return Response.json({error:'invalid response'});return Response.json({message:{id:'retry'},body:{textBody:'Recovered',htmlBody:null}});});
+ for(let i=0;i<3;i++){await assert.rejects(app.fetchCachedMessageDetail('retry'));assert.equal(app.getCachedMessageDetail('retry'),undefined);}
+ assert.equal((await app.fetchCachedMessageDetail('retry')).body.textBody,'Recovered');assert.equal(calls,4);
+});
+
+test('intent, click and reader share one pending detail request without downloading all messages',async t=>{
+ app.clearMessageDetailCache();let calls=0;const pending=deferred();t.mock.method(globalThis,'fetch',()=>{calls++;return pending.promise;});
+ app.preloadMessageDetail({id:'chosen'});app.preloadMessageDetail({id:'chosen'});const reader=app.fetchCachedMessageDetail('chosen');assert.equal(calls,1);assert.equal(app.getCachedMessageDetail('other'),undefined);
+ pending.resolve(Response.json({message:{id:'chosen'},body:{textBody:'Content',htmlBody:null}}));assert.equal((await reader).body.textBody,'Content');assert.equal(calls,1);
 });

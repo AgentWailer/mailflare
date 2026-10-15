@@ -2,6 +2,11 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { Message } from "@/hooks/types";
+import { MessageOpeningContext } from "./message-opening";
+import { MessageOpeningPreview } from "./message-opening-preview";
+import { MessageReaderToolbar } from "./message-reader-toolbar";
+import { MessageReadingHeaderButton } from "./message-reading-header-button";
 import { useLanguage } from "@/components/language-provider";
 import { useSidebar } from "@/components/sidebar-state";
 import { useAssistantOpen } from "@/components/agent/assistant-open-state";
@@ -20,6 +25,9 @@ export function MessageSplitLayout({
 	config,
 }: MessageSplitLayoutProps) {
 	const pathname = usePathname();
+	const [opening, setOpening] = useState<{ from: string; message: Message; href: string } | null>(null);
+	const pendingMessage = opening?.from === pathname ? opening.message : null;
+	if (opening && opening.from !== pathname) setOpening(null);
 	const [selectedMessages, setSelectedMessages] = useState<SelectedMessage[]>([]);
 	const [offset, setOffset] = useState(0);
 	const [unreadOnly, setUnreadOnly] = useState(false);
@@ -41,9 +49,9 @@ export function MessageSplitLayout({
 	const { userId, setForcedMinimal } = useSidebar();
 	const assistantOpen = useAssistantOpen();
 	const detailPrefix = `${config.hrefPrefix}/`;
-	const selectedMessageId = pathname.startsWith(detailPrefix)
+	const selectedMessageId = pendingMessage?.id ?? (pathname.startsWith(detailPrefix)
 		? pathname.slice(detailPrefix.length).split("/")[0]
-		: undefined;
+		: undefined);
 	const isOverview = pathname === config.hrefPrefix || pathname === detailPrefix;
 	const rendersPane = !!selectedMessageId || (twoColumnReading && isOverview);
 	// The overview must remain reachable even if the list was hidden in a reader.
@@ -81,10 +89,11 @@ export function MessageSplitLayout({
 	useEffect(() => { if (below || !twoColumnReading) setForcedMinimal(false); }, [below, twoColumnReading, setForcedMinimal]);
 
 	const selection = { selectedMessages, setSelectedMessages, offset, setOffset, unreadOnly, setUnreadOnly };
-	if (!rendersPane) return <MessageSelectionContext.Provider value={selection}>{children}</MessageSelectionContext.Provider>;
+	const openingContext = { pendingMessageId: pendingMessage?.id ?? null, open: (message: Message, href: string) => { if (href.startsWith(detailPrefix)) setOpening({ from: pathname, message, href }); }, cancel: () => setOpening(null) };
+	if (!rendersPane) return <MessageOpeningContext.Provider value={openingContext}><MessageSelectionContext.Provider value={selection}>{children}</MessageSelectionContext.Provider></MessageOpeningContext.Provider>;
 
 	return (
-		<MessageSelectionContext.Provider value={selection}>
+		<MessageOpeningContext.Provider value={openingContext}><MessageSelectionContext.Provider value={selection}>
 		<div ref={containerRef} data-reading-layout={readingLayout} className="h-full min-h-0 overflow-hidden lg:grid lg:transition-[grid-template-columns,grid-template-rows] lg:ease-in-out motion-reduce:transition-none" style={{ gridTemplateColumns: twoColumnReading && !below ? `${listVisible ? renderedListWidth : 0}px minmax(0,1fr)` : "minmax(0,1fr)", gridTemplateRows: twoColumnReading && below ? `${listVisible ? renderedListHeight : 0}px minmax(0,1fr)` : "minmax(0,1fr)", transitionDuration: widthReady ? "300ms" : "0ms" }}>
 			{twoColumnReading && (
 			<aside className={`relative min-h-0 min-w-0 overflow-hidden bg-white lg:block ${selectedMessageId ? "hidden" : "h-full lg:h-auto"} ${listVisible ? below ? "border-b border-neutral-200" : "border-r border-neutral-200" : "pointer-events-none"}`} aria-hidden={!listVisible} inert={!listVisible}>
@@ -117,11 +126,11 @@ export function MessageSplitLayout({
 			)}
 			<MessageListVisibilityContext.Provider value={{ visible: listVisible, toggle: () => { const visible = !manualListVisible; setManualListVisible(visible); saveMessageListVisible(visible); }, singleColumn: !twoColumnReading, backHref: config.hrefPrefix, backLabel: config.titleKey ? t(config.titleKey) : config.title }}>
 			<section data-message-reading-pane aria-label={t("settings.reading.title")} className={`min-h-0 min-w-0 overflow-hidden bg-white flex-col h-full ${selectedMessageId ? "flex" : "hidden lg:flex"}`}>
-				{selectedMessageId ? <MessageDetailNavigationProvider config={config}>{children}</MessageDetailNavigationProvider> :
+				{pendingMessage ? <><MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantOpen} /></MessageReaderToolbar><MessageOpeningPreview key={pendingMessage.id} message={pendingMessage} href={opening?.href ?? config.hrefPrefix} /></> : selectedMessageId ? <MessageDetailNavigationProvider config={config}>{children}</MessageDetailNavigationProvider> :
 					<div data-empty-reader role="status" className="flex flex-1 justify-center px-6 pt-12 text-sm text-neutral-500">{t("message.noConversationSelected")}</div>}
 			</section>
 			</MessageListVisibilityContext.Provider>
 		</div>
-		</MessageSelectionContext.Provider>
+		</MessageSelectionContext.Provider></MessageOpeningContext.Provider>
 	);
 }

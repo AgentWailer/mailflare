@@ -53,11 +53,15 @@ export default function MessageDetailPage() {
   const params = useParams<{ messageId: string }>();
   const { selectedMailbox, mailboxes } = useSelectedMailbox();
   const messageId = params.messageId;
-  const [data, setData] = useState<MessageDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<MessageDetailResponse | null>(() => getCachedMessageDetailForDisplay(messageId) ?? null);
+  const [loading, setLoading] = useState(() => !getCachedMessageDetailForDisplay(messageId)?.body);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [previewAttachment, setPreviewAttachment] =
     useState<MessageAttachment | null>(null);
-  const [threadExpanded, setThreadExpanded] = useState(false);
+  const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
+  const threadExpanded = expandedMessageId === messageId;
+  const setThreadExpanded = (expanded: boolean) => setExpandedMessageId(expanded ? messageId : null);
   const [latestMessagesFirst] = useLatestMessagesFirst();
   const { enabled: showFullRecipientAddresses } = useShowFullRecipientAddresses();
   usePageLoading(loading);
@@ -66,9 +70,18 @@ export default function MessageDetailPage() {
   const { scrollRef, scrolled, handleScroll } = useMessageContentScroll(messageId, loading);
 
   useEffect(() => {
+    const retry = (event: Event) => {
+      if ((event as CustomEvent<{ messageId: string }>).detail?.messageId === messageId) setAttempt(value => value + 1);
+    };
+    window.addEventListener("mailflare:message-retry", retry);
+    return () => window.removeEventListener("mailflare:message-retry", retry);
+  }, [messageId]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadMessage() {
+      setFailed(false);
       const cachedData = getCachedMessageDetailForDisplay(messageId);
       if (cachedData?.message && cachedData.body) {
         setData(cachedData);
@@ -83,10 +96,13 @@ export default function MessageDetailPage() {
         return;
       }
       setLoading(true);
-      const nextData = await fetchMessageDetail(messageId);
-      if (!cancelled) {
-        setData(nextData);
-        setLoading(false);
+      try {
+        const nextData = await fetchMessageDetail(messageId);
+        if (!cancelled) setData(nextData);
+      } catch {
+        if (!cancelled) { setData(null); setFailed(true); }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -94,14 +110,14 @@ export default function MessageDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [messageId]);
-
-  useEffect(() => {
-    setThreadExpanded(false);
-  }, [messageId]);
+  }, [messageId, attempt]);
 
   if (loading) {
     return <><MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantVisible} /></MessageReaderToolbar><div className="min-h-0 flex-1 overflow-y-auto"><MessageDetailSkeleton /></div></>;
+  }
+
+  if (failed) {
+    return <><MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantVisible} /></MessageReaderToolbar><div role="alert" className="space-y-3 px-6 py-4"><p className="text-sm text-neutral-600">{t("message.loadFailed")}</p><button type="button" onClick={() => setAttempt(value => value + 1)} className="min-h-11 rounded-xl border border-neutral-200 px-4 text-sm text-blue-700 hover:bg-blue-50">{t("message.retry")}</button></div></>;
   }
 
   if (!data?.message) {

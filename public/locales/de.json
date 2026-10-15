@@ -772,6 +772,8 @@
 	"agent.assistant.close": "E-Mail-Assistenten schließen",
 	"agent.assistant.open": "E-Mail-Assistenten öffnen",
 	"message.notFound": "Nachricht nicht gefunden",
+	"message.loadFailed": "Diese E-Mail konnte nicht geladen werden. Bitte erneut versuchen.",
+	"message.retry": "Erneut versuchen",
 	"message.cloudFiles": "Cloud-Dateien ({count})",
 	"message.openFrom": "Öffnen über {provider}",
 	"message.attachments": "Anhänge ({count})",

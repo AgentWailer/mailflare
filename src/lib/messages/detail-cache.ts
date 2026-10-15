@@ -29,12 +29,23 @@ export function primeMessageDetail(message: Message): void {
 	});
 }
 
+/** Start the one selected/hovered message while its route code is still loading. */
+export function preloadMessageDetail(message: Message): void {
+	primeMessageDetail(message);
+	void fetchCachedMessageDetail(message.id).catch(() => undefined);
+}
+
 export async function fetchCachedMessageDetail(messageId: string, force = false): Promise<CachedMessageDetail> {
 	if (!force && detailCache.has(messageId)) return detailCache.get(messageId) ?? {};
-	if (!force && detailRequests.has(messageId)) return detailRequests.get(messageId) ?? {};
+	if (detailRequests.has(messageId)) return detailRequests.get(messageId) ?? {};
 	const generation = cacheGeneration;
-	const request = authFetch(`/api/messages/${messageId}`)
-		.then((response) => response.json() as Promise<CachedMessageDetail>)
+	const request = authFetch(`/api/messages/${messageId}`, { signal: AbortSignal.timeout(30_000) })
+		.then(async response => {
+			if (!response.ok) throw new Error("Unable to load message");
+			const data = await response.json() as CachedMessageDetail;
+			if (!data.message) throw new Error("Unable to load message");
+			return data;
+		})
 		.then((data) => {
 			if (generation === cacheGeneration && detailRequests.get(messageId) === request) {
 				detailCache.set(messageId, data);

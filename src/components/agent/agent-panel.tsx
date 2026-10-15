@@ -22,7 +22,7 @@ import { approveAgentAction, requestDraftReview } from "./client-actions";
 import type { AgentConversation, AgentConversationsResponse, AgentErrorResponse, AgentEvent, AgentHistoryResponse, AgentJob, AgentJobsResponse, AgentMessage, AgentPanelProps, AgentPanelView, AgentSettings, AgentSettingsResponse, QueuedAgentMessage } from "./types";
 import { activeAgentTool, activeAgentToolLabel, appendAgentReasoning, consumeAgentStream, editQueuedAgentMessage, enqueueAgentMessage, groupAgentMessages, isAgentScrollAtBottom, markAgentDraftSent, normalizeAgentHistory, readAgentConversationId, removeQueuedAgentMessage, resizeAgentInput, saveAgentConversationId, shouldSubmitAgentInput, steerQueuedAgentMessage, uniqueAgentDraftActions } from "./utils";
 
-export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentPanelProps) {
+export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request }: AgentPanelProps) {
 	const { t } = useLanguage();
 	const { selectedMailbox } = useSelectedMailbox();
 	const pathname = usePathname();
@@ -56,6 +56,13 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 	const stickToBottomRef = useRef(true);
 	const selectedConversationRef = useRef<string | null>(null);
 	const mailboxId = selectedMailbox?.id;
+	const handledRequest = useRef<MessageAssistantRequest | null>(null);
+	useEffect(() => {
+		if (!request || request === handledRequest.current || request.mailboxId !== mailboxId) return;
+		handledRequest.current = request;
+		const frame = requestAnimationFrame(() => { setInput(request.prompt); setView("chat"); inputRef.current?.focus(); });
+		return () => cancelAnimationFrame(frame);
+	}, [request, mailboxId]);
 	const selectedMessageId = pathname.match(/^\/(?:inbox|promotions|social|invoices|orders|all|sent|archived|spam|trash|starred|snoozed|folders\/[^/]+)\/([^/]+)/)?.[1] ?? null;
 	useEffect(() => {
 		const onRequest = (event: Event) => {

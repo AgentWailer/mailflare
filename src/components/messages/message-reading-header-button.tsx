@@ -7,24 +7,26 @@ import { useLanguage } from "@/components/language-provider";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useMessageListVisibility } from "./message-list-visibility";
 import type { MessageReadingHeaderButtonProps } from "./message-reading-header-button-types";
+import { useMessageOpening } from "./message-opening";
 
 export function MessageReadingHeaderButton({ assistantVisible }: MessageReadingHeaderButtonProps) {
 	const { t } = useLanguage();
 	const router = useRouter();
+	const opening = useMessageOpening();
 	const { visible, toggle, singleColumn, backHref, backLabel } = useMessageListVisibility();
 	const label = singleColumn
 		? t("message.nav.backTo", { folder: backLabel })
 		: assistantVisible ? null : visible ? t("message.nav.hideList") : t("message.nav.showList");
 
 	function handleClick() {
-		if (singleColumn) router.push(backHref);
+		if (singleColumn) { opening?.cancel(); router.push(backHref); }
 		else toggle();
 	}
 
 	return (
 		<>
 		<Tooltip label={t("message.nav.backTo", { folder: backLabel })} className="inline-flex lg:hidden">
-			<button type="button" data-message-back onClick={() => router.push(backHref)} aria-label={t("message.nav.backTo", { folder: backLabel })} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100">
+			<button type="button" data-message-back onClick={() => { opening?.cancel(); router.push(backHref); }} aria-label={t("message.nav.backTo", { folder: backLabel })} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100">
 				<ArrowLeft size={20} />
 			</button>
 		</Tooltip>

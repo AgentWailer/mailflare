@@ -7,21 +7,19 @@ import { PageLoadingContext } from "@/components/page-loading";
 import { RouteLoadingBar } from "@/components/route-loading-bar";
 import type { LoadingTransitionProps } from "./loading-transition-types";
 
-const MINIMUM_LOADING_TIME = 600;
-const COMPLETION_TIME = 220;
 let hasShownInitialLoadingTransition = false;
 
 export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 	const { t } = useLanguage();
 	const branding = useBranding();
-	const showInitialLoader = useRef(!hasShownInitialLoadingTransition).current;
-	const startedAt = useRef(Date.now());
+	const [showInitialLoader] = useState(() => !hasShownInitialLoadingTransition);
 	const [progress, setProgress] = useState(8);
-	const [loaderVisible, setLoaderVisible] = useState(showInitialLoader);
-	const [contentVisible, setContentVisible] = useState(!showInitialLoader);
-	const [initialLoadComplete, setInitialLoadComplete] = useState(!showInitialLoader);
-	const [iconUrl, setIconUrl] = useState(branding.iconUrl);
+	const [failedIcon, setFailedIcon] = useState<string | null>(null);
 	const [pageMounted, setPageMounted] = useState(false);
+	const loaderVisible = showInitialLoader && !pageMounted;
+	const contentVisible = !loaderVisible;
+	const initialLoadComplete = !showInitialLoader || pageMounted;
+	const iconUrl = failedIcon === branding.iconUrl ? "/icon-96.png" : branding.iconUrl;
 	const [pendingLoads, setPendingLoads] = useState(0);
 	const loadingIds = useRef(new Set<string>());
 
@@ -35,10 +33,6 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 	const canComplete = ready && pageMounted;
 
 	useEffect(() => {
-		setIconUrl(branding.iconUrl);
-	}, [branding.iconUrl]);
-
-	useEffect(() => {
 		if (canComplete) return;
 		const timer = window.setInterval(() => {
 			setProgress((current) => Math.min(92, current + Math.max(1, (92 - current) * 0.08)));
@@ -48,28 +42,13 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 
 	useEffect(() => {
 		if (!ready) return;
-		const timer = window.setTimeout(() => setPageMounted(true), 50);
-		return () => window.clearTimeout(timer);
+		const frame = window.requestAnimationFrame(() => setPageMounted(true));
+		return () => window.cancelAnimationFrame(frame);
 	}, [ready]);
 
 	useEffect(() => {
 		if (!canComplete) return;
-		const remaining = showInitialLoader
-			? Math.max(0, MINIMUM_LOADING_TIME - (Date.now() - startedAt.current))
-			: 0;
-		const completeTimer = window.setTimeout(() => setProgress(100), remaining);
-		const revealTimer = window.setTimeout(() => {
-			if (showInitialLoader) {
-				hasShownInitialLoadingTransition = true;
-				setLoaderVisible(false);
-				setContentVisible(true);
-			}
-			setInitialLoadComplete(true);
-		}, remaining + COMPLETION_TIME);
-		return () => {
-			window.clearTimeout(completeTimer);
-			window.clearTimeout(revealTimer);
-		};
+		hasShownInitialLoadingTransition = true;
 	}, [canComplete, showInitialLoader]);
 
 	const showTopLoadingBar = initialLoadComplete && (!ready || pendingLoads > 0);
@@ -95,7 +74,7 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 					<div className="flex w-64 flex-col items-center gap-6">
 						<img
 							src={iconUrl}
-							onError={() => setIconUrl("/icon-96.png")}
+						onError={() => setFailedIcon(branding.iconUrl)}
 							alt={`${branding.appName} icon`}
 							className="h-20 w-20 rounded-2xl object-contain"
 						/>
@@ -103,7 +82,7 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 							<div className="h-1.5 overflow-hidden rounded-full bg-blue-100">
 								<div
 									className="h-full rounded-full bg-blue-600 transition-[width] duration-200 ease-out"
-									style={{ width: `${progress}%` }}
+									style={{ width: `${canComplete ? 100 : progress}%` }}
 								/>
 							</div>
 						</div>

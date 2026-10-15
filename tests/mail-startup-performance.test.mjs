@@ -11,13 +11,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const dir=mkdtempSync(join(process.cwd(),'node_modules','mailflare-startup-tests-'));
 after(()=>{rmSync(dir,{recursive:true,force:true});dom.window.close();});
 const write=(name,source)=>{const path=join(dir,name);writeFileSync(path,source);return path;};
-const navigation=write('navigation.ts',`export const usePathname=()=>'/inbox';export const useRouter=()=>({push:path=>globalThis.__navigations.push(path),prefetch:()=>{}});`);
+const navigation=write('navigation.ts',`export const usePathname=()=>window.location.pathname;export const useRouter=()=>({push:path=>globalThis.__navigations.push(path),prefetch:()=>{}});`);
 const link=write('link.tsx',`import React from 'react';export default function Link({children,prefetch,...props}){return <a {...props}>{children}</a>}`);
 const sidebar=write('sidebar.ts',`export const useSidebar=()=>({minimal:false,mobile:true,mobileOpen:true,toggle:()=>{}});`);
 const mailbox=write('mailbox.ts',`export const useSelectedMailbox=()=>({selectedMailbox:{id:'box'}});`);
 const compose=write('compose.ts',`export const useCompose=()=>({openComposer:()=>{}});`);
 const branding=write('branding.ts',`export const useBranding=()=>({appName:'Mailflare',iconUrl:'/icon-96.png'});`);
-await build({stdin:{contents:`export {NavItem} from './src/components/components-nav';export {LoadingTransition} from './src/components/loading-transition';export {usePageLoading} from './src/components/page-loading';export {getMessageQueryParams} from './src/hooks/utils';export {preloadMailboxPage} from './src/components/components-nav-utils';export {fetchMessageList,clearMessageListCache,fetchMessageCounts,clearMessageCountsCache,clearMessageClientState} from './src/hooks/utils';`,resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'next/navigation':navigation,'next/link':link,'@/components/sidebar-state':sidebar,'@/components/mailbox-provider':mailbox,'@/components/branding-provider':branding},plugins:[{name:'relative-fixture-contexts',setup(build){const mocks={'./sidebar-state':sidebar,'./mailbox-provider':mailbox,'./compose/compose-context':compose};build.onResolve({filter:/^\.(\/sidebar-state|\/mailbox-provider|\/compose\/compose-context)$/},args=>({path:mocks[args.path]}));}}],logLevel:'silent'});
+await build({stdin:{contents:`export {NavItem} from './src/components/components-nav';export {useMessageNavigation} from './src/components/messages/message-navigation';export {LoadingTransition} from './src/components/loading-transition';export {usePageLoading} from './src/components/page-loading';export {getMessageQueryParams} from './src/hooks/utils';export {preloadMailboxPage} from './src/components/components-nav-utils';export {fetchMessageList,clearMessageListCache,fetchMessageCounts,clearMessageCountsCache,clearMessageClientState} from './src/hooks/utils';`,resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'next/navigation':navigation,'next/link':link,'@/components/sidebar-state':sidebar,'@/components/mailbox-provider':mailbox,'@/components/branding-provider':branding},plugins:[{name:'relative-fixture-contexts',setup(build){const mocks={'./sidebar-state':sidebar,'./mailbox-provider':mailbox,'./compose/compose-context':compose};build.onResolve({filter:/^\.(\/sidebar-state|\/mailbox-provider|\/compose\/compose-context)$/},args=>({path:mocks[args.path]}));}}],logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href);
 const React=await import('react'),{act}=React,{createRoot}=await import('react-dom/client');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -34,7 +34,7 @@ test('authenticated startup reveals the shell even while message loading stays p
  reset(t,async()=>Response.json({}));const root=createRoot(document.getElementById('root'));t.after(async()=>act(async()=>root.unmount()));
  function PendingPage(){app.usePageLoading(true);return React.createElement('button',null,'Open menu');}
  await act(async()=>root.render(React.createElement(app.LoadingTransition,{ready:true},React.createElement(PendingPage))));
- await act(async()=>pause(100));await act(async()=>pause(950));
+ await act(async()=>pause(80));
  const overlay=document.querySelector('[aria-live="polite"]');assert(overlay.className.includes('pointer-events-none'),'pending data must not retain the blocking splash');assert(document.querySelector('button').parentElement.className.includes('opacity-100'));
 });
 
@@ -93,4 +93,13 @@ test('a successful stale list result is followed by fresh data and never cached'
  const pending=[];let calls=0;reset(t,()=>{calls++;return new Promise(resolve=>pending.push(resolve));});const params=new URLSearchParams('mailboxId=box');
  const old=app.fetchMessageList(params);app.clearMessageListCache();const fresh=app.fetchMessageList(params,true);pending[0](Response.json({messages:[{id:'stale'}]}));await old;await pause(0);assert.equal(calls,2);
  const second=app.fetchMessageList(params);assert.equal(calls,2);pending[1](Response.json({messages:[{id:'fresh'}]}));assert.deepEqual(await Promise.all([fresh,second]),Array(2).fill({messages:[{id:'fresh'}]}));
+});
+
+
+test('clicking the already-selected message requests a retry instead of a no-op same-URL navigation',async t=>{
+ reset(t,async()=>Response.json({message:{id:'already'},body:{textBody:'Recovered',htmlBody:null}}));window.history.replaceState({},'','/inbox/already');t.after(()=>window.history.replaceState({},'','/inbox'));
+ const root=createRoot(document.getElementById('root'));t.after(async()=>act(async()=>root.unmount()));const retries=[];const listener=event=>retries.push(event.detail.messageId);window.addEventListener('mailflare:message-retry',listener);t.after(()=>window.removeEventListener('mailflare:message-retry',listener));
+ function Row(){const navigation=app.useMessageNavigation('/inbox/already',{id:'already'});return React.createElement('a',{href:'/inbox/already',onClick:navigation.onNavigate},'Open again');}
+ await act(async()=>root.render(React.createElement(Row)));await act(async()=>document.querySelector('a').dispatchEvent(new window.MouseEvent('click',{bubbles:true,cancelable:true})));
+ assert.deepEqual(retries,['already']);assert.deepEqual(globalThis.__navigations,[]);
 });

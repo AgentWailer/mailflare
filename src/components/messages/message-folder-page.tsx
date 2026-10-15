@@ -155,7 +155,7 @@ function MessageListRow({
 					<input type="checkbox" checked={selected} onChange={event => onSelectedChange(message.id, event.target.checked)} className="peer sr-only" aria-label={t("list.selectFrom", { sender: party })} />
 					<span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>
 				</label>
-				<Link href={href} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className="min-w-0">
+				<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className="min-w-0">
 					<span className="flex items-baseline justify-between gap-2 text-sm leading-5">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{party}
@@ -265,7 +265,7 @@ function MessageListRow({
 					className="h-4 w-4 rounded border-neutral-300"
 					aria-label={t("list.selectMessage")}
 				/>
-				<Link href={href} className="contents text-left">
+				<Link href={href} prefetch={false} className="contents text-left">
 					{content}
 				</Link>
 			</div>
@@ -288,7 +288,7 @@ function MessageListRow({
 				className="h-4 w-4 rounded border-neutral-300"
 				aria-label={t("list.selectMessage")}
 			/>
-			<Link href={href} onClick={onMessageNavigate} className="contents">
+			<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={onMessageNavigate} className="contents">
 				{content}
 			</Link>
 			{(config.folder === "inbox" || config.folder === "snoozed") && message.direction === "inbound" && (

@@ -132,6 +132,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
   const navLink = (
     <Link
       href={link.href}
+      prefetch={false}
       onClick={navigate}
       aria-label={minimal ? link.label : undefined}
       className={cn(!minimal && "pl-6", classes)}
