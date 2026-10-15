@@ -184,6 +184,7 @@ try{
    console.log(JSON.stringify({viewport,nativeTouchPullRefresh:viewport.width<768,normalScrollingPreserved:true,noDesktopGesture:viewport.width>=768}));await page.close();
   }
  }else{
+ if(!process.env.MAILFLARE_PERSISTENT_ONLY){
  for(const {viewport,mode,draft,touch=true} of [{viewport:{width:320,height:700},mode:'popup'},{viewport:{width:390,height:844},mode:'popup',draft:'reply'},{viewport:{width:430,height:932},mode:'page'},{viewport:{width:768,height:1024},mode:'popup',draft:'forward'},{viewport:{width:820,height:1180},mode:'page'},{viewport:{width:1024,height:768},mode:'popup'},{viewport:{width:1440,height:900},mode:'popup',draft:'reply',touch:false},{viewport:{width:1440,height:900},mode:'page',touch:false}]){
   const composePage=await browser.newPage({viewport,hasTouch:touch}),requests=[];
   await composePage.addInitScript(()=>{const fixtureViewport=new EventTarget();fixtureViewport.height=innerHeight;fixtureViewport.offsetTop=0;Object.defineProperty(window,'visualViewport',{value:fixtureViewport,configurable:true});window.__fixtureViewport=fixtureViewport;localStorage.setItem('mailflare-theme','dark');});
@@ -303,6 +304,7 @@ try{
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal page overflow');assert.deepEqual(errors,[]);
   console.log(JSON.stringify({viewport,below:viewport.width>=1024,mobileFullscreen:viewport.width<1024,layoutPreference:true,visibleAssignedLabels:true,theme:dark?'dark':'light',resizing:viewport.width>=1024,noOverflow:true}));await page.close();
  }
+ }
  for(const viewport of [{width:1440,height:900},{width:1024,height:768},{width:820,height:1180},{width:390,height:844}]) {
   const page=await browser.newPage({viewport,hasTouch:viewport.width<1440}),errors=[];page.on('pageerror',error=>errors.push(error.message));await page.route('**/api/**',route=>route.fulfill({contentType:'application/json',body:'{"messages":[],"accounts":[],"folders":[]}'}));
   await page.goto(origin+'/inbox');
@@ -313,7 +315,8 @@ try{
    await page.locator('a[href="/inbox/msg-1"]').getByText('Nachricht 1',{exact:true}).click();await page.getByRole('heading',{name:'Geöffnete E-Mail msg-1',exact:true}).waitFor();assert(await page.evaluate(()=>window.__persistentPane===document.querySelector('[data-message-reading-pane]')&&window.__persistentList===document.querySelector('[data-reading-layout] > aside')));assert.deepEqual(await pane.boundingBox(),initialPane);assert.deepEqual(await list.boundingBox(),initialList);
    await page.evaluate(()=>window.dispatchEvent(new Event('mailflare:messages-changed')));assert.equal(new URL(page.url()).pathname,'/inbox/msg-1','refresh keeps the manually opened email');
    await page.reload();await page.getByRole('heading',{name:'Geöffnete E-Mail msg-1',exact:true}).waitFor();
-   await page.locator('a[href="/inbox/msg-0"]').getByText('Nachricht 0',{exact:true}).click();await page.getByRole('heading',{name:'Geöffnete E-Mail msg-0',exact:true}).waitFor();
+   // Use row padding: on narrow lists the hover actions can cover the end of a label-heavy subject.
+   await page.locator('[data-message-row="msg-0"]').click({position:{x:4,y:4}});await page.getByRole('heading',{name:'Geöffnete E-Mail msg-0',exact:true}).waitFor();
    let documents=0;page.on('request',request=>{if(request.resourceType()==='document')documents++});await page.evaluate(()=>window.__previewNonce='same-document');
    for(const [href,label] of [['/promotions',de['smart.promotions']],['/social',de['message.categories.social']],['/inbox',de['message.categories.primary']]]){await page.locator('[data-inbox-categories]').getByRole('link',{name:label,exact:true}).click();await page.waitForFunction(path=>location.pathname===path,href);assert.equal(await page.evaluate(()=>window.__previewNonce),'same-document');await page.locator('[data-empty-reader]').waitFor();assert.deepEqual(await pane.boundingBox(),initialPane);}assert.equal(documents,0,'category changes retain an empty pane without reloading the document');
    await page.evaluate(()=>{localStorage.setItem('mailflare-reading-layout','off');window.dispatchEvent(new Event('mailflare:reading-layout-changed'));});await page.goto(origin+'/inbox');await page.locator('a[href="/inbox/msg-0"]').waitFor();assert.equal(new URL(page.url()).pathname,'/inbox');assert.equal(await page.getByTestId('reader').count(),0);assert.equal(await pane.count(),0);

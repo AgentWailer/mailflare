@@ -17,6 +17,7 @@ function response(path){
  if(path==='/api/auth/me')return {user,hasMailboxes:true,isSetup:true};
  if(path==='/api/mailboxes')return {mailboxes:[{id:'cold-box',domainId:'domain',localPart:'owner',hostname:'example.test',displayName:'Test User',isPrimary:true,type:'personal',permission:'full_access',senderAddresses:['owner@example.test']}]};
  if(path==='/api/messages')return {messages,total:25,offset:0,limit:25};
+ if(/^\/api\/messages\/cold-\d+\/star$/.test(path))return {starred:true};
  if(/^\/api\/messages\/cold-\d+$/.test(path)){const id=path.split('/').at(-1);return {message:messages.find(message=>message.id===id),body:{textBody:'Message content '+id,htmlBody:null},attachments:[]};}
  if(path==='/api/agent/availability')return {enabled:true};
  if(path==='/api/branding')return {appName:'Mailflare',hasCustomIcon:false};
@@ -40,6 +41,7 @@ try{
   let ready=false;for(let i=0;i<100;i++){try{const r=await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)});if(r.ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Local preview exited');await pause(200);}assert(ready,'production preview starts');
  }
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
+ if(!process.env.MAILFLARE_ROW_ONLY){
  for(const width of [1440,390]){
   const {page,events,errors,state,start,listAt,first}=await screen(width,{holdRoute:true});
   const beforeClick=await page.evaluate(()=>performance.getEntriesByType('resource').filter(entry=>entry.name.endsWith('.js')).map(entry=>({name:new URL(entry.name).pathname,bytes:entry.transferSize})));
@@ -67,5 +69,28 @@ try{
  {
   const {page,state,first}=await screen(1440,{failDetail:true});await first.click();await page.getByRole('button',{name:'Try again',exact:true}).waitFor();state.failDetail=false;await page.getByText('Cold start mail 0',{exact:true}).first().click();await page.getByText('Message content cold-0',{exact:true}).waitFor();assert.equal(await page.locator('[data-message-opening]').count(),0);console.log(JSON.stringify({sameSelectedRowCanRetry:true}));await page.close();
  }
- writeFileSync('/tmp/mailflare-cold-after.json',JSON.stringify(results,null,2));
+ }
+ // Native links must cover row padding/gaps, while selection and quick actions stay independent.
+ for(const width of [1440,390]){
+  const {page,errors}=await screen(width);
+  const row=id=>page.locator(`[data-message-row="cold-${id}"]`);
+  for(const [id,position] of [[0,'left'],[1,'top'],[2,'bottom'],[3,'right']]){
+   await row(id).scrollIntoViewIfNeeded();const box=await row(id).boundingBox();assert(box);
+   const point={x:position==='left'?box.x+4:position==='right'?box.x+box.width-4:box.x+box.width/2,y:position==='top'||position==='right'?box.y+2:position==='bottom'?box.y+box.height-2:box.y+box.height/2};
+   assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('a')?.getAttribute('href'),point),`/inbox/cold-${id}`,`${position} whitespace belongs to the native mail link`);
+   await page.mouse.click(point.x,point.y);await page.getByText(`Message content cold-${id}`,{exact:true}).waitFor();
+   assert.equal(new URL(page.url()).pathname,`/inbox/cold-${id}`);
+   if(width<768){await page.locator('[data-message-back]').click();await row(id).waitFor();}
+  }
+  await page.evaluate(()=>{window.__rowLinkClicks=0;document.addEventListener('click',event=>{if(event.target.closest('[data-message-row] a'))window.__rowLinkClicks++;});});
+  const checkbox=row(4).locator('input[type=checkbox]'),selection=width<768?row(4).locator('label'):checkbox;await selection.click();assert(await checkbox.isChecked());
+  // Desktop checkbox selection intentionally previews the selected mail; preserve that existing behavior.
+  if(width>=768)await page.getByText('Message content cold-4',{exact:true}).waitFor();
+  await selection.click();assert(!(await checkbox.isChecked()));assert.equal(await page.evaluate(()=>window.__rowLinkClicks),0,'selection does not activate the stretched link');const before=page.url();
+  const star=row(5).getByRole('button',{name:'Not starred',exact:true});await star.click();await row(5).getByRole('button',{name:'Starred',exact:true}).waitFor();assert.equal(page.url(),before,'star does not open the email');
+  if(width>=768){await row(6).hover();await row(6).getByRole('button',{name:'Archive',exact:true}).click();await row(6).waitFor({state:'detached'});assert.equal(page.url(),before,'archive does not open the email');}
+  const link=row(7).locator('a[href="/inbox/cold-7"]');await link.focus();await page.keyboard.press('Enter');await page.getByText('Message content cold-7',{exact:true}).waitFor();assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({width,wholeRowClickable:true,independentControls:true,nativeKeyboardNavigation:true}));await page.close();
+ }
+ if(results.length)writeFileSync('/tmp/mailflare-cold-after.json',JSON.stringify(results,null,2));
 }finally{await browser?.close();if(preview){preview.kill('SIGTERM');await new Promise(resolve=>{if(preview.exitCode!==null)return resolve();preview.once('exit',resolve);setTimeout(()=>{preview.kill('SIGKILL');resolve();},5000).unref();});}writeFileSync('/tmp/mailflare-cold-preview.log',serverLog);rmSync(temporary,{recursive:true,force:true});}

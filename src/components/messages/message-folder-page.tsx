@@ -86,6 +86,9 @@ function MessageListRow({
 	const party = getMessageParty(rowMessage, config.folder, currentAccountName, t);
 	const preview = getMessagePreview(rowMessage, config.folder, t);
 	const href = `${config.hrefPrefix}/${message.id}`;
+	// Stretch the native link across padding and grid gaps; independent controls sit above it.
+	const rowLinkClassName = "after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-blue-500";
+	const desktopRowLinkClassName = clsx("grid h-full min-w-0 grid-cols-[32px_minmax(160px,190px)_minmax(0,1fr)_auto] items-center gap-2", rowLinkClassName);
 	const navigation = useMessageNavigation(href, rowMessage);
 	const outbound = message.direction === "outbound";
  const attachmentCount = message.attachmentCount ?? 0;
@@ -137,6 +140,7 @@ function MessageListRow({
 	if (compact) {
 		const compactRow = (
 			<div
+				data-message-row={message.id}
 				className={`mail-mobile-row group relative grid grid-cols-[44px_minmax(0,1fr)] gap-2 border-l-2 px-3 py-2.5 transition-colors ${active
 					? "border-l-blue-600 bg-blue-50"
 					: selected
@@ -151,11 +155,11 @@ function MessageListRow({
 				}}
 			>
 				<MessageNavigationProgress progress={navigation.progress} />
-				<label className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-full">
+				<label className="relative z-10 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full">
 					<input type="checkbox" checked={selected} onChange={event => onSelectedChange(message.id, event.target.checked)} className="peer sr-only" aria-label={t("list.selectFrom", { sender: party })} />
 					<span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>
 				</label>
-				<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className="min-w-0">
+				<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className={clsx("min-w-0", rowLinkClassName)}>
 					<span className="flex items-baseline justify-between gap-2 text-sm leading-5">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{party}
@@ -180,7 +184,7 @@ function MessageListRow({
 						<MessageLabelChips labels={message.labels} compact />
 					</span>
 				</Link>
-				{config.folder !== "drafts" && <button type="button" data-mobile-star aria-label={starred ? t("list.starred") : t("list.notStarred")} aria-pressed={starred} className="absolute bottom-0 right-1 flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100" onClick={() => { void toggleMessageStar(message.id).then(result => setStarred(result.starred)).catch(() => undefined); }}><Star className={clsx("h-5 w-5", starred ? "fill-amber-400 text-amber-400" : "text-neutral-400")} /></button>}
+				{config.folder !== "drafts" && <button type="button" data-mobile-star aria-label={starred ? t("list.starred") : t("list.notStarred")} aria-pressed={starred} className="absolute bottom-0 right-1 z-10 flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100" onClick={() => { void toggleMessageStar(message.id).then(result => setStarred(result.starred)).catch(() => undefined); }}><Star className={clsx("h-5 w-5", starred ? "fill-amber-400 text-amber-400" : "text-neutral-400")} /></button>}
 			</div>
 		);
 		if (!swipeable) return compactRow;
@@ -205,12 +209,12 @@ function MessageListRow({
 	}
 
 	const className =
-		`group relative grid min-h-10 w-full grid-cols-[24px_32px_minmax(160px,190px)_minmax(0,1fr)_auto] items-center gap-2 px-4 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
+		`group relative grid min-h-10 w-full grid-cols-[24px_minmax(0,1fr)] items-center gap-2 px-4 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
 		} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`;
 	const content = (
 		<>
 			{config.folder === "inbox" && message.direction === "inbound" && (
-				<Tooltip label={starred ? t("list.starred") : t("list.notStarred")}>
+				<Tooltip className="relative z-10" label={starred ? t("list.starred") : t("list.notStarred")}>
 					<Button
 						type="button"
 						variant="ghost"
@@ -258,14 +262,14 @@ function MessageListRow({
 
 	if (config.folder === "drafts") {
 		return (
-			<div className={className}>
+			<div className={className} data-message-row={message.id}>
 				<Checkbox
 					checked={selected}
 					onChange={(event) => onSelectedChange(message.id, event.target.checked)}
-					className="h-4 w-4 rounded border-neutral-300"
+					className="relative z-10 h-4 w-4 rounded border-neutral-300"
 					aria-label={t("list.selectMessage")}
 				/>
-				<Link href={href} prefetch={false} className="contents text-left">
+				<Link href={href} prefetch={false} className={desktopRowLinkClassName}>
 					{content}
 				</Link>
 			</div>
@@ -274,6 +278,7 @@ function MessageListRow({
 
 	return (
 		<div
+			data-message-row={message.id}
 			className={className}
 			draggable={draggable}
 			onDragStart={(event) => {
@@ -285,10 +290,10 @@ function MessageListRow({
 			<Checkbox
 				checked={selected}
 				onChange={(event) => onSelectedChange(message.id, event.target.checked)}
-				className="h-4 w-4 rounded border-neutral-300"
+				className="relative z-10 h-4 w-4 rounded border-neutral-300"
 				aria-label={t("list.selectMessage")}
 			/>
-			<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={onMessageNavigate} className="contents">
+			<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={onMessageNavigate} className={desktopRowLinkClassName}>
 				{content}
 			</Link>
 			{(config.folder === "inbox" || config.folder === "snoozed") && message.direction === "inbound" && (
