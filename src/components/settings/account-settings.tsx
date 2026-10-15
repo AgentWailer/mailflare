@@ -2,13 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
+import { DeferredProfileForm as ProfileForm, DeferredForwardingEmailForm as ForwardingEmailForm, DeferredMailboxSignatureForm as MailboxSignatureForm, DeferredTimeZoneForm as TimeZoneForm } from "./deferred-account-settings";
 import { AppearanceSettings } from "./appearance-settings";
 import { LanguageSelector } from "@/components/language-selector";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ForwardingEmailForm } from "./forwarding-email-form";
-import { MailboxSignatureForm } from "./mailbox-signature-form";
-import { ProfileForm } from "./profile-form";
-import { TimeZoneForm } from "./time-zone-form";
 import type { AccountSettingsResponse } from "./types";
 import { loadAccountSettings } from "./utils";
 import { SettingsSection, SettingsPageHeader, SettingsGroup } from "./settings-section";

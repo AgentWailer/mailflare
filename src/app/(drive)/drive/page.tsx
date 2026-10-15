@@ -31,7 +31,7 @@ import type { DriveCategory } from "@/lib/drive/category-names";
 import { uploadDriveFile } from "../drive-upload";
 import type { DriveUploadEntry } from "../drive-upload-types";
 import { DriveUploadPanel } from "../drive-upload-panel";
-import { clearDriveListings, readDriveListing, saveDriveListing } from "../drive-cache";
+import { clearDriveListings, getDriveCacheRevision, readDriveListing, saveDriveListing } from "../drive-cache";
 import type { DriveListing } from "../drive-cache";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canDropDrive, driveDropHandlers, endDriveDrag, isDriveDraggable, startDriveDrag } from "../drive-drag";
@@ -84,6 +84,7 @@ export default function DrivePage() {
 
 	const load = useCallback(async () => {
 		const key = requestKey;
+		const cacheRevision = getDriveCacheRevision();
 		const search = new URLSearchParams({ view });
 		if (folder) search.set("parent", folder);
 		if (query) search.set("q", query);
@@ -92,13 +93,13 @@ export default function DrivePage() {
 			const response = await authFetch(`/api/drive/items?${search}`);
 			if (!response.ok) throw new Error();
 			const data = await response.json() as DriveListing;
-			saveDriveListing(key, data);
+			if (!saveDriveListing(key, data, cacheRevision)) return;
 			if (key !== requestRef.current) return;
 			setListing({ key, data }); setFailedKey(null);
 			window.dispatchEvent(new CustomEvent(DRIVE_STORAGE_EVENT, { detail: { used: data.storageUsed, limit: data.storageLimit } }));
 			window.dispatchEvent(new Event(DRIVE_FOLDERS_EVENT));
 		} catch {
-			if (key === requestRef.current) setFailedKey(key);
+			if (key === requestRef.current && cacheRevision === getDriveCacheRevision()) setFailedKey(key);
 		}
 	}, [view, folder, query, typesParam, requestKey]);
 	// Reload after a change; other cached listings may be stale now, so they are dropped.

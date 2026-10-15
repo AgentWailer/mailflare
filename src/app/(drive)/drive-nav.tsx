@@ -154,7 +154,7 @@ export function DriveNav({ onNavigate }: { onNavigate?: () => void }) {
 						// Attachments takes trashed attachments back.
 						const target: DriveDropTarget | null = key === "my" ? { kind: "folder", id: null } : key === "trash" ? { kind: "trash" } : key === "attachments" ? { kind: "attachments" } : null;
 						return (
-							<Link key={key} href={href} onClick={onNavigate} {...(target ? dropProps(key, target) : {})} aria-current={active ? "page" : undefined} title={compact ? label : undefined} className={clsx("flex h-10 items-center gap-3 rounded-full text-sm", compact ? "w-10 justify-center" : "px-4", dropKey === key ? dropHighlight : active ? "bg-blue-100 font-medium text-blue-900" : "text-neutral-700 hover:bg-neutral-200/60")}>
+							<Link prefetch={false} key={key} href={href} onClick={onNavigate} {...(target ? dropProps(key, target) : {})} aria-current={active ? "page" : undefined} title={compact ? label : undefined} className={clsx("flex h-10 items-center gap-3 rounded-full text-sm", compact ? "w-10 justify-center" : "px-4", dropKey === key ? dropHighlight : active ? "bg-blue-100 font-medium text-blue-900" : "text-neutral-700 hover:bg-neutral-200/60")}>
 								<Icon size={16} />{!compact && label}
 							</Link>
 						);
@@ -173,7 +173,7 @@ export function DriveNav({ onNavigate }: { onNavigate?: () => void }) {
 								{rows.length === 0 && <li className="px-4 py-1.5 text-xs text-neutral-500">{t("drive.noFolders")}</li>}
 								{rows.map((folder) => (
 									<li key={folder.id}>
-										<Link href={`/drive?folder=${encodeURIComponent(folder.id)}`} onClick={onNavigate} {...dropProps(folder.id, { kind: "folder", id: folder.id })} aria-current={activeFolder === folder.id ? "page" : undefined} style={{ paddingLeft: 16 + folder.depth * 14 }} className={clsx("flex h-8 items-center gap-2 rounded-full pr-3 text-sm", dropKey === folder.id ? dropHighlight : activeFolder === folder.id ? "bg-blue-100 font-medium text-blue-900" : "text-neutral-700 hover:bg-neutral-200/60")}>
+										<Link prefetch={false} href={`/drive?folder=${encodeURIComponent(folder.id)}`} onClick={onNavigate} {...dropProps(folder.id, { kind: "folder", id: folder.id })} aria-current={activeFolder === folder.id ? "page" : undefined} style={{ paddingLeft: 16 + folder.depth * 14 }} className={clsx("flex h-8 items-center gap-2 rounded-full pr-3 text-sm", dropKey === folder.id ? dropHighlight : activeFolder === folder.id ? "bg-blue-100 font-medium text-blue-900" : "text-neutral-700 hover:bg-neutral-200/60")}>
 											<Folder size={14} className="shrink-0 text-amber-500" /><span className="truncate">{folder.name}</span>
 										</Link>
 									</li>

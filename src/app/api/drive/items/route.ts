@@ -1,3 +1,4 @@
+import { requestTiming } from "@/lib/server-timing";
 import { and, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { driveItems, driveShares } from "@/db/schema";
@@ -11,8 +12,10 @@ import { getDriveStorageLimit, getDriveStorageUsed } from "@/lib/drive/storage";
 import type { DriveRole } from "@/lib/drive/types";
 
 export async function GET(request: Request) {
+	const timing = requestTiming();
 	const auth = await authorizeDrive(request);
 	if (auth.error) return auth.error;
+	timing.mark("auth");
 	const { env, db, user } = auth;
 	const url = new URL(request.url);
 	const view = url.searchParams.get("view") ?? "my";
@@ -22,8 +25,9 @@ export async function GET(request: Request) {
 	// With a type filter, files must match but folders stay listed so you can still browse into them.
 	const typeFilter = types.length ? or(eq(driveItems.kind, "folder"), driveTypesCondition(types))! : undefined;
 
-	const meta = { storageUsed: await getDriveStorageUsed(db, user.id), storageLimit: await getDriveStorageLimit(env) };
-	const respond = (items: Awaited<ReturnType<typeof toDriveItemDtos>>, extra: { path?: ReturnType<typeof toDriveCrumbs>; role: DriveRole }) => NextResponse.json({ items, path: extra.path ?? [], role: extra.role, ...meta });
+	const [storageUsed, storageLimit] = await Promise.all([getDriveStorageUsed(db, user.id), getDriveStorageLimit(env)]);
+	const meta = { storageUsed, storageLimit };
+	const respond = (items: Awaited<ReturnType<typeof toDriveItemDtos>>, extra: { path?: ReturnType<typeof toDriveCrumbs>; role: DriveRole }) => { timing.mark("drive"); return NextResponse.json({ items, path: extra.path ?? [], role: extra.role, ...meta }, { headers: timing.headers() }); };
 
 	if (parentId) {
 		const folder = await getDriveItem(db, parentId);

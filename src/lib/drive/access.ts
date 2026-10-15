@@ -52,15 +52,23 @@ export async function getPublicDriveItem(db: Db, token: string, itemId?: string 
 export async function toDriveItemDtos(db: Db, rows: DriveRow[], userId: string, roleFor?: (row: DriveRow) => DriveRole): Promise<DriveItemDto[]> {
 	if (!rows.length) return [];
 	const ownerIds = [...new Set(rows.map((row) => row.ownerId))];
-	const owners = await db.select({ id: users.id, name: users.name, email: users.email, avatarKey: users.avatarKey }).from(users).where(inArray(users.id, ownerIds));
-	const ownerNames = new Map(owners.map((owner) => [owner.id, owner.name || owner.email]));
-	const ownerAvatars = new Map(owners.map((owner) => [owner.id, !!owner.avatarKey]));
-	const sharedIds = new Set<string>();
-	for (let index = 0; index < rows.length; index += 50) {
-		const slice = rows.slice(index, index + 50).map((row) => row.id);
-		const shares = await db.select({ itemId: driveShares.itemId }).from(driveShares).where(inArray(driveShares.itemId, slice));
-		for (const share of shares) sharedIds.add(share.itemId);
+	const ownerQueries = Array.from({ length: Math.ceil(ownerIds.length / 80) }, (_, page) =>
+		db.select({ id: users.id, name: users.name, email: users.email, avatarKey: users.avatarKey }).from(users).where(inArray(users.id, ownerIds.slice(page * 80, page * 80 + 80))));
+	const shareQueries = Array.from({ length: Math.ceil(rows.length / 80) }, (_, page) =>
+		db.selectDistinct({ itemId: driveShares.itemId }).from(driveShares).where(inArray(driveShares.itemId, rows.slice(page * 80, page * 80 + 80).map(row => row.id))));
+	// Bounded batches replace a network round trip for every 50 visible files.
+	const owners: Array<{ id: string; name: string; email: string; avatarKey: string | null }> = [];
+	for (let offset = 0; offset < ownerQueries.length; offset += 25) {
+		const group = ownerQueries.slice(offset, offset + 25);
+		owners.push(...(await db.batch(group as [typeof group[number], ...typeof group[number][]])).flat());
 	}
+	const sharedIds = new Set<string>();
+	for (let offset = 0; offset < shareQueries.length; offset += 25) {
+		const group = shareQueries.slice(offset, offset + 25);
+		for (const page of await db.batch(group as [typeof group[number], ...typeof group[number][]])) for (const share of page) sharedIds.add(share.itemId);
+	}
+	const ownerNames = new Map(owners.map(owner => [owner.id, owner.name || owner.email]));
+	const ownerAvatars = new Map(owners.map(owner => [owner.id, !!owner.avatarKey]));
 	return rows.map((row) => ({
 		id: row.id,
 		kind: row.kind,
@@ -112,24 +120,29 @@ export async function deleteDriveItems(env: CloudflareEnv, roots: DriveRow[]): P
 
 /** Drops rows that sit under a trashed folder; only the folder itself carries `trashedAt`. */
 export async function withoutTrashedAncestors(db: Db, rows: DriveRow[]): Promise<DriveRow[]> {
-	const trashedByFolder = new Map<string, boolean>();
-	async function isHidden(folderId: string | null): Promise<boolean> {
-		const path: string[] = [];
-		let current = folderId;
-		let hidden = false;
-		while (current && path.length < DRIVE_MAX_DEPTH) {
-			const known = trashedByFolder.get(current);
-			if (known !== undefined) { hidden = known; break; }
-			const folder = await getDriveItem(db, current);
-			path.push(current);
-			if (!folder) break;
-			if (folder.trashedAt) { hidden = true; break; }
-			current = folder.parentId;
+	type Ancestor = Pick<DriveRow, "id" | "parentId" | "trashedAt">;
+	const ancestors = new Map<string, Ancestor | null>(rows.map(row => [row.id, row]));
+	let frontier = [...new Set(rows.flatMap(row => row.parentId && !ancestors.has(row.parentId) ? [row.parentId] : []))];
+	// Resolve the hierarchy by depth, rather than one query per folder/file.
+	for (let depth = 0; frontier.length && depth < DRIVE_MAX_DEPTH; depth++) {
+		const next = new Set<string>();
+		for (let offset = 0; offset < frontier.length; offset += 80) {
+			const ids = frontier.slice(offset, offset + 80);
+			const parents = await db.select({ id: driveItems.id, parentId: driveItems.parentId, trashedAt: driveItems.trashedAt }).from(driveItems).where(inArray(driveItems.id, ids));
+			for (const id of ids) ancestors.set(id, null);
+			for (const parent of parents) ancestors.set(parent.id, parent);
+			for (const parent of parents) if (!parent.trashedAt && parent.parentId && !ancestors.has(parent.parentId)) next.add(parent.parentId);
 		}
-		for (const id of path) trashedByFolder.set(id, hidden);
-		return hidden;
+		frontier = [...next].filter(id => !ancestors.has(id));
 	}
-	const kept: DriveRow[] = [];
-	for (const row of rows) if (!(await isHidden(row.parentId))) kept.push(row);
-	return kept;
+	return rows.filter(row => {
+		let id = row.parentId;
+		for (let depth = 0; id && depth < DRIVE_MAX_DEPTH; depth++) {
+			const parent = ancestors.get(id);
+			if (!parent) break;
+			if (parent.trashedAt) return false;
+			id = parent.parentId;
+		}
+		return true;
+	});
 }

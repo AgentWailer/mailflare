@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Camera, LoaderCircle, User } from "lucide-react";
+import { fetchSessionSnapshot } from "@/lib/auth/session-client";
 import { authFetch, getClientSessionToken } from "@/lib/auth/client";
 import type { AvatarCrop } from "@/lib/avatar-upload-client";
 import { getAvatarColorStyle } from "@/lib/avatar-colors";
@@ -49,8 +50,7 @@ export function ProfileAvatarForm({
 			return;
 		}
 
-		authFetch("/api/auth/me", { redirectOnUnauthorized: false })
-			.then((response) => (response.ok ? response.json() : null))
+		fetchSessionSnapshot().then(snapshot => snapshot.data)
 			.then((data) => {
 				const authData = data as ProfileAvatarSessionResponse | null;
 				setHasAvatar(!!authData?.user?.hasAvatar);

@@ -37,12 +37,12 @@ export function MobileSettingsNav({ pathname }: { pathname: string }) {
 	return <Dialog.Root open={open} onOpenChange={setOpen}>
 		<nav data-settings-mobile-nav aria-label={t("settings.nav.menu")} className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white shadow-[0_-2px_12px_rgb(0_0_0/0.04)] md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", paddingLeft: "max(8px, env(safe-area-inset-left, 0px))", paddingRight: "max(8px, env(safe-area-inset-right, 0px))" }}>
 			<div className="mx-auto grid max-w-lg grid-cols-4 gap-1 [&>a>span:last-child]:max-w-full [&>a>span:last-child]:break-words">
-				<Link href="/inbox" className={targetClass}>
+				<Link prefetch={false} href="/inbox" className={targetClass}>
 					<ArrowLeft aria-hidden="true" className="h-5 w-5" /><span>{t("settings.nav.mailbox")}</span>
 				</Link>
 				{primaryItems.map(item => {
 					const active = isActiveSettingsPath(pathname, item.href), Icon = icons[item.href];
-					return <Link key={item.href} href={item.href} aria-label={item.href === "/settings/inbox" ? `${t("settings.nav.settings")}: ${t(item.labelKey)}` : undefined} aria-current={active ? "page" : undefined} className={cn(targetClass, active && "text-blue-800")}>
+					return <Link prefetch={false} key={item.href} href={item.href} aria-label={item.href === "/settings/inbox" ? `${t("settings.nav.settings")}: ${t(item.labelKey)}` : undefined} aria-current={active ? "page" : undefined} className={cn(targetClass, active && "text-blue-800")}>
 						<span className={cn("flex h-7 w-12 items-center justify-center rounded-full", active && "bg-blue-100")}><Icon aria-hidden="true" className="h-5 w-5" /></span><span>{t(item.href === "/settings/inbox" ? "admin.nav.email" : item.labelKey)}</span>
 					</Link>;
 				})}
@@ -67,7 +67,7 @@ export function MobileSettingsNav({ pathname }: { pathname: string }) {
 						<div className="grid grid-cols-2 gap-2">
 							{section.items.map(item => {
 								const active = isActiveSettingsPath(pathname, item.href), Icon = icons[item.href];
-								return <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={cn("flex min-h-12 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 motion-reduce:transition-none", active && "bg-blue-100 text-blue-900")}>
+								return <Link prefetch={false} key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={cn("flex min-h-12 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 motion-reduce:transition-none", active && "bg-blue-100 text-blue-900")}>
 									<Icon aria-hidden="true" className="h-5 w-5 shrink-0" /><span className="min-w-0 break-words">{t(item.labelKey)}</span>
 								</Link>;
 							})}

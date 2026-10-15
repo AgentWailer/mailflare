@@ -1,3 +1,4 @@
+import { fetchSessionSnapshot } from "@/lib/auth/session-client";
 import type { MailboxOption } from "@/components/mailbox-provider";
 import { clearMailboxesCache } from "@/components/mailbox-provider-utils";
 import { authFetch } from "@/lib/auth/client";
@@ -44,10 +45,10 @@ export async function updateCurrentMailboxName(id: string, displayName: string):
 }
 
 export async function loadAccountSettings(): Promise<Required<AccountSettingsResponse>["user"]> {
-	const res = await authFetch("/api/auth/me");
-	const data = (await res.json()) as AccountSettingsResponse;
+	const snapshot = await fetchSessionSnapshot();
+	const data = (snapshot.data ?? {}) as AccountSettingsResponse;
 
-	if (!res.ok || !data.user) {
+	if (snapshot.status !== 200 || !data.user) {
 		throw new Error(typeof data.error === "string" ? data.error : "Failed to load account");
 	}
 

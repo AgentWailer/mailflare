@@ -28,7 +28,7 @@ export function AccountSettingsNav() {
 					{accountSettingsNavItems.map((item) => {
 						const href = getAccountSettingsHref(id, item.segment);
 						return (
-							<Link
+							<Link prefetch={false}
 								key={item.segment || "details"}
 								href={href}
 								className={cn(

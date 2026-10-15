@@ -307,7 +307,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 							</div>
 							<Check className="h-5 w-5 shrink-0 text-blue-600" />
 						</div>
-						<Link
+						<Link prefetch={false}
 							href="/inbox"
 							onClick={() => setOpen(false)}
 							className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
@@ -316,7 +316,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 							{t("navigation.inbox")}
 						</Link>
 						{onToggleAssistant && <button type="button" className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc] md:hidden" onClick={() => { setOpen(false); onToggleAssistant(); }}><Sparkles size={18} className="text-neutral-600" />{t(assistantOpen ? "agent.assistant.close" : "agent.assistant.open")}</button>}
-						<Link
+						<Link prefetch={false}
 							href="/calendar"
 							onClick={() => setOpen(false)}
 							className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
@@ -324,7 +324,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 							<CalendarDays size={18} className="text-neutral-600" />
 							{t("account.calendar")}
 						</Link>
-						<Link
+						<Link prefetch={false}
 							href="/drive"
 							onClick={() => setOpen(false)}
 							className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
@@ -332,7 +332,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 							<HardDrive size={18} className="text-neutral-600" />
 							{t("account.drive")}
 						</Link>
-						<Link
+						<Link prefetch={false}
 							href="/settings/account"
 							onClick={() => setOpen(false)}
 							className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
@@ -400,7 +400,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 
 					<div className="mt-2 overflow-hidden rounded-[22px] bg-white">
 						{user?.role === "admin" && (
-							<Link
+							<Link prefetch={false}
 								href="/admin"
 								onClick={() => setOpen(false)}
 								className={`flex items-center gap-3 border-t border-neutral-100 px-5 py-4 text-sm font-medium text-neutral-800 hover:bg-[#f2f6fc] ${adminActive ? "bg-blue-50" : ""}`}
@@ -410,7 +410,7 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 								{adminActive && <Check className="ml-auto h-4 w-4 text-blue-600" />}
 							</Link>
 						)}
-						<Link
+						<Link prefetch={false}
 							href="/login?add=1"
 							onClick={() => setOpen(false)}
 							className="flex items-center gap-3 px-5 py-4 text-sm font-medium text-neutral-800 hover:bg-[#f2f6fc]"

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { List } from "@/components/ui/list";
 import { CheckCircle2, LoaderCircle, Plus } from "lucide-react";
+import { fetchSessionSnapshot } from "@/lib/auth/session-client";
 import { authFetch } from "@/lib/auth/client";
 import type { DnsAuthRecord, DnsStatusSummary, Domain, DomainDnsCache, DomainDnsView, DomainPreflight, ReceivingProvider, SendingProvider } from "./types";
 import DomainItemCard from "./DomainItemCard";
@@ -31,7 +32,7 @@ export default function DomainsPage() {
   // Self-hosted installs without Cloudflare credentials manage DNS by hand.
   const { data: me } = useQuery({
     queryKey: ["me"],
-    queryFn: async () => (await (await authFetch("/api/auth/me")).json()) as { managesDns?: boolean },
+    queryFn: async () => (await fetchSessionSnapshot()).data,
   });
   const managesDns = me?.managesDns ?? true;
   const [domainCheck, setDomainCheck] = useState<DomainPreflight | null>(null);
@@ -48,16 +49,34 @@ export default function DomainsPage() {
   const [dnsError, setDnsError] = useState<string | null>(null);
   const [dnsViews, setDnsViews] = useState<DomainDnsCache>({});
 
-  const { data, isLoading } = useQuery({
+  const { data: baseData, isLoading } = useQuery({
     queryKey: ["domains"],
     queryFn: async () => {
-      const res = await authFetch("/api/domains?includeDns=true");
+      const res = await authFetch("/api/domains");
+      if (!res.ok) throw new Error("Unable to load domains");
       return (await res.json()) as {
         domains: Domain[];
         dns: Record<string, DnsStatusSummary>;
       };
     },
   });
+
+  // Render saved domain metadata immediately; public DNS audits can take seconds.
+  const dnsStatus = useQuery({
+    queryKey: ["domains", "dns", baseData?.domains.map(domain => domain.id).join(",")],
+    enabled: !!baseData?.domains.length,
+    queryFn: async () => {
+      const response = await authFetch("/api/domains?includeDns=true");
+      if (!response.ok) throw new Error("Unable to check DNS");
+      return await response.json() as { domains: Domain[]; dns: Record<string, DnsStatusSummary> };
+    },
+  });
+  const checkedDomains = new Map(dnsStatus.data?.domains.map(domain => [domain.id, domain]));
+  const data = baseData ? {
+    ...baseData,
+    domains: baseData.domains.map(domain => ({ ...domain, sendingEnabled: checkedDomains.get(domain.id)?.sendingEnabled ?? domain.sendingEnabled })),
+    dns: dnsStatus.data?.dns ?? baseData.dns,
+  } : undefined;
 
   const create = useMutation({
     mutationFn: async () => {

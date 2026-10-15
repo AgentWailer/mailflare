@@ -17,7 +17,7 @@ export function SettingsNav() {
 				<h2 className="mb-2 px-3 text-xs font-semibold text-neutral-500">{t(section.labelKey)}</h2>
 				{section.items.map(item => {
 					const active = isActiveSettingsPath(pathname, item.href);
-					return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("block min-h-11 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors", active ? "bg-blue-100 text-blue-900" : "text-neutral-600 hover:bg-white hover:text-neutral-900")}>{t(item.labelKey)}</Link>;
+					return <Link prefetch={false} key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("block min-h-11 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors", active ? "bg-blue-100 text-blue-900" : "text-neutral-600 hover:bg-white hover:text-neutral-900")}>{t(item.labelKey)}</Link>;
 				})}
 			</nav>)}
 		</div>

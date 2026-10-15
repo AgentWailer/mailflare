@@ -9,6 +9,7 @@ export type SessionSnapshot = {
 		user?: CurrentUser & { timeZone?: string | null };
 		hasMailboxes?: boolean;
 		isSetup?: boolean;
+		managesDns?: boolean;
 	} | null;
 };
 let generation = 0;

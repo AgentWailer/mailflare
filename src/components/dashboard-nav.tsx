@@ -55,7 +55,7 @@ import {
 import { revealLabel, SidebarLabelTree } from "./sidebar-label-tree";
 import { LabelRenameDialog } from "./label-rename-dialog";
 import { getLabelPath } from "@/lib/folders/hierarchy";
-import { notifyLabelsChanged } from "./messages/use-mailbox-folders";
+import { fetchMailboxFolders, notifyLabelsChanged } from "./messages/use-mailbox-folders";
 import { useLabelVisibility } from "./messages/use-label-visibility";
 import { ReorderableList } from "./reorderable-list";
 import { SidebarFooter } from "./sidebar-footer";
@@ -179,13 +179,11 @@ export function DashboardNav({ className }: { className?: string }) {
     let cancelled = false;
     let requestNumber = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const params = new URLSearchParams({ mailboxId });
     function load() {
       const request = ++requestNumber;
-      authFetch(`/api/folders?${params.toString()}`)
-        .then((response) => { if (!response.ok) throw new Error("Unable to load labels"); return response.json() as Promise<{ folders?: CustomFolder[] }>; })
-        .then((data) => {
-          if (!cancelled && request === requestNumber) setFolderState({ mailboxId, folders: data.folders ?? [] });
+      fetchMailboxFolders(mailboxId)
+        .then((folders) => {
+          if (!cancelled && request === requestNumber) setFolderState({ mailboxId, folders });
         })
         .catch(() => {
           // Preserve already loaded labels during temporary network failures.

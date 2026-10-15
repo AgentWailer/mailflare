@@ -23,6 +23,7 @@ import { List, ListRow } from "@/components/ui/list";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
 import { clearMailboxesCache } from "@/components/mailbox-provider-utils";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
+import { fetchSessionSnapshot } from "@/lib/auth/session-client";
 import { authFetch } from "@/lib/auth/client";
 import type { CurrentAccountResponse, Domain, MailboxOwner, MailboxesResponse } from "./types";
 import { getMailboxAddress, getMailboxName } from "./utils";
@@ -41,8 +42,7 @@ export default function MailboxesPage() {
 	const account = useQuery({
 		queryKey: ["auth", "me"],
 		queryFn: async () => {
-			const res = await authFetch("/api/auth/me", { redirectOnUnauthorized: false });
-			return (await res.json()) as CurrentAccountResponse;
+			return (await fetchSessionSnapshot()).data as CurrentAccountResponse;
 		},
 	});
 

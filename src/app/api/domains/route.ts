@@ -1,3 +1,4 @@
+import { requestTiming } from "@/lib/server-timing";
 import { getDomainRegistryOwnerId } from "@/lib/domains/access";
 import { NextRequest, NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
@@ -11,11 +12,14 @@ import { getDomainProvisioningError } from "@/lib/domains/errors";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 
 export async function GET(request: NextRequest) {
+	const timing = requestTiming();
 	const env = getEnv();
 	const { user, error } = await requireSessionUser(env, request);
 	if (error) return error;
+	timing.mark("auth");
 	const domainOwnerId = getDomainRegistryOwnerId(user);
 	const domains = await listUserDomains(env, domainOwnerId);
+	timing.mark("domains");
 
 	const includeDns = request.nextUrl.searchParams.get("includeDns") === "true";
 
@@ -41,7 +45,8 @@ export async function GET(request: NextRequest) {
 		}));
 	}
 
-	return NextResponse.json({ domains: domainViews, dns: includeDns ? dns : undefined });
+	timing.mark("dns");
+	return NextResponse.json({ domains: domainViews, dns: includeDns ? dns : undefined }, { headers: timing.headers() });
 }
 
 export async function POST(request: Request) {
