@@ -4,6 +4,7 @@ import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
 import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
+import { fitEmailToWidth } from "./fit-email-to-width";
 import { createEmailTheme } from "./email-theme";
 import { useExternalContent } from "./use-external-content";
 import { preferNativeAmazonLinks } from "./native-app-links";
@@ -39,15 +40,20 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		const prepared = prepareEmailHtml(html, { reader: true, allowRemote });
 		setHasRemote(prepared.hasRemote);
 		const base = document.createElement("style");
-		base.textContent = `${BASE_STYLE}\n${prepared.rootTag} { display:block; font:14px/1.5 Arial,sans-serif; color:#202124; background:#fff; color-scheme:light; }\n${prepared.bodyTag} { display:block; }`;
+		base.textContent = `${BASE_STYLE}\n${prepared.rootTag} { display:block; font:14px/1.5 Arial,sans-serif; color:#202124; background:#fff; color-scheme:light; overflow-wrap:anywhere; }\n${prepared.bodyTag} { display:block; }`;
 		const content = document.createElement("template");
 		content.innerHTML = collapseQuotedEmailHtml(prepared.html, preserveLeadingQuote) ?? "";
-		root.replaceChildren(base, content.content);
+		const viewport = document.createElement(`${prepared.rootTag}-viewport`);
+		const canvas = document.createElement(`${prepared.rootTag}-canvas`);
+		canvas.appendChild(content.content);
+		viewport.appendChild(canvas);
+		root.replaceChildren(base, viewport);
 		const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
 		preferNativeAmazonLinks(root, ios && ((navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia("(display-mode: standalone)").matches));
 		const mailBody = root.querySelector(prepared.bodyTag);
-		// An LTR scroller cannot reach left-side overflow from an RTL email.
+		// Preserve the message direction inside the fitted presentation surface.
 		if (mailBody) host.current.dir = window.getComputedStyle(mailBody).direction;
+		const stopFitting = fitEmailToWidth(host.current, viewport, canvas);
 		// Document fragment navigation does not automatically find IDs inside a shadow tree.
 		const navigate = (event: Event) => {
 			const target = event.target as Element | null;
@@ -62,7 +68,7 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 			} catch { /* Ignore malformed fragments. */ }
 		};
 		root.addEventListener("click", navigate);
-		return () => root.removeEventListener("click", navigate);
+		return () => { stopFitting(); root.removeEventListener("click", navigate); };
 	}, [html, allowRemote, preserveLeadingQuote]);
 	useEffect(() => {
 		const root = host.current?.shadowRoot;
@@ -84,6 +90,6 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 			</button>
 			}
 		</div>
-		<div className="max-w-full overflow-x-auto" ref={host} />
+		<div data-email-reader className="w-full min-w-0 max-w-full overflow-hidden" ref={host} />
 	</div>;
 }

@@ -64,7 +64,7 @@ export function createEmailTheme(root: ShadowRoot) {
 			const result: Color = [pixel[0], pixel[1], pixel[2], pixel[3] / 255]; colors.set(value, result); return result;
 		};
 		// Read before writing, so child snapshots still describe the original design.
-		const entries = Array.from(root.querySelectorAll<HTMLElement>("*")).filter(element => element.style && element.tagName !== "STYLE").map(element => {
+		const entries = Array.from(root.querySelectorAll<HTMLElement>("*")).filter(element => element.style && element.tagName !== "STYLE" && !element.hasAttribute("data-email-layout")).map(element => {
 			const originalStyle = element.getAttribute("style");
 			const style = getComputedStyle(element);
 			return { element, originalStyle, color: parse(style.color), background: parse(style.backgroundColor), image: style.backgroundImage, textShadow: style.textShadow, borders: ["top", "right", "bottom", "left"].map(side => ({ name: `border-${side}-color`, color: parse(style.getPropertyValue(`border-${side}-color`)) })) };
@@ -80,7 +80,7 @@ export function createEmailTheme(root: ShadowRoot) {
 			const set = (name: string, value: string) => {
 				element.style.setProperty(name, value, "important");
 			};
-			if (!element.parentElement) set("color-scheme", "dark");
+			if (!element.parentElement || element.parentElement.hasAttribute("data-email-layout")) set("color-scheme", "dark");
 			if (element.tagName === "IMG") {
 				// Keep transparent logos readable on their original canvas; do not invert photos.
 				set("background-color", cssColor(originalBackground)); set("color", cssColor(entry.color));
