@@ -16,8 +16,9 @@ export function DialogContent({
 	closeLabel,
 	overlayClassName,
 	closeClassName,
+	showCloseButton = true,
 	...props
-}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { closeLabel?: string; overlayClassName?: string; closeClassName?: string }) {
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { closeLabel?: string; overlayClassName?: string; closeClassName?: string; showCloseButton?: boolean }) {
 	const { t } = useLanguage();
 	// Portaled dialogs must sit above the mobile sidebar and navigation sheet (z-110).
 	return (
@@ -31,10 +32,10 @@ export function DialogContent({
 				{...props}
 			>
 				{children}
-				<DialogPrimitive.Close className={cn("absolute right-4 top-4 rounded-full p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900", closeClassName)}>
+				{showCloseButton && <DialogPrimitive.Close className={cn("absolute right-4 top-4 rounded-full p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900", closeClassName)}>
 					<X className="h-4 w-4" />
 					<span className="sr-only">{closeLabel ?? t("navigation.close")}</span>
-				</DialogPrimitive.Close>
+				</DialogPrimitive.Close>}
 			</DialogPrimitive.Content>
 		</DialogPrimitive.Portal>
 	);

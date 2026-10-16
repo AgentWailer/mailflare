@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { AppearanceSettings } from "./appearance-settings";
 import { InboxReadingLayoutSettings } from "./inbox-reading-layout-settings";
 import { MessageDensitySettings } from "./message-density-settings";
@@ -27,10 +27,11 @@ export default function MailQuickSettings({ onClose }: { onClose: () => void }) 
 		window.addEventListener("keydown", escape);
 		return () => window.removeEventListener("keydown", escape);
 	}, [desktop, onClose]);
+	const closeButton = <button type="button" onClick={desktop ? onClose : undefined} aria-label={t("navigation.close")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><X aria-hidden="true" className="h-5 w-5" /></button>;
 	const body = <>
-		<div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-2">
-			{desktop ? <h2 ref={heading} tabIndex={-1} className="text-base font-medium text-neutral-900 outline-none">{t("settings.quick.title")}</h2> : <DialogTitle className="text-base font-medium">{t("settings.quick.title")}</DialogTitle>}
-			{desktop && <button type="button" onClick={onClose} aria-label={t("navigation.close")} className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100"><X className="h-5 w-5" /></button>}
+		<div data-mail-quick-settings-header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-neutral-200 px-4 py-2">
+			{desktop ? <h2 ref={heading} tabIndex={-1} className="min-w-0 flex-1 text-base leading-6 font-medium text-neutral-900 outline-none">{t("settings.quick.title")}</h2> : <DialogTitle className="min-w-0 flex-1 text-base leading-6 font-medium">{t("settings.quick.title")}</DialogTitle>}
+			{desktop ? closeButton : <DialogClose asChild>{closeButton}</DialogClose>}
 		</div>
 		<div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-4">
 			<MessageDensitySettings />
@@ -43,7 +44,7 @@ export default function MailQuickSettings({ onClose }: { onClose: () => void }) 
 	</>;
 	if (desktop) return <aside id="mail-quick-settings" data-mail-quick-settings aria-label={t("settings.quick.title")} className="ml-3 mr-2 mb-2 flex min-h-0 w-[340px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-sm">{body}</aside>;
 	return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-		<DialogContent id="mail-quick-settings" data-mail-quick-settings className="inset-x-0 bottom-0 top-auto flex max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl p-0 md:p-0" closeClassName="top-2 right-2 flex h-11 w-11 items-center justify-center p-0">
+		<DialogContent id="mail-quick-settings" data-mail-quick-settings className="inset-x-0 bottom-0 top-auto flex max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl p-0 md:p-0" showCloseButton={false}>
 			<DialogDescription className="sr-only">{t("settings.quick.description")}</DialogDescription>
 			{body}
 		</DialogContent>

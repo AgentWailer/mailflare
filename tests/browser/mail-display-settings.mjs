@@ -60,6 +60,8 @@ try{
   await row.evaluate(el=>window.__originalMailRow=el);
   await gear.click();const panel=page.locator('[data-mail-quick-settings]');await panel.waitFor();
   assert.equal(await gear.getAttribute('aria-expanded'),'true');
+  await panel.evaluate(el=>Promise.all(el.getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{}))));
+  const panelTitle=panel.getByRole('heading',{name:'Quick settings',exact:true}),close=panel.getByRole('button',{name:'Close',exact:true});assert.equal(await close.count(),1,'one close control per panel');const titleBox=await panelTitle.boundingBox(),closeBox=await close.boundingBox();assert(closeBox.width>=44&&closeBox.height>=44);assert(Math.abs(center(titleBox).y-center(closeBox).y)<1,'title and close icon share the same centre '+JSON.stringify({width,titleBox,closeBox}));assert(closeBox.x>=titleBox.x+titleBox.width,'title leaves room for close control');
   await panel.getByRole('radio',{name:/^Compact /}).check();
   await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='compact');
   const compactHeight=(await row.boundingBox()).height;assert(compactHeight<initialHeight,JSON.stringify({width,compactHeight,initialHeight}));
@@ -73,11 +75,12 @@ try{
   await page.reload({waitUntil:'domcontentloaded'});await row.waitFor();await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='compact');assert.equal((await row.boundingBox()).height,compactHeight);
   await gear.click();await panel.waitFor();assert(await panel.getByRole('radio',{name:/^Compact /}).isChecked());
   await panel.getByRole('radio',{name:/^Comfortable /}).check();await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='comfortable');assert.equal((await row.boundingBox()).height,initialHeight);
-  await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
+  await close.click();await panel.waitFor({state:'hidden'});await page.waitForFunction(()=>document.activeElement?.id==='mail-quick-settings-toggle');
   if(width>=1024){await page.evaluate(()=>{localStorage.setItem('theme','dark');document.documentElement.classList.add('dark');});assert.notEqual(await row.evaluate(el=>getComputedStyle(el).backgroundColor),await read.evaluate(el=>getComputedStyle(el).backgroundColor));await page.screenshot({path:'/tmp/mailflare-density-dark.png'});}
   await selectAll.check();
   for(const button of await toolbar.locator('.mail-bulk-toolbar button:visible').all()){const box=await button.boundingBox();assert(box.x>=0&&box.x+box.width<=width,'selection controls stay on screen');if(width<768)assert(box.width>=44&&box.height>=44);}
   await toolbar.getByRole('button',{name:'More actions',exact:true}).click();await page.getByRole('menuitem',{name:'Archive',exact:true}).waitFor();await page.keyboard.press('Escape');await selectAll.uncheck();
+  if(width<768){await page.context().addCookies([{name:'mailflare-locale',value:'de',url:origin}]);await page.goto(origin+'/inbox');await page.locator('[data-message-row=mail-0]').waitFor();await gear.click();await panel.waitFor();await panel.evaluate(el=>Promise.all(el.getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{}))));const title=panel.getByRole('heading',{name:'Schnelleinstellungen',exact:true}),deClose=panel.getByRole('button',{name:'Schließen',exact:true}),tbox=await title.boundingBox(),cbox=await deClose.boundingBox();assert(Math.abs(center(tbox).y-center(cbox).y)<1,'German mobile header aligns');assert(tbox.x+tbox.width<=cbox.x);const header=await panel.locator('[data-mail-quick-settings-header]').boundingBox(),legend=await panel.getByText('Nachrichtendichte',{exact:true}).boundingBox();assert(legend.y>=header.y+header.height+12,'content starts below the header with breathing room');await page.screenshot({path:`/tmp/mailflare-quick-settings-de-${width}.png`});await deClose.click();await panel.waitFor({state:'hidden'});await page.waitForFunction(()=>document.activeElement?.id==='mail-quick-settings-toggle');}
   assert.deepEqual(errors,[]);assert(!events.includes('/api/settings'),'quick settings do not fetch the settings form');
   console.log(JSON.stringify({width,initialHeight,compactHeight,persisted:true,readStatusColors:true,defaultHalfSplit:width>=1024,errors}));await page.close();
  }
