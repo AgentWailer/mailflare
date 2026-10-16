@@ -41,17 +41,17 @@ export async function DELETE(request: Request, context: { params: Promise<{ fold
 	return NextResponse.json({ ok: true });
 }
 
-const patchSchema = z.object({ mailboxId: z.string().min(1).max(128), parentId: z.string().min(1).max(128).nullable().optional(), name: z.string().trim().min(1).max(80).regex(/^[^\x00-\x1f]+$/).optional() }).strict().refine(input => input.parentId !== undefined || input.name !== undefined);
+const patchSchema = z.object({ mailboxId: z.string().min(1).max(128), parentId: z.string().min(1).max(128).nullable().optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z.string().trim().min(1).max(80).regex(/^[^\x00-\x1f]+$/).optional() }).strict().refine(input => input.parentId !== undefined || input.name !== undefined || input.color !== undefined);
 
-/** Rename or change hierarchy; labels on messages and filter targets keep their IDs. */
+/** Rename, recolor or change hierarchy; labels on messages and filter targets keep their IDs. */
 export async function PATCH(request: Request, context: { params: Promise<{ folderId: string }> }) {
  const env = getEnv();
  const { user, error } = await requireSessionUser(env, request);
  if (error) return error;
  if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
  const parsed = patchSchema.safeParse(await readJsonBody(request, 4096).catch(() => null));
- if (!parsed.success) return NextResponse.json({ error: "Invalid parent label" }, { status: 400 });
- const { mailboxId, parentId, name } = parsed.data;
+ if (!parsed.success) return NextResponse.json({ error: "Invalid label update" }, { status: 400 });
+ const { mailboxId, parentId, name, color } = parsed.data;
  const { folderId } = await context.params;
  const db = getDb(env);
  const access = await getMailboxFolderAccess(db, user, mailboxId);
@@ -62,7 +62,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ folde
  try {
   // The database trigger checks the complete ancestor chain within this atomic write,
   // including concurrent moves that would otherwise create a cycle.
-  const changes = { ...(parentId !== undefined ? { parentId } : {}), ...(name !== undefined ? { name } : {}) };
+  const changes = { ...(parentId !== undefined ? { parentId } : {}), ...(name !== undefined ? { name } : {}), ...(color !== undefined ? { color: color.toLowerCase() } : {}) };
   const [saved] = await db.update(folders).set(changes).where(and(eq(folders.id, folderId), eq(folders.mailboxId, mailboxId))).returning();
   if (!saved) return NextResponse.json({ error: "Label not found" }, { status: 404 });
   return NextResponse.json({ ok: true, folder: { id: saved.id, mailboxId: saved.mailboxId, name: saved.name, parentId: saved.parentId, color: saved.color } });

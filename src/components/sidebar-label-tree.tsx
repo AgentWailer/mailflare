@@ -46,10 +46,10 @@ export function revealLabel(mailboxId: string, label: CustomFolder, folders: Cus
  saveCollapsed(key, readCollapsed(snapshot(key)).filter(id => !ancestors.has(id)));
 }
 
-export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canManage, onDelete, onCreateChild, onRename }: {
+export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canManage, onDelete, onCreateChild, onRename, onChangeColor }: {
  mailboxId: string; folders: CustomFolder[]; hiddenIds: string[];
  counts: Record<string, { unread: number }>; canManage: boolean;
- onDelete: (folder: CustomFolder) => void; onCreateChild: (folder: CustomFolder) => void; onRename: (folder: CustomFolder) => void;
+ onDelete: (folder: CustomFolder) => void; onCreateChild: (folder: CustomFolder) => void; onRename: (folder: CustomFolder) => void; onChangeColor?: (folder: CustomFolder) => void;
 }) {
  const { t } = useLanguage(), { minimal } = useSidebar();
  const storageKey = `mailflare:nav:collapsed-labels:${mailboxId}`;
@@ -78,7 +78,7 @@ export function SidebarLabelTree({ mailboxId, folders, hiddenIds, counts, canMan
      {/* Keep the caret in the leading gutter. Its larger touch target also covers the folder icon, without shifting the link or its text. */}
      {children ? <button type="button" className="label-group-toggle absolute top-0 flex h-11 w-6 items-center justify-start rounded-lg pl-1 text-neutral-500 hover:bg-neutral-200/60 md:h-9" style={{ left: Math.min(depth, 5) * 12 }} aria-expanded={!collapsed.includes(folder.id)} aria-label={t(collapsed.includes(folder.id) ? "labels.expand" : "labels.collapse", { name: folder.name })} onClick={() => toggle(folder.id)}>{collapsed.includes(folder.id) ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}</button> : null}
      <div className="sidebar-label-link min-w-0 flex-1" title={getLabelPath(folder, folders)}><NavItem labelClassName="text-sm whitespace-nowrap" link={{ href: `/folders/${folder.id}`, label: folder.parentId && groups.has(folder.parentId) ? folder.name : getLabelPath(folder, folders), icon: Folder, iconColor: folder.color, count: counts[folder.id]?.unread, preloadMessages: true, onMessageDrop: canManage ? ids => void moveMessagesToCustomFolder(ids, folder.id) : undefined }} /></div>
-     <LabelActions name={folder.name} actions={actions} canDelete={canManage} onDelete={() => onDelete(folder)} onRename={() => onRename(folder)} onCreateChild={() => onCreateChild(folder)} />
+     <LabelActions name={folder.name} actions={actions} canDelete={canManage} onDelete={() => onDelete(folder)} onChangeColor={onChangeColor ? () => onChangeColor(folder) : undefined} onRename={() => onRename(folder)} onCreateChild={() => onCreateChild(folder)} />
     </div>;
    }}
    renderAfterItem={item => minimal || !collapsed.includes(item.id) ? group(item.id, depth + 1) : null}

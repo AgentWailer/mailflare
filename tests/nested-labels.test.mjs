@@ -141,3 +141,21 @@ test('rename rejects duplicates, invalid input and foreign or read-only access w
  assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',name:'Wrong mailbox'},'PATCH'),context('secret'))).status,404);
  assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box'},'PATCH'),context('work'))).status,400);assert.equal(f.DB.db.prepare("SELECT name FROM folders WHERE id='work'").get().name,'Work');
 });
+
+
+test('recoloring persists safely without changing names, hierarchy or message assignments',async t=>{
+ const f=await fixture(t);await move(f,'family','work');
+ const before=f.DB.db.prepare("SELECT id,name,parent_id FROM folders WHERE id='family'").get();
+ const message=f.DB.db.prepare("SELECT * FROM messages WHERE id='message'").get();
+ const result=await app.moveLabel(apiRequest(f,{mailboxId:'box',color:'#DC2626'},'PATCH'),context('family'));
+ assert.equal(result.status,200);assert.equal((await result.json()).folder.color,'#dc2626');
+ assert.deepEqual(f.DB.db.prepare("SELECT id,name,parent_id FROM folders WHERE id='family'").get(),before);
+ assert.deepEqual(f.DB.db.prepare("SELECT * FROM messages WHERE id='message'").get(),message);
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM message_labels").get().n,1);
+ for(const color of ['red','#fff','url(https://example.org)',null,42])assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',color},'PATCH'),context('family'))).status,400);
+ f.DB.db.exec("UPDATE mailboxes SET type='shared' WHERE id='box'");
+ for(const actor of ['delegate','foreign'])assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',color:'#2563eb'},'PATCH',actor),context('family'))).status,404);
+ assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',color:'#2563eb'},'PATCH','unauthenticated'),context('family'))).status,401);
+ assert.equal((await app.moveLabel(apiRequest(f,{mailboxId:'box',color:'#2563eb'},'PATCH'),context('secret'))).status,404);
+ assert.equal(f.DB.db.prepare("SELECT color FROM folders WHERE id='family'").get().color,'#dc2626');
+});

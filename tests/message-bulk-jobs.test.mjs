@@ -255,3 +255,14 @@ test('invoice and order categories contain only unarchived mail in lists, counts
  const all=await(await app.list(f.request(null,'owner','/api/messages?mailboxId=box&direction=inbound'))).json();assert.equal(all.total,4);
  const archive=await(await app.list(f.request(null,'owner','/api/messages?mailboxId=box&status=archived'))).json();assert.equal(archive.total,4);
 });
+
+
+test('historical recipient rules find Gmail among several recipients and preserve archive/read state',async t=>{
+ const f=await fixture(t);f.add('gmail');f.add('googlemail');f.add('unrelated');
+ f.DB.db.exec(`UPDATE messages SET to_addr='"Other, Person" <other@example.test>, Personal <PERSONAL@GMAIL.COM>',status='archived',read=1 WHERE id='gmail';UPDATE messages SET to_addr='personal@googlemail.com' WHERE id='googlemail';`);
+ f.DB.db.exec("CREATE TRIGGER no_label_only_message_rewrite BEFORE UPDATE ON messages BEGIN SELECT RAISE(FAIL,'Unexpected message rewrite'); END;");
+ const id=await savedRule(f,{matchField:'recipient',matchOperator:'exact',matchValue:'personal@gmail.com',conditions:[{field:'recipient',operator:'exact',value:'personal@gmail.com',negate:false},{field:'recipient',operator:'exact',value:'personal@googlemail.com',negate:false}],conditionMode:'any'});
+ const job=await applySavedRule(f,id);await drain(f,job.id);
+ assert.deepEqual(f.DB.db.prepare('SELECT message_id FROM message_labels ORDER BY message_id').all().map(x=>x.message_id),['gmail','googlemail']);
+ assert.deepEqual({...f.DB.db.prepare("SELECT status,read FROM messages WHERE id='gmail'").get()},{status:'archived',read:1});
+});

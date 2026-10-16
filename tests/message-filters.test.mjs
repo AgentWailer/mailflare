@@ -19,7 +19,8 @@ await build({
 		export {POST as createLabel} from './src/app/api/folders/route.ts';
 		export {POST as createRule,GET as listRules} from './src/app/api/routing-rules/route.ts';
 		export {PATCH as updateRule,DELETE as deleteRule} from './src/app/api/routing-rules/[id]/route.ts';
-		export {resolveInboxRuleDestination} from './src/lib/email/routing.ts';
+		export {matchesRule,resolveInboxRuleDestination} from './src/lib/email/routing.ts';
+		export {ruleMessageContent} from './src/lib/email/rule-content.ts';
 		export {intakeIncomingMail} from './src/lib/email/intake.ts';
 		export {processInboundMessage} from './src/lib/email/inbound.ts';
 		export {exportDatabaseRecords,restoreDatabaseRecords} from './src/lib/backups/export.ts';
@@ -189,4 +190,30 @@ test("a label created inside the filter flow is immediately accepted as a new ru
  const result=await app.resolveInboxRuleDestination(f.db,{mailboxId:"box",toAddress:"owner@example.test",fromAddress:"Sender <sender@example.org>",subject:"Information"});
  assert.deepEqual(new Set(result.labelIds),new Set(["work",label.id]));assert.equal(result.status,"archived");
  assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages").get().n,3);
+});
+
+
+test("recipient filters match each original recipient of forwarded Gmail and Googlemail messages",async t=>{
+ const f=await fixture(t);
+ const conditions=[{field:"recipient",operator:"exact",value:"personal@gmail.com",negate:false},{field:"recipient",operator:"exact",value:"personal@googlemail.com",negate:false}];
+ assert.equal((await app.createRule(f.request("POST",input({conditions,conditionMode:"any",matchField:"recipient",matchValue:"personal@gmail.com"})))).status,200);
+ for(const recipient of ['"Other, Person" <other@example.org>, Personal <PERSONAL@GMAIL.COM>','personal@googlemail.com']) {
+  const result=await app.intakeIncomingMail(f.env,{from:"sender@example.org",to:"owner@example.test",raw:mime(recipient),headers:{}},{forward:async()=>true});
+  await app.processInboundMessage(f.env,f.queued.at(-1));
+  const message=f.DB.db.prepare("SELECT id,to_addr FROM messages WHERE raw_r2_key=?").get(result.rawR2Key);
+  assert.match(message.to_addr,/personal@(?:gmail|googlemail)\.com/i);
+  assert.deepEqual(f.DB.db.prepare("SELECT folder_id FROM message_labels WHERE message_id=?").all(message.id).map(x=>x.folder_id),["work"]);
+ }
+ const rule={pattern:"personal@gmail.com",matchField:"recipient",matchOperator:"exact"};
+ assert.equal(app.matchesRule(rule,{toAddress:'"Other, Person" <other@example.org>; Personal <PERSONAL@GMAIL.COM>'}),true);
+ assert.equal(app.matchesRule(rule,{toAddress:"other@gmail.com",fromAddress:"personal@gmail.com"}),false);
+ assert.equal(app.matchesRule({...rule,conditions:JSON.stringify(conditions),conditionMode:"all"},{toAddress:"personal@gmail.com"}),false);
+ assert.equal(app.matchesRule({...rule,conditions:JSON.stringify([{...conditions[0],negate:true}])},{toAddress:"personal@gmail.com, other@example.org"}),false);
+});
+
+test("content filters compare one readable body in live, forwarding and historical processing",()=>{
+ const rule={pattern:"Your receipt & payment",matchField:"content",matchOperator:"exact"};
+ assert.equal(app.matchesRule(rule,{toAddress:"owner@example.test",content:app.ruleMessageContent("Your receipt & payment",'<p>Your receipt &amp; payment</p>',"Your receipt & payment")}),true);
+ assert.equal(app.matchesRule(rule,{toAddress:"owner@example.test",content:app.ruleMessageContent(null,'<head><style>unrelated</style></head><p>Your receipt &amp; <b>payment</b></p>')}),true);
+ assert.equal(app.matchesRule({...rule,pattern:"unrelated",matchOperator:"contains"},{toAddress:"owner@example.test",content:app.ruleMessageContent(null,'<style>unrelated</style><p>Other text</p>')}),false);
 });

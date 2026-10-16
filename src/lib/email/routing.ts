@@ -12,7 +12,7 @@ import {
 	isMailCategory,
 	type MailCategory,
 } from "@/lib/mail-sorting/categories";
-import { getEmailAddress } from "@/lib/email/address";
+import { getEmailAddress, getEmailAddressList } from "@/lib/email/address";
 import { getMailboxDomainAddresses } from "@/lib/mailboxes/domain-addresses";
 import {
 	normalizeRecipientLocalPart,
@@ -52,6 +52,8 @@ type RuleRow = typeof routingRules.$inferSelect;
 
 export type RuleMatchInput = {
 	toAddress: string;
+	/** Original To header for mailbox rules; SMTP delivery still uses toAddress. */
+	originalToAddress?: string | null;
 	fromAddress?: string | null;
 	subject?: string | null;
 	content?: string | null;
@@ -277,13 +279,7 @@ async function resolveMailboxDomainAlias(
 
 export async function resolveInboxRuleDestination(
 	db: AppDatabase,
-	input: {
-		mailboxId: string;
-		toAddress: string;
-		fromAddress?: string | null;
-		subject?: string | null;
-		content?: string | null;
-	},
+	input: RuleMatchInput & { mailboxId: string },
 ): Promise<InboxRuleDestination> {
 	const rules = await db
 		.select()
@@ -457,7 +453,7 @@ function normalizeRuleComparisonValue(
 	if (field === "email" || field === "sender" || field === "recipient") {
 		return getEmailAddress(value).trim().toLowerCase();
 	}
-	return value.toLowerCase();
+	return value.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function getRuleFieldValues(
@@ -466,9 +462,11 @@ function getRuleFieldValues(
 ) {
 	if (field === "content") return [input.content];
 	if (field === "title") return [input.subject];
-	if (field === "sender") return [input.fromAddress];
-	if (field === "recipient") return [input.toAddress];
-	return [input.fromAddress, input.toAddress];
+	const senders = getEmailAddressList(input.fromAddress);
+	const recipients = [...getEmailAddressList(input.toAddress), ...getEmailAddressList(input.originalToAddress)];
+	if (field === "sender") return senders;
+	if (field === "recipient") return recipients;
+	return [...senders, ...recipients];
 }
 
 async function getRuleFolderId(

@@ -40,3 +40,23 @@ the same request ID returns the same durable job.
 Progress reports **messages checked**, including nonmatching messages, rather than
 claiming every examined message was changed. Another bulk job must finish before
 starting a rule application.
+
+Recipient conditions compare each address individually, including quoted display
+names and comma/semicolon-separated recipients. Live mailbox rules check both the
+SMTP recipient and the original To header, so Gmail forwarding can retain a source
+account label. SMTP delivery, domain blocking and webhook delivery addresses still
+use the envelope recipient. A Gmail/Googlemail source-account rule should use two
+**recipient** conditions combined with **any**; a sender condition would instead
+match mail sent by that address. Different addresses are not silently aliased.
+
+Content conditions use the plain-text body when available, otherwise readable HTML
+text, then the snippet. They do not concatenate duplicate MIME alternatives or
+match hidden HTML styles. Text comparisons normalize whitespace and Unicode.
+Live local actions, live forwarding and historical application share these rules.
+Historical label-only actions insert missing associations without rewriting message
+rows. Imports retain their source metadata; use the existing-message action to
+apply a saved Mailflare rule to imported messages.
+
+Regression checks: `tests/message-filters.test.mjs` and
+`tests/message-bulk-jobs.test.mjs` cover forwarded Gmail/Googlemail, multiple
+recipients, any/all/exclusions, readable content and retained read/archive state.

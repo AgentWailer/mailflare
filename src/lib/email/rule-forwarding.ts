@@ -1,3 +1,4 @@
+import { ruleMessageContent } from "@/lib/email/rule-content";
 import { safeErrorCategory } from "@/lib/security/logging";
 import { and, desc, asc, eq } from "drizzle-orm";
 import { getDb, type AppDatabase } from "@/db";
@@ -5,7 +6,7 @@ import { domains, routingRules } from "@/db/schema";
 import { cfRequest } from "@/lib/cloudflare-api";
 import { getEmailAddress } from "./address";
 import { MAILFLARE_FORWARDED_HEADER } from "./account-forwarding";
-import { buildSnippet, parseRawMime } from "./parse";
+import { parseRawMime } from "./parse";
 import { matchesRule, recordRuleMatch, resolveInboundAddress } from "./routing";
 
 export class RuleForwardingError extends Error {
@@ -54,9 +55,10 @@ export async function forwardMatchingMailboxRules(
 		const parsed = await parseRawMime(input.raw);
 		const match = {
 			toAddress: input.to,
+			originalToAddress: parsed.toAddr,
 			fromAddress: parsed.fromAddr ?? input.from,
 			subject: parsed.subject,
-			content: [parsed.text, parsed.html, buildSnippet(parsed.text, parsed.html)].filter(Boolean).join(" "),
+			content: ruleMessageContent(parsed.text, parsed.html),
 		};
 		for (const rule of rules) {
 			const target = rule.forwardTo?.trim();

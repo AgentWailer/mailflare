@@ -1,3 +1,4 @@
+import { ruleMessageContent } from "@/lib/email/rule-content";
 import { safeErrorCategory } from "@/lib/security/logging";
 import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
 import { classifyIncomingMail } from "@/lib/mail-sorting/classifier";
@@ -97,16 +98,17 @@ export async function processInboundMessage(
 	const messageId = await inboundMessageId(payload.rawR2Key);
 	const snippet = buildSnippet(parsed.text, parsed.html);
 	const deliveredAddress = getEmailAddress(payload.to) || `${decision.mailbox.localPart}@${decision.mailbox.hostname}`;
-	// Keep the whole To header so reply-all can address everyone; rules and
-	// webhooks still see the envelope recipient the message was delivered to.
+	// Keep the whole To header for reply-all and mailbox rules. Delivery and
+	// webhooks continue to use the envelope recipient.
 	const toAddr = parsed.toAddr ?? payload.to;
 	const fromAddr = parsed.fromAddr ?? payload.from;
 	const destination = await resolveInboxRuleDestination(db, {
 		mailboxId: decision.mailbox.mailboxId,
 		toAddress: payload.to,
+		originalToAddress: parsed.toAddr,
 		fromAddress: fromAddr,
 		subject: parsed.subject,
-		content: [parsed.text, parsed.html, snippet].filter(Boolean).join(" "),
+		content: ruleMessageContent(parsed.text, parsed.html, snippet),
 	});
 	let spamAnalysis: Awaited<ReturnType<typeof analyzeSpam>> | null = null;
 	let spamAnalysisError: string | null = null;

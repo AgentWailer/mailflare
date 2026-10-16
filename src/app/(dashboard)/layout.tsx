@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MailHeader } from "@/components/mail-header";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ComposeProvider } from "@/components/compose/compose-context";
@@ -22,7 +22,7 @@ import { useDashboardState } from "./dashboard-state";
 import { useAssistantAvailability } from "./use-assistant-availability";
 import { MessageCategoryLayout } from "@/components/messages/message-category-layout";
 
-const MailQuickSettings = lazy(() => import("@/components/settings/mail-quick-settings"));
+import { DeferredMailQuickSettings } from "@/components/settings/deferred-mail-quick-settings";
 
 export default function DashboardLayout({
   children,
@@ -71,7 +71,7 @@ export default function DashboardLayout({
                         </main>
                         </AssistantRequestContext.Provider>
                       </AssistantOpenContext.Provider>
-                      {quickSettingsOpen && <Suspense fallback={<div role="status" aria-label="…" className="hidden w-[340px] shrink-0 animate-pulse rounded-2xl bg-white lg:block" />}><MailQuickSettings onClose={closeQuickSettings} /></Suspense>}
+                      <DeferredMailQuickSettings open={quickSettingsOpen} onClose={closeQuickSettings} />
                       <aside className={clsx(panelFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2 max-md:p-0`, assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? panelFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
                         {assistantEnabled && <DeferredAgentPanel request={assistantRequest} open={assistantVisible} fullSize={panelFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}
                       </aside>

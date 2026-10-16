@@ -23,3 +23,12 @@ The display browser suite also checks pixel alignment, button geometry, selectio
 For the toolbar update, the production build, 34 targeted bulk/density/reading-pane checks, targeted lint and both browser suites passed. The full TypeScript output matches the same 15 unrelated pre-existing diagnostics recorded above.
 
 The quick-settings title and close control share one header row on all screen sizes. Its minimum height is 64px, the close target is 44px, and the scrolling content starts with 16px of padding. The mobile sheet supplies its own inline Radix close control and disables the dialog's default absolute close control; all other dialogs retain that default. The display browser suite checks one visible close button, shared vertical centres, non-overlapping text, German headings on 320px/390px screens, body spacing and focus restoration after both Escape and clicking Close.
+
+Quick settings now keep their animation shell mounted: desktop width and content
+fade/translation animate over 300ms, including subsequent opens and closing. The
+controls still load only on first use. Mobile uses a short vertical fade instead
+of scaling the sheet and retains it until the exit animation finishes. Closed
+desktop controls are inert and hidden from accessibility APIs. Reduced-motion
+preferences remove the desktop transitions and shorten the dialog animation.
+The production-build browser suite also checks interpolated desktop width,
+retained controls, mobile animation selection and reduced-motion behavior.

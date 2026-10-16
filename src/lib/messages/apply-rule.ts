@@ -1,3 +1,4 @@
+import { ruleMessageContent } from "@/lib/email/rule-content";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
@@ -67,11 +68,12 @@ export async function applyRuleToMessages(env: CloudflareEnv, mailboxId: string,
 	const statements: D1PreparedStatement[] = [];
 	for (const row of rows) {
 		if (row.direction !== "inbound" || !["received", "archived", ...(rule.includeSpamTrash ? ["spam", "trash"] : [])].includes(row.status)) continue;
-		if (!matchesRule(rule, { toAddress: row.toAddr, fromAddress: row.fromAddr, subject: row.subject, content: [row.textBody, row.htmlBody, row.snippet].filter(Boolean).join(" ") })) continue;
+		if (!matchesRule(rule, { toAddress: row.toAddr, fromAddress: row.fromAddr, subject: row.subject, content: ruleMessageContent(row.textBody, row.htmlBody, row.snippet) })) continue;
 		for (const labelId of rule.labelIds) statements.push(env.DB.prepare("INSERT OR IGNORE INTO message_labels(message_id,folder_id) VALUES (?,?)").bind(row.id, labelId));
 		const status = rule.action === "spam" || rule.action === "trash" ? rule.action : rule.skipInbox && row.status === "received" ? "archived" : row.status;
 		const folderId = rule.action === "spam" || rule.action === "trash" ? null : rule.folderId && status === "received" ? rule.folderId : row.folderId;
-		statements.push(env.DB.prepare("UPDATE messages SET category=?, status=?, folder_id=?, sorting_decision=? WHERE id=? AND mailbox_id=?")
+		// Label-only rules do not rewrite the message or touch its read/archive state.
+		if (rule.category || status !== row.status || folderId !== row.folderId) statements.push(env.DB.prepare("UPDATE messages SET category=?, status=?, folder_id=?, sorting_decision=? WHERE id=? AND mailbox_id=?")
 			.bind(rule.category ?? row.category, status, folderId, rule.category ? JSON.stringify({ category: rule.category, source: "rule", reason: "existing_mail_filter", ruleId: rule.id }) : row.sortingDecision, row.id, mailboxId));
 	}
 	// Keep even rules with many labels within a small atomic D1 batch.
