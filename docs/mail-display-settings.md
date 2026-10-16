@@ -11,3 +11,13 @@ A bottom reading pane starts at half the available height, including when an old
 Validation uses the production build/router with synthetic private API responses, without accessing live mail: `tests/browser/mail-display-settings.mjs` checks desktop, 390px and 320px layouts, both densities, persistence, colors, retained list DOM, no overflow, 50/50 resizing with the viewport, focus restoration, dark surfaces and bottom-sheet geometry. `tests/message-density.test.mjs` covers synchronized consumers, other tabs and unavailable storage. Persistent-reader unit tests cover the new default and saved ratio, and the existing reading-pane browser test covers drag resizing and stored proportions. These are browser emulations, not certification on a physical iPhone.
 
 On 2026-10-16 the production build and 94 targeted unit/regression checks passed, as did the display-settings, reading-pane and cold-start browser suites. Targeted lint passed. The full TypeScript check still reports the 15 pre-existing diagnostics in unrelated admin/calendar/settings/API files; it reports none in the changed display components.
+
+## Header and toolbar alignment
+
+The mail search is limited to 720px on desktop, with a neutral background and a white focused surface. Its magnifier aligns with select-all and the message-row checkboxes. The header actions share a baseline, with the account avatar at the far right. The shorter search placeholder keeps keyboard help in the separate shortcut button.
+
+The list toolbar uses regular 40px icon slots (44px on touch devices): archive, spam, delete, read status, move, labels and more actions. Move uses an icon with its existing accessible label and tooltip. Select-all has a larger clickable label while its checkbox retains the row alignment. Desktop pagination shows the range before the arrows; phones keep the range between the arrows. Container queries collapse secondary desktop actions into the existing More menu when the reading column narrows; navigation arrows remain accessible next to quick settings.
+
+The display browser suite also checks pixel alignment, button geometry, selection actions, the More menu, focus styling and profile order at 1440px, 1024px, 390px and 320px. The reading-pane suite retains pagination, selection, search, resize and mobile touch checks. UI measurements use synthetic private API data; they do not measure the live mailbox behind Access.
+
+For the toolbar update, the production build, 34 targeted bulk/density/reading-pane checks, targeted lint and both browser suites passed. The full TypeScript output matches the same 15 unrelated pre-existing diagnostics recorded above.

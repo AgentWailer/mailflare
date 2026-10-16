@@ -1,7 +1,7 @@
 "use client";
 
 import { MailOrganizationButton } from "./mail-organization-button";
-import { Archive, ArchiveRestore, ChevronDown, Folder, FolderInput, Inbox, Mail, MailOpen, MoreVertical, ShieldAlert, ShieldCheck, Tags, Trash2, Undo2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Folder, FolderInput, Inbox, Mail, MailOpen, MoreVertical, ShieldAlert, ShieldCheck, Tags, Trash2, Undo2, X } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -55,21 +55,20 @@ export function BulkMessageToolbar({
 	const { selectedMailbox } = useSelectedMailbox();
 	const folders = useMailboxFolders(mailboxId ?? selectedMailbox?.id);
 	return (
-		<div className="flex min-w-0 items-center gap-0 md:gap-2 text-neutral-600 w-full">
+		<div data-compact={compact} className="mail-bulk-toolbar flex min-w-0 w-full items-center gap-0 text-neutral-600">
 			{!hideSelectedCount && selectedCount > 0 && (
 				<span className="md:mr-2 text-sm font-medium text-neutral-800">
-					<span className={compact ? "" : "md:hidden"} aria-label={t("common.selectedCount", {count:selectedCount})}>{selectedCount}</span><span className={compact ? "hidden" : "max-md:hidden"}>{t("common.selectedCount", { count: selectedCount })}</span>
+					<span className={compact ? "" : "md:hidden"} aria-label={t("common.selectedCount", {count:selectedCount})}>{selectedCount}</span><span className={`mail-toolbar-secondary ${compact ? "hidden" : "max-md:hidden"}`}>{t("common.selectedCount", { count: selectedCount })}</span>
 				</span>
 			)}
 			<span className={compact ? "flex-1" : "flex-1 md:hidden"} />
-			{!!messageIds?.length && (mailboxId || selectedMailbox) && <MailOrganizationButton messageIds={messageIds} mailboxId={mailboxId ?? selectedMailbox!.id} onSaved={onClearSelection} onApplyAll={onOrganizeAll} allCount={selectedCount} allCanManage={allCanManage} disabled={pending || organizeDisabled || allCanManage === false} />}
-			{!messageIds?.length && <Button variant="ghost" size="sm" disabled aria-label={t("smart.organize")}><Tags className="h-4 w-4" /></Button>}
+
 			<Tooltip label={archive.label}>
 				<Button variant="ghost" size="sm" className="max-md:h-11 max-md:w-11 max-md:shrink-0 max-md:px-0" onClick={() => onAction(archive.action as BulkMessageAction)} disabled={managePending} aria-label={archive.label}>
 					<archive.Icon className="h-4 w-4" />
 				</Button>
 			</Tooltip>
-			<Tooltip label={spam.label} className={compact ? "hidden" : "max-md:hidden"}>
+			<Tooltip label={spam.label} className={`mail-toolbar-secondary ${compact ? "hidden" : "max-md:hidden"}`}>
 				<Button variant="ghost" size="sm" onClick={() => onAction(spam.action as BulkMessageAction)} disabled={managePending} aria-label={spam.label}>
 					<spam.Icon className="h-4 w-4" />
 				</Button>
@@ -86,6 +85,7 @@ export function BulkMessageToolbar({
 					</Button>
 				</Tooltip>
 			)}
+			<span aria-hidden="true" className={`mail-toolbar-divider hidden h-5 w-px shrink-0 bg-neutral-200 md:mx-2 ${compact ? "" : "md:block"}`} />
 			<Tooltip label={hasUnreadSelection ? t("common.markRead") : t("common.markUnread")}>
 				<Button
 					variant="ghost"
@@ -97,13 +97,12 @@ export function BulkMessageToolbar({
 					{hasUnreadSelection ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
 				</Button>
 			</Tooltip>
+			<span aria-hidden="true" className={`mail-toolbar-divider hidden h-5 w-px shrink-0 bg-neutral-200 md:mx-2 ${compact ? "" : "md:block"}`} />
 			<DropdownMenu.Root>
-				<Tooltip label={t("common.moveSelected")} className={compact ? "hidden" : "max-md:hidden"}>
+				<Tooltip label={t("common.moveSelected")} className={`mail-toolbar-secondary ${compact ? "hidden" : "max-md:hidden"}`}>
 					<DropdownMenu.Trigger asChild>
-						<Button variant="ghost" size="sm" className={`${compact ? "hidden" : "max-md:hidden"} gap-1.5 bg-white text-xs font-medium text-neutral-700`} disabled={managePending} aria-label={t("common.moveSelected")}>
+						<Button variant="ghost" size="sm" className={`${compact ? "hidden" : "max-md:hidden"} text-neutral-700`} disabled={managePending} aria-label={t("common.moveSelected")}>
 							<FolderInput className="h-4 w-4" />
-							{t("common.moveTo")}
-							<ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
 						</Button>
 					</DropdownMenu.Trigger>
 				</Tooltip>
@@ -127,19 +126,21 @@ export function BulkMessageToolbar({
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>
 			</DropdownMenu.Root>
-			{!hideClearSelection && <Tooltip label={t("common.clearSelection")} className={compact ? "hidden" : "max-md:hidden"}>
+			{!!messageIds?.length && (mailboxId || selectedMailbox) && <MailOrganizationButton messageIds={messageIds} mailboxId={mailboxId ?? selectedMailbox!.id} onSaved={onClearSelection} onApplyAll={onOrganizeAll} allCount={selectedCount} allCanManage={allCanManage} disabled={pending || organizeDisabled || allCanManage === false} />}
+			{!messageIds?.length && <Button variant="ghost" size="sm" disabled aria-label={t("smart.organize")}><Tags className="h-4 w-4" /></Button>}
+			{!hideClearSelection && selectedCount > 0 && <Tooltip label={t("common.clearSelection")} className={`mail-toolbar-secondary ${compact ? "hidden" : "max-md:hidden"}`}>
 				<Button variant="ghost" size="sm" onClick={onClearSelection} disabled={pending} aria-label={t("common.clearSelection")}>
 					<X className="h-4 w-4" />
 				</Button>
 			</Tooltip>}
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger asChild>
-					<Button variant="ghost" size="sm" className={compact ? "" : "md:hidden"} disabled={pending} aria-label={t("common.moreActions")}>
+					<Button variant="ghost" size="sm" disabled={pending} title={t("common.moreActions")} aria-label={t("common.moreActions")}>
 						<MoreVertical className="h-4 w-4" />
 					</Button>
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>
-					<DropdownMenu.Content align="end" sideOffset={4} className={`z-[130] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto min-w-44 rounded-xl border border-neutral-200 bg-white p-1 shadow-xl ${compact ? "" : "md:hidden"}`}>
+					<DropdownMenu.Content align="end" sideOffset={4} className={`z-[130] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto min-w-44 rounded-xl border border-neutral-200 bg-white p-1 shadow-xl`}>
 						<DropdownMenu.Item className={menuItemClass} disabled={managePending} onSelect={() => onAction(archive.action as BulkMessageAction)}><archive.Icon className="h-4 w-4" />{archive.label}</DropdownMenu.Item>
 						<DropdownMenu.Item className={menuItemClass} disabled={managePending} onSelect={() => onAction(spam.action as BulkMessageAction)}><spam.Icon className="h-4 w-4" />{spam.label}</DropdownMenu.Item>
 						<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />

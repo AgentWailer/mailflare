@@ -17,6 +17,7 @@ function response(url){
  if(path==='/api/auth/me')return {user:{id:'owner',name:'Test User',email:'owner@example.test',role:'user',hasAvatar:false},hasMailboxes:true,isSetup:true};
  if(path==='/api/mailboxes')return {mailboxes:[{id:'box',domainId:'domain',localPart:'owner',hostname:'example.test',displayName:'Test User',isPrimary:true,type:'personal',permission:'full_access',senderAddresses:['owner@example.test']}]};
  if(path==='/api/messages'){const folder=folderFor(url);return {messages:[{id:folder+'-0',mailboxId:'box',direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender@example.test',toAddr:'owner@example.test',subject:folder+' first message',snippet:'Readable preview',labels:[],createdAt:'2026-10-15T12:00:00Z'}],total:1,limit:25,offset:0};}
+ if(/^\/api\/messages\/mail-\d+$/.test(path))return {message:{...response(new URL('http://fixture/api/messages')).messages[0],id:path.split('/').at(-1)},body:{textBody:'Your receipt is now available.',htmlBody:null},attachments:[]};
  if(path==='/api/messages/counts')return {counts:{folders:Object.fromEntries(folders.map(folder=>[folder,{total:1,unread:0}])),customFolders:{work:{total:1,unread:0}},mailboxes:[]}};
  if(path==='/api/folders')return {folders:[{id:'work',name:'Work',color:'blue',parentId:null}]};
  if(path==='/api/agent/availability')return {enabled:false};
@@ -28,7 +29,7 @@ try{
  preview=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(port)],{cwd:process.cwd(),env:{...process.env,XDG_CONFIG_HOME:temporary,CLOUDFLARE_REMOTE_BINDINGS:'false'},stdio:['ignore','pipe','pipe']});for(const stream of [preview.stdout,preview.stderr])stream.on('data',data=>serverLog+=data.toString());
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Preview exited');await pause(200);}assert(ready);
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
- for(const width of [1440,390,320]){
+ for(const width of [1440,1024,390,320]){
   const page=await browser.newPage({viewport:{width,height:900},hasTouch:width<768}),errors=[],events=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>localStorage.setItem('mailflare-column-width:message-list-height:owner','280'));
@@ -40,6 +41,17 @@ try{
   });
   await page.goto(origin+'/inbox',{waitUntil:'domcontentloaded'});
   const row=page.locator('[data-message-row="mail-0"]'),read=page.locator('[data-message-row="mail-1"]');await row.waitFor();
+  const toolbar=page.locator('.mail-mobile-list-toolbar'),selectAll=toolbar.getByRole('checkbox',{name:'Select all visible messages',exact:true});
+  const center=box=>({x:box.x+box.width/2,y:box.y+box.height/2});
+  if(width>=1024){
+   const selectionCenter=center(await selectAll.boundingBox()),rowCenter=center(await row.locator('input[type=checkbox]').boundingBox()),search=page.getByRole('search'),searchCenter=center(await search.locator('svg.lucide-search').boundingBox());
+   assert(Math.abs(selectionCenter.x-rowCenter.x)<1,'select-all aligns with row checkboxes');assert(Math.abs(selectionCenter.x-searchCenter.x)<1,'search icon shares the leading alignment');assert((await search.boundingBox()).width<=720);
+   const buttons=toolbar.locator('.mail-bulk-toolbar button:visible');for(const button of await buttons.all()){const box=await button.boundingBox();assert.equal(box.width,40);assert.equal(box.height,40);assert(Math.abs(center(box).y-selectionCenter.y)<1,'action icons share one baseline');}
+   const labels=await buttons.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label')));assert.deepEqual(labels.slice(0,3),['Archive','Report spam','Delete']);assert(labels.includes('More actions'));
+   await search.getByRole('textbox').focus();await page.waitForFunction(()=>getComputedStyle(document.querySelector('[role=search]')).backgroundColor==='rgb(255, 255, 255)');await search.getByRole('textbox').blur();await page.waitForFunction(()=>getComputedStyle(document.querySelector('[role=search]')).backgroundColor==='rgb(233, 234, 237)');
+  }
+  const headerActions=page.locator('[data-mail-header-actions]'),profile=headerActions.locator('[data-app-profile] > button'),gearBefore=headerActions.locator('#mail-quick-settings-toggle');assert((await gearBefore.boundingBox()).x<(await profile.boundingBox()).x,'profile stays at the far right');assert(Math.abs(center(await gearBefore.boundingBox()).y-center(await profile.boundingBox()).y)<1);
+  await page.screenshot({path:`/tmp/mailflare-toolbar-${width}.png`});
   const initialHeight=(await row.boundingBox()).height;
   assert.equal(await row.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
   assert.equal(await read.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(241, 243, 244)');
@@ -54,6 +66,7 @@ try{
   assert(await row.evaluate(el=>window.__originalMailRow===el),'density change preserves the list DOM');
   if(width>=1024){assert(compactHeight<=30);assert.equal(await row.locator('.mail-row-avatar').count(),0);const main=page.locator('main.mail-mobile-main');assert((await main.boundingBox()).x+(await main.boundingBox()).width<=(await panel.boundingBox()).x,'desktop panel sits beside the mailbox');}
   else {assert(compactHeight>=60);assert(await row.locator('.mail-row-snippet').isVisible());assert.equal(await page.locator('[data-mobile-compose]').isVisible(),false);const bounds=await panel.boundingBox();assert(bounds.x>=0&&bounds.x+bounds.width<=width+1);assert(bounds.y+bounds.height<=901);}
+  if(width>=1024){assert((await row.getByText('Message 0',{exact:true}).boundingBox()).width>=40,'message subject retains room next to quick settings');const mainBounds=await page.locator('main.mail-mobile-main').boundingBox();for(const button of await toolbar.locator('button:visible').all()){const box=await button.boundingBox();assert(box.x+box.width<=mainBounds.x+mainBounds.width+1,'quick settings leave toolbar controls reachable');}}
   await page.screenshot({path:`/tmp/mailflare-density-${width}.png`});
   await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});await page.waitForFunction(()=>document.activeElement?.id==='mail-quick-settings-toggle');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
@@ -62,6 +75,9 @@ try{
   await panel.getByRole('radio',{name:/^Comfortable /}).check();await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='comfortable');assert.equal((await row.boundingBox()).height,initialHeight);
   await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
   if(width>=1024){await page.evaluate(()=>{localStorage.setItem('theme','dark');document.documentElement.classList.add('dark');});assert.notEqual(await row.evaluate(el=>getComputedStyle(el).backgroundColor),await read.evaluate(el=>getComputedStyle(el).backgroundColor));await page.screenshot({path:'/tmp/mailflare-density-dark.png'});}
+  await selectAll.check();
+  for(const button of await toolbar.locator('.mail-bulk-toolbar button:visible').all()){const box=await button.boundingBox();assert(box.x>=0&&box.x+box.width<=width,'selection controls stay on screen');if(width<768)assert(box.width>=44&&box.height>=44);}
+  await toolbar.getByRole('button',{name:'More actions',exact:true}).click();await page.getByRole('menuitem',{name:'Archive',exact:true}).waitFor();await page.keyboard.press('Escape');await selectAll.uncheck();
   assert.deepEqual(errors,[]);assert(!events.includes('/api/settings'),'quick settings do not fetch the settings form');
   console.log(JSON.stringify({width,initialHeight,compactHeight,persisted:true,readStatusColors:true,defaultHalfSplit:width>=1024,errors}));await page.close();
  }

@@ -555,9 +555,10 @@ export function MessageFolderPage({
 
 	return (
 		<div data-message-density={density} className="mail-mobile-list flex h-full min-h-0 flex-col">
-			<div className={`mail-mobile-list-toolbar flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
-				<div className="flex min-w-0 flex-1 items-center gap-3 max-md:gap-1">
+			<div className="mail-mobile-list-toolbar flex h-12 shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-3">
+				<div className="flex min-w-0 flex-1 items-center gap-2 max-md:gap-1">
 					<Tooltip label={t("list.selectAll")} className="shrink-0">
+						<label className="mail-select-all flex h-10 w-6 cursor-pointer items-center justify-center rounded hover:bg-neutral-100 max-md:h-11 max-md:w-11">
 						<Checkbox
 							checked={allMatchingSelected || allVisibleSelected}
 							disabled={messages.length === 0 || pendingBulkAction}
@@ -565,6 +566,7 @@ export function MessageFolderPage({
 							className="h-4 w-4 rounded border-neutral-300"
 							aria-label={t("list.selectAll")}
 						/>
+						</label>
 					</Tooltip>
 					{!hasCategoryTabs && <MessageRefreshButton onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
 					{actionIds.length > 0 || (!compact && !isMobile) ? (
@@ -591,7 +593,7 @@ export function MessageFolderPage({
 					)}
 				</div>
 			{selectedIds.length === 0 && (
-					<div className="flex shrink-0 items-center gap-1 text-neutral-500 sm:gap-2">
+					<div className="mail-list-pagination flex shrink-0 items-center gap-0 text-neutral-500">
 						<Tooltip label={t("list.previousPage")}>
 							<Button
 								variant="ghost"
@@ -603,7 +605,7 @@ export function MessageFolderPage({
 								<ChevronLeft className="h-4 w-4" />
 							</Button>
 						</Tooltip>
-						<span data-message-range aria-live="polite" aria-atomic="true" className="whitespace-nowrap text-[11px] tabular-nums sm:text-xs">
+						<span data-message-range aria-live="polite" aria-atomic="true" className="whitespace-nowrap px-1 text-[11px] tabular-nums sm:text-xs md:-order-1 md:px-3">
 							{t("list.range", { start: pageRange.start, end: pageRange.end, total: pageRange.total })}
 						</span>
 						<Tooltip label={t("list.nextPage")}>
@@ -626,7 +628,7 @@ export function MessageFolderPage({
 									aria-label={t("list.showUnreadOnly")}
 									aria-pressed={unreadOnly}
 									onClick={() => setUnreadOnly((current) => !current)}
-									className={unreadOnly ? "bg-blue-100 text-blue-700 hover:bg-blue-100" : undefined}
+									className={clsx("mail-unread-filter", unreadOnly && "bg-blue-100 text-blue-700 hover:bg-blue-100")}
 								>
 									<ListFilter className="h-4 w-4" />
 								</Button>

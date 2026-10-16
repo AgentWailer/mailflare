@@ -41,6 +41,35 @@ html, body {
 .sidebar-label-link [data-nav-count] { margin-right: 4px; padding-inline: 4px; }
 .reorder-label-row { user-select: none; -webkit-touch-callout: none; }
 
+/* Mail header and list actions share a 24px leading centre and regular icon slots. */
+.mail-mobile-list { container: mail-list / inline-size; }
+.mail-mobile-header [data-app-profile] > button { display: flex; height: 44px; width: 44px; align-items: center; justify-content: center; padding: 2px; }
+.mail-bulk-toolbar button, .mail-list-pagination button { height: 40px; min-height: 40px; min-width: 40px; padding-inline: 0; border-radius: 999px; }
+.mail-bulk-toolbar button { width: 40px; flex-shrink: 0; }
+.mail-bulk-toolbar[data-compact="true"] button { width: 36px; min-width: 36px; }
+.mail-list-pagination button:has(> span) { padding-inline: 12px; }
+@media (min-width: 768px) {
+	@container mail-list (max-width: 620px) {
+		.mail-bulk-toolbar :is(.mail-toolbar-secondary, .mail-toolbar-divider) { display: none; }
+		.mail-desktop-row > a { grid-template-columns: 32px minmax(70px,100px) minmax(0,1fr) auto; }
+		.mail-desktop-row time { min-width: 56px; font-size: 11px; }
+	}
+	@container mail-list (max-width: 480px) {
+		.mail-list-pagination :is([data-message-range], .mail-unread-filter) { display: none; }
+	}
+	@container mail-list (max-width: 360px) {
+		.mail-mobile-list-toolbar:has(.mail-bulk-toolbar) .mail-list-pagination { display: none; }
+	}
+	.mail-header-search .mail-search-form { background: #e9eaed; }
+	.mail-header-search .mail-search-form:hover { background: #e2e4e8; }
+	.mail-header-search .mail-search-form:focus-within { background: #fff; box-shadow: 0 1px 3px #20212426, 0 0 0 1px #dadce0; }
+	.dark .mail-header-search .mail-search-form { background: #303134; }
+	.dark .mail-header-search .mail-search-form:focus-within { background: #3c4043; box-shadow: 0 1px 3px #0005, 0 0 0 1px #5f6368; }
+}
+@media (max-width: 767px), (pointer: coarse) {
+	.mail-bulk-toolbar button, .mail-bulk-toolbar[data-compact="true"] button, .mail-list-pagination button { height: 44px; min-height: 44px; min-width: 44px; width: 44px; }
+}
+
 /* Density changes spacing only: the list, selection and scroll stay mounted. */
 .mail-message-row { background-color: var(--mail-read-background); color: var(--foreground); }
 .mail-message-row[data-unread="true"] { background-color: var(--mail-unread-background); }

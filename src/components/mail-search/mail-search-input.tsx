@@ -20,14 +20,14 @@ export function MailSearchInput() {
 			value={query}
 			onChange={setQuery}
 			label={t("search.mail")}
-			placeholder={showShortcutHints ? t("search.mailHint") : t("search.mail")}
+			placeholder={t("search.mail")}
 			inputProps={{ "data-mail-search-input": "" }}
 			trailing={query ? (
 				<button
 					type="button"
 					onMouseDown={(event) => event.preventDefault()}
 					onClick={() => setQuery("")}
-					className="rounded-full p-1 text-neutral-500 hover:bg-blue-100 hover:text-neutral-800"
+					className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
 					aria-label={t("search.clear")}
 				>
 					<X className="h-4 w-4" />
