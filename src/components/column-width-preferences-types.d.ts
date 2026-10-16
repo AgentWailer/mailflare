@@ -1,1 +1,1 @@
-export type ColumnWidthPreference = "sidebar" | "message-list" | "message-list-height";
+export type ColumnWidthPreference = "sidebar" | "message-list" | "message-list-height" | "message-list-ratio";

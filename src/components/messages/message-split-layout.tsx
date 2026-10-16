@@ -40,7 +40,7 @@ export function MessageSplitLayout({
 		setUnreadOnly(false);
 	}
 	const [listWidth, setListWidth] = useState(360);
-	const [listHeight, setListHeight] = useState(280);
+	const [listRatio, setListRatio] = useState(.5);
 	const [widthReady, setWidthReady] = useState(false);
 	const [containerWidth, setContainerWidth] = useState(0);
 	const [containerHeight, setContainerHeight] = useState(0);
@@ -51,8 +51,8 @@ export function MessageSplitLayout({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const startWidth = useRef(listWidth);
 	const resizedWidth = useRef(listWidth);
-	const startHeight = useRef(listHeight);
-	const resizedHeight = useRef(listHeight);
+	const startHeight = useRef(0);
+	const resizedRatio = useRef(listRatio);
 	const { t } = useLanguage();
 	const { userId, setForcedMinimal } = useSidebar();
 	const assistantOpen = useAssistantOpen();
@@ -65,11 +65,11 @@ export function MessageSplitLayout({
 	// The overview must remain reachable even if the list was hidden in a reader.
 	const listVisible = twoColumnReading && (!selectedMessageId || (!assistantOpen && manualListVisible));
 	const renderedListWidth = Math.max(250, Math.min(listWidth, (containerWidth || 1000) - 280));
-	const renderedListHeight = Math.max(96, Math.min(listHeight, (containerHeight || 700) - 180));
+	const renderedListHeight = (containerHeight || 700) * listRatio;
 
 	useLayoutEffect(() => {
 		setListWidth(readInitialColumnWidth("message-list", 360, 250, 1200));
-		setListHeight(readInitialColumnWidth("message-list-height", 280, 96, 1000));
+		setListRatio(readInitialColumnWidth("message-list-ratio", .5, .05, .95));
 		setManualListVisible(readInitialMessageListVisible());
 		const frame = requestAnimationFrame(() => setWidthReady(true));
 		return () => cancelAnimationFrame(frame);
@@ -80,7 +80,7 @@ export function MessageSplitLayout({
 		const savedWidth = readColumnWidth(userId, "message-list", readInitialColumnWidth("message-list", 360, 250, 1200), 250, 1200);
 		setListWidth(savedWidth);
 		saveColumnWidth(userId, "message-list", savedWidth);
-		setListHeight(readColumnWidth(userId, "message-list-height", readInitialColumnWidth("message-list-height", 280, 96, 1000), 96, 1000));
+		setListRatio(readColumnWidth(userId, "message-list-ratio", readInitialColumnWidth("message-list-ratio", .5, .05, .95), .05, .95));
 	}, [userId]);
 
 	useLayoutEffect(() => {
@@ -102,7 +102,7 @@ export function MessageSplitLayout({
 
 	return (
 		<MessageOpeningContext.Provider value={openingContext}><MessageSelectionContext.Provider value={selection}>
-		<div ref={containerRef} data-reading-layout={readingLayout} className="h-full min-h-0 overflow-hidden lg:grid lg:transition-[grid-template-columns,grid-template-rows] lg:ease-in-out motion-reduce:transition-none" style={{ gridTemplateColumns: twoColumnReading && !below ? `${listVisible ? renderedListWidth : 0}px minmax(0,1fr)` : "minmax(0,1fr)", gridTemplateRows: twoColumnReading && below ? `${listVisible ? renderedListHeight : 0}px minmax(0,1fr)` : "minmax(0,1fr)", transitionDuration: widthReady ? "300ms" : "0ms" }}>
+		<div ref={containerRef} data-reading-layout={readingLayout} className="h-full min-h-0 overflow-hidden lg:grid lg:transition-[grid-template-columns,grid-template-rows] lg:ease-in-out motion-reduce:transition-none" style={{ gridTemplateColumns: twoColumnReading && !below ? `${listVisible ? renderedListWidth : 0}px minmax(0,1fr)` : "minmax(0,1fr)", gridTemplateRows: twoColumnReading && below ? listVisible ? `minmax(0,${listRatio}fr) minmax(0,${1 - listRatio}fr)` : "0px minmax(0,1fr)" : "minmax(0,1fr)", transitionDuration: widthReady ? "300ms" : "0ms" }}>
 			{twoColumnReading && (
 			<aside className={`relative min-h-0 min-w-0 overflow-hidden bg-white lg:block ${selectedMessageId ? "hidden" : "h-full lg:h-auto"} ${listVisible ? below ? "border-b border-neutral-200" : "border-r border-neutral-200" : "pointer-events-none"}`} aria-hidden={!listVisible} inert={!listVisible}>
 				<div className="h-full min-w-0 overflow-hidden" style={{ width: below || !selectedMessageId ? "100%" : renderedListWidth }}>
@@ -116,11 +116,12 @@ export function MessageSplitLayout({
 				<ResizeHandle
 					label={t(below ? "list.resizeHeight" : "list.resize")}
 					orientation={below ? "horizontal" : "vertical"}
-					onResizeStart={() => { startWidth.current = renderedListWidth; resizedWidth.current = renderedListWidth; startHeight.current = renderedListHeight; resizedHeight.current = renderedListHeight; }}
+					onResizeStart={() => { startWidth.current = renderedListWidth; resizedWidth.current = renderedListWidth; startHeight.current = renderedListHeight; resizedRatio.current = listRatio; }}
 					onResize={(delta) => {
 						if (below) {
-							resizedHeight.current = Math.max(96, Math.min(startHeight.current + delta, (containerRef.current?.clientHeight ?? 700) - 180));
-							setListHeight(resizedHeight.current);
+							const height = containerRef.current?.clientHeight || 700;
+							resizedRatio.current = Math.max(.05, Math.min(.95, Math.max(96, Math.min(startHeight.current + delta, height - 180)) / height));
+							setListRatio(resizedRatio.current);
 							return;
 						}
 						const requestedWidth = startWidth.current + delta;
@@ -128,7 +129,7 @@ export function MessageSplitLayout({
 						resizedWidth.current = Math.max(250, Math.min(requestedWidth, Math.max(250, (containerRef.current?.clientWidth ?? 1000) - 280)));
 						setListWidth(resizedWidth.current);
 					}}
-					onResizeEnd={() => saveColumnWidth(userId, below ? "message-list-height" : "message-list", below ? resizedHeight.current : resizedWidth.current)}
+					onResizeEnd={() => saveColumnWidth(userId, below ? "message-list-ratio" : "message-list", below ? resizedRatio.current : resizedWidth.current)}
 				/>
 			</aside>
 			)}

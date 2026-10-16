@@ -13,6 +13,10 @@
 	--border: #dadce0;
 	--primary: #0b57d0;
 	--primary-foreground: #ffffff;
+	--mail-read-background: #f1f3f4;
+	--mail-unread-background: #ffffff;
+	--mail-selected-background: #d3e3fd;
+	--mail-hover-background: #e8ebef;
 }
 
 @theme inline {
@@ -36,6 +40,26 @@ html, body {
 .reorder-handle { touch-action: none; user-select: none; -webkit-touch-callout: none; }
 .sidebar-label-link [data-nav-count] { margin-right: 4px; padding-inline: 4px; }
 .reorder-label-row { user-select: none; -webkit-touch-callout: none; }
+
+/* Density changes spacing only: the list, selection and scroll stay mounted. */
+.mail-message-row { background-color: var(--mail-read-background); color: var(--foreground); }
+.mail-message-row[data-unread="true"] { background-color: var(--mail-unread-background); }
+.mail-message-row[data-selected="true"] { background-color: var(--mail-selected-background); }
+.mail-desktop-row { min-height: 44px; }
+.mail-mobile-row { padding-block: 12px; }
+[data-message-density="compact"] .mail-desktop-row { min-height: 28px; }
+[data-message-density="compact"] .mail-desktop-row button { height: 28px; width: 28px; padding-inline: 0; }
+[data-message-density="compact"] .mail-desktop-row .mail-row-avatar { display: none; }
+[data-message-density="compact"] .mail-mobile-row { padding-block: 6px; }
+[data-message-density="compact"] .mail-mobile-row :is(.mail-row-party, .mail-row-subject) { font-size: 13px; line-height: 18px; }
+[data-message-density="compact"] .mail-mobile-row .mail-row-snippet { font-size: 12px; line-height: 18px; }
+@media (hover: hover) {
+	.mail-message-row:not([data-selected="true"]):hover { background-color: var(--mail-hover-background); }
+}
+@media (pointer: coarse) {
+	[data-message-density="compact"] .mail-desktop-row,
+	[data-message-density="compact"] .mail-desktop-row button { min-height: 44px; }
+}
 
 @keyframes mail-empty-float {
 	0%, 100% { transform: translateY(2px) rotate(1deg); }
@@ -301,6 +325,10 @@ button {
 	--border: #3c4043;
 	--primary: #8ab4f8;
 	--primary-foreground: #202124;
+	--mail-read-background: #202124;
+	--mail-unread-background: #303134;
+	--mail-selected-background: #33486a;
+	--mail-hover-background: #383a3e;
 	--color-white: #292a2d;
 	--color-black: #000;
 	--color-neutral-50: #303134;
@@ -600,7 +628,6 @@ body:has(.mail-mobile-shell, [data-app-profile], [data-auth-compact]) .fork-sour
 	.dark .mail-mobile-list { background-color: #101112; }
 	.dark .mail-mobile-header { background-color: #25292a; }
 	.dark .mail-mobile-header:has([data-mail-search-input]:focus) { background-color: #2d3336; }
-	.dark .mail-mobile-list .mail-mobile-row:not([data-selected="true"]) { background-color: #101112; }
 }
 
 /* One shared reader gutter: headers, bodies and attachments align without nested indents. */

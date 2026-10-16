@@ -3,6 +3,7 @@ import { getServerTranslator } from "@/lib/i18n/server";
 import { SettingsSection, SettingsPageHeader, SettingsGroup } from "@/components/settings/settings-section";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { InboxReadingLayoutSettings } from "@/components/settings/inbox-reading-layout-settings";
+import { MessageDensitySettings } from "@/components/settings/message-density-settings";
 export default async function SettingsInboxPage() {
 	const t = await getServerTranslator();
 	return <div className="space-y-6 py-4">
@@ -10,7 +11,7 @@ export default async function SettingsInboxPage() {
 		<section className="space-y-3" aria-label={t("settingsPage.inbox.experience")}>
 			<h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t("settingsPage.inbox.experience")}</h2>
 			<SettingsGroup id="appearance" title={t("settingsPage.inbox.appearance")}>
-				<div className="grid gap-4 sm:grid-cols-2"><AppearanceSettings compact /><InboxReadingLayoutSettings compact /></div>
+				<div className="grid gap-4 sm:grid-cols-2"><AppearanceSettings compact /><InboxReadingLayoutSettings compact /><MessageDensitySettings className="sm:col-span-2" /></div>
 			</SettingsGroup>
 			<SettingsSection id="conversations" title={t("settingsPage.inbox.threading")} description={t("settingsPage.inbox.threadingDescription")}><DeferredInboxSettings section="threading" /></SettingsSection>
 			<SettingsSection id="labels" title={t("labels.visibility.title")} description={t("settings.guide.labels")}>

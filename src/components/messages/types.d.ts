@@ -25,6 +25,7 @@ export type MessageListRowProps = {
 	selected: boolean;
 	active?: boolean;
 	compact?: boolean;
+	dense?: boolean;
 	currentAccountName?: string;
 	onSelectedChange: (messageId: string, selected: boolean) => void;
 	onMessageAction: (messageId: string, action: RowMessageAction) => Promise<void>;

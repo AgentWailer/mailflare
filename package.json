@@ -8,7 +8,7 @@
     "build:next": "npm run db:bundle && MAILFLARE_RUNTIME=node next build",
     "start": "vite preview --port 3000",
     "lint": "eslint .",
-    "test:performance": "node --test tests/mail-startup-performance.test.mjs tests/session-startup.test.mjs tests/message-bulk-jobs.test.mjs tests/mail-list-refresh.test.mjs tests/cache-policy.test.mjs tests/menu-performance.test.mjs tests/persistent-reading-pane.test.mjs tests/background-query-performance.test.mjs tests/mailbox-preload.test.mjs tests/account-switch.test.mjs tests/wallet-attachments.test.mjs && node tests/browser/cold-start.mjs && node tests/browser/category-tabs.mjs && node tests/browser/mailbox-preload.mjs && node tests/browser/navigation-performance.mjs && node tests/browser/attachment-preview.mjs",
+    "test:performance": "node --test tests/mail-startup-performance.test.mjs tests/session-startup.test.mjs tests/message-bulk-jobs.test.mjs tests/mail-list-refresh.test.mjs tests/cache-policy.test.mjs tests/menu-performance.test.mjs tests/persistent-reading-pane.test.mjs tests/background-query-performance.test.mjs tests/mailbox-preload.test.mjs tests/account-switch.test.mjs tests/wallet-attachments.test.mjs tests/message-density.test.mjs && node tests/browser/cold-start.mjs && node tests/browser/category-tabs.mjs && node tests/browser/mailbox-preload.mjs && node tests/browser/navigation-performance.mjs && node tests/browser/attachment-preview.mjs && node tests/browser/mail-display-settings.mjs",
     "deploy": "npm run build && npm run deploy:worker",
     "deploy:worker": "wrangler deploy",
     "deploy:local": "npm run deploy",

@@ -38,6 +38,7 @@ import { MessageNavigationProgress, useMessageNavigation } from "./message-navig
 import { useConversationView } from "./use-conversation-view";
 import { useOptimisticArchive } from "./use-optimistic-archive";
 import { useMailboxPreload } from "./use-mailbox-preload";
+import { useMessageDensity } from "./use-message-density";
 import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction, SelectedMessage } from "./types";
 import {
 	formatMessageListTimestamp,
@@ -67,6 +68,7 @@ function MessageListRow({
 	selected,
 	active = false,
 	compact = false,
+	dense = false,
 	currentAccountName,
 	onSelectedChange,
 	onMessageAction,
@@ -95,7 +97,7 @@ function MessageListRow({
  const attachmentCount = message.attachmentCount ?? 0;
  const attachmentLabel = attachmentCount > 0 ? t("thread.attachmentCount", {count:attachmentCount}) : "";
  const attachmentIndicator = attachmentCount > 0 ? <span role="img" aria-label={attachmentLabel} title={attachmentLabel} className="inline-flex shrink-0 items-center text-neutral-500"><Paperclip aria-hidden="true" className="h-3.5 w-3.5" /></span> : null;
-	const avatar = <SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-10 w-10 text-lg" : "h-6 w-6 text-xs"} />;
+	const avatar = !compact && dense ? null : <span className="mail-row-avatar shrink-0"><SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-10 w-10 text-lg" : "h-6 w-6 text-xs"} /></span>;
 
 	async function runRowAction(action: RowMessageAction) {
 		const previousRead = read;
@@ -142,7 +144,8 @@ function MessageListRow({
 		const compactRow = (
 			<div
 				data-message-row={message.id}
-				className={`mail-mobile-row group relative grid grid-cols-[44px_minmax(0,1fr)] gap-2 border-l-2 px-3 py-2.5 transition-colors ${active
+				data-unread={unread}
+				className={`mail-message-row mail-mobile-row group relative grid grid-cols-[44px_minmax(0,1fr)] gap-2 border-l-2 px-3 py-2.5 transition-colors ${active
 					? "border-l-blue-600 bg-blue-50"
 					: selected
 						? "border-l-transparent bg-blue-50"
@@ -161,7 +164,7 @@ function MessageListRow({
 					<span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>
 				</label>
 				<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className={clsx("min-w-0", rowLinkClassName)}>
-					<span className="flex items-baseline justify-between gap-2 text-sm leading-5">
+					<span className="mail-row-party flex items-baseline justify-between gap-2 text-sm leading-5">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{party}
 
@@ -174,13 +177,13 @@ function MessageListRow({
 						</span>
 					</span>
 					<span
-						className={`mt-0.5 flex min-w-0 items-center gap-1.5 pr-10 text-sm leading-5 ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
+						className={`mail-row-subject mt-0.5 flex min-w-0 items-center gap-1.5 pr-10 text-sm leading-5 ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
 							}`}
 					>
 						<span className="min-w-0 truncate">{message.subject ?? t("list.noSubject")}</span>
 						{attachmentIndicator}
 					</span>
-					<span className="mt-0.5 flex min-w-0 items-center justify-between gap-2 pr-10 text-[13px] leading-5 text-neutral-600">
+					<span className="mail-row-snippet mt-0.5 flex min-w-0 items-center justify-between gap-2 pr-10 text-[13px] leading-5 text-neutral-600">
 						<span className="min-w-0 flex-1 truncate">{preview}</span>
 						<MessageLabelChips labels={message.labels} compact />
 					</span>
@@ -210,7 +213,7 @@ function MessageListRow({
 	}
 
 	const className =
-		`group relative grid min-h-10 w-full grid-cols-[24px_minmax(0,1fr)] items-center gap-2 px-4 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
+		`mail-message-row mail-desktop-row group relative grid w-full grid-cols-[24px_minmax(0,1fr)] items-center gap-2 px-4 text-left text-sm hover:z-10 hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
 		} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`;
 	const content = (
 		<>
@@ -220,6 +223,7 @@ function MessageListRow({
 						type="button"
 						variant="ghost"
 						size="sm"
+						className="h-8 w-8 p-0"
 						onClick={(event) => {
 							event.preventDefault();
 							event.stopPropagation();
@@ -263,7 +267,7 @@ function MessageListRow({
 
 	if (config.folder === "drafts") {
 		return (
-			<div className={className} data-message-row={message.id}>
+			<div className={className} data-message-row={message.id} data-unread={unread} data-selected={selected || active}>
 				<Checkbox
 					checked={selected}
 					onChange={(event) => onSelectedChange(message.id, event.target.checked)}
@@ -280,6 +284,8 @@ function MessageListRow({
 	return (
 		<div
 			data-message-row={message.id}
+			data-unread={unread}
+			data-selected={selected || active}
 			className={className}
 			draggable={draggable}
 			onDragStart={(event) => {
@@ -325,6 +331,7 @@ export function MessageFolderPage({
 	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
 	const { query, input } = useMailSearch();
 	const isMobile = useIsMobile();
+	const [density] = useMessageDensity();
 	const [internalOffset, setInternalOffset] = useState(0);
 	const offset = selection?.offset ?? internalOffset;
 	const setOffset = selection?.setOffset ?? setInternalOffset;
@@ -547,7 +554,7 @@ export function MessageFolderPage({
 	}
 
 	return (
-		<div className="mail-mobile-list flex h-full min-h-0 flex-col">
+		<div data-message-density={density} className="mail-mobile-list flex h-full min-h-0 flex-col">
 			<div className={`mail-mobile-list-toolbar flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
 				<div className="flex min-w-0 flex-1 items-center gap-3 max-md:gap-1">
 					<Tooltip label={t("list.selectAll")} className="shrink-0">
@@ -680,6 +687,7 @@ export function MessageFolderPage({
 						selected={selectedIds.includes(message.id)}
 						active={message.id === selectedMessageId}
 						compact={compact || isMobile}
+						dense={density === "compact"}
 						currentAccountName={currentAccountName}
 						onSelectedChange={updateSelectedMessage}
 						onMessageAction={runRowMessageAction}

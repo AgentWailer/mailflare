@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { MailHeader } from "@/components/mail-header";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ComposeProvider } from "@/components/compose/compose-context";
@@ -22,6 +22,8 @@ import { useDashboardState } from "./dashboard-state";
 import { useAssistantAvailability } from "./use-assistant-availability";
 import { MessageCategoryLayout } from "@/components/messages/message-category-layout";
 
+const MailQuickSettings = lazy(() => import("@/components/settings/mail-quick-settings"));
+
 export default function DashboardLayout({
   children,
 }: {
@@ -32,6 +34,11 @@ export default function DashboardLayout({
   const [assistantRequest, setAssistantRequest] = useState<MessageAssistantRequest | null>(null);
   const assistantVisible = assistantEnabled === true && assistantOpen;
   const panelFullSize = useAssistantFullSize(assistantFullSize);
+  const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
+  const closeQuickSettings = useCallback(() => {
+    setQuickSettingsOpen(false);
+    requestAnimationFrame(() => document.getElementById("mail-quick-settings-toggle")?.focus());
+  }, []);
 
   useEffect(() => {
     if (assistantEnabled === false && (assistantOpen || assistantFullSize)) {
@@ -55,21 +62,22 @@ export default function DashboardLayout({
                     <SidebarResizeBoundary />
                   </SidebarAside>
                   <div className="flex min-h-0 min-w-0 flex-col">
-                    <MailHeader assistantEnabled={assistantEnabled} assistantOpen={assistantOpen} onToggleAssistant={() => { setAssistantOpen(current => !current); setAssistantFullSize(false); }} />
+                    <MailHeader assistantEnabled={assistantEnabled} assistantOpen={assistantOpen} onToggleAssistant={() => { setQuickSettingsOpen(false); setAssistantOpen(current => !current); setAssistantFullSize(false); }} quickSettingsOpen={quickSettingsOpen} onToggleQuickSettings={() => { setQuickSettingsOpen(current => !current); setAssistantOpen(false); setAssistantFullSize(false); }} />
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                       <AssistantOpenContext.Provider value={assistantVisible}>
-                        <AssistantRequestContext.Provider value={assistantEnabled ? (request) => { setAssistantRequest(request); window.dispatchEvent(new CustomEvent("mailflare:assistant-request", { detail: request })); setAssistantOpen(true); setAssistantFullSize(false); } : null}>
+                        <AssistantRequestContext.Provider value={assistantEnabled ? (request) => { setQuickSettingsOpen(false); setAssistantRequest(request); window.dispatchEvent(new CustomEvent("mailflare:assistant-request", { detail: request })); setAssistantOpen(true); setAssistantFullSize(false); } : null}>
                         <main className="mail-mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
                           <MessageCategoryLayout>{children}</MessageCategoryLayout>
                         </main>
                         </AssistantRequestContext.Provider>
                       </AssistantOpenContext.Provider>
+                      {quickSettingsOpen && <Suspense fallback={<div role="status" aria-label="…" className="hidden w-[340px] shrink-0 animate-pulse rounded-2xl bg-white lg:block" />}><MailQuickSettings onClose={closeQuickSettings} /></Suspense>}
                       <aside className={clsx(panelFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2 max-md:p-0`, assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? panelFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
                         {assistantEnabled && <DeferredAgentPanel request={assistantRequest} open={assistantVisible} fullSize={panelFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}
                       </aside>
                     </div>
                   </div>
-                  <MobileComposeButton hidden={assistantVisible} />
+                  <MobileComposeButton hidden={assistantVisible || quickSettingsOpen} />
                   <FloatingComposer />
                 </div>
               </ShortcutsProvider>
