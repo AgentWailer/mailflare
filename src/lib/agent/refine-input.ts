@@ -18,7 +18,7 @@ export const refineSchema = z.object({
 	action: z.enum(["refine", "reply", "compose"]).default("refine"),
 	text: z.string().trim().max(REFINE_TEXT_LIMIT).default(""),
 	instruction: z.string().trim().max(2_000).default(""),
-	mode: z.enum(["polish", "professional", "friendly", "shorter", "longer"]),
+	mode: z.enum(["polish", "correct", "professional", "friendly", "shorter", "longer"]),
 	language: z.enum(["keep", "de", "en"]),
 	protectedTokens: z.array(z.string().regex(/^\[\[MAILFLARE_IMAGE_[a-f0-9-]+_\d+\]\]$/)).max(100).refine(tokens => new Set(tokens).size === tokens.length).default([]),
 	replyContext: refineReplyContextSchema.optional(),

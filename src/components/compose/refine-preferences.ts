@@ -2,7 +2,7 @@ import type { RefineInput } from "@/lib/agent/refine-input";
 
 export type RefinePreferences = Pick<RefineInput, "mode" | "language">;
 const KEY = "mailflare-refine-preferences";
-const MODES = ["polish", "professional", "friendly", "shorter", "longer"];
+const MODES = ["polish", "correct", "professional", "friendly", "shorter", "longer"];
 const LANGUAGES = ["keep", "de", "en"];
 
 export function readRefinePreferences(): RefinePreferences {

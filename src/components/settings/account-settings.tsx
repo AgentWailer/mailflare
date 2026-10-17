@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
-import { DeferredProfileForm as ProfileForm, DeferredForwardingEmailForm as ForwardingEmailForm, DeferredMailboxSignatureForm as MailboxSignatureForm, DeferredTimeZoneForm as TimeZoneForm } from "./deferred-account-settings";
+import { DeferredProfileForm as ProfileForm, DeferredForwardingEmailForm as ForwardingEmailForm, DeferredMailboxSignatureForm as MailboxSignatureForm, DeferredTimeZoneForm as TimeZoneForm, DeferredWritingPreferencesSettings as WritingPreferencesSettings } from "./deferred-account-settings";
 import { AppearanceSettings } from "./appearance-settings";
 import { LanguageSelector } from "@/components/language-selector";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +46,9 @@ export function AccountSettings() {
 			</SettingsSection>}
 			<SettingsSection id="signature" title={t("settings.account.signatureTitle")} description={t("settings.account.signatureDescription")}>
 				<MailboxSignatureForm />
+			</SettingsSection>
+			<SettingsSection id="writing" title={t("writing.title")} description={t("writing.summary")}>
+				<WritingPreferencesSettings />
 			</SettingsSection>
 			<SettingsSection id="time-zone" title={t("settings.timeZone.title")} description={t("settings.guide.timeZone")}>
 				<TimeZoneForm userId={user.id} initialTimeZone={user.timeZone} />

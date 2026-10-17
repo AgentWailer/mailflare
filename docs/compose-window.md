@@ -74,3 +74,32 @@ composer release also passed 29 reading-pane browser cases.
 The global TypeScript check retains 15 pre-existing unrelated diagnostics; the
 existing form and scheduling component retain their baseline four lint errors
 and one warning. The change does not claim a clean global check.
+
+
+Personal writing defaults are available under **Settings → Account → AI writing
+style**. The section starts collapsed and loads on first expansion. Users choose
+an original/professional/friendly/direct/formal tone, balanced polishing,
+grammar/spelling-only correction, shorter or more detailed writing, and up to
+2,000 characters of their own writing guidance. The settings are stored per user,
+not per browser or shared mailbox, so a fresh session on another device sees the
+same defaults. Save failures keep edits; reset is saved only after review.
+
+The refinement service reads those defaults from the authenticated user. Polish
+uses the personal improvement type; explicit composer choices take priority for
+that edit. Professional/friendly choices also override the default tone. Custom
+writing guidance is subordinate to the existing factual and source-data rules.
+The sender’s personal settings apply to AI drafting as well; mailbox auto-draft
+instructions and model/provider choices are unchanged. The composer’s standard
+style option is labelled Personal defaults to make this distinction visible.
+
+Migration 0080 adds only a JSON preference column to the existing users table.
+The existing users backup includes it automatically; restore filters against live
+columns, and older backups without the field receive the original defaults. No
+persisted tables are created or removed, so backup table/group lists are unchanged.
+Validation adds authenticated settings round-trips, fresh-session isolation,
+cookie-origin checks, input limits, prompt precedence and new/legacy backup
+round-trips to the refinement API suite. The targeted suites contain 46 passing
+checks; four writing-settings browser cases cover 320/390/1440px, light/dark,
+failed-save recovery, collapse, reload persistence and reset. The existing seven
+composer cases also remain passing. Build and targeted lint pass; the global
+TypeScript check retains the same 15 unrelated diagnostics.

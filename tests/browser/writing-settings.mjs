@@ -1,0 +1,30 @@
+// Personal writing settings rendered with real components and production CSS.
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {createServer} from 'node:http';
+import {join} from 'node:path';
+import {build} from 'esbuild';
+const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
+const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','mailflare-writing-browser-'));
+const de=JSON.parse(readFileSync('public/locales/de.json','utf8'));
+writeFileSync(join(dir,'entry.tsx'),`import React from 'react';import {createRoot} from 'react-dom/client';import {WritingPreferencesSettings} from '@/components/settings/writing-preferences-settings';import {SettingsSection} from '@/components/settings/settings-section';import {LanguageProvider} from '@/components/language-provider';import de from '../../public/locales/de.json';if(location.search.includes('dark'))document.documentElement.classList.add('dark');createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><main className="mx-auto max-w-3xl p-4"><SettingsSection id="writing" title={de['writing.title']} description={de['writing.summary']}><WritingPreferencesSettings/></SettingsSection></main></LanguageProvider>);`);
+let browser,server;
+try{
+ await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'@':join(root,'src')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
+ const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(f=>f.startsWith('index.')&&f.endsWith('.css'))));
+ const assets={'/':Buffer.from('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0"><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/fixture.css':css};
+ server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(assets[path]?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(assets[path]||'Not found');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+ browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
+ for(const config of [{width:320,height:700},{width:390,height:844},{width:1440,height:900},{width:1440,height:900,dark:true}]){
+  const page=await browser.newPage({viewport:config,hasTouch:config.width<500}),errors=[],writes=[];page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));let fail=true,stored={tone:'keep',style:'polish',instructions:''};
+  await page.route('**/api/settings/writing',async route=>{if(route.request().method()==='PATCH'){const body=route.request().postDataJSON();writes.push(body);if(fail)return route.fulfill({status:503,contentType:'application/json',body:'{"error":"Temporary failure"}'});stored=body;}return route.fulfill({contentType:'application/json',body:JSON.stringify({preferences:stored})});});
+  await page.goto(origin+(config.dark?'/?dark=1':''));const section=page.locator('#writing'),toggle=section.getByRole('button',{name:new RegExp(de['writing.title'])});assert.equal(await toggle.getAttribute('aria-expanded'),'false');assert.equal(await section.locator('select').count(),0,'collapsed settings do not load the form');await toggle.click();
+  const tone=section.getByRole('combobox',{name:de['writing.tone'],exact:true}),style=section.getByRole('combobox',{name:de['writing.style'],exact:true}),notes=section.getByRole('textbox',{name:de['writing.instructions'],exact:true}),save=section.getByRole('button',{name:de['writing.save'],exact:true});await tone.waitFor();assert.equal(await tone.inputValue(),'keep');assert.equal(await save.isDisabled(),true);
+  await tone.selectOption('friendly');await style.selectOption('correct');await notes.fill('Kurze Absätze. Keine Floskeln.');await save.click();await section.getByRole('alert').waitFor();assert.equal(await notes.inputValue(),'Kurze Absätze. Keine Floskeln.');assert.equal(await style.inputValue(),'correct');fail=false;await save.click();await section.getByRole('status').waitFor();assert.deepEqual(writes.at(-1),{tone:'friendly',style:'correct',instructions:'Kurze Absätze. Keine Floskeln.'});assert.equal(await save.isDisabled(),true);
+  assert(await section.evaluate(el=>el.scrollWidth<=el.clientWidth),'controls do not overflow horizontally');for(const control of [tone,style,save])assert((await control.boundingBox()).height>=44);
+  await page.screenshot({path:`/tmp/mailflare-writing-settings-${config.width}${config.dark?'-dark':''}.png`});
+  await toggle.click();assert.equal(await notes.isVisible(),false);await toggle.click();assert.equal(await notes.inputValue(),stored.instructions,'collapsing does not erase saved choices');
+  await page.reload();await toggle.click();await tone.waitFor();assert.equal(await tone.inputValue(),'friendly');assert.equal(await style.inputValue(),'correct');assert.equal(await notes.inputValue(),stored.instructions);
+  await section.getByRole('button',{name:de['writing.reset'],exact:true}).click();assert.equal(await tone.inputValue(),'keep');assert.equal(await style.inputValue(),'polish');assert.equal(stored.tone,'friendly','reset remains reviewable until saved');await save.click();await section.getByRole('status').waitFor();assert.deepEqual(stored,{tone:'keep',style:'polish',instructions:''});assert.deepEqual(errors,[]);console.log(JSON.stringify({...config,collapsedByDefault:true,persistence:true,failureRetainsEdits:true,reset:true,noOverflow:true}));await page.close();
+ }
+}finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}

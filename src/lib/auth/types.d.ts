@@ -19,6 +19,7 @@ export type SessionUser = {
 	trashRetentionDays: number | null;
 	showFullRecipientAddresses: boolean;
 	allowExternalContent: boolean;
+	writingPreferences?: string;
 	createdByUserId: string | null;
 	createdAt: Date;
 };

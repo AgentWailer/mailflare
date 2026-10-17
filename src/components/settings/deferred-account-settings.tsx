@@ -6,6 +6,7 @@ const ProfileForm = lazy(() => import("./profile-form").then(module => ({ defaul
 const ForwardingEmailForm = lazy(() => import("./forwarding-email-form").then(module => ({ default: module.ForwardingEmailForm })));
 const MailboxSignatureForm = lazy(() => import("./mailbox-signature-form").then(module => ({ default: module.MailboxSignatureForm })));
 const TimeZoneForm = lazy(() => import("./time-zone-form").then(module => ({ default: module.TimeZoneForm })));
+const WritingPreferencesSettings = lazy(() => import("./writing-preferences-settings").then(module => ({ default: module.WritingPreferencesSettings })));
 
 export function DeferredProfileForm(props: ComponentProps<typeof ProfileForm>) {
 	return <Suspense fallback={null}><ProfileForm {...props} /></Suspense>;
@@ -18,4 +19,8 @@ export function DeferredMailboxSignatureForm() {
 }
 export function DeferredTimeZoneForm(props: ComponentProps<typeof TimeZoneForm>) {
 	return <Suspense fallback={null}><TimeZoneForm {...props} /></Suspense>;
+}
+
+export function DeferredWritingPreferencesSettings() {
+	return <Suspense fallback={null}><WritingPreferencesSettings /></Suspense>;
 }

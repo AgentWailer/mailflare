@@ -8,7 +8,8 @@ import type { TranslationKey } from "@/lib/i18n/types";
 import type { RefinePreferences } from "./refine-preferences";
 
 const MODES: Array<{ value: RefinePreferences["mode"]; label: TranslationKey }> = [
- { value: "polish", label: "refine.polish" },
+ { value: "polish", label: "writing.style.default" },
+ { value: "correct", label: "writing.style.correct" },
  { value: "professional", label: "refine.professional" },
  { value: "friendly", label: "refine.friendly" },
  { value: "shorter", label: "refine.shorter" },

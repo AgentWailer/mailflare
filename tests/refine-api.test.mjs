@@ -15,6 +15,8 @@ await build({stdin:{contents:`
  export { createSession } from './src/lib/auth/session.ts';
  export { POST } from './src/app/api/compose/refine/route.ts';
  export { refineSchema } from './src/lib/agent/refine-input.ts';
+ export { exportDatabaseRecords, restoreDatabaseRecords } from './src/lib/backups/export.ts';
+ export { GET as getWritingSettings, PATCH as patchWritingSettings } from './src/app/api/settings/writing/route.ts';
 `,resolveDir:root,sourcefile:'refine-api-entry.ts'},outfile:join(directory,'entry.mjs'),bundle:true,platform:'node',format:'esm',target:'node24',packages:'external',tsconfig:join(root,'tsconfig.json'),alias:{'next/headers':join(directory,'headers.mjs'),'next/server':'next/server.js','cloudflare:workers':'./server/runtime/cloudflare-workers.ts'},logLevel:'silent'});
 const app=await import(pathToFileURL(join(directory,'entry.mjs')).href);
 async function fixture(t){
@@ -174,4 +176,47 @@ test('writing instructions create or edit a body without changing recipients, se
  for(const input of [{action:'compose',text:'',instruction:''},{instruction:'x'.repeat(2001)}])assert.equal((await f.post(input)).status,400);
  assert.equal((await f.post({action:'compose',text:'',instruction:'A short greeting'},'reader')).status,403);
  assert.equal(f.database.db.prepare('SELECT count(*) n FROM messages').get().n,0);assert.equal(f.database.db.prepare('SELECT count(*) n FROM outbound_jobs').get().n,0);
+});
+
+
+function writingRequest(f,method='GET',body,user='owner',headers={}) {
+ return new Request('https://mailflare.test/api/settings/writing',{method,headers:{Authorization:`Bearer ${f.tokens[user]??'invalid'}`,'Content-Type':'application/json',...headers},...(body===undefined?{}:{body:JSON.stringify(body)})});
+}
+
+test('personal writing settings are authenticated, private and persist across fresh sessions without changing another user',async t=>{
+ const f=await fixture(t);assert.equal((await app.getWritingSettings(writingRequest(f,'GET',undefined,'missing'))).status,401);
+ let response=await app.getWritingSettings(writingRequest(f));assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.deepEqual((await response.json()).preferences,{tone:'keep',style:'polish',instructions:''});
+ const preferences={tone:'formal',style:'correct',instructions:'Kurze Absätze. Keine Floskeln.'};response=await app.patchWritingSettings(writingRequest(f,'PATCH',preferences));assert.equal(response.status,200);assert.deepEqual((await response.json()).preferences,preferences);
+ const secondToken=await app.createSession(f.env,'owner');response=await app.getWritingSettings(new Request('https://mailflare.test/api/settings/writing',{headers:{Authorization:`Bearer ${secondToken}`}}));assert.deepEqual((await response.json()).preferences,preferences);
+ response=await app.getWritingSettings(writingRequest(f,'GET',undefined,'reader'));assert.deepEqual((await response.json()).preferences,{tone:'keep',style:'polish',instructions:''});
+});
+
+test('writing settings reject invalid values, extra fields and cross-origin writes',async t=>{
+ const f=await fixture(t);for(const invalid of [{tone:'invent'},{style:'rewrite_all_facts'},{instructions:'x'.repeat(2001)},{userId:'reader',tone:'formal'}])assert.equal((await app.patchWritingSettings(writingRequest(f,'PATCH',invalid))).status,400);
+ globalThis.__refineTestCookies={ep_session:{value:f.tokens.owner}};
+ assert.equal((await app.patchWritingSettings(new Request('https://mailflare.test/api/settings/writing',{method:'PATCH',headers:{Origin:'https://attacker.test','Sec-Fetch-Site':'cross-site','Content-Type':'application/json'},body:JSON.stringify({tone:'formal'})}))).status,403);
+ delete globalThis.__refineTestCookies;
+ assert.equal(f.database.db.prepare("SELECT writing_preferences FROM users WHERE id='owner'").get().writing_preferences,'{}');
+});
+
+test('Polish uses the signed-in user tone, improvement type and writing hints, while retaining factual safeguards',async t=>{
+ const f=await fixture(t);await app.patchWritingSettings(writingRequest(f,'PATCH',{tone:'friendly',style:'correct',instructions:'Use short paragraphs, no stock phrases.'}));
+ assert.equal((await f.post()).status,200);let prompt=f.calls.at(-1).input.messages[0].content;assert.match(prompt,/Correct spelling, punctuation and grammar only/);assert.match(prompt,/warm, friendly/);assert.match(prompt,/Use short paragraphs/);assert.match(prompt,/Preserve the author's meaning/);assert.match(prompt,/Do not invent/);
+ assert.equal((await f.post({mode:'shorter'})).status,200);prompt=f.calls.at(-1).input.messages[0].content;assert.match(prompt,/Make the text more concise/);assert.doesNotMatch(prompt,/Correct spelling, punctuation and grammar only/);assert.match(prompt,/warm, friendly/);
+ assert.equal((await f.post({mode:'professional'})).status,200);prompt=f.calls.at(-1).input.messages[0].content;assert.match(prompt,/professional tone/);assert.doesNotMatch(prompt,/warm, friendly/);
+ assert.equal((await f.post({},'sender')).status,200);prompt=f.calls.at(-1).input.messages[0].content;assert.doesNotMatch(prompt,/Use short paragraphs/);assert.match(prompt,/original tone/);
+});
+
+test('writing migration preserves existing users and defaults older or malformed saved preferences safely',async t=>{
+ const f=await fixture(t);assert.equal(f.database.db.prepare("SELECT writing_preferences FROM users WHERE id='owner'").get().writing_preferences,'{}');
+ f.database.db.exec("UPDATE users SET writing_preferences='invalid json' WHERE id='owner'");const response=await app.getWritingSettings(writingRequest(f));assert.deepEqual((await response.json()).preferences,{tone:'keep',style:'polish',instructions:''});assert.equal((await f.post()).status,200);
+ const prompt=f.calls.at(-1).input.messages[0].content;assert.match(prompt,/original tone/);assert.doesNotMatch(prompt,/Personal writing preferences/);
+});
+
+
+test('users backups retain writing preferences and legacy backups restore with original defaults',async t=>{
+ const f=await fixture(t);const value={tone:'direct',style:'shorter',instructions:'No stock phrases.'};f.database.db.prepare("UPDATE users SET writing_preferences=? WHERE id='owner'").run(JSON.stringify(value));
+ const bytes=await app.exportDatabaseRecords(f.database);const document=JSON.parse(Buffer.from(bytes));assert.equal(document.tables.users.find(row=>row.id==='owner').writing_preferences,JSON.stringify(value));
+ f.database.db.exec("UPDATE users SET writing_preferences='{}'");await app.restoreDatabaseRecords(f.database,Uint8Array.from(bytes).buffer);assert.equal(f.database.db.prepare("SELECT writing_preferences FROM users WHERE id='owner'").get().writing_preferences,JSON.stringify(value));
+ for(const row of document.tables.users)delete row.writing_preferences;const legacy=new TextEncoder().encode(JSON.stringify(document));await app.restoreDatabaseRecords(f.database,legacy.buffer);assert.equal(f.database.db.prepare("SELECT writing_preferences FROM users WHERE id='owner'").get().writing_preferences,'{}');
 });
