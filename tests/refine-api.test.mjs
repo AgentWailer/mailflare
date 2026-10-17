@@ -14,6 +14,8 @@ await build({stdin:{contents:`
  export { applyMigrations } from './server/runtime/migrate.ts';
  export { createSession } from './src/lib/auth/session.ts';
  export { POST } from './src/app/api/compose/refine/route.ts';
+ export { getAgentModel } from './src/lib/agent/model.ts';
+ export { listCloudflareAgentModels } from './src/lib/agent/provider-models.ts';
  export { refineSchema } from './src/lib/agent/refine-input.ts';
  export { exportDatabaseRecords, restoreDatabaseRecords } from './src/lib/backups/export.ts';
  export { GET as getWritingSettings, PATCH as patchWritingSettings } from './src/app/api/settings/writing/route.ts';
@@ -185,10 +187,10 @@ function writingRequest(f,method='GET',body,user='owner',headers={}) {
 
 test('personal writing settings are authenticated, private and persist across fresh sessions without changing another user',async t=>{
  const f=await fixture(t);assert.equal((await app.getWritingSettings(writingRequest(f,'GET',undefined,'missing'))).status,401);
- let response=await app.getWritingSettings(writingRequest(f));assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.deepEqual((await response.json()).preferences,{tone:'keep',style:'polish',instructions:''});
- const preferences={tone:'formal',style:'correct',instructions:'Kurze Absätze. Keine Floskeln.'};response=await app.patchWritingSettings(writingRequest(f,'PATCH',preferences));assert.equal(response.status,200);assert.deepEqual((await response.json()).preferences,preferences);
+ let response=await app.getWritingSettings(writingRequest(f));assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.deepEqual((await response.json()).preferences,{modelId:null,tone:'keep',style:'polish',instructions:''});
+ const preferences={modelId:null,tone:'formal',style:'correct',instructions:'Kurze Absätze. Keine Floskeln.'};response=await app.patchWritingSettings(writingRequest(f,'PATCH',preferences));assert.equal(response.status,200);assert.deepEqual((await response.json()).preferences,preferences);
  const secondToken=await app.createSession(f.env,'owner');response=await app.getWritingSettings(new Request('https://mailflare.test/api/settings/writing',{headers:{Authorization:`Bearer ${secondToken}`}}));assert.deepEqual((await response.json()).preferences,preferences);
- response=await app.getWritingSettings(writingRequest(f,'GET',undefined,'reader'));assert.deepEqual((await response.json()).preferences,{tone:'keep',style:'polish',instructions:''});
+ response=await app.getWritingSettings(writingRequest(f,'GET',undefined,'reader'));assert.deepEqual((await response.json()).preferences,{modelId:null,tone:'keep',style:'polish',instructions:''});
 });
 
 test('writing settings reject invalid values, extra fields and cross-origin writes',async t=>{
@@ -209,7 +211,7 @@ test('Polish uses the signed-in user tone, improvement type and writing hints, w
 
 test('writing migration preserves existing users and defaults older or malformed saved preferences safely',async t=>{
  const f=await fixture(t);assert.equal(f.database.db.prepare("SELECT writing_preferences FROM users WHERE id='owner'").get().writing_preferences,'{}');
- f.database.db.exec("UPDATE users SET writing_preferences='invalid json' WHERE id='owner'");const response=await app.getWritingSettings(writingRequest(f));assert.deepEqual((await response.json()).preferences,{tone:'keep',style:'polish',instructions:''});assert.equal((await f.post()).status,200);
+ f.database.db.exec("UPDATE users SET writing_preferences='invalid json' WHERE id='owner'");const response=await app.getWritingSettings(writingRequest(f));assert.deepEqual((await response.json()).preferences,{modelId:null,tone:'keep',style:'polish',instructions:''});assert.equal((await f.post()).status,200);
  const prompt=f.calls.at(-1).input.messages[0].content;assert.match(prompt,/original tone/);assert.doesNotMatch(prompt,/Personal writing preferences/);
 });
 
@@ -219,4 +221,44 @@ test('users backups retain writing preferences and legacy backups restore with o
  const bytes=await app.exportDatabaseRecords(f.database);const document=JSON.parse(Buffer.from(bytes));assert.equal(document.tables.users.find(row=>row.id==='owner').writing_preferences,JSON.stringify(value));
  f.database.db.exec("UPDATE users SET writing_preferences='{}'");await app.restoreDatabaseRecords(f.database,Uint8Array.from(bytes).buffer);assert.equal(f.database.db.prepare("SELECT writing_preferences FROM users WHERE id='owner'").get().writing_preferences,JSON.stringify(value));
  for(const row of document.tables.users)delete row.writing_preferences;const legacy=new TextEncoder().encode(JSON.stringify(document));await app.restoreDatabaseRecords(f.database,legacy.buffer);assert.equal(f.database.db.prepare("SELECT writing_preferences FROM users WHERE id='owner'").get().writing_preferences,'{}');
+});
+
+
+const gemma='@cf/google/gemma-4-26b-a4b-it',mistral='@cf/mistralai/mistral-small-3.1-24b-instruct';
+function configureWritingModels(f) {
+ f.database.db.prepare("UPDATE app_settings SET agent_provider='cloudflare',agent_model=?,agent_model_rates=? WHERE id='default'").run(['chat-model',gemma,mistral].join(', '),JSON.stringify({[gemma]:{input:0.1,output:0.3},[mistral]:{input:0.351,output:0.555}}));
+}
+
+test('writing defaults use enabled Gemma with thinking disabled and correct pricing while chat retains its default',async t=>{
+ const f=await fixture(t);configureWritingModels(f);assert.equal((await app.getAgentModel(f.env)).modelId,'chat-model');
+ assert.equal((await f.post()).status,200);const call=f.calls.at(-1);assert.equal(call.model,gemma);assert.deepEqual(call.input.chat_template_kwargs,{enable_thinking:false});
+ const usage=f.database.db.prepare("SELECT model,cost_usd_micros FROM ai_usage WHERE source='refine'").get();assert.deepEqual(usage,{model:gemma,cost_usd_micros:7});
+ const settings=await (await app.getWritingSettings(writingRequest(f))).json();assert.equal(settings.defaultModel,gemma);assert(settings.models.some(m=>m.id===gemma&&m.rates.input===0.1));assert.equal(settings.preferences.modelId,null);
+});
+
+test('a personal model choice persists with tone/style and changes only that user writing requests',async t=>{
+ const f=await fixture(t);configureWritingModels(f);const preferences={modelId:mistral,tone:'friendly',style:'correct',instructions:'Use short paragraphs.'};
+ assert.equal((await app.patchWritingSettings(writingRequest(f,'PATCH',preferences))).status,200);assert.deepEqual((await (await app.getWritingSettings(writingRequest(f))).json()).preferences,preferences);
+ assert.equal((await f.post()).status,200);assert.equal(f.calls.at(-1).model,mistral);assert.equal(f.calls.at(-1).input.chat_template_kwargs,undefined);assert.match(f.calls.at(-1).input.messages[0].content,/Correct spelling/);assert.match(f.calls.at(-1).input.messages[0].content,/warm, friendly/);
+ assert.equal((await f.post({},'sender')).status,200);assert.equal(f.calls.at(-1).model,gemma);assert.equal((await app.getAgentModel(f.env)).modelId,'chat-model');
+});
+
+test('unapproved models cannot be saved and removed models fall back without invoking the removed model',async t=>{
+ const f=await fixture(t);configureWritingModels(f);assert.equal((await app.patchWritingSettings(writingRequest(f,'PATCH',{modelId:'unapproved-costly-model'}))).status,400);assert.equal(f.calls.length,0);
+ await app.patchWritingSettings(writingRequest(f,'PATCH',{modelId:mistral,tone:'direct'}));f.database.db.prepare("UPDATE app_settings SET agent_model=? WHERE id='default'").run('chat-model, '+gemma);
+ assert.equal((await (await app.getWritingSettings(writingRequest(f))).json()).preferences.modelId,null);assert.equal((await f.post()).status,200);assert.equal(f.calls.at(-1).model,gemma);assert.match(f.calls.at(-1).input.messages[0].content,/clear, direct tone/);
+ f.database.db.prepare("UPDATE app_settings SET agent_model='chat-model' WHERE id='default'").run();assert.equal((await f.post()).status,200);assert.equal(f.calls.at(-1).model,'chat-model');assert.equal(f.calls.at(-1).input.chat_template_kwargs,undefined);
+});
+
+test('Cloudflare model discovery accepts current object-shaped task metadata and preserves prices',async t=>{
+ const f=await fixture(t);t.mock.method(globalThis,'fetch',async()=>Response.json({result:[{name:gemma,task:{name:'Text Generation'},properties:[{property_id:'price',value:[{unit:'per M input tokens',price:0.1,currency:'USD'},{unit:'per M output tokens',price:0.3,currency:'USD'}]}]},{name:'@cf/legacy/model',task:'Text Generation'},{name:'@cf/not-a-writer',task:{name:'Text Classification'}}]}));
+ const catalog=await app.listCloudflareAgentModels({...f.env,CF_ACCOUNT_ID:'test-account',CF_TOKEN:'test-token'});assert.equal(catalog.source,'catalog');assert.deepEqual(catalog.models.map(m=>m.id),[gemma,'@cf/legacy/model']);assert.deepEqual(catalog.models[0].rates,{input:0.1,output:0.3});
+});
+
+
+test('Kimi K3 is a selectable personal alternative while Gemma remains the writing default',async t=>{
+ const f=await fixture(t);configureWritingModels(f);const kimi='moonshotai/kimi-k3';f.database.db.prepare("UPDATE app_settings SET agent_model=? WHERE id='default'").run(['chat-model',gemma,mistral,kimi].join(', '));
+ const response=await app.patchWritingSettings(writingRequest(f,'PATCH',{modelId:kimi,tone:'professional',style:'shorter',instructions:'Short paragraphs.'}));assert.equal(response.status,200);assert.equal((await response.json()).preferences.modelId,kimi);
+ assert.equal((await f.post()).status,200);assert.equal(f.calls.at(-1).model,kimi);assert.equal(f.calls.at(-1).input.chat_template_kwargs,undefined);assert.match(f.calls.at(-1).input.messages[0].content,/Make the text more concise/);
+ assert.equal((await f.post({},'sender')).status,200);assert.equal(f.calls.at(-1).model,gemma);assert.equal((await app.getAgentModel(f.env)).modelId,'chat-model');
 });

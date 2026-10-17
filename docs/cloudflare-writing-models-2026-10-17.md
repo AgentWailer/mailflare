@@ -74,3 +74,20 @@ Clef/Clef Flash/Clef Omni are decision/classification models and should remain s
 - [Official Cloudflare API model-list definitions](https://github.com/cloudflare/cloudflare-typescript/blob/main/src/resources/ai/models/models.ts) — query parameters and endpoint.
 - Model input schemas were read from `/accounts/{account}/ai/models/schema?model=…`, including Gemma’s `enable_thinking` and Kimi’s `reasoning_effort`.
 - Live synthetic probe results are summarized above; they do not certify future language quality.
+
+
+## Follow-up: configured writing models
+
+The subsequent setup enabled Gemma 4 as the writing default with thinking off,
+with Mistral Small 3.1, GPT-OSS 120B and Kimi K3 selectable under Settings → Account
+→ AI writing style. This is a personal model preference independent of the chat
+assistant's model. The original assistant default is preserved.
+
+Kimi K3 availability was subsequently confirmed using Cloudflare's OpenAI-compatible
+`/accounts/{account}/ai/v1/chat/completions` endpoint with the exact
+`moonshotai/kimi-k3` model ID. A live synthetic call using the app's model resolver
+and AI SDK returned a corrected German message in 9.50s, preserving its name,
+amount and date. Its price was not published by the native catalog used in this
+review, so no price is invented; the settings state that no token price is
+configured. This resolves the earlier availability uncertainty, but does not
+establish a comparative quality ranking for Kimi K3.

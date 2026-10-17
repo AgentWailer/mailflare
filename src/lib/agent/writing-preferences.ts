@@ -1,13 +1,14 @@
 import { z } from "zod";
 
 export const writingPreferencesSchema = z.object({
+	modelId: z.string().trim().min(1).max(200).nullable().default(null),
 	tone: z.enum(["keep", "professional", "friendly", "direct", "formal"]).default("keep"),
 	style: z.enum(["polish", "correct", "shorter", "longer"]).default("polish"),
 	instructions: z.string().trim().max(2_000).default(""),
 }).strict();
 
 export type WritingPreferences = z.infer<typeof writingPreferencesSchema>;
-export const DEFAULT_WRITING_PREFERENCES: WritingPreferences = { tone: "keep", style: "polish", instructions: "" };
+export const DEFAULT_WRITING_PREFERENCES: WritingPreferences = { modelId: null, tone: "keep", style: "polish", instructions: "" };
 
 export function readWritingPreferences(stored?: string | null): WritingPreferences {
 	try {

@@ -1,8 +1,6 @@
 import { generateText } from "ai";
 import type { RefineInput } from "./refine-input";
-import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { mailboxAgentSettings } from "@/db/schema";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { recordAiUsage } from "@/lib/ai/usage";
 import type { SessionUser } from "@/lib/auth/types";
@@ -48,12 +46,12 @@ export async function refineEmail(env: CloudflareEnv, user: SessionUser, input: 
 	if (!(await getMailboxAccessLevel(db, user, input.mailboxId))?.canSendOnBehalf) throw new RefineError("forbidden", 403);
 	if (!await getAgentEnabled(env)) throw new RefineError("disabled", 503);
 	const prompt = input.action === "reply" ? JSON.stringify({ userInstruction: input.instruction, sender: input.replyContext?.from, to: input.replyContext?.to, cc: input.replyContext?.cc, subject: input.replyContext?.subject, conversation: await replyHistory(db, user, input), originalBody: input.text }) : input.instruction ? JSON.stringify({ userInstruction: input.instruction, originalBody: input.text, subject: input.replyContext?.subject }) : input.text;
-	const [settings] = await db.select({ modelId: mailboxAgentSettings.modelId }).from(mailboxAgentSettings).where(eq(mailboxAgentSettings.mailboxId, input.mailboxId)).limit(1);
-	const selection = await getAgentModel(env, settings?.modelId);
+	const preferences = readWritingPreferences(user.writingPreferences);
+	const selection = await getAgentModel(env, preferences.modelId, "refine");
 	if (!selection) throw new RefineError("not_configured", 503);
 	const result = await generateText({
 		model: selection.model,
-		system: refineSystemPrompt(input, readWritingPreferences(user.writingPreferences)),
+		system: refineSystemPrompt(input, preferences),
 		prompt,
 		maxOutputTokens: 4096,
 		maxRetries: 0,

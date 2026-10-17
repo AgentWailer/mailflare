@@ -2,12 +2,16 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createWorkersAI } from "workers-ai-provider";
 import { getAgentProviderConfig } from "./provider";
 import { agentTimeContext } from "./time";
+import { CLOUDFLARE_WRITING_MODEL, defaultWritingModel } from "./provider-constants";
 
-export async function getAgentModel(env: CloudflareEnv, requestedModel?: string | null) {
+export async function getAgentModel(env: CloudflareEnv, requestedModel?: string | null, purpose: "assistant" | "refine" = "assistant") {
 	const config = await getAgentProviderConfig(env);
-	const modelId = requestedModel && config.models.includes(requestedModel) ? requestedModel : config.model;
+	const modelId = requestedModel && config.models.includes(requestedModel) ? requestedModel : purpose === "refine" ? defaultWritingModel(config) : config.model;
 	const details = { modelId, provider: config.provider === "cloudflare" ? "cloudflare" : config.preset, rates: config.rates[modelId] };
-	if (config.provider === "cloudflare") return env.AI ? { model: createWorkersAI({ binding: env.AI })(modelId), ...details } : null;
+	if (config.provider === "cloudflare") {
+		const settings = purpose === "refine" && modelId === CLOUDFLARE_WRITING_MODEL ? { chat_template_kwargs: { enable_thinking: false } } : {};
+		return env.AI ? { model: createWorkersAI({ binding: env.AI })(modelId, settings), ...details } : null;
+	}
 	if (config.baseUrl && config.apiKey && modelId) {
 		const provider = createOpenAICompatible({ name: "mailflare", baseURL: config.baseUrl, apiKey: config.apiKey });
 		return { model: provider.chatModel(modelId), ...details };

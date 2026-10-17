@@ -103,3 +103,35 @@ checks; four writing-settings browser cases cover 320/390/1440px, light/dark,
 failed-save recovery, collapse, reload persistence and reset. The existing seven
 composer cases also remain passing. Build and targeted lint pass; the global
 TypeScript check retains the same 15 unrelated diagnostics.
+
+
+The writing-style section now includes a personal model selector with configured
+input/output token prices. Its nullable `modelId` lives in the existing per-user
+writing JSON, so no further migration or backup-table change is needed. A null
+choice uses the enabled Gemma 4 writing default; selecting a model pins that
+user's writing requests to it. Unknown models are rejected on save. Removing a
+model from the administrator's allowlist safely restores the writing default
+while retaining tone and style. The chat assistant keeps its own model selection.
+
+`getAgentModel` distinguishes assistant and refinement calls. Refinement uses
+`@cf/google/gemma-4-26b-a4b-it` when enabled and no personal choice is set, passing
+`chat_template_kwargs.enable_thinking=false` only for Gemma writing requests.
+Other providers and non-Gemma models retain their own settings. Cloudflare model
+catalog parsing accepts both legacy string task names and current `{name: ...}`
+objects, avoiding an incorrect fallback to old suggestions.
+
+The installation enables Gemma 4, Mistral Small 3.1 and GPT-OSS 120B as writing
+choices alongside the existing `moonshotai/kimi-k3`. Known native token prices
+were loaded from Cloudflare's live catalog. Kimi K3 remains selectable with an
+explicit unavailable-price message because its token price was not verified.
+The original first/default assistant model is retained. Live synthetic calls using
+the Mailflare model resolver and AI SDK succeeded against Cloudflare: Gemma
+without thinking in 1.20s and Kimi K3 in 9.50s for a short correction preserving
+name, amount and date. These calls used captured production model configuration
+with isolated database state and normal Cloudflare API transports; they did not
+log in to the protected production app or process/send real mail.
+
+Validation for model selection: 51 targeted unit checks, four settings browser
+cases (including persisted Mistral/Kimi switches, errors, reset, pricing and
+mobile/dark layouts), production build and targeted lint pass. The global
+TypeScript baseline is unchanged at 15 unrelated diagnostics.
