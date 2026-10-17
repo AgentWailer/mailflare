@@ -119,3 +119,28 @@ test('the visible Polish shortcut works without instructions and overrides a rem
  await click('Undo refinement');assert.equal(draft(),before);
  await cleanup();await mount({initialValue:'',replyContext:{threadId:'thread'}});await click('Polish');assert.equal(calls.length,1,'Polish never generates a reply from an empty body');assert.equal(document.activeElement.getAttribute('aria-label'),'Writing instruction');
 });
+
+test('pending glow never enters draft HTML and stops on error, retry and cancel',async t=>{
+ t.after(cleanup);let resolve;t.mock.method(globalThis,'fetch',()=>new Promise(r=>resolve=r));await mount({});const before=draft();
+ await click('Polish');assert(document.querySelector('[data-compose-refine-glow][data-scope="message"]'));assert.equal(editor().innerHTML,before);assert.equal(draft(),before);
+ await act(async()=>resolve(Response.json({code:'provider_error'},{status:502})));assert.equal(document.querySelector('[data-compose-refine-glow]'),null);assert.equal(draft(),before);
+ await click('Try again');assert(document.querySelector('[data-compose-refine-glow]'));await click('Cancel');assert.equal(document.querySelector('[data-compose-refine-glow]'),null);
+ await act(async()=>resolve(Response.json({text:'Late rewrite'})));assert.equal(draft(),before);
+});
+
+test('typing an instruction keeps its captured passage even after native selection disappears',async t=>{
+ t.after(cleanup);const calls=[];t.mock.method(globalThis,'fetch',async(_url,init)=>{calls.push(JSON.parse(init.body));return Response.json({text:'clearer prose'});});await mount({});
+ const node=editor().firstChild.firstChild,range=document.createRange();range.setStart(node,6);range.setEnd(node,23);
+ await act(async()=>{editor().focus();window.getSelection().removeAllRanges();window.getSelection().addRange(range);document.dispatchEvent(new Event('selectionchange'));});
+ const input=document.querySelector('input[aria-label="Writing instruction"]');
+ await act(async()=>{input.focus();window.getSelection().removeAllRanges();document.dispatchEvent(new Event('selectionchange'));Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Make it clearer');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await click('Generate text');assert.equal(calls[0].text,'badly worded text');assert.equal(calls[0].instruction,'Make it clearer');assert.equal(editor().textContent,'Hello clearer prose.');
+});
+
+test('explicit deselection clears captured passages instead of polishing an old selection',async t=>{
+ t.after(cleanup);const calls=[];t.mock.method(globalThis,'fetch',async(_url,init)=>{calls.push(JSON.parse(init.body));return Response.json({text:'Rewritten message.'});});await mount({});
+ const range=document.createRange(),node=editor().firstChild.firstChild;range.setStart(node,6);range.setEnd(node,23);
+ await act(async()=>{editor().focus();window.getSelection().removeAllRanges();window.getSelection().addRange(range);document.dispatchEvent(new Event('selectionchange'));});
+ await act(async()=>{window.getSelection().removeAllRanges();editor().blur();document.dispatchEvent(new Event('selectionchange'));});
+ await click('Polish');assert.equal(calls[0].text,'Hello badly worded text.');
+});

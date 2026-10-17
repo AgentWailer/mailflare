@@ -24,6 +24,8 @@ import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
 import { RefineControls } from "./refine-controls";
 import { captureRefineTarget, applyRefinement } from "./refine-utils";
 import { readRefinePreferences, saveRefinePreferences } from "./refine-preferences";
+import { ComposeSelectionAction } from "./compose-selection-action";
+import { ComposeRefineGlow } from "./compose-refine-glow";
 import { ComposeAiBar } from "./compose-ai-bar";
 import type { RefineTarget } from "./refine-utils";
 import type { RefineReplyContext } from "@/lib/agent/refine-input";
@@ -62,6 +64,8 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
 	const { t } = useLanguage();
 	const editorRef = useRef<HTMLDivElement | null>(null);
+	const scrollRef = useRef<HTMLDivElement | null>(null);
+	const [refinePending, setRefinePending] = useState(false);
 	const [active, setActive] = useState<Record<string, boolean>>({});
 	const [formattingOpen, setFormattingOpen] = useState(false);
 	const [instruction, setInstruction] = useState("");
@@ -116,11 +120,12 @@ export function RichTextEditor({
 		onChange(sanitizeEmailHtml(editorRef.current?.innerHTML ?? "", { forOutgoing: true }) ?? "");
 	}
 
-	function openRefine(instructionText = "", polishOnly = false) {
+	function openRefine(instructionText = "", polishOnly = false, explicitSelection?: RefineTarget) {
 		const element = editorRef.current;
 		if (!element || !mailboxId) return;
 		setLinkOpen(false);
-		const selection = (pendingSelection.current?.snapshot === element.innerHTML ? pendingSelection.current : null) ?? captureRefineTarget(element, "selection", window.getSelection());
+		if (explicitSelection && (explicitSelection.snapshot !== element.innerHTML || !element.contains(explicitSelection.startNode) || !element.contains(explicitSelection.endNode))) return;
+		const selection = explicitSelection ?? captureRefineTarget(element, "selection", window.getSelection()) ?? (pendingSelection.current?.snapshot === element.innerHTML ? pendingSelection.current : null);
 		const message = captureRefineTarget(element, "message", null);
 		if (polishOnly && !selection && !message) { promptRef.current?.focus(); return; }
 		const hasHistory = !!(replyContext?.threadId || replyContext?.inReplyTo || replyContext?.quotedText?.trim());
@@ -131,6 +136,8 @@ export function RichTextEditor({
 		setRefine({ instruction: instructionText.trim(), mailboxId, snapshot: element.innerHTML, draftReply: !selection && !message, replyContext, contextKey: JSON.stringify(replyContext), selection, message: message ?? captureRefineTarget(element, "message", null, true) });
 		pendingSelection.current = null;
 		element.blur();
+		// The cloned target range stays intact; native blue selection would hide the glow.
+		if (selection) window.getSelection()?.removeAllRanges();
 	}
 
 	function closeRefine() { setRefine(null); }
@@ -209,7 +216,7 @@ export function RichTextEditor({
 
 	return (
 		<div className={cn("relative flex min-h-0 flex-1 flex-col", className)}>
-			<div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+			<div ref={scrollRef} className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
 				<div
 					ref={editorRef}
 					id={id}
@@ -230,6 +237,7 @@ export function RichTextEditor({
 						disabled && "cursor-not-allowed opacity-60",
 					)}
 				/>
+    {refine && refinePending && (refine.selection ?? refine.message) && <ComposeRefineGlow target={(refine.selection ?? refine.message)!} editorRef={editorRef} scrollRef={scrollRef}/>}
 				{quotedHtml && (
 					<div className="px-4 pb-3">
 						<button
@@ -247,11 +255,12 @@ export function RichTextEditor({
 					</div>
 				)}
 			</div>
+   <ComposeSelectionAction key={mailboxId} editorRef={editorRef} scrollRef={scrollRef} enabled={!!mailboxId && !disabled && !refine} onCapture={target => { pendingSelection.current = target; }} onPolish={target => openRefine("", true, target)}/>
    {footerContent}
    {latestUndo && mailboxId === latestUndo.mailboxId && <div data-compose-ai-undo className="mx-4 mb-2 flex shrink-0 items-center gap-2 text-xs text-neutral-600"><span role="status" className="min-w-0 flex-1">{t("refine.updated")}</span><button type="button" disabled={disabled || !!refine} onClick={undoRefine} aria-label={t("refine.undo")} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 font-medium text-blue-700 hover:bg-blue-50 md:min-h-8"><Undo2 aria-hidden="true" className="h-4 w-4"/>{t("refine.undoShort")}</button></div>}
-   {mailboxId && !refine && <ComposeAiBar inputRef={promptRef} instruction={instruction} onInstructionChange={setInstruction} preferences={preferences} onPreferencesChange={setPreferences} disabled={disabled} onSubmit={() => openRefine(instruction)} onPolish={() => openRefine("", true)} onCaptureSelection={() => { const element = editorRef.current; pendingSelection.current = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; }} />}
+   {mailboxId && !refine && <ComposeAiBar inputRef={promptRef} instruction={instruction} onInstructionChange={setInstruction} preferences={preferences} onPreferencesChange={setPreferences} disabled={disabled} onSubmit={() => openRefine(instruction)} onPolish={() => openRefine("", true)} onCaptureSelection={() => { const element = editorRef.current; const target = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; if (target || pendingSelection.current?.snapshot !== element?.innerHTML) pendingSelection.current = target; }} />}
 
-   {refine && <RefineControls draftReply={refine.draftReply} replyContext={refine.replyContext} instruction={refine.instruction} preferences={preferences} mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onApply={applyRefine} onClose={closeRefine}/>}
+   {refine && <RefineControls draftReply={refine.draftReply} replyContext={refine.replyContext} instruction={refine.instruction} preferences={preferences} mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onApply={applyRefine} onClose={closeRefine} onPendingChange={setRefinePending}/>}
    {formattingOpen && <div data-compose-formatting className="absolute inset-x-4 bottom-16 z-20 mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
 
 				{COMMANDS.map((item) => (
@@ -289,7 +298,7 @@ export function RichTextEditor({
    <div className="compose-toolbar relative flex shrink-0 items-center gap-0.5 bg-white px-3 pb-3 pt-1 md:px-4">
     {toolbarStart}
     <Tooltip label={t("editor.formatting")}><button type="button" aria-label={t("editor.formatting")} aria-expanded={formattingOpen} disabled={disabled || !!refine} onMouseDown={event=>event.preventDefault()} onClick={()=>setFormattingOpen(open=>!open)} className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 md:h-9 md:w-9",formattingOpen&&"bg-neutral-100 text-neutral-900")}><Type aria-hidden="true" className="h-5 w-5"/></button></Tooltip>
-    {mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled || !!refine} onPointerDown={()=>{const e=editorRef.current;pendingSelection.current=e?captureRefineTarget(e,"selection",window.getSelection()):null;}} onMouseDown={event=>event.preventDefault()} onClick={()=>openRefine()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-blue-700 hover:bg-blue-50 disabled:opacity-50 md:h-9 md:w-9"><Sparkles aria-hidden="true" className="h-5 w-5"/></button></Tooltip>}
+    {mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled || !!refine} onPointerDown={()=>{const e=editorRef.current;const target=e?captureRefineTarget(e,"selection",window.getSelection()):null;if(target||pendingSelection.current?.snapshot!==e?.innerHTML)pendingSelection.current=target;}} onMouseDown={event=>event.preventDefault()} onClick={()=>openRefine()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-blue-700 hover:bg-blue-50 disabled:opacity-50 md:h-9 md:w-9"><Sparkles aria-hidden="true" className="h-5 w-5"/></button></Tooltip>}
 
     {toolbarAttachment}
 				<Tooltip label={t("editor.insertLinkHint")}>

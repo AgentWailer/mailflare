@@ -18,7 +18,7 @@ const ERRORS: Record<string, TranslationKey> = {
 	history_missing: "refine.historyMissing", history_too_long: "refine.historyTooLong",
 };
 
-export function RefineControls({ mailboxId, selection, message, draftReply, replyContext, instruction, preferences, onApply, onClose }: {
+export function RefineControls({ mailboxId, selection, message, draftReply, replyContext, instruction, preferences, onApply, onClose, onPendingChange }: {
  mailboxId: string;
  selection: RefineTarget | null;
  message: RefineTarget | null;
@@ -28,11 +28,13 @@ export function RefineControls({ mailboxId, selection, message, draftReply, repl
  preferences: RefinePreferences;
  onApply: (target: RefineTarget, text: string) => boolean;
  onClose: () => void;
+ onPendingChange?: (pending: boolean) => void;
 }) {
  const { t } = useLanguage();
 	const [generation, setGeneration] = useState(0);
 	const [error, setError] = useState<TranslationKey | null>(null);
 	const [pending, setPending] = useState(true);
+	useEffect(() => { onPendingChange?.(pending); return () => onPendingChange?.(false); }, [pending, onPendingChange]);
 	const target = selection ?? message;
 	const { mode, language } = preferences;
 	const hasHistory = !!(replyContext?.threadId || replyContext?.inReplyTo || replyContext?.quotedText?.trim());

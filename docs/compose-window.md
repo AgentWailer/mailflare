@@ -32,6 +32,22 @@ preference. An empty body focuses the instruction field instead of generating a
 reply. Typing an instruction switches the row to its Generate action. The normal
 direct-edit, autosave and Undo behavior applies to both actions.
 
+Selecting an editable passage shows a small, 44px-high **Polish** action near the
+selection. Pointer/touch activation preserves the captured range. The existing
+Polish button and custom instructions also use that passage; focusing the writing
+instruction field retains it even when the browser clears its native selection.
+Explicit deselection, changes to the draft, switching mailboxes or leaving the
+composer prevent old selections from being reused. Escape dismisses the action.
+Placement follows the editor scroll area and visual viewport, including resize
+and keyboard changes, without opening a modal or trapping focus.
+
+While a request is pending, only its target text receives a subtle blue/violet
+shimmer. A Custom Highlight adds text glow where supported; an external range
+rectangle layer also works without that API. Neither changes contentEditable
+HTML, captured ranges or autosave payloads. The visual stops on completion,
+error, cancellation and unmount, and restarts on retry. Reduced-motion preferences
+use a static highlight. Signatures and quoted history stay outside the target.
+
 Signatures, quoted history and embedded images remain protected. The server uses
 the existing configured model, mailbox permissions, origin checks, rate limiting
 and usage accounting. Author instructions are separate from untrusted email
@@ -45,11 +61,16 @@ instructions, cancellation, stale replies, sequential undo and real autosave
 payloads. `tests/browser/compose-window.mjs` uses the real form and production CSS
 with synthetic APIs at 320/390/430/768/1024/1440px, light/dark themes, simulated
 keyboard viewports, minimize/expand, prompt generation and reachable controls.
+It also verifies touch/mouse selection actions, selection-only API payloads and
+exact surrounding HTML, Undo, scoped glow geometry, reduced motion, the fallback
+without Custom Highlight, highlight cleanup and failed-request retry/cancel.
 `reading-pane.mjs` also exercises replies and page composers. Browser emulation
 does not certify a physical iPhone keyboard or the live provider's prose quality.
 
-The production build, 37 targeted unit checks, seven composer browser cases and
-29 reading-pane cases passed. The new AI/editor code passes targeted ESLint.
+For the selection/glow change, the production build, 28 targeted unit checks
+(`refine-editor`, `refine-ui`, `compose-network-errors`) and seven composer browser
+cases passed. The changed AI/editor code passes targeted ESLint. The prior
+composer release also passed 29 reading-pane browser cases.
 The global TypeScript check retains 15 pre-existing unrelated diagnostics; the
 existing form and scheduling component retain their baseline four lint errors
 and one warning. The change does not claim a clean global check.
