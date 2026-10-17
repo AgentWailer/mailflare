@@ -25,6 +25,13 @@ editing and sending; Cancel aborts the request and ignores late responses. Error
 keep the original draft and offer retry. Sending always requires the normal Send
 action and existing approval flow where applicable.
 
+When the instruction field is empty, a visible **Polish** button in that same row
+improves the selected passage or editable body without requiring a prompt. It uses
+the polish style even after another style was selected, retaining the language
+preference. An empty body focuses the instruction field instead of generating a
+reply. Typing an instruction switches the row to its Generate action. The normal
+direct-edit, autosave and Undo behavior applies to both actions.
+
 Signatures, quoted history and embedded images remain protected. The server uses
 the existing configured model, mailbox permissions, origin checks, rate limiting
 and usage accounting. Author instructions are separate from untrusted email

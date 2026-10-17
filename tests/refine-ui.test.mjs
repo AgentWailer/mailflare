@@ -43,7 +43,7 @@ test('one click updates only the selected passage in the actual draft, with imme
  t.after(cleanup);const calls=[];t.mock.method(globalThis,'fetch',async(url,init)=>{calls.push(JSON.parse(init.body));return Response.json({text:'gut formulierter Text'});});
  await mount({locale:'de'});const before=editor().innerHTML,node=editor().firstChild.firstChild;
  const range=document.createRange();range.setStart(node,6);range.setEnd(node,23);window.getSelection().addRange(range);
- await click('Überarbeiten');assert.equal(calls.length,1);assert.equal(calls[0].text,'badly worded text');
+ await click('Polish');assert.equal(calls.length,1);assert.equal(calls[0].text,'badly worded text');
  assert.equal(editor().textContent,'Hello gut formulierter Text.');assert.equal(draft(),editor().innerHTML);assert.equal(preview(),null);assert.equal(button('Send').disabled,false);assert(!document.body.textContent.includes('Ersetzen'));
  await click('Überarbeitung rückgängig machen');assert.equal(editor().innerHTML,before);assert.equal(draft(),before);
 });
@@ -107,4 +107,15 @@ test('writing instructions generate a new body in place, preserve the signature 
 
 test('incomplete image output and invalid model text do not alter the draft',async t=>{
  t.after(cleanup);t.mock.method(globalThis,'fetch',async()=>Response.json({text:'Missing the original image.'}));await mount({initialValue:'<p>Hello</p><img src="/image.png">'});const before=draft();await click('Refine');assert.equal(draft(),before);assert.ok(document.querySelector('[role="alert"]'));await click('Cancel');assert.equal(draft(),before);
+});
+
+
+test('the visible Polish shortcut works without instructions and overrides a remembered different style',async t=>{
+ t.after(cleanup);const calls=[];t.mock.method(globalThis,'fetch',async(_url,init)=>{calls.push(JSON.parse(init.body));return Response.json({text:'Polished message.'});});
+ await mount({});const before=draft();await click('Refine settings');
+ const style=[...document.querySelectorAll('select')].find(s=>s.querySelector('option[value="shorter"]'));
+ await act(async()=>{style.value='shorter';style.dispatchEvent(new Event('change',{bubbles:true}));});
+ await click('Polish');assert.equal(calls.length,1);assert.equal(calls[0].mode,'polish');assert.equal(calls[0].instruction,'');assert.equal(editor().textContent,'Polished message.');assert.equal(button('Send').disabled,false);
+ await click('Undo refinement');assert.equal(draft(),before);
+ await cleanup();await mount({initialValue:'',replyContext:{threadId:'thread'}});await click('Polish');assert.equal(calls.length,1,'Polish never generates a reply from an empty body');assert.equal(document.activeElement.getAttribute('aria-label'),'Writing instruction');
 });

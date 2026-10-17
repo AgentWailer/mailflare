@@ -116,15 +116,18 @@ export function RichTextEditor({
 		onChange(sanitizeEmailHtml(editorRef.current?.innerHTML ?? "", { forOutgoing: true }) ?? "");
 	}
 
-	function openRefine(instructionText = "") {
+	function openRefine(instructionText = "", polishOnly = false) {
 		const element = editorRef.current;
 		if (!element || !mailboxId) return;
 		setLinkOpen(false);
 		const selection = (pendingSelection.current?.snapshot === element.innerHTML ? pendingSelection.current : null) ?? captureRefineTarget(element, "selection", window.getSelection());
 		const message = captureRefineTarget(element, "message", null);
+		if (polishOnly && !selection && !message) { promptRef.current?.focus(); return; }
 		const hasHistory = !!(replyContext?.threadId || replyContext?.inReplyTo || replyContext?.quotedText?.trim());
 		if (!selection && !message && !hasHistory && !instructionText.trim()) { promptRef.current?.focus(); return; }
-		saveRefinePreferences(preferences);
+		const selectedPreferences = polishOnly ? { ...preferences, mode: "polish" as const } : preferences;
+		if (polishOnly) setPreferences(selectedPreferences);
+		saveRefinePreferences(selectedPreferences);
 		setRefine({ instruction: instructionText.trim(), mailboxId, snapshot: element.innerHTML, draftReply: !selection && !message, replyContext, contextKey: JSON.stringify(replyContext), selection, message: message ?? captureRefineTarget(element, "message", null, true) });
 		pendingSelection.current = null;
 		element.blur();
@@ -246,7 +249,7 @@ export function RichTextEditor({
 			</div>
    {footerContent}
    {latestUndo && mailboxId === latestUndo.mailboxId && <div data-compose-ai-undo className="mx-4 mb-2 flex shrink-0 items-center gap-2 text-xs text-neutral-600"><span role="status" className="min-w-0 flex-1">{t("refine.updated")}</span><button type="button" disabled={disabled || !!refine} onClick={undoRefine} aria-label={t("refine.undo")} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 font-medium text-blue-700 hover:bg-blue-50 md:min-h-8"><Undo2 aria-hidden="true" className="h-4 w-4"/>{t("refine.undoShort")}</button></div>}
-   {mailboxId && !refine && <ComposeAiBar inputRef={promptRef} instruction={instruction} onInstructionChange={setInstruction} preferences={preferences} onPreferencesChange={setPreferences} disabled={disabled} onSubmit={() => openRefine(instruction)} onCaptureSelection={() => { const element = editorRef.current; pendingSelection.current = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; }} />}
+   {mailboxId && !refine && <ComposeAiBar inputRef={promptRef} instruction={instruction} onInstructionChange={setInstruction} preferences={preferences} onPreferencesChange={setPreferences} disabled={disabled} onSubmit={() => openRefine(instruction)} onPolish={() => openRefine("", true)} onCaptureSelection={() => { const element = editorRef.current; pendingSelection.current = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; }} />}
 
    {refine && <RefineControls draftReply={refine.draftReply} replyContext={refine.replyContext} instruction={refine.instruction} preferences={preferences} mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onApply={applyRefine} onClose={closeRefine}/>}
    {formattingOpen && <div data-compose-formatting className="absolute inset-x-4 bottom-16 z-20 mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">

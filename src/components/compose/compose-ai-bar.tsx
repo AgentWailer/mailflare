@@ -15,13 +15,14 @@ const MODES: Array<{ value: RefinePreferences["mode"]; label: TranslationKey }> 
  { value: "longer", label: "refine.longer" },
 ];
 
-export function ComposeAiBar({ inputRef, instruction, onInstructionChange, preferences, onPreferencesChange, onSubmit, onCaptureSelection, disabled }: {
+export function ComposeAiBar({ inputRef, instruction, onInstructionChange, preferences, onPreferencesChange, onSubmit, onPolish, onCaptureSelection, disabled }: {
  inputRef: RefObject<HTMLInputElement | null>;
  instruction: string;
  onInstructionChange(value: string): void;
  preferences: RefinePreferences;
  onPreferencesChange(value: RefinePreferences): void;
  onSubmit(): void;
+ onPolish(): void;
  onCaptureSelection(): void;
  disabled?: boolean;
 }) {
@@ -47,7 +48,11 @@ export function ComposeAiBar({ inputRef, instruction, onInstructionChange, prefe
    </label>
   </div>}
   <div className="flex min-h-11 items-center gap-1 rounded-full bg-[#f0f4f9] px-2 focus-within:ring-2 focus-within:ring-blue-300">
-   <Sparkles aria-hidden="true" className="ml-1 mr-1 h-4 w-4 shrink-0 text-neutral-600" />
+   {!instruction.trim() ? <button type="button" data-compose-polish disabled={disabled}
+    onPointerDown={onCaptureSelection} onMouseDown={event => event.preventDefault()} onClick={onPolish}
+    title={t("refine.polish")} className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50">
+    <Sparkles aria-hidden="true" className="h-4 w-4" />{t("refine.quickPolish")}
+   </button> : <Sparkles aria-hidden="true" className="ml-1 mr-1 h-4 w-4 shrink-0 text-neutral-600" />}
    <input ref={inputRef} type="text" aria-label={t("refine.instruction")} placeholder={t("refine.instructionPlaceholder")}
     maxLength={2000} value={instruction} disabled={disabled} onChange={event => onInstructionChange(event.target.value)}
     onPointerDown={onCaptureSelection} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (instruction.trim()) onSubmit(); } }}
