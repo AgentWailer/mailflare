@@ -521,10 +521,10 @@ export function ComposeForm({
 	const frameClass =
 		mode === "popup"
 			? minimized
-				? "compose-minimized fixed bottom-0 right-4 z-40 flex h-11 md:right-8 md:h-9 w-[min(260px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"
+				? "compose-minimized fixed bottom-0 right-4 z-40 flex h-11 md:right-8 md:h-9 w-[min(260px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-2xl"
 				: modalMode
 				? "compose-popup fixed left-1/2 top-1/2 z-50 flex h-[86dvh] w-[min(860px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
-				: "compose-popup fixed bottom-0 right-8 z-40 flex h-[min(520px,calc(100dvh-88px))] w-[min(560px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"
+				: "compose-popup fixed bottom-0 right-8 z-40 flex h-[min(640px,calc(100dvh-88px))] w-[min(600px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-2xl"
 			: "compose-page relative flex h-full min-h-0 md:min-h-[560px] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm";
 
 	return (
@@ -548,10 +548,10 @@ export function ComposeForm({
 						{t("compose.dropFiles")}
 					</div>
 				)}
-				<div className="compose-header flex min-h-11 shrink-0 items-center justify-between md:min-h-9 bg-neutral-800 text-white dark:bg-neutral-100 px-4 text-sm font-medium">
+				<div className="compose-header flex min-h-11 shrink-0 items-center justify-between bg-[#f0f4f9] px-4 text-sm font-medium text-neutral-800">
 					<span className="flex min-w-0 items-center gap-2 truncate  dark:text-neutral-900">
-						{threading?.inReplyTo && <Reply className="h-3.5 w-3.5 text-neutral-300" />}
-						{!threading?.inReplyTo && /^fwd?:/i.test(subject) && <Forward className="h-3.5 w-3.5 text-neutral-300" />}
+						{threading?.inReplyTo && <Reply className="h-3.5 w-3.5 text-neutral-600" />}
+						{!threading?.inReplyTo && /^fwd?:/i.test(subject) && <Forward className="h-3.5 w-3.5 text-neutral-600" />}
 						{loadingDraft
 							? t("compose.title.loading")
 							: threading?.inReplyTo
@@ -563,14 +563,14 @@ export function ComposeForm({
 										: t("compose.title.new")}
 					</span>
 					{mode === "popup" && (
-						<div className="flex shrink-0 items-center gap-1 md:gap-3 text-neutral-300">
-							<button type="button" onClick={() => { setMinimized((current) => !current); setDraggingFiles(false); }} aria-label={minimized ? t("compose.restore") : t("compose.minimize")} title={minimized ? t("compose.restore") : t("compose.minimize")} className="flex h-11 w-11 items-center justify-center rounded hover:bg-neutral-700 md:h-6 md:w-6 dark:hover:bg-neutral-200 hover:text-white">
+						<div className="flex shrink-0 items-center gap-1 md:gap-0 text-neutral-600">
+							<button type="button" onClick={() => { setMinimized((current) => !current); setDraggingFiles(false); }} aria-label={minimized ? t("compose.restore") : t("compose.minimize")} title={minimized ? t("compose.restore") : t("compose.minimize")} className="flex h-11 w-11 items-center justify-center rounded hover:bg-neutral-200/60 md:h-8 md:w-8 dark:hover:bg-neutral-200 hover:text-neutral-900">
 								{minimized ? <ChevronUp className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
 							</button>
-							<button type="button" onClick={() => { if (minimized) setMinimized(false); setModalMode((current) => !current); }} aria-label={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} title={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} className="hidden h-6 w-6 items-center justify-center rounded dark:hover:bg-neutral-200 hover:bg-neutral-700 hover:text-white md:flex">
+							<button type="button" onClick={() => { if (minimized) setMinimized(false); setModalMode((current) => !current); }} aria-label={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} title={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} className="hidden h-8 w-8 items-center justify-center rounded dark:hover:bg-neutral-200 hover:bg-neutral-200/60 hover:text-neutral-900 md:flex">
 								{modalMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
 							</button>
-							<button type="button" onClick={onClose} aria-label={t("compose.close")} className="flex h-11 w-11 items-center justify-center rounded hover:bg-neutral-700 md:h-6 md:w-6 dark:hover:bg-neutral-200 hover:text-white">
+							<button type="button" onClick={onClose} aria-label={t("compose.close")} className="flex h-11 w-11 items-center justify-center rounded hover:bg-neutral-200/60 md:h-8 md:w-8 dark:hover:bg-neutral-200 hover:text-neutral-900">
 								<X className="h-4 w-4" />
 							</button>
 						</div>
@@ -579,9 +579,9 @@ export function ComposeForm({
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")}>
 				{draftSaveFailed && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{t("compose.error.saveDraft")}</p>}
 				<div className="max-h-[45%] shrink-0 overflow-y-auto overscroll-contain">
-				<div className={addressRowClassName}>
+				<div className={cn(addressRowClassName, "compose-from-row")}>
 					<Label htmlFor={`${mode}-from`} className={addressLabelClassName}>{t("compose.from")}</Label>
-					<div className={cn(addressChipClassName, "relative max-w-[calc(100%-2.5rem)] border-neutral-200 bg-neutral-50 text-neutral-800 focus-within:ring-2 focus-within:ring-blue-500", (loadingDraft || senderOptions.length === 0) && "opacity-50")}>
+					<div className={cn(addressChipClassName, "relative max-w-[calc(100%-2.5rem)] rounded-md border-transparent bg-transparent px-0 text-neutral-600 focus-within:ring-2 focus-within:ring-blue-500", (loadingDraft || senderOptions.length === 0) && "opacity-50")}>
 						<span aria-hidden="true" className="truncate">{selectedFrom || t("compose.selectMailboxFirst")}</span>
 						<ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-neutral-400" />
 						{/* Keep the native sender picker on iOS, with a full row-height touch target. */}
@@ -678,7 +678,7 @@ export function ComposeForm({
 									type="submit"
 									size="sm"
 									disabled={loading || loadingDraft || refineActive || !fromAddr}
-									className="h-11 rounded-r-none px-4 md:h-8"
+									className="h-11 rounded-l-full rounded-r-none px-3 text-sm md:h-9 md:px-4"
 								>
 									{loading ? t("compose.preparing") : scheduledAt ? t("compose.schedule") : agentRevision !== null ? t("compose.reviewSend") : t("compose.send")}
 								</Button>
@@ -696,9 +696,8 @@ export function ComposeForm({
 							</div>
 						</>
 					}
-					toolbarEnd={
+					toolbarAttachment={
 						<>
-							{/* <span className="mx-1 h-5 w-px bg-neutral-200" /> */}
 							<Input
 								ref={attachmentInput}
 								type="file"
@@ -712,11 +711,13 @@ export function ComposeForm({
 									aria-label={t("compose.attachFiles")}
 									onClick={() => attachmentInput.current?.click()}
 									disabled={loading || loadingDraft}
-									className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 md:h-7 md:w-7 hover:text-neutral-900 disabled:pointer-events-none disabled:opacity-50"
+									className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 md:h-9 md:w-9 hover:text-neutral-900 disabled:pointer-events-none disabled:opacity-50"
 								>
 									<Paperclip className="h-4 w-4" />
 								</button>
 							</Tooltip>
+						</>}
+     toolbarEnd={<>
 							<span className="flex-1" />
 							<Tooltip label={t("compose.deleteDraft")}>
 								<button
@@ -724,7 +725,7 @@ export function ComposeForm({
 									aria-label={t("compose.deleteDraft")}
 									onClick={() => void deleteDraftAndClose()}
 									disabled={loading || loadingDraft || deletingDraft}
-									className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-red-50 md:h-7 md:w-7 hover:text-red-600 disabled:pointer-events-none disabled:opacity-50"
+									className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-red-50 md:h-9 md:w-9 hover:text-red-600 disabled:pointer-events-none disabled:opacity-50"
 								>
 									<Trash2 className="h-4 w-4" />
 								</button>

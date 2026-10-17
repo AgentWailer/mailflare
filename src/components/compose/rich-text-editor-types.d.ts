@@ -16,8 +16,9 @@ export type RichTextEditorProps = {
 	className?: string;
 	toolbarStart?: React.ReactNode;
 	toolbarEnd?: React.ReactNode;
+	toolbarAttachment?: React.ReactNode;
 	footerContent?: React.ReactNode;
-	/** Block sending while the user reviews an uncommitted suggestion. */
+	/** Block sending while an AI request is active. */
 	onRefineActiveChange?: (active: boolean) => void;
 };
 

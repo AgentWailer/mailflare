@@ -165,3 +165,13 @@ test('legacy single-message replies and quoted-history fallback use reply prompt
  assert.equal(JSON.parse(f.calls[1].input.messages.at(-1).content).conversation[0].text,'On Monday Julia wrote: Could we discuss the proposal?');
  assert.equal(f.database.db.prepare('SELECT COUNT(*) n FROM messages').get().n,1);
 });
+
+
+test('writing instructions create or edit a body without changing recipients, sending mail or saving server drafts',async t=>{
+ const f=await fixture(t);let response=await f.post({action:'compose',text:'',instruction:'Thank Julia for the meeting.',language:'keep'});assert.equal(response.status,200);
+ const messages=f.calls[0].input.messages;assert.match(messages[0].content,/draft an email body/);assert.match(messages[0].content,/language of the writing instruction/);assert.equal(JSON.parse(messages.at(-1).content).userInstruction,'Thank Julia for the meeting.');
+ response=await f.post({instruction:'Make this shorter and friendlier.'});assert.equal(response.status,200);assert.match(f.calls[1].input.messages[0].content,/separate userInstruction/);assert.equal(JSON.parse(f.calls[1].input.messages.at(-1).content).originalBody,'Hi can we meet tuesday?');
+ for(const input of [{action:'compose',text:'',instruction:''},{instruction:'x'.repeat(2001)}])assert.equal((await f.post(input)).status,400);
+ assert.equal((await f.post({action:'compose',text:'',instruction:'A short greeting'},'reader')).status,403);
+ assert.equal(f.database.db.prepare('SELECT count(*) n FROM messages').get().n,0);assert.equal(f.database.db.prepare('SELECT count(*) n FROM outbound_jobs').get().n,0);
+});

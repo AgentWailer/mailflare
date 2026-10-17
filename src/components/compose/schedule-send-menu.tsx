@@ -28,7 +28,7 @@ export function ScheduleSendMenu({ disabled, value, onChange, mailboxId, from, o
 				type="button"
 				disabled={disabled}
 				aria-label={t("schedule.optionsLabel")}
-				className="inline-flex h-11 md:h-8 items-center justify-center rounded-r-lg border-l border-blue-500 bg-blue-600 px-2 text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+				className="inline-flex h-11 md:h-9 items-center justify-center rounded-r-full border-l border-blue-500 bg-blue-600 px-2 text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
 			>
 				<ChevronDown className="h-4 w-4" />
 			</DropdownMenu.Trigger>

@@ -15,14 +15,16 @@ export const refineReplyContextSchema = z.object({
 export type RefineReplyContext = z.input<typeof refineReplyContextSchema>;
 export const refineSchema = z.object({
 	mailboxId: z.string().trim().min(1).max(200),
-	action: z.enum(["refine", "reply"]).default("refine"),
+	action: z.enum(["refine", "reply", "compose"]).default("refine"),
 	text: z.string().trim().max(REFINE_TEXT_LIMIT).default(""),
+	instruction: z.string().trim().max(2_000).default(""),
 	mode: z.enum(["polish", "professional", "friendly", "shorter", "longer"]),
 	language: z.enum(["keep", "de", "en"]),
 	protectedTokens: z.array(z.string().regex(/^\[\[MAILFLARE_IMAGE_[a-f0-9-]+_\d+\]\]$/)).max(100).refine(tokens => new Set(tokens).size === tokens.length).default([]),
 	replyContext: refineReplyContextSchema.optional(),
 }).superRefine((input, ctx) => {
 	if (input.action === "refine" && !input.text) ctx.addIssue({ code: "custom", path: ["text"], message: "Text is required for refinement" });
+	if (input.action === "compose" && !input.instruction) ctx.addIssue({ code: "custom", path: ["instruction"], message: "Writing instructions are required" });
 	if (input.action === "reply" && !input.replyContext?.threadId && !input.replyContext?.inReplyTo && !input.replyContext?.quotedText) ctx.addIssue({ code: "custom", path: ["replyContext"], message: "Conversation history is required" });
 });
 export type RefineInput = z.infer<typeof refineSchema>;

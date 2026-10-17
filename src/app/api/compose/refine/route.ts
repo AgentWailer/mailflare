@@ -1,5 +1,5 @@
 import { getEnv } from "@/lib/cloudflare";
-import { getCurrentUser } from "@/lib/auth/cookies";
+import { resolveCurrentUser } from "@/lib/auth/cookies";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { readJsonBody } from "@/lib/http/request";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
@@ -10,8 +10,8 @@ import { refineEmail, RefineError } from "@/lib/agent/refine";
 
 export async function POST(request: Request) {
 	const env = getEnv();
-	const user = await getCurrentUser(env, request);
-	if (!user) return Response.json({ code: "unauthorized" }, { status: 401 });
+	const { user, failure } = await resolveCurrentUser(env, request);
+	if (!user) return Response.json({ code: failure === "origin" ? "forbidden" : "unauthorized" }, { status: failure === "origin" ? 403 : 401 });
 	if (!hasValidSessionMutationOrigin(request)) return Response.json({ code: "forbidden" }, { status: 403 });
 	if (!await allowAgentRequest(env, `chat:${user.id}`)) return Response.json({ code: "rate_limit" }, { status: 429 });
 	let body: unknown;

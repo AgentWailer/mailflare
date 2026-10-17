@@ -76,3 +76,19 @@ test('autosave failure leaves a persistent warning until a later edit saves succ
  await act(async()=>t.mock.timers.tick(901));
  assert.ok(saves>=2);assert.equal(document.querySelector('[role="alert"]'),null);assert.match(editor().textContent,/A later edit/);
 });
+
+
+test('AI changes and undo autosave the actual body while preserving envelope fields',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const saves=[];
+ await mount(t,async(url,init)=>{
+  if(url==='/api/compose/refine')return Response.json({text:'A clearer message.'});
+  if(url==='/api/drafts/draft'&&init.method==='PATCH')saves.push(JSON.parse(init.body));
+  return null;
+ });
+ const original=editor().innerHTML;
+ await act(async()=>[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='Refine').click());
+ assert.equal(editor().textContent,'A clearer message.');assert.equal(send().disabled,false);
+ await act(async()=>t.mock.timers.tick(901));assert.equal(saves.at(-1).html,editor().innerHTML);assert.equal(saves.at(-1).to,'recipient@example.test');assert.equal(saves.at(-1).subject,'Test email');
+ await act(async()=>[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='Undo refinement').click());
+ assert.equal(editor().innerHTML,original);await act(async()=>t.mock.timers.tick(901));assert.equal(saves.at(-1).html,original);
+});

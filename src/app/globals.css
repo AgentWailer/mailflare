@@ -108,6 +108,12 @@ html, body {
 	animation: refine-preview-reveal 900ms ease-out both;
 }
 
+html.dark .compose-header,
+html.dark [data-compose-ai-bar] > div:last-child {
+	background-color: #303134;
+	color: #e8eaed;
+}
+
 @media (max-width: 1023px), (hover: none) and (pointer: coarse) {
 	:is(.label-group-toggle, .label-actions-trigger, .reorder-handle) { min-width: 44px; min-height: 44px; }
 	.email-presentation-action { min-height: 44px; }

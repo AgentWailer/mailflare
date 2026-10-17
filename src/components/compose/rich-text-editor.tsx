@@ -22,7 +22,9 @@ import { cn } from "@/lib/utils";
 import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
 import { RefineControls } from "./refine-controls";
-import { captureRefineTarget, applyRefinement, previewRefinement } from "./refine-utils";
+import { captureRefineTarget, applyRefinement } from "./refine-utils";
+import { readRefinePreferences, saveRefinePreferences } from "./refine-preferences";
+import { ComposeAiBar } from "./compose-ai-bar";
 import type { RefineTarget } from "./refine-utils";
 import type { RefineReplyContext } from "@/lib/agent/refine-input";
 import type { RichTextEditorProps, ToolbarCommand } from "./rich-text-editor-types";
@@ -54,6 +56,7 @@ export function RichTextEditor({
 	className,
 	toolbarStart,
 	toolbarEnd,
+	toolbarAttachment,
 	footerContent,
 	onRefineActiveChange,
 }: RichTextEditorProps) {
@@ -61,15 +64,20 @@ export function RichTextEditor({
 	const editorRef = useRef<HTMLDivElement | null>(null);
 	const [active, setActive] = useState<Record<string, boolean>>({});
 	const [formattingOpen, setFormattingOpen] = useState(false);
-	const [preview, setPreview] = useState<{ html: string; revision: number } | null>(null);
+	const [instruction, setInstruction] = useState("");
+	const [preferences, setPreferences] = useState(readRefinePreferences);
+	const promptRef = useRef<HTMLInputElement>(null);
 	const pendingSelection = useRef<RefineTarget | null>(null);
-	const previewRevision = useRef(0);
 	const [linkOpen, setLinkOpen] = useState(false);
 	const [linkUrl, setLinkUrl] = useState("");
 	const [showQuoted, setShowQuoted] = useState(false);
-	const [refine, setRefine] = useState<{ mailboxId: string; snapshot: string; draftReply: boolean; replyContext?: RefineReplyContext; contextKey: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
-	const [refineUndo, setRefineUndo] = useState<{ mailboxId: string; before: string; after: string } | null>(null);
+	const [refine, setRefine] = useState<{ mailboxId: string; snapshot: string; draftReply: boolean; replyContext?: RefineReplyContext; contextKey: string; instruction: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
+	const [refineUndo, setRefineUndo] = useState<Array<{ mailboxId: string; before: string; after: string }>>([]);
 	const savedRange = useRef<Range | null>(null);
+
+	const [undoMailbox, setUndoMailbox] = useState(mailboxId);
+	if (undoMailbox !== mailboxId) { setUndoMailbox(mailboxId); setRefineUndo([]); setInstruction(""); }
+	useEffect(() => { pendingSelection.current = null; }, [mailboxId]);
 
 	// Keep the DOM in step with the value without resetting the caret on every keystroke.
 	useEffect(() => {
@@ -77,7 +85,7 @@ export function RichTextEditor({
 		if (!element) return;
 		const safeValue = sanitizeEditorHtml(value);
 		if (element.innerHTML !== safeValue) element.innerHTML = safeValue;
-		if (refine && (mailboxId !== refine.mailboxId || element.innerHTML !== refine.snapshot || refine.draftReply && JSON.stringify(replyContext) !== refine.contextKey)) { setRefine(null); setPreview(null); }
+		if (refine && (mailboxId !== refine.mailboxId || element.innerHTML !== refine.snapshot || refine.draftReply && JSON.stringify(replyContext) !== refine.contextKey)) { setRefine(null); }
 	}, [value, mailboxId, refine, replyContext]);
 
 	useEffect(() => {
@@ -108,47 +116,40 @@ export function RichTextEditor({
 		onChange(sanitizeEmailHtml(editorRef.current?.innerHTML ?? "", { forOutgoing: true }) ?? "");
 	}
 
-	function openRefine() {
+	function openRefine(instructionText = "") {
 		const element = editorRef.current;
 		if (!element || !mailboxId) return;
 		setLinkOpen(false);
-		setPreview(null);
-		const selection = pendingSelection.current ?? captureRefineTarget(element, "selection", window.getSelection());
+		const selection = (pendingSelection.current?.snapshot === element.innerHTML ? pendingSelection.current : null) ?? captureRefineTarget(element, "selection", window.getSelection());
 		const message = captureRefineTarget(element, "message", null);
-		setRefine({ mailboxId, snapshot: element.innerHTML, draftReply: !selection && !message, replyContext, contextKey: JSON.stringify(replyContext), selection, message: message ?? captureRefineTarget(element, "message", null, true) });
+		const hasHistory = !!(replyContext?.threadId || replyContext?.inReplyTo || replyContext?.quotedText?.trim());
+		if (!selection && !message && !hasHistory && !instructionText.trim()) { promptRef.current?.focus(); return; }
+		saveRefinePreferences(preferences);
+		setRefine({ instruction: instructionText.trim(), mailboxId, snapshot: element.innerHTML, draftReply: !selection && !message, replyContext, contextKey: JSON.stringify(replyContext), selection, message: message ?? captureRefineTarget(element, "message", null, true) });
 		pendingSelection.current = null;
 		element.blur();
 	}
 
-	function showRefinePreview(target: RefineTarget | null, text: string | null) {
-		if (!target || text === null) { setPreview(null); return true; }
-		const element = editorRef.current;
-		if (!element || !refine || disabled || mailboxId !== refine.mailboxId) return false;
-		const html = previewRefinement(element, target, text);
-		if (html === null) return false;
-		setPreview({ html, revision: ++previewRevision.current });
-		return true;
-	}
-
-	function closeRefine() {
-		setRefine(null); setPreview(null);
-	}
+	function closeRefine() { setRefine(null); }
 
 	function applyRefine(target: RefineTarget, text: string) {
 		const element = editorRef.current;
 		if (!element || !refine || !mailboxId || disabled || mailboxId !== refine.mailboxId || !applyRefinement(element, target, text)) return false;
-		setRefineUndo({ mailboxId: refine.mailboxId, before: target.snapshot, after: element.innerHTML });
+		const entry = { mailboxId: refine.mailboxId, before: target.snapshot, after: element.innerHTML };
+		setRefineUndo(previous => [...(previous.at(-1)?.after === entry.before && previous.at(-1)?.mailboxId === mailboxId ? previous : []), entry].slice(-10));
+		setInstruction("");
 		emit();
 		return true;
 	}
 
-	function undoRefine() {
-		const element = editorRef.current;
-		if (!element || !refineUndo || disabled || mailboxId !== refineUndo.mailboxId || element.innerHTML !== refineUndo.after) { setRefineUndo(null); return; }
-		element.innerHTML = refineUndo.before;
-		setRefineUndo(null);
-		emit();
-	}
+	const latestUndo = refineUndo.at(-1);
+ function undoRefine() {
+  const element = editorRef.current;
+  if (!element || !latestUndo || disabled || mailboxId !== latestUndo.mailboxId || element.innerHTML !== latestUndo.after) { setRefineUndo([]); return; }
+  element.innerHTML = latestUndo.before;
+  setRefineUndo(previous => previous.slice(0, -1));
+  emit(); element.focus({ preventScroll: true });
+ }
 
 	function run(command: string, commandValue?: string) {
 		if (refine) return;
@@ -163,6 +164,7 @@ export function RichTextEditor({
 
 	function openLink() {
 		if (refine) return;
+		setFormattingOpen(false);
 		const selection = window.getSelection();
 		savedRange.current = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
 		setLinkUrl("");
@@ -195,6 +197,7 @@ export function RichTextEditor({
 	}
 
 	function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+		if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z" && latestUndo && editorRef.current?.innerHTML === latestUndo.after && mailboxId === latestUndo.mailboxId) { event.preventDefault(); undoRefine(); return; }
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
 			event.preventDefault();
 			openLink();
@@ -202,7 +205,7 @@ export function RichTextEditor({
 	}
 
 	return (
-		<div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+		<div className={cn("relative flex min-h-0 flex-1 flex-col", className)}>
 			<div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
 				<div
 					ref={editorRef}
@@ -212,22 +215,18 @@ export function RichTextEditor({
 					aria-label={t("editor.messageBody")}
 					contentEditable={!disabled && !refine}
 					aria-readonly={!!refine || disabled}
-					aria-hidden={!!preview}
-					inert={!!preview}
 					suppressContentEditableWarning
 					data-placeholder={placeholder}
-					onInput={() => { setRefineUndo(null); emit(); }}
+					onInput={() => { pendingSelection.current = null; setRefineUndo([]); emit(); }}
 					onBlur={emit}
 					onPaste={onPaste}
 					onKeyDown={event => { if (event.key === "Escape" && refine) { event.preventDefault(); closeRefine(); } else onKeyDown(event); }}
 					className={cn(
 						"email-body flex-1 max-w-none break-words px-4 py-3 text-base text-neutral-900 outline-none md:text-sm",
-						preview && "hidden",
 						"min-h-32 empty:before:pointer-events-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]",
 						disabled && "cursor-not-allowed opacity-60",
 					)}
 				/>
-				{preview && <div key={preview.revision} role="textbox" aria-readonly="true" aria-multiline="true" aria-label={t("refine.preview")} className="refine-preview email-body min-h-32 flex-1 max-w-none break-words px-4 py-3 text-base text-neutral-900 md:text-sm" dangerouslySetInnerHTML={{ __html: preview.html }} />}
 				{quotedHtml && (
 					<div className="px-4 pb-3">
 						<button
@@ -245,13 +244,12 @@ export function RichTextEditor({
 					</div>
 				)}
 			</div>
-			{refine && <RefineControls draftReply={refine.draftReply} replyContext={refine.draftReply ? refine.replyContext : undefined} mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onPreview={showRefinePreview} onApply={applyRefine} onClose={closeRefine} />}
-			{footerContent}
-			<div className="compose-toolbar relative flex shrink-0 flex-wrap items-center gap-0.5 border-t border-neutral-100 bg-white px-3 py-2 md:gap-0.5 md:px-4 md:py-3">
-				{mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled || !!refine} onPointerDown={() => { const element = editorRef.current; pendingSelection.current = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; }} onMouseDown={event => event.preventDefault()} onClick={openRefine} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 disabled:opacity-50 md:h-8 md:w-8"><Sparkles className="h-5 w-5" /></button></Tooltip>}
-				{toolbarStart}
-				<button type="button" aria-label={t("editor.formatting")} aria-expanded={formattingOpen} disabled={disabled || !!refine} onMouseDown={event => event.preventDefault()} onClick={() => setFormattingOpen(open => !open)} className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 md:hidden", formattingOpen && "bg-neutral-100 text-neutral-900")}><Type className="h-5 w-5" /></button>
-				<div className={cn("order-last w-full flex-wrap items-center gap-0.5 border-t border-neutral-100 pt-1 md:order-none md:flex md:w-auto md:border-0 md:pt-0", formattingOpen ? "flex" : "hidden")}>
+   {footerContent}
+   {latestUndo && mailboxId === latestUndo.mailboxId && <div data-compose-ai-undo className="mx-4 mb-2 flex shrink-0 items-center gap-2 text-xs text-neutral-600"><span role="status" className="min-w-0 flex-1">{t("refine.updated")}</span><button type="button" disabled={disabled || !!refine} onClick={undoRefine} aria-label={t("refine.undo")} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 font-medium text-blue-700 hover:bg-blue-50 md:min-h-8"><Undo2 aria-hidden="true" className="h-4 w-4"/>{t("refine.undoShort")}</button></div>}
+   {mailboxId && !refine && <ComposeAiBar inputRef={promptRef} instruction={instruction} onInstructionChange={setInstruction} preferences={preferences} onPreferencesChange={setPreferences} disabled={disabled} onSubmit={() => openRefine(instruction)} onCaptureSelection={() => { const element = editorRef.current; pendingSelection.current = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; }} />}
+
+   {refine && <RefineControls draftReply={refine.draftReply} replyContext={refine.replyContext} instruction={refine.instruction} preferences={preferences} mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onApply={applyRefine} onClose={closeRefine}/>}
+   {formattingOpen && <div data-compose-formatting className="absolute inset-x-4 bottom-16 z-20 mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
 
 				{COMMANDS.map((item) => (
 					<Tooltip key={item.command} label={t(item.labelKey)}>
@@ -271,18 +269,6 @@ export function RichTextEditor({
 						</button>
 					</Tooltip>
 				))}
-				<Tooltip label={t("editor.insertLinkHint")}>
-					<button
-						type="button"
-						aria-label={t("editor.insertLink")}
-						disabled={disabled || !!refine}
-						onMouseDown={(event) => event.preventDefault()}
-						onClick={openLink}
-						className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 md:h-7 md:w-7"
-					>
-						<Link2 className="h-4 w-4" />
-					</button>
-				</Tooltip>
 				<Tooltip label={t("editor.clearFormatting")}>
 					<button
 						type="button"
@@ -295,8 +281,26 @@ export function RichTextEditor({
 						<RemoveFormatting className="h-4 w-4" />
 					</button>
 				</Tooltip>
-				{refineUndo && <Tooltip label={t("refine.undo")}><button type="button" aria-label={t("refine.undo")} disabled={disabled || !!refine} onMouseDown={event => event.preventDefault()} onClick={undoRefine} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 md:h-7 md:w-7"><Undo2 className="h-4 w-4" /></button></Tooltip>}
-				</div>
+    <button type="button" onMouseDown={e=>e.preventDefault()} disabled={disabled || !!refine} onClick={openLink} aria-label={t("editor.insertLink")} className="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 md:hidden"><Link2 className="h-4 w-4"/></button>
+   </div>}
+   <div className="compose-toolbar relative flex shrink-0 items-center gap-0.5 bg-white px-3 pb-3 pt-1 md:px-4">
+    {toolbarStart}
+    <Tooltip label={t("editor.formatting")}><button type="button" aria-label={t("editor.formatting")} aria-expanded={formattingOpen} disabled={disabled || !!refine} onMouseDown={event=>event.preventDefault()} onClick={()=>setFormattingOpen(open=>!open)} className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 md:h-9 md:w-9",formattingOpen&&"bg-neutral-100 text-neutral-900")}><Type aria-hidden="true" className="h-5 w-5"/></button></Tooltip>
+    {mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled || !!refine} onPointerDown={()=>{const e=editorRef.current;pendingSelection.current=e?captureRefineTarget(e,"selection",window.getSelection()):null;}} onMouseDown={event=>event.preventDefault()} onClick={()=>openRefine()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-blue-700 hover:bg-blue-50 disabled:opacity-50 md:h-9 md:w-9"><Sparkles aria-hidden="true" className="h-5 w-5"/></button></Tooltip>}
+
+    {toolbarAttachment}
+				<Tooltip label={t("editor.insertLinkHint")}>
+					<button
+						type="button"
+						aria-label={t("editor.insertLink")}
+						disabled={disabled || !!refine}
+						onMouseDown={(event) => event.preventDefault()}
+						onClick={openLink}
+						className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 md:flex"
+					>
+						<Link2 className="h-4 w-4" />
+					</button>
+				</Tooltip>
 				{toolbarEnd}
 				{linkOpen && (
 					<div
