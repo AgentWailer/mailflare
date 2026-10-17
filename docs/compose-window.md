@@ -135,3 +135,28 @@ Validation for model selection: 51 targeted unit checks, four settings browser
 cases (including persisted Mistral/Kimi switches, errors, reset, pricing and
 mobile/dark layouts), production build and targeted lint pass. The global
 TypeScript baseline is unchanged at 15 unrelated diagnostics.
+
+
+The quoted-history button now owns the entire history disclosure in the composer.
+Previously, opening a reply's history shrank the flexible editor above it, moving
+the button upward. The shared HTML renderer could then fold the same history a
+second time, so the first click exposed another three-dot control instead of the
+original message. The composer now uses normal document flow for the editable
+body and quoted history, and disables the renderer's additional folding only in
+this context. Regular message readers retain their existing folding behavior.
+The compact visual pill has a 44px hit target, accessible show/hide labels and an
+expanded state. The blank writing area remains tappable, focusing the reply and
+placing the caret at the end without changing its HTML.
+
+The browser regression uses the actual composer with synthetic draft/refinement
+APIs and production CSS. Before the fix it reproduced an 80px upward jump and two
+nested quote controls. With the fix, 320/390px touch and 1440px light/dark cases
+open the complete nested history on the first click without moving the button.
+They also cover closing, keyboard reopening, blank-area focus, unmodified editor
+HTML and quoted-content preservation through autosave. A separate reader check
+confirms that normal message history is still folded by default. Existing seven
+composer browser cases and 28 editor/refinement/network-error unit checks pass,
+as do the production build and targeted lint. The global TypeScript check retains
+its existing 15 unrelated diagnostics. Browser checks run in Chromium with touch
+emulation; they do not establish a test on a physical iPhone or an authenticated
+production browser session.

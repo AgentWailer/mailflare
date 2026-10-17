@@ -19,8 +19,10 @@ const BASE_STYLE = `
 @media (max-width:1023px), (hover:none) and (pointer:coarse) { .email-quote-toggle > summary { width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; } }
 `;
 
-export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = false }: {
+export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = false, collapseQuotes = true }: {
 	html: string; className?: string; preserveLeadingQuote?: boolean;
+	/** The composer already owns the history disclosure; avoid folding it again. */
+	collapseQuotes?: boolean;
 }) {
 	const { t } = useLanguage();
 	const host = useRef<HTMLDivElement>(null);
@@ -42,7 +44,7 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		const base = document.createElement("style");
 		base.textContent = `${BASE_STYLE}\n${prepared.rootTag} { display:block; font:14px/1.5 Arial,sans-serif; color:#202124; background:#fff; color-scheme:light; overflow-wrap:anywhere; }\n${prepared.bodyTag} { display:block; }`;
 		const content = document.createElement("template");
-		content.innerHTML = collapseQuotedEmailHtml(prepared.html, preserveLeadingQuote) ?? "";
+		content.innerHTML = collapseQuotes ? collapseQuotedEmailHtml(prepared.html, preserveLeadingQuote) ?? "" : prepared.html;
 		const viewport = document.createElement(`${prepared.rootTag}-viewport`);
 		const canvas = document.createElement(`${prepared.rootTag}-canvas`);
 		canvas.appendChild(content.content);
@@ -69,7 +71,7 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		};
 		root.addEventListener("click", navigate);
 		return () => { stopFitting(); root.removeEventListener("click", navigate); };
-	}, [html, allowRemote, preserveLeadingQuote]);
+	}, [html, allowRemote, preserveLeadingQuote, collapseQuotes]);
 	useEffect(() => {
 		const root = host.current?.shadowRoot;
 		if (!root) return;
@@ -79,7 +81,7 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 		synchronize();
 		return () => { observer.disconnect(); theme.restore(); };
-	}, [html, allowRemote, preserveLeadingQuote, originalColors]);
+	}, [html, allowRemote, preserveLeadingQuote, collapseQuotes, originalColors]);
 	return <div className={`min-w-0 max-w-full ${className ?? ""}`}>
 		<div className="mb-2 flex flex-wrap justify-end gap-2">
 			<button type="button" aria-pressed={originalColors} className="email-presentation-action hidden items-center rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:inline-flex" onClick={() => setOriginalColorsSource(originalColors ? null : html)}>{t(originalColors ? "message.adaptColors" : "message.originalColors")}</button>

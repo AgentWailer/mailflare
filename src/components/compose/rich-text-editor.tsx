@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ClipboardEvent, KeyboardEvent } from "react";
 import {
 	Bold,
@@ -75,6 +75,7 @@ export function RichTextEditor({
 	const [linkOpen, setLinkOpen] = useState(false);
 	const [linkUrl, setLinkUrl] = useState("");
 	const [showQuoted, setShowQuoted] = useState(false);
+	const quoteContentId = useId();
 	const [refine, setRefine] = useState<{ mailboxId: string; snapshot: string; draftReply: boolean; replyContext?: RefineReplyContext; contextKey: string; instruction: string; selection: RefineTarget | null; message: RefineTarget | null } | null>(null);
 	const [refineUndo, setRefineUndo] = useState<Array<{ mailboxId: string; before: string; after: string }>>([]);
 	const savedRange = useRef<Range | null>(null);
@@ -216,7 +217,15 @@ export function RichTextEditor({
 
 	return (
 		<div className={cn("relative flex min-h-0 flex-1 flex-col", className)}>
-			<div ref={scrollRef} className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain" onClick={event => {
+				// The quote follows the actual text instead of shrinking a flex editor.
+				// Keep unused writing space tappable when the history is folded.
+				const element = editorRef.current;
+				if (event.target !== event.currentTarget || !element || disabled || refine) return;
+				element.focus({ preventScroll: true });
+				const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
+				const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+			}}>
 				<div
 					ref={editorRef}
 					id={id}
@@ -227,12 +236,13 @@ export function RichTextEditor({
 					aria-readonly={!!refine || disabled}
 					suppressContentEditableWarning
 					data-placeholder={placeholder}
+					style={{ minHeight: quotedHtml ? undefined : "max(8rem, 100%)" }}
 					onInput={() => { pendingSelection.current = null; setRefineUndo([]); emit(); }}
 					onBlur={emit}
 					onPaste={onPaste}
 					onKeyDown={event => { if (event.key === "Escape" && refine) { event.preventDefault(); closeRefine(); } else onKeyDown(event); }}
 					className={cn(
-						"email-body flex-1 max-w-none break-words px-4 py-3 text-base text-neutral-900 outline-none md:text-sm",
+						"email-body max-w-none break-words px-4 py-3 text-base text-neutral-900 outline-none md:text-sm",
 						"min-h-32 empty:before:pointer-events-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]",
 						disabled && "cursor-not-allowed opacity-60",
 					)}
@@ -242,16 +252,19 @@ export function RichTextEditor({
 					<div className="px-4 pb-3">
 						<button
 							type="button"
+							data-compose-quote-toggle
 							onClick={() => setShowQuoted((open) => !open)}
 							aria-expanded={showQuoted}
-							className="rounded-full border border-neutral-200 bg-neutral-100 px-2 text-xs leading-5 text-neutral-500 hover:bg-neutral-200"
+							aria-controls={quoteContentId}
+							aria-label={showQuoted ? t("editor.hideQuoted") : t("editor.showQuoted")}
+							className="flex h-11 w-11 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
 							title={showQuoted ? t("editor.hideQuoted") : t("editor.showQuoted")}
 						>
-							•••
+							<span aria-hidden="true" className="rounded-full border border-neutral-200 bg-neutral-100 px-2 text-xs leading-5 text-neutral-500 hover:bg-neutral-200">•••</span>
 						</button>
-						{showQuoted && (
-							<EmailHtmlRenderer className="mt-2" html={quotedHtml} preserveLeadingQuote />
-						)}
+						<div id={quoteContentId} data-compose-quote-content hidden={!showQuoted}>
+							{showQuoted && <EmailHtmlRenderer className="mt-2" html={quotedHtml} collapseQuotes={false} />}
+						</div>
 					</div>
 				)}
 			</div>
