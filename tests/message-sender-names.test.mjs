@@ -55,6 +55,7 @@ test('reading pane and conversation retain individual names from the same addres
   const detail=await app.getMessageWithBodyForUser(f.env,f.user,id);
   assert.equal(app.getMessageParty(detail.message,'social'),id==='first'?'Benjamin Ding':'Kerstin Baumgart');
   assert.equal(detail.message.fromContactName,null);assert.equal(detail.message.toContactName,null);
+  assert.equal(detail.message.fromContactHasAvatar,true);assert.equal(detail.message.toContactHasAvatar,false);
  }
  const foreign=await app.getMessageThreadForUser(f.env,{...f.user,id:'foreign',email:'foreign@example.test'},'first');assert.equal(foreign,null);
 });
@@ -90,4 +91,13 @@ test('the same protection applies to arbitrary providers, outbound-derived conta
   f.DB.db.prepare("UPDATE messages SET direction='outbound',status='sent',to_addr=? WHERE id='first'").run(`"Original Recipient" <${email}>`);
   const sent=(await f.list()).messages.find(row=>row.id==='first');assert.equal(app.getMessageParty(sent,'sent'),'Original Recipient');
  }
+});
+
+
+test('detail avatar flags reflect actual photos and remain scoped to their owner',async t=>{
+ const f=await fixture(t);
+ const names=await app.getMessageContactNames(f.env,'owner','receipt@apple.com','owner@example.test');
+ assert.equal(names.fromContactHasAvatar,false);assert.equal(names.toContactHasAvatar,false);
+ const foreign=await app.getMessageContactNames(f.env,'foreign','invitations@linkedin.com','owner@example.test');
+ assert.equal(foreign.fromContactHasAvatar,false,'another account photo is never inferred');
 });

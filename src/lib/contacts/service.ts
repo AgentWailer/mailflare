@@ -93,11 +93,21 @@ export async function getMessageContactNames(
 ): Promise<MessageContactNames> {
 	// `toAddr` may be a full recipient list; the name shown belongs to the first one.
 	const firstTo = getFirstEmailAddressEntry(toAddr);
-	const contactMap = await getContactDisplayNameMap(env, userId, [fromAddr, firstTo]);
+	const fromEmail = normalizeEmailAddress(fromAddr);
+	const toEmail = normalizeEmailAddress(firstTo);
+	const emails = Array.from(new Set([fromEmail, toEmail].filter(Boolean)));
+	const rows = emails.length ? await getDb(env).select({
+		email: contacts.email, displayName: contacts.displayName,
+		source: contacts.source, avatarKey: contacts.avatarKey,
+	}).from(contacts).where(and(eq(contacts.userId, userId), inArray(contacts.email, emails))) : [];
+	const from = rows.find(contact => contact.email === fromEmail);
+	const to = rows.find(contact => contact.email === toEmail);
 
 	return {
-		fromContactName: contactMap.get(normalizeEmailAddress(fromAddr)) ?? null,
-		toContactName: contactMap.get(normalizeEmailAddress(firstTo)) ?? null,
+		fromContactName: from?.source === "manual" ? from.displayName || null : null,
+		toContactName: to?.source === "manual" ? to.displayName || null : null,
+		fromContactHasAvatar: !!from?.avatarKey,
+		toContactHasAvatar: !!to?.avatarKey,
 	};
 }
 

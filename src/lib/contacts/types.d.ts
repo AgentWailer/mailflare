@@ -17,6 +17,8 @@ export type BlockContactInput = {
 };
 
 export type MessageContactNames = {
+	fromContactHasAvatar: boolean;
+	toContactHasAvatar: boolean;
 	fromContactName: string | null;
 	toContactName: string | null;
 };

@@ -6,4 +6,5 @@ export type ContactAvatarProps = {
 	managedAvatarUrl?: string;
 	fallbackAvatarUrl?: string;
 	className?: string;
+	priority?: boolean;
 };

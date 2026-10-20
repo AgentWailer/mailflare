@@ -12,7 +12,13 @@ import {
 	getManagedContactAvatarUrl,
 } from "./contact-avatar-utils";
 
-export function ContactAvatar({
+export function ContactAvatar(props: ContactAvatarProps) {
+	// Reset errors and local photo edits when the actual image identity changes.
+	const identity = JSON.stringify([props.mailboxId, normalizeEmailAddress(props.address), props.hasManagedAvatar ?? false, props.managedAvatarUrl, props.fallbackAvatarUrl]);
+	return <ContactAvatarContent key={identity} {...props} />;
+}
+
+function ContactAvatarContent({
 	mailboxId,
 	address,
 	name,
@@ -20,18 +26,11 @@ export function ContactAvatar({
 	managedAvatarUrl,
 	fallbackAvatarUrl,
 	className,
+	priority = false,
 }: ContactAvatarProps) {
 	const [managedAvatar, setManagedAvatar] = useState(hasManagedAvatar);
-	const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 	const [imageFailed, setImageFailed] = useState(false);
 	const [avatarVersion, setAvatarVersion] = useState(0);
-
-	useEffect(() => {
-		setManagedAvatar(hasManagedAvatar);
-		setAvatarUrl(null);
-		setImageFailed(false);
-		setAvatarVersion(0);
-	}, [address, hasManagedAvatar, mailboxId, managedAvatarUrl]);
 
 	useEffect(() => {
 		function onAvatarChanged(event: Event) {
@@ -39,6 +38,7 @@ export function ContactAvatar({
 			if (detail?.email === normalizeEmailAddress(address)) {
 				setManagedAvatar(!!detail.hasAvatar);
 				setAvatarVersion(Date.now());
+				setImageFailed(false);
 			}
 		}
 
@@ -46,18 +46,15 @@ export function ContactAvatar({
 		return () => window.removeEventListener(CONTACT_AVATAR_CHANGED_EVENT, onAvatarChanged);
 	}, [address]);
 
-	useEffect(() => {
-		setImageFailed(false);
-		if (managedAvatarUrl) {
-			setAvatarUrl(managedAvatarUrl);
-			return;
-		}
-		if (managedAvatar && mailboxId) {
-			setAvatarUrl(getManagedContactAvatarUrl(mailboxId, address, avatarVersion));
-			return;
-		}
-		setAvatarUrl(fallbackAvatarUrl ?? null);
-	}, [address, avatarVersion, mailboxId, managedAvatar, managedAvatarUrl, fallbackAvatarUrl]);
+	// Resolve synchronously, so cached logos are available on the very first render.
+	const managedSource = managedAvatarUrl || (managedAvatar && mailboxId
+		? getManagedContactAvatarUrl(mailboxId, address, avatarVersion) : null);
+	const avatarUrl = managedSource || fallbackAvatarUrl;
+	function onImageError() {
+		if (managedAvatarUrl) setImageFailed(true);
+		else if (managedAvatar) setManagedAvatar(false);
+		else setImageFailed(true);
+	}
 
 	return (
 		<span
@@ -66,18 +63,29 @@ export function ContactAvatar({
 			aria-hidden
 		>
 			{getContactAvatarInitial(name, address)}
-			{avatarUrl && !imageFailed && (
+			{avatarUrl && !imageFailed && (managedSource ? (
 				<ProgressiveAvatarImage
+					key={avatarUrl}
 					src={avatarUrl}
 					alt=""
+					priority={priority}
 					className="absolute inset-0 h-full w-full object-cover"
-					onError={() => {
-						if (managedAvatarUrl) setImageFailed(true);
-						else if (managedAvatar) setManagedAvatar(false);
-						else setImageFailed(true);
-					}}
+					onError={onImageError}
 				/>
-			)}
+			) : (
+				// Logos are already small: use the same URL in the list and reader.
+				// eslint-disable-next-line @next/next/no-img-element
+				<img
+					key={avatarUrl}
+					src={avatarUrl}
+					alt=""
+					loading={priority ? "eager" : "lazy"}
+					fetchPriority={priority ? "high" : "auto"}
+					decoding="async"
+					className="absolute inset-0 h-full w-full object-cover"
+					onError={onImageError}
+				/>
+			))}
 		</span>
 	);
 }

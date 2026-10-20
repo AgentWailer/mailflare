@@ -240,7 +240,8 @@ export default function MessageDetailPage() {
                 mailboxId={message.mailboxId}
                 address={message.fromAddr}
                 name={fromName}
-                hasAvatar={message.direction === "inbound"}
+                hasAvatar={message.fromContactHasAvatar}
+                priority
                 managedAvatarUrl={message.direction === "outbound" && message.mailboxId
                   ? `/api/mailboxes/${message.mailboxId}/avatar`
                   : undefined}

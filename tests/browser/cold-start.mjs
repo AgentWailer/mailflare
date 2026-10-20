@@ -10,7 +10,7 @@ const temporary=mkdtempSync(join(tmpdir(),'mailflare-cold-browser-'));
 const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const port=server.address().port;await new Promise(resolve=>server.close(resolve));
 let origin=process.env.MAILFLARE_COLD_START_ORIGIN,preview,browser,serverLog='';
 const user={id:'cold-user',email:'owner@example.test',name:'Test User',role:'admin',isPrimaryAdmin:true,canManageMailboxes:true,canManageDomains:true,canManageUsers:true,hasAvatar:false};
-const messages=Array.from({length:25},(_,i)=>({id:'cold-'+i,mailboxId:'cold-box',direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender'+i+'@example.test',toAddr:'owner@example.test',subject:'Cold start mail '+i,snippet:'Preview '+i,labels:[],createdAt:'2026-10-15T06:00:00Z'}));
+const messages=Array.from({length:25},(_,i)=>({id:'cold-'+i,mailboxId:'cold-box',direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:i===0?'Apple <receipt@apple.com>':'sender'+i+'@example.test',fromContactHasAvatar:false,toAddr:'owner@example.test',subject:'Cold start mail '+i,snippet:'Preview '+i,labels:[],createdAt:'2026-10-15T06:00:00Z'}));
 const counts={folders:Object.fromEntries(['inbox','promotions','social','invoices','orders','starred','all','snoozed','sent','scheduled','drafts','archived','spam','trash'].map(key=>[key,{total:25,unread:0}])),customFolders:{},mailboxes:[]};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms)),results=[];
 function response(path){
@@ -85,7 +85,7 @@ try{
  }
  // Native links must cover row padding/gaps, while selection and quick actions stay independent.
  for(const width of [1440,390]){
-  const {page,errors}=await screen(width);
+  const {page,errors,events}=await screen(width);
   const row=id=>page.locator(`[data-message-row="cold-${id}"]`);
   for(const [id,position] of [[0,'left'],[1,'top'],[2,'bottom'],[3,'right']]){
    await row(id).scrollIntoViewIfNeeded();const box=await row(id).boundingBox();assert(box);
@@ -93,6 +93,11 @@ try{
    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('a')?.getAttribute('href'),point),`/inbox/cold-${id}`,`${position} whitespace belongs to the native mail link`);
    await page.mouse.click(point.x,point.y);await page.getByText(`Message content cold-${id}`,{exact:true}).waitFor();
    assert.equal(new URL(page.url()).pathname,`/inbox/cold-${id}`);
+   if(id===0){
+    const logo=page.locator('[data-message-content] img[src="/sender-logos/apple.svg"]');await logo.waitFor();
+    assert.equal(await logo.getAttribute('loading'),'eager');assert.equal(await logo.getAttribute('fetchpriority'),'high');
+    assert(!events.some(event=>event.path==='/api/contacts/avatar'),'reading a sender without a saved photo must never probe a missing contact photo');
+   }
    if(width<768){await page.locator('[data-message-back]').click();await row(id).waitFor();}
   }
   await page.evaluate(()=>{window.__rowLinkClicks=0;document.addEventListener('click',event=>{if(event.target.closest('[data-message-row] a'))window.__rowLinkClicks++;});});
