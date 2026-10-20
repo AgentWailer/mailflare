@@ -5,6 +5,28 @@ import type { CachedMessageDetail } from "./detail-cache-types";
 let cacheGeneration = 0;
 const detailCache = new Map<string, CachedMessageDetail>();
 const detailRequests = new Map<string, Promise<CachedMessageDetail>>();
+const detailSizes = new Map<string, number>();
+const MAX_DETAIL_ENTRIES = 32;
+const MAX_DETAIL_BYTES = 16 * 1024 * 1024;
+let detailBytes = 0;
+
+/** Keep moved work bounded on phones too. Estimate UTF-16 strings without
+ * serializing an entire body again just to measure its size. */
+function cacheDetail(messageId: string, data: CachedMessageDetail) {
+	detailBytes -= detailSizes.get(messageId) ?? 0;
+	detailCache.delete(messageId); detailSizes.delete(messageId);
+	const strings = [...Object.values(data.message ?? {}), ...Object.values(data.body ?? {})];
+	const size = 2048 + strings.reduce<number>((total, value) => total + (typeof value === "string" ? value.length * 2 : 0), 0)
+		+ (data.attachments ?? []).reduce((total, attachment) => total + 256 + attachment.filename.length * 2, 0);
+	// A very large selected mail still displays; it simply isn't retained in the cache.
+	if (size > MAX_DETAIL_BYTES) return;
+	detailCache.set(messageId, data); detailSizes.set(messageId, size); detailBytes += size;
+	while (detailCache.size > MAX_DETAIL_ENTRIES || detailBytes > MAX_DETAIL_BYTES) {
+		const oldest = detailCache.keys().next().value!;
+		detailBytes -= detailSizes.get(oldest) ?? 0;
+		detailSizes.delete(oldest); detailCache.delete(oldest);
+	}
+}
 
 class MessageResponseError extends Error {
 	constructor(readonly status: number) { super("Unable to load message"); }
@@ -38,10 +60,13 @@ export function clearMessageDetailCache() {
 	cacheGeneration += 1;
 	detailCache.clear();
 	detailRequests.clear();
+	detailSizes.clear(); detailBytes = 0;
 }
 
 export function getCachedMessageDetail(messageId: string): CachedMessageDetail | undefined {
-	return detailCache.get(messageId);
+	const cached = detailCache.get(messageId);
+	if (cached) { detailCache.delete(messageId); detailCache.set(messageId, cached); }
+	return cached;
 }
 
 export function setCachedMessageRead(messageId: string, read: boolean): void {
@@ -51,7 +76,7 @@ export function setCachedMessageRead(messageId: string, read: boolean): void {
 
 export function primeMessageDetail(message: Message): void {
 	if (message.textBody === undefined && message.htmlBody === undefined) return;
-	detailCache.set(message.id, {
+	cacheDetail(message.id, {
 		message,
 		body: { textBody: message.textBody ?? null, htmlBody: message.htmlBody ?? null },
 	});
@@ -64,7 +89,7 @@ export function preloadMessageDetail(message: Message): void {
 }
 
 export async function fetchCachedMessageDetail(messageId: string, force = false): Promise<CachedMessageDetail> {
-	if (!force && detailCache.has(messageId)) return detailCache.get(messageId) ?? {};
+	if (!force && detailCache.has(messageId)) return getCachedMessageDetail(messageId) ?? {};
 	if (detailRequests.has(messageId)) return detailRequests.get(messageId) ?? {};
 	const generation = cacheGeneration;
 	const token = getClientSessionToken();
@@ -72,7 +97,7 @@ export async function fetchCachedMessageDetail(messageId: string, force = false)
 	const request = loadMessageDetail(messageId, current)
 		.then((data) => {
 			if (current() && detailRequests.get(messageId) === request) {
-				detailCache.set(messageId, data);
+				cacheDetail(messageId, data);
 			}
 			return data;
 		})

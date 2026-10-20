@@ -55,6 +55,8 @@ export type Message = {
 export type ThreadMessage = Message & {
 	textBody: string | null;
 	htmlBody: string | null;
+	/** False on the lightweight thread response; load its body on expansion. */
+	bodyLoaded?: boolean;
 	attachments: Array<{
 		contentId: string | null;
 		disposition: "attachment" | "inline";

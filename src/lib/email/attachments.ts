@@ -7,6 +7,7 @@ import type { SessionUser } from "@/lib/auth/types";
 import type {
 	AttachmentContent,
 	AttachmentMetadata,
+	AttachmentStorageInput,
 	StoredAttachment,
 } from "./attachment-types";
 
@@ -40,14 +41,18 @@ function sanitizeFilename(filename: string): string {
 	return normalized || "attachment";
 }
 
-export function validateAttachments(attachments: AttachmentContent[]): void {
+function attachmentSize(content: ArrayBuffer | Blob): number {
+	return content instanceof Blob ? content.size : content.byteLength;
+}
+
+export function validateAttachments(attachments: AttachmentStorageInput[]): void {
 	if (attachments.length > MAX_ATTACHMENT_COUNT) {
 		throw new Error(`A message can include at most ${MAX_ATTACHMENT_COUNT} attachments`);
 	}
 
 	let totalSize = 0;
 	for (const attachment of attachments) {
-		const size = attachment.content.byteLength;
+		const size = attachmentSize(attachment.content);
 		if (size > MAX_ATTACHMENT_SIZE) {
 			throw new Error(`${attachment.filename} exceeds the 25 MB attachment limit`);
 		}
@@ -62,7 +67,7 @@ export function validateAttachments(attachments: AttachmentContent[]): void {
 export async function storeMessageAttachments(
 	env: CloudflareEnv,
 	messageId: string,
-	attachments: AttachmentContent[],
+	attachments: AttachmentStorageInput[],
 	options?: { validate?: boolean },
 ): Promise<StoredAttachment[]> {
 	if (options?.validate !== false) validateAttachments(attachments);
@@ -71,6 +76,7 @@ export async function storeMessageAttachments(
 
 	try {
 		for (const attachment of attachments) {
+			const size = attachmentSize(attachment.content);
 			const id = newId("att");
 			const filename = sanitizeFilename(attachment.filename);
 			const r2Key = `attachments/${messageId}/${id}/${filename}`;
@@ -85,7 +91,7 @@ export async function storeMessageAttachments(
 				messageId,
 				filename,
 				type: attachment.type,
-				size: attachment.content.byteLength,
+				size,
 				disposition,
 				contentId: attachment.contentId ?? null,
 				r2Key,
@@ -95,7 +101,7 @@ export async function storeMessageAttachments(
 				messageId,
 				filename,
 				contentType: attachment.type,
-				size: attachment.content.byteLength,
+				size,
 				disposition,
 				contentId: attachment.contentId ?? null,
 				r2Key,
@@ -127,7 +133,7 @@ export async function copyMessageAttachments(
 		if (!object) continue;
 		const id = newId("att");
 		const r2Key = `attachments/${toMessageId}/${id}/${row.filename}`;
-		await env.BUCKET.put(r2Key, await object.arrayBuffer(), {
+		await env.BUCKET.put(r2Key, object.body, {
 			httpMetadata: { contentType: row.contentType },
 			customMetadata: { filename: row.filename, messageId: toMessageId },
 		});

@@ -6,6 +6,8 @@ import { readBlob, storeUpload } from "./blobs";
 import { processRequest, sessionState, validateRequest } from "./processor";
 import { buildSession } from "./session";
 import { getEmailState, getMailboxState } from "./state";
+import { readArrayBufferBody, readJsonBody } from "@/lib/http/request";
+import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import type { JmapContext } from "./types";
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...corsHeaders() };
@@ -41,12 +43,11 @@ export async function handleJmapRequest(request: Request, env: CloudflareEnv): P
 	}
 
 	if (path === "/jmap/api" && request.method === "POST") {
-		const length = Number(request.headers.get("content-length") ?? 0);
-		if (length > LIMITS.maxSizeRequest) return problemResponse("limit", 400, "Request too large", { limit: "maxSizeRequest" });
 		let body: unknown;
 		try {
-			body = await request.json();
-		} catch {
+			body = await readJsonBody(request, LIMITS.maxSizeRequest);
+		} catch (error) {
+			if (error instanceof RequestBodyTooLargeError) return problemResponse("limit", 400, "Request too large", { limit: "maxSizeRequest" });
 			return problemResponse("notJSON", 400, "Body is not valid JSON");
 		}
 		try {
@@ -84,7 +85,13 @@ export async function handleJmapRequest(request: Request, env: CloudflareEnv): P
 		const type = request.headers.get("content-type") || "application/octet-stream";
 		const disposition = request.headers.get("content-disposition") ?? "";
 		const name = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1] ?? null;
-		const stored = await storeUpload(ctx, await request.arrayBuffer(), type, name ? decodeURIComponent(name) : null);
+		let bytes: ArrayBuffer;
+		try { bytes = await readArrayBufferBody(request, LIMITS.maxSizeUpload); }
+		catch (error) {
+			if (error instanceof RequestBodyTooLargeError) return problemResponse("limit", 413, "Upload too large", { limit: "maxSizeUpload" });
+			throw error;
+		}
+		const stored = await storeUpload(ctx, bytes, type, name ? decodeURIComponent(name) : null);
 		if (!stored) return problemResponse("limit", 413, "Upload too large", { limit: "maxSizeUpload" });
 		return new Response(JSON.stringify(stored), { status: 201, headers: JSON_HEADERS });
 	}

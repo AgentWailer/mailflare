@@ -307,8 +307,7 @@ export async function getMessageWithBody(env: CloudflareEnv, userId: string, mes
 			.limit(1)
 		: [];
 	return {
-		message: { ...message, ...contactNames },
-		body: message,
+		...messageDetailPayload(message, contactNames),
 		attachments,
 		unsubscribeUrl,
 		scheduledAt: scheduledJob?.scheduledAt?.toISOString() ?? null,
@@ -324,7 +323,14 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 	const contactNames = await getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr);
 	const attachments = await listMessageAttachments(env, messageId);
 	const unsubscribeUrl = await getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key);
-	return { message: { ...message, ...contactNames }, body: message, attachments, unsubscribeUrl };
+	return { ...messageDetailPayload(message, contactNames), attachments, unsubscribeUrl };
+}
+
+/** Serialize each body once; raw storage pointers stay on the server. */
+function messageDetailPayload(message: typeof messages.$inferSelect, contactNames: Awaited<ReturnType<typeof getMessageContactNames>>) {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Omit the internal storage pointer instead of exposing it in the public payload.
+	const { textBody, htmlBody, rawR2Key: _raw, ...metadata } = message;
+	return { message: { ...metadata, ...contactNames }, body: { textBody, htmlBody } };
 }
 
 export async function getMessageMetadataForUser(env: CloudflareEnv, user: SessionUser, messageId: string) {

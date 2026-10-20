@@ -3,7 +3,7 @@ import { authFetch } from "@/lib/auth/client";
 import type { ThreadMessage, ThreadResponse } from "@/hooks/types";
 import type { UseMessageThreadResult } from "./conversation-thread-types";
 
-/** Loads every message in the conversation of `messageId`; refetches when mail changes. */
+/** Loads conversation headers; individual cards request bodies only on expansion. */
 export function useMessageThread(messageId: string, threadId: string | null | undefined): UseMessageThreadResult {
 	const [messages, setMessages] = useState<ThreadMessage[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ export function useMessageThread(messageId: string, threadId: string | null | un
 		async function load() {
 			setLoading(true);
 			try {
-				const response = await authFetch(`/api/messages/${messageId}/thread`);
+				const response = await authFetch(`/api/messages/${messageId}/thread?view=headers`);
 				const data = (await response.json()) as ThreadResponse;
 				if (!cancelled) setMessages(response.ok ? data.messages ?? [] : []);
 			} catch {

@@ -1,3 +1,5 @@
+import { readFormDataBody } from "@/lib/http/request";
+import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { NextResponse } from "next/server";
 import { assertPrimaryAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/cookies";
@@ -19,7 +21,9 @@ export async function PUT(request: Request) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
-	const form = await request.formData();
+	let form: FormData;
+	try { form = await readFormDataBody(request, MAX_BRANDING_ICON_SIZE + 64 * 1024); }
+	catch (error) { return NextResponse.json({ error: "Invalid branding upload" }, { status: error instanceof RequestBodyTooLargeError ? 413 : 400 }); }
 	const appName = String(form.get("appName") ?? "").trim();
 	const iconValue = form.get("icon");
 	if (!appName || appName.length > 60) {

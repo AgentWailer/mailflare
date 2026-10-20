@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
-import { getMessageThreadForUser } from "@/lib/email/thread-view";
+import { getMessageThreadForUser, ThreadBodyLimitError } from "@/lib/email/thread-view";
 
 type MessageRouteParams = {
 	params: Promise<{ messageId: string }>;
 };
 
-/** Every message in the same conversation as `messageId`, oldest first, with bodies. */
+/** Conversation headers, oldest first; bodies load separately when expanded. */
 export async function GET(request: Request, { params }: MessageRouteParams) {
 	const env = getEnv();
 	const user = await getCurrentUser(env, request);
@@ -16,7 +16,12 @@ export async function GET(request: Request, { params }: MessageRouteParams) {
 	}
 
 	const { messageId } = await params;
-	const data = await getMessageThreadForUser(env, user, messageId);
+	let data;
+	try { data = await getMessageThreadForUser(env, user, messageId, new URL(request.url).searchParams.get("view") !== "headers"); }
+	catch (error) {
+		if (error instanceof ThreadBodyLimitError) return NextResponse.json({ error: error.message }, { status: 413 });
+		throw error;
+	}
 	if (!data) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}

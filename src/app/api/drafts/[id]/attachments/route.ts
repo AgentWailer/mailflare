@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: DraftAttachmentUploadPa
 	const maxBytes = (await getOutboundAttachmentMaxMb(env)) * 1_000_000;
 	if (existing.length + files.length > MAX_ATTACHMENT_COUNT || files.some((file) => file.size > maxBytes) || existing.reduce((total, file) => total + file.size, 0) + files.reduce((total, file) => total + file.size, 0) > maxBytes) return Response.json({ error: "Draft attachments exceed the allowed count or outgoing size limit" }, { status: 400 });
 	try {
-		const attachments = await storeMessageAttachments(env, id, await Promise.all(files.map(async (file) => ({ filename: file.name, type: file.type || "application/octet-stream", content: await file.arrayBuffer(), disposition: "attachment" as const }))));
+		const attachments = await storeMessageAttachments(env, id, files.map(file => ({ filename: file.name, type: file.type || "application/octet-stream", content: file, disposition: "attachment" as const })));
 		await db.update(agentDraftMetadata).set({ revision: sql`${agentDraftMetadata.revision} + 1`, humanEditedAt: new Date() }).where(eq(agentDraftMetadata.draftId, id));
 		return Response.json({ attachments });
 	} catch (error) {

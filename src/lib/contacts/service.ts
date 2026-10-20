@@ -62,16 +62,13 @@ export async function getContactDisplayNameMap(env: CloudflareEnv, userId: strin
 	if (emails.length === 0) return new Map<string, string>();
 
 	const db = getDb(env);
-	const rows = await db
-		.select()
-		.from(contacts)
-		.where(and(eq(contacts.userId, userId), eq(contacts.source, "manual"), inArray(contacts.email, emails)));
-
-	return new Map(
-		rows
-			.filter((contact) => !!contact.displayName)
-			.map((contact) => [contact.email, contact.displayName!]),
-	);
+	const names = new Map<string, string>();
+	for (let offset = 0; offset < emails.length; offset += 80) {
+		const rows = await db.select({ email: contacts.email, displayName: contacts.displayName }).from(contacts)
+			.where(and(eq(contacts.userId, userId), eq(contacts.source, "manual"), inArray(contacts.email, emails.slice(offset, offset + 80))));
+		for (const contact of rows) if (contact.displayName) names.set(contact.email, contact.displayName);
+	}
+	return names;
 }
 
 export async function getContactAvatarMap(env: CloudflareEnv, userId: string, addresses: string[]) {
@@ -79,12 +76,13 @@ export async function getContactAvatarMap(env: CloudflareEnv, userId: string, ad
 	if (emails.length === 0) return new Map<string, boolean>();
 
 	const db = getDb(env);
-	const rows = await db
-		.select({ email: contacts.email, avatarKey: contacts.avatarKey })
-		.from(contacts)
-		.where(and(eq(contacts.userId, userId), inArray(contacts.email, emails)));
-
-	return new Map(rows.map((contact) => [contact.email, !!contact.avatarKey]));
+	const avatars = new Map<string, boolean>();
+	for (let offset = 0; offset < emails.length; offset += 80) {
+		const rows = await db.select({ email: contacts.email, avatarKey: contacts.avatarKey }).from(contacts)
+			.where(and(eq(contacts.userId, userId), inArray(contacts.email, emails.slice(offset, offset + 80))));
+		for (const contact of rows) avatars.set(contact.email, !!contact.avatarKey);
+	}
+	return avatars;
 }
 
 export async function getMessageContactNames(

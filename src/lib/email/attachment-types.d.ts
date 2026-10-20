@@ -7,6 +7,9 @@ export interface AttachmentContent {
 	type: string;
 }
 
+/** File/Blob uploads can be stored without an additional JS ArrayBuffer copy. */
+export type AttachmentStorageInput = Omit<AttachmentContent, "content"> & { content: ArrayBuffer | Blob };
+
 export interface AttachmentMetadata {
 	contentId: string | null;
 	disposition: "attachment" | "inline";

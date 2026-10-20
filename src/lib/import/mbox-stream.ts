@@ -41,7 +41,13 @@ export async function* readMboxRecords(file: MboxSource, offset = 0, options: { 
 	if (options.chunkSize !== undefined && (!Number.isSafeInteger(options.chunkSize) || options.chunkSize < 1024)) throw new Error("Invalid MBOX chunk size");
 	let parts: BlobPart[] = [], size = options.discard?.size ?? 0, inBody = !!options.discard, foundEnvelope = !!options.discard, discarding = !!options.discard;
 	let block = new Uint8Array(64 * 1024), used = 0;
-	const rawMessage = () => new Blob([...parts, block.slice(0, used)], { type: "message/rfc822" });
+	const rawMessage = () => {
+		const raw = new Blob([...parts, block.subarray(0, used)], { type: "message/rfc822" });
+		// Blob owns its bytes. Release the assembly buffers before yielding: the
+		// caller may now hold both this Blob and the MIME parser's ArrayBuffer.
+		parts = []; block = new Uint8Array(64 * 1024); used = 0;
+		return raw;
+	};
 	for await (const fragment of fragments(file, offset, options.chunkSize ?? MBOX_READ_CHUNK_SIZE, options.discard?.startsLine)) {
 		if (fragment.startsLine && fragment.endsLine && isEnvelope(fragment.bytes)) {
 			if (size) yield { raw: discarding || size > maximum ? null : rawMessage(), nextOffset: fragment.offset, size };

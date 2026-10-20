@@ -1,3 +1,5 @@
+import { readFormDataBody } from "@/lib/http/request";
+import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
@@ -23,7 +25,9 @@ export async function POST(request: Request, { params }: AccountRouteParams) {
 	const { access, account } = await getManagedAccount(request, id);
 	if (access.error) return access.error;
 	if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });
-	const form = await request.formData();
+	let form: FormData;
+	try { form = await readFormDataBody(request, 3 * 1024 * 1024); }
+	catch (error) { return NextResponse.json({ error: "Invalid avatar upload" }, { status: error instanceof RequestBodyTooLargeError ? 413 : 400 }); }
 	const images = getOptimizedAvatarFiles(form);
 	if (!images) return NextResponse.json({ error: "A resized WebP image and preview are required" }, { status: 400 });
 	const key = avatarKeyFor(account.id);

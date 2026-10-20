@@ -20,6 +20,8 @@ import {
 	partitionThread,
 } from "./conversation-thread-utils";
 import clsx from "clsx";
+import { fetchCachedMessageDetail } from "@/lib/messages/detail-cache";
+import type { CachedMessageDetail } from "@/lib/messages/detail-cache-types";
 
 /**
  * The other messages in a conversation, ordered oldest to newest and collapsed
@@ -110,7 +112,7 @@ export function ConversationThread({
 }
 
 export function ConversationMessageCard({
-	message,
+	message: summary,
 	mailboxId,
 	currentAccountName,
 	ownAddress,
@@ -120,8 +122,19 @@ export function ConversationMessageCard({
 }: ConversationMessageCardProps) {
 	const { t } = useLanguage();
 	const [locallyExpanded, setLocallyExpanded] = useState(defaultExpanded);
-	const [locallyRead, setLocallyRead] = useState(message.read);
+	const [detail, setDetail] = useState<CachedMessageDetail | null>(null);
+	const [loadFailure, setLoadFailure] = useState<{id:string;attempt:number} | null>(null);
+	const [attempt, setAttempt] = useState(0);
+	const loadFailed = loadFailure?.id === summary.id && loadFailure.attempt === attempt;
+	const loadedBody = detail?.message?.id === summary.id ? detail.body : null;
+	const message = loadedBody ? { ...summary, ...loadedBody, bodyLoaded: true } : summary;
+	const [readState, setReadState] = useState({ id: summary.id, source: summary.read, value: summary.read });
+	const readSourceChanged = readState.id !== summary.id || readState.source !== summary.read;
+	if (readSourceChanged) setReadState({ id: summary.id, source: summary.read, value: summary.read });
+	const locallyRead = readSourceChanged ? summary.read : readState.value;
+	const setLocallyRead = (value: boolean) => setReadState({ id: summary.id, source: summary.read, value });
 	const expanded = locallyExpanded;
+	const needsBody = summary.bodyLoaded === false && !loadedBody;
 	const sender = getConversationSender(message, currentAccountName);
 	const senderEmail = getConversationSenderEmail(message);
 	const recipients = getConversationRecipients(message, showFullRecipientAddresses ? "full" : "address");
@@ -129,10 +142,18 @@ export function ConversationMessageCard({
 	const outbound = message.direction === "outbound";
 	const attachments = message.attachments.filter((attachment) => attachment.disposition === "attachment");
 
-	useEffect(() => setLocallyRead(message.read), [message.read]);
+	useEffect(() => {
+		if (!expanded || !needsBody) return;
+		let cancelled = false;
+		void fetchCachedMessageDetail(summary.id).then(data => {
+			if (!data.body) throw new Error("Missing message body");
+			if (!cancelled) setDetail(data);
+		}).catch(() => { if (!cancelled) setLoadFailure({ id: summary.id, attempt }); });
+		return () => { cancelled = true; };
+	}, [expanded, needsBody, summary.id, attempt]);
 
 	let body: { html: string | null; text: string; quotedHtml: string | null } | null = null;
-	if (expanded) {
+	if (expanded && !needsBody) {
 		const display = getMessageBodyDisplay(message.textBody, message.htmlBody, message.snippet);
 		body = {
 			html: resolveInlineAttachmentUrls(display.htmlBody, message.id, message.attachments),
@@ -151,6 +172,7 @@ export function ConversationMessageCard({
 						onClick={() => {
 							const shouldExpand = !locallyExpanded;
 							setLocallyExpanded(shouldExpand);
+							if (shouldExpand) setLoadFailure(null);
 							if (!shouldExpand || locallyRead) return;
 							setLocallyRead(true);
 							void runSingleMessageAction(message.id, "read").catch(() => setLocallyRead(false));
@@ -188,9 +210,12 @@ export function ConversationMessageCard({
 						mailboxId={mailboxId}
 						ownAddress={ownAddress}
 						ownAddresses={ownAddresses}
-						starOnly={!expanded}
+						starOnly={!expanded || needsBody}
 					/>
 				</div>
+				{expanded && needsBody && <div className="pb-4 text-sm text-neutral-600" role={loadFailed ? "alert" : "status"}>
+					{loadFailed ? <><p>{t("message.loadFailed")}</p><button type="button" className="mt-2 rounded-lg border px-3 py-2" onClick={() => setAttempt(value => value + 1)}>{t("message.retry")}</button></> : t("nav.loadingPage")}
+				</div>}
 				{expanded && body && (
 					<div className="pb-4 pt-2">
 						{body.html ? (

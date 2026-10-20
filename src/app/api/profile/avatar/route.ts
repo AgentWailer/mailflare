@@ -1,3 +1,5 @@
+import { readFormDataBody } from "@/lib/http/request";
+import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { getCurrentUser } from "@/lib/auth/cookies";
@@ -22,9 +24,9 @@ export async function POST(request: Request) {
 
 	let form: FormData;
 	try {
-		form = await request.formData();
-	} catch {
-		return NextResponse.json({ error: "Expected multipart form data" }, { status: 400 });
+		form = await readFormDataBody(request, 3 * 1024 * 1024);
+	} catch (error) {
+		return NextResponse.json({ error: "Invalid avatar upload" }, { status: error instanceof RequestBodyTooLargeError ? 413 : 400 });
 	}
 	const images = getOptimizedAvatarFiles(form);
 	if (!images) return NextResponse.json({ error: "A resized WebP image and preview are required" }, { status: 400 });
