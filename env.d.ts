@@ -39,6 +39,9 @@ interface CloudflareEnv {
 	S3_REGION?: string;
 	S3_ACCESS_KEY_ID?: string;
 	S3_SECRET_ACCESS_KEY?: string;
+	/** Cloudflare Managed OAuth user assertions; issuer/audience must match the protected MCP application. */
+	MCP_ACCESS_ISSUER?: string;
+	MCP_ACCESS_AUDIENCE?: string;
 	CF_TOKEN?: string;
 	GMAIL_OAUTH_CLIENT_ID?: string;
 	GMAIL_OAUTH_CLIENT_SECRET?: string;

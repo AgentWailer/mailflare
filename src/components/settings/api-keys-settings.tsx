@@ -15,6 +15,7 @@ import { List, ListRow } from "@/components/ui/list";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
 import { formatUserDate } from "@/lib/time/utils";
 import { ChatGptActionSetup } from "./chatgpt-action-setup";
+import { McpOauthSettings } from "./mcp-oauth-settings";
 import { McpAgentInstructions } from "@/components/settings/mcp-agent-instructions";
 import type { ApiKeyScope } from "@/lib/api/scopes";
 import type { ManagedApiKey, McpKeyScope } from "./api-keys-settings-types";
@@ -96,19 +97,20 @@ export function ApiKeysSettings({ embedded = false }: { embedded?: boolean } = {
 		</div>
 		{!embedded && <p className="text-sm text-neutral-500">{t("apiKeys.description")}</p>}
 		{error && !createOpen && <p role="alert" className="text-sm text-red-600">{error}</p>}
+		<McpOauthSettings keys={keys} />
 		<section className="space-y-3">
 			{loading && <SectionRowSkeleton />}
 			{!loading && keys.length === 0 && <p className="rounded-2xl bg-white px-5 py-4 text-sm text-neutral-500">{t("apiKeys.none")}</p>}
-			<List>
-				{keys.map((key) => <ListRow key={key.id} className="px-5 py-4">
-					<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700"><KeyRound className="h-5 w-5" /></span>
+			<List className="min-w-0 grid-cols-1">
+				{keys.map((key) => <ListRow key={key.id} className="min-w-0 px-4 py-4 sm:px-5">
+					<span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 sm:flex"><KeyRound className="h-5 w-5" /></span>
 					<span className="min-w-0 flex-1 space-y-2">
 						<span className="flex min-w-0 flex-wrap items-center gap-2"><strong className="truncate text-sm font-semibold text-neutral-900">{key.name}</strong>{key.kind === "mcp" && <Badge variant="outline">MCP</Badge>}</span>
 						<span className="block truncate no-font-mono text-sm text-neutral-500">{key.prefix}… · {t("apiKeys.createdOn", { date: formatUserDate(key.createdAt, { dateStyle: "short" }) })} · {key.lastUsedAt ? t("apiKeys.lastUsed", { date: formatUserDate(key.lastUsedAt, { dateStyle: "short" }) }) : t("apiKeys.neverUsed")}</span>
-						<span className="flex flex-wrap gap-1">{keyPermissions(key).map((scope) => <Badge key={scope} variant="outline">{scope}</Badge>)}</span>
-						<span className="block text-xs text-neutral-500">{t("apiKeys.mailboxesLabel", { list: key.mailboxScopeEnabled || key.kind === "mcp" ? key.mailboxIds.map((id) => { const mailbox = mailboxes.find((item) => item.id === id); return mailbox ? `${mailbox.localPart}@${mailbox.hostname}` : id; }).join(", ") || t("common.none") : t("apiKeys.allAccessible") })}</span>
+						<span className="flex flex-wrap gap-1">{keyPermissions(key).map((scope) => <Badge key={scope} variant="outline" className="max-w-full break-all whitespace-normal">{scope}</Badge>)}</span>
+						<span className="block break-all text-xs text-neutral-500">{t("apiKeys.mailboxesLabel", { list: key.mailboxScopeEnabled || key.kind === "mcp" ? key.mailboxIds.map((id) => { const mailbox = mailboxes.find((item) => item.id === id); return mailbox ? `${mailbox.localPart}@${mailbox.hostname}` : id; }).join(", ") || t("common.none") : t("apiKeys.allAccessible") })}</span>
 					</span>
-					<Button type="button" size="sm" variant="outline" disabled={revokingId === key.id} onClick={() => void revoke(key)}><Trash2 className="h-4 w-4" />{revokingId === key.id ? t("common.revoking") : t("common.revoke")}</Button>
+					<Button type="button" size="sm" variant="outline" className="min-h-11 min-w-11 shrink-0" aria-label={`${t("common.revoke")}: ${key.name}`} title={t("common.revoke")} disabled={revokingId === key.id} onClick={() => void revoke(key)}><Trash2 className="h-4 w-4" /><span className="hidden sm:inline">{revokingId === key.id ? t("common.revoking") : t("common.revoke")}</span></Button>
 				</ListRow>)}
 			</List>
 		</section>

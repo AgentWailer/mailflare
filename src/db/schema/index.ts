@@ -1013,6 +1013,14 @@ export const messageBulkJobs = sqliteTable("message_bulk_jobs", {
  error: text("error"), dismissed: integer("dismissed").notNull().default(0), createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
 });
 
+export const mcpOauthGrants = sqliteTable("mcp_oauth_grants", {
+ userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+ keyId: text("key_id").notNull().references(() => apiKeys.id, { onDelete: "cascade" }),
+ issuer: text("issuer").notNull(), audience: text("audience").notNull(), subject: text("subject").notNull(), email: text("email").notNull(),
+ enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+ createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+}, t => [uniqueIndex("mcp_oauth_grants_identity_idx").on(t.issuer, t.subject)]);
+
 export const gmailImportConnections = sqliteTable("gmail_import_connections", {
 	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 	email: text("email").notNull(), tokens: text("tokens").notNull(),
@@ -1066,7 +1074,7 @@ export const paperlessJobs = sqliteTable("paperless_jobs", {
 }, t => [uniqueIndex("paperless_jobs_mailbox_attachment_idx").on(t.mailboxId,t.attachmentId), index("paperless_jobs_recovery_idx").on(t.status,t.retryAt,t.leaseUntil),index("paperless_jobs_mailbox_idx").on(t.mailboxId,t.createdAt),index("paperless_jobs_message_idx").on(t.messageId,t.status)]);
 
 export const schema = {
-	paperlessConnections, paperlessJobs,
+	paperlessConnections, paperlessJobs, mcpOauthGrants,
 	gmailImportConnections, gmailImportJobs, gmailOauthStates, gmailSentSync, gmailSentSyncIssues,
 	users,
 	domains,
