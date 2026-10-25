@@ -1,7 +1,7 @@
 /** Cloudflare handles OAuth/DCR; the origin independently verifies its user assertion. */
 export type AccessIdentity = {issuer:string;subject:string;email:string};
 const MAX_ASSERTION_BYTES=16*1024,MAX_CERT_BYTES=128*1024;
-type Certificates={issuer:string;expiresAt:number;lastAttempt:number;keys:Map<string,CryptoKey>;pending?:Promise<void>};
+type Certificates={issuer:string;expiresAt:number;lastAttempt:number;keys:Map<string,CryptoKey>;failed?:boolean;pending?:Promise<void>};
 let certificates:Certificates|undefined;
 
 export function mcpAccessConfiguration(env: CloudflareEnv) {
@@ -44,29 +44,53 @@ async function fetchCertificates(state:Certificates) {
 async function signingKey(issuer:string,kid:string) {
  if(certificates?.issuer!==issuer)certificates={issuer,expiresAt:0,lastAttempt:0,keys:new Map()};
  const state=certificates,now=Date.now();
- if(!state.pending && (state.expiresAt<=now || !state.keys.has(kid)) && now-state.lastAttempt>=60_000){
-  // Unknown key IDs cannot cause one network fetch per forged request.
-  state.lastAttempt=now;state.pending=fetchCertificates(state).finally(()=>{state.pending=undefined;});
+ if(!state.pending && (state.expiresAt<=now || !state.keys.has(kid)) && now-state.lastAttempt>=(state.failed?5000:60_000)){
+  // Unknown key IDs have a longer cooldown; temporary certificate-service
+  // failures can recover promptly without accepting stale or unverified keys.
+  state.lastAttempt=now;state.pending=fetchCertificates(state).then(()=>{state.failed=false;},error=>{state.failed=true;throw error;}).finally(()=>{state.pending=undefined;});
  }
  if(state.pending)await state.pending;
  if(state.expiresAt<=Date.now())return null;
  return state.keys.get(kid)??null;
 }
-export async function verifyAccessIdentity(env:CloudflareEnv,request:Request):Promise<AccessIdentity|null> {
- const config=mcpAccessConfiguration(env),assertion=request.headers.get("Cf-Access-Jwt-Assertion");
- if(!config.configured || !assertion || assertion.length>MAX_ASSERTION_BYTES)return null;
+export type AccessIdentityStatus = "verified" | "not_configured" | "missing_assertion" | "invalid_assertion" | "issuer_mismatch" | "audience_mismatch" | "expired_assertion" | "not_yet_valid" | "not_user_identity" | "certificates_unavailable" | "invalid_signature";
+export type AccessIdentityCheck = {identity:AccessIdentity|null;status:AccessIdentityStatus;source?:"header"|"cookie"};
+
+function accessApplicationCookie(request:Request):string|null {
+ // Cloudflare's application cookie contains the same signed application JWT.
+ // Never substitute an unverified email header or the Mailflare login session.
+ const cookie=request.headers.get("Cookie")??"";
+ const match=cookie.split(";").map(part=>part.trim()).find(part=>part.startsWith("CF_Authorization="));
+ if(!match)return null;
+ let value=match.slice("CF_Authorization=".length);
+ if(value.startsWith('"') && value.endsWith('"'))value=value.slice(1,-1);
+ try{return decodeURIComponent(value);}catch{return null;}
+}
+export async function inspectAccessIdentity(env:CloudflareEnv,request:Request):Promise<AccessIdentityCheck> {
+ const config=mcpAccessConfiguration(env);
+ if(!config.configured)return {identity:null,status:"not_configured"};
+ const header=request.headers.get("Cf-Access-Jwt-Assertion"),assertion=header || accessApplicationCookie(request),source=header?"header" as const:"cookie" as const;
+ const fail=(status:AccessIdentityStatus):AccessIdentityCheck=>({identity:null,status,source});
+ if(!assertion)return fail("missing_assertion");
+ if(assertion.length>MAX_ASSERTION_BYTES)return fail("invalid_assertion");
  try {
-  const segments=assertion.split(".");if(segments.length!==3)return null;
-  const header=parse(segments[0]),claims=parse(segments[1]),now=Math.floor(Date.now()/1000);
-  if(header.alg!=="RS256" || typeof header.kid!=="string" || !header.kid || header.kid.length>256 || header.crit!==undefined)return null;
+  const segments=assertion.split(".");if(segments.length!==3)return fail("invalid_assertion");
+  const protectedHeader=parse(segments[0]),claims=parse(segments[1]),now=Math.floor(Date.now()/1000);
+  if(protectedHeader.alg!=="RS256" || typeof protectedHeader.kid!=="string" || !protectedHeader.kid || protectedHeader.kid.length>256 || protectedHeader.crit!==undefined)return fail("invalid_assertion");
+  if(claims.iss!==config.issuer)return fail("issuer_mismatch");
   const audiences=Array.isArray(claims.aud)?claims.aud:[claims.aud];
-  if(claims.iss!==config.issuer || !audiences.includes(config.audience) || typeof claims.exp!=="number" || !Number.isFinite(claims.exp) || claims.exp<=now)return null;
-  if(typeof claims.iat!=="number" || !Number.isFinite(claims.iat) || claims.iat>now+30 || claims.iat>=claims.exp)return null;
-  if(claims.nbf!==undefined && (typeof claims.nbf!=="number" || !Number.isFinite(claims.nbf) || claims.nbf>now+30))return null;
-  // Service tokens do not represent a user and must never become user OAuth grants.
-  if(claims.type!=="app" || typeof claims.sub!=="string" || !claims.sub || claims.sub.length>256 || typeof claims.email!=="string" || claims.email.length>320 || !/^[^\s<>]+@[^\s<>]+$/.test(claims.email) || claims.email_verified===false || claims.common_name!==undefined)return null;
-  const key=await signingKey(config.issuer,header.kid);if(!key)return null;
-  if(!await crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,decode(segments[2]),new TextEncoder().encode(segments[0]+"."+segments[1])))return null;
-  return {issuer:config.issuer,subject:claims.sub,email:claims.email.toLowerCase()};
- }catch{return null;}
+  if(!audiences.includes(config.audience))return fail("audience_mismatch");
+  if(typeof claims.exp!=="number" || !Number.isFinite(claims.exp) || typeof claims.iat!=="number" || !Number.isFinite(claims.iat) || claims.iat>=claims.exp)return fail("invalid_assertion");
+  if(claims.exp<=now)return fail("expired_assertion");
+  if(claims.iat>now+30 || claims.nbf!==undefined && (typeof claims.nbf!=="number" || !Number.isFinite(claims.nbf) || claims.nbf>now+30))return fail("not_yet_valid");
+  if(claims.type!=="app" || typeof claims.sub!=="string" || !claims.sub || claims.sub.length>256 || typeof claims.email!=="string" || claims.email.length>320 || !/^[^\s<>]+@[^\s<>]+$/.test(claims.email) || claims.email_verified===false || claims.common_name!=null && claims.common_name!=="")return fail("not_user_identity");
+  let key:CryptoKey|null;
+  try{key=await signingKey(config.issuer,protectedHeader.kid);}catch{return fail("certificates_unavailable");}
+  if(!key)return fail("certificates_unavailable");
+  if(!await crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,decode(segments[2]),new TextEncoder().encode(segments[0]+"."+segments[1])))return fail("invalid_signature");
+  return {identity:{issuer:config.issuer,subject:claims.sub,email:claims.email.toLowerCase()},status:"verified",source};
+ }catch{return fail("invalid_assertion");}
+}
+export async function verifyAccessIdentity(env:CloudflareEnv,request:Request):Promise<AccessIdentity|null> {
+ return (await inspectAccessIdentity(env,request)).identity;
 }

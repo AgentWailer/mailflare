@@ -38,7 +38,7 @@ async function fixture(t){
 }
 test('Access user assertions require RS256, the exact issuer/audience, valid times and a verifiable user identity',async t=>{
  const f=await fixture(t);assert.deepEqual(await app.verifyAccessIdentity(f.env,f.request()),{issuer:f.env.MCP_ACCESS_ISSUER,subject:'google-person',email:'google-login@example.test'});
- for(const claims of [{iss:'https://attacker.cloudflareaccess.com'},{aud:['b'.repeat(64)]},{exp:1},{iat:Math.floor(Date.now()/1000)+60},{nbf:Math.floor(Date.now()/1000)+60},{email:undefined},{sub:undefined},{common_name:'service-token'},{email_verified:false},{type:'service'}])assert.equal(await app.verifyAccessIdentity(f.env,f.request(await f.jwt(claims))),null,JSON.stringify(claims));
+ for(const claims of [{iss:'https://attacker.cloudflareaccess.com'},{aud:['b'.repeat(64)]},{iat:Math.floor(Date.now()/1000)-7200,exp:Math.floor(Date.now()/1000)-3600},{iat:Math.floor(Date.now()/1000)+60},{nbf:Math.floor(Date.now()/1000)+60},{email:undefined},{sub:undefined},{common_name:'service-token'},{email_verified:false},{type:'service'}])assert.equal(await app.verifyAccessIdentity(f.env,f.request(await f.jwt(claims))),null,JSON.stringify(claims));
  assert.equal(await app.verifyAccessIdentity(f.env,f.request(await f.jwt({}, {alg:'HS256'}))),null);assert.equal(await app.verifyAccessIdentity(f.env,f.request(await f.jwt({}, {alg:'none'}))),null);
  const pieces=f.assertion.split('.');pieces[1]=Buffer.from(JSON.stringify({iss:f.env.MCP_ACCESS_ISSUER,aud:[f.env.MCP_ACCESS_AUDIENCE],sub:'attacker',email:'attacker@example.test',type:'app',iat:1,exp:9999999999})).toString('base64url');assert.equal(await app.verifyAccessIdentity(f.env,f.request(pieces.join('.'))),null);
  assert.equal(await app.verifyAccessIdentity(f.env,f.request('x'.repeat(17000))),null);assert.equal(f.calls.length,1,'invalid assertions do not repeatedly fetch certificates');
@@ -94,4 +94,33 @@ test('backup/restore keeps identity bindings and permissions but requires explic
 });
 test('copied connection instructions never embed the key and explain the separate OAuth registration step',()=>{
  for(const mode of ['mail','admin']){const text=app.buildMcpAgentPrompt('https://mailflare.test',{mode,apiKey:'ep_secret-must-never-be-copied'});assert(!text.includes('ep_secret-must-never-be-copied'));assert(text.includes('https://mailflare.test/mcp'));assert(text.includes('\nServer URL:'));if(mode==='mail'){assert(text.includes('OAuth'));assert(text.includes('does not register'));}}
+});
+
+test('a browser Access application cookie verifies when the forwarded assertion header is absent',async t=>{
+ const f=await fixture(t),headers=new Headers(f.browser().headers);headers.delete('Cf-Access-Jwt-Assertion');headers.set('Cookie',`ep_session=unrelated; CF_Authorization=${f.assertion}; other=value`);
+ const request=new Request(f.browser(),{headers});
+ const check=await app.inspectAccessIdentity(f.env,request);assert.equal(check.status,'verified');assert.equal(check.source,'cookie');assert.equal(check.identity.subject,'google-person');
+ const response=await app.consent(new Request(request,{method:'POST',body:JSON.stringify({enabled:true,keyId:'key'})}));assert.equal(response.status,200,await response.clone().text());assert((await response.json()).grant.enabled);
+ const mcp=new Request(f.request(null),{headers:{Cookie:`CF_Authorization=${f.assertion}`}});assert.equal((await app.authenticateMcpRequest(f.env,mcp)).keyId,'key');
+});
+test('cookie fallback rejects forged, expired, wrong-audience and machine cookies, and never overrides an invalid assertion header',async t=>{
+ const f=await fixture(t);
+ for(const token of ['unsigned',await f.jwt({iat:Math.floor(Date.now()/1000)-7200,exp:Math.floor(Date.now()/1000)-3600}),await f.jwt({aud:['b'.repeat(64)]}),await f.jwt({common_name:'machine',sub:'',email:undefined})]){
+  const request=new Request(f.browser(),{headers:{Authorization:'Bearer '+f.sessions.owner,Cookie:`CF_Authorization=${token}`}});assert.equal(await app.verifyAccessIdentity(f.env,request),null);
+ }
+ const conflict=new Request(f.browser(),{headers:{Authorization:'Bearer '+f.sessions.owner,'Cf-Access-Jwt-Assertion':'invalid',Cookie:`CF_Authorization=${f.assertion}`}});assert.equal(await app.verifyAccessIdentity(f.env,conflict),null);
+ const missing=new Request(f.browser(),{headers:{Authorization:'Bearer '+f.sessions.owner,Cookie:'ep_session=local-session'}});assert.equal((await app.inspectAccessIdentity(f.env,missing)).status,'missing_assertion');
+});
+test('empty optional machine-name fields do not invalidate otherwise verified human assertions',async t=>{
+ const f=await fixture(t);for(const common_name of [null,''])assert(await app.verifyAccessIdentity(f.env,f.request(await f.jwt({common_name}))));
+});
+test('owner diagnostics report bounded reasons without exposing signed tokens or claims',async t=>{
+ const f=await fixture(t),signed=await f.jwt({aud:['b'.repeat(64)]}),logs=[];t.mock.method(console,'info',(...args)=>logs.push(args));
+ const response=await app.status(f.browser(undefined,'owner',signed));assert.equal(response.status,200);const data=await response.json();assert.equal(data.identityStatus,'audience_mismatch');assert.equal(data.identitySource,'header');assert.equal(data.identity,null);assert(!JSON.stringify(data).includes(signed));assert(!JSON.stringify(data).includes('google-person'));assert(!JSON.stringify(logs).includes(signed));assert(!JSON.stringify(logs).includes('google-login@example.test'));assert(JSON.stringify(logs).includes('audience_mismatch'));
+});
+
+test('temporary signing-service failures recover after a short cooldown without accepting stale keys or refetching per request',async t=>{
+ const f=await fixture(t);f.state.failure=true;assert.equal((await app.inspectAccessIdentity(f.env,f.request())).status,'certificates_unavailable');assert.equal(f.calls.length,1);
+ f.state.failure=false;assert.equal(await app.verifyAccessIdentity(f.env,f.request()),null);assert.equal(f.calls.length,1,'requests inside the cooldown do not hammer the signing service');
+ const now=Date.now();t.mock.method(Date,'now',()=>now+6000);assert(await app.verifyAccessIdentity(f.env,f.request()));assert.equal(f.calls.length,2);
 });

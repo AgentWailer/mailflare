@@ -3,13 +3,14 @@ import { getDb } from "@/db";
 import { apiKeys, mcpOauthGrants } from "@/db/schema";
 import { parseScopes } from "@/lib/api-keys";
 import type { SessionUser } from "@/lib/auth/types";
-import { mcpAccessConfiguration, verifyAccessIdentity } from "./access-identity";
+import { mcpAccessConfiguration, verifyAccessIdentity, inspectAccessIdentity } from "./access-identity";
 import { isMailMcpScope } from "./scopes";
 
 export async function mcpOauthStatus(env:CloudflareEnv,user:SessionUser,request:Request) {
- const configuration=mcpAccessConfiguration(env),identity=await verifyAccessIdentity(env,request);
+ const configuration=mcpAccessConfiguration(env),check=await inspectAccessIdentity(env,request),identity=check.identity;
+ if(configuration.configured)console.info("[mcp-oauth] Access identity checked",{status:check.status,source:check.source??"none"});
  const [grant]=await getDb(env).select().from(mcpOauthGrants).where(eq(mcpOauthGrants.userId,user.id)).limit(1);
- return {configured:configuration.configured,serverUrl:new URL("/mcp",env.APP_URL || new URL(request.url).origin).toString(),identity:identity?{email:identity.email}:null,
+ return {configured:configuration.configured,identityStatus:check.status,identitySource:check.source,serverUrl:new URL("/mcp",env.APP_URL || new URL(request.url).origin).toString(),identity:identity?{email:identity.email}:null,
   grant:grant?{keyId:grant.keyId,enabled:grant.enabled,email:grant.email,identityMatches:!!identity && grant.issuer===identity.issuer && grant.audience===configuration.audience && grant.subject===identity.subject && grant.email===identity.email}:null};
 }
 export async function controlMcpOauthGrant(env:CloudflareEnv,user:SessionUser,request:Request,input:{enabled:boolean;keyId?:string}) {
