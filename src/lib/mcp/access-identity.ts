@@ -24,7 +24,9 @@ function parse(value:string):Record<string,unknown> {
  return data as Record<string,unknown>;
 }
 async function fetchCertificates(state:Certificates) {
- const response=await fetch(`${state.issuer}/cdn-cgi/access/certs`,{redirect:"error",headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
+ // Workers supports only "follow" and "manual". Reject redirects through
+ // response.ok below so signing keys can never come from another endpoint.
+ const response=await fetch(`${state.issuer}/cdn-cgi/access/certs`,{redirect:"manual",headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
  if(!response.ok || Number(response.headers.get("Content-Length")??0)>MAX_CERT_BYTES || !response.body)throw new Error("Access certificate service unavailable");
  const reader=response.body.getReader(),chunks:Uint8Array[]=[];let size=0;
  try {
