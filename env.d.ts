@@ -5,7 +5,7 @@ interface CloudflareEnv {
 	/** Private rescue store, deliberately separate from the live object store. */
 	RESCUE_BUCKET?: R2Bucket;
 	INBOUND_QUEUE: Queue<import("./src/lib/email/inbound").InboundQueueMessage>;
-	AGENT_QUEUE?: Queue<{ kind: "agent.draft" | "import.mbox" | "import.sort" | "messages.bulk" | "mail.content-audit" | "paperless.document" | "database.backup"; jobId: string }>;
+	AGENT_QUEUE?: Queue<{ kind: "agent.draft" | "import.mbox" | "import.sort" | "messages.bulk" | "mail.content-audit" | "paperless.document" | "database.backup"; jobId: string } | { kind: "gmail.sent-sync"; connectionId: string }>;
 	AI?: Ai;
 	AI_MODEL?: string;
 	AI_BASE_URL?: string;

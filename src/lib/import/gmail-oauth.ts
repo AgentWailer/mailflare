@@ -8,7 +8,7 @@ export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 export type GoogleTokens = { access_token: string; refresh_token: string; expiresAt: number };
 export type GmailConnection = typeof gmailImportConnections.$inferSelect;
 export class GmailError extends Error {
-	constructor(public status: number, message = "Google request failed. Check Gmail API access or reconnect Google.") { super(message); }
+	constructor(public status: number, message = "Google request failed. Check Gmail API access or reconnect Google.", public retryable = false) { super(message); }
 }
 export function encodeBase64(bytes: Uint8Array) {
 	let value = ""; for (const byte of bytes) value += String.fromCharCode(byte);
@@ -112,6 +112,10 @@ export async function gmailRequest<T>(env: CloudflareEnv, connection: GmailConne
 	if (tokens.expiresAt < Date.now() + 60_000) await refresh();
 	let response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, { headers: { Authorization: `Bearer ${tokens.access_token}` }, redirect: "error", signal: AbortSignal.timeout(60_000) });
 	if (response.status === 401) { await refresh(); response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, { headers: { Authorization: `Bearer ${tokens.access_token}` }, redirect: "error", signal: AbortSignal.timeout(60_000) }); }
-	if (!response.ok) throw new GmailError(response.status, response.status === 429 ? "Google rate limit reached. Wait and resume the import." : undefined);
+	if (!response.ok) {
+		const error = await response.json().catch(() => null) as { error?: { errors?: { reason?: string }[] } } | null;
+		const limited = response.status === 429 || response.status === 403 && !!error?.error?.errors?.some(item => ["rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded"].includes(item.reason ?? ""));
+		throw new GmailError(response.status, limited ? "Google rate limit reached. Wait and resume the import." : undefined, limited);
+	}
 	return await response.json() as T;
 }

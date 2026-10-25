@@ -31,6 +31,7 @@ import { forwardMatchingMailboxRules } from "./src/lib/email/rule-forwarding";
 import { processMboxJob, recoverMboxJobs } from "./src/lib/import/mbox-jobs";
 import { processMboxSortingJob, recoverMboxSortingJobs } from "./src/lib/import/mbox-sorting";
 import { processContentAudit, recoverContentAudits } from "./src/lib/mail-sorting/audit-jobs";
+import { processGmailSentSync, recoverGmailSentSync } from "./src/lib/import/gmail-sent-sync";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
@@ -118,6 +119,8 @@ export default {
 			try {
 				if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "database.backup" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
 					await processDatabaseBackup(env, (msg.body as { jobId: string }).jobId);
+				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "gmail.sent-sync" && typeof (msg.body as { connectionId?: unknown }).connectionId === "string") {
+					await processGmailSentSync(env, (msg.body as { connectionId: string }).connectionId);
 				} else if (isInboundQueueMessage(msg.body)) {
 					await processInboundMessage(env, msg.body);
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "import.mbox" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
@@ -156,6 +159,7 @@ export default {
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runAgentMaintenance(env));
 		ctx.waitUntil(recoverMboxJobs(env));
+		ctx.waitUntil(recoverGmailSentSync(env));
 		ctx.waitUntil(recoverDatabaseBackups(env));
 		ctx.waitUntil(recoverBulkJobs(env));
 		ctx.waitUntil(recoverMboxSortingJobs(env));

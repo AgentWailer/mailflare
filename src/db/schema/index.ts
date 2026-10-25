@@ -1029,6 +1029,20 @@ export const gmailImportJobs = sqliteTable("gmail_import_jobs", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 }, t => [index("gmail_import_jobs_user_idx").on(t.userId, t.createdAt), uniqueIndex("gmail_import_jobs_active_idx").on(t.connectionId, t.mailboxId).where(sql`${t.status} <> 'completed'`)]);
+export const gmailSentSync = sqliteTable("gmail_sent_sync", {
+ connectionId: text("connection_id").primaryKey().references(() => gmailImportConnections.id, { onDelete: "cascade" }),
+ userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+ mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+ enabled: integer("enabled").notNull().default(0), historyId: text("history_id"),
+ cursor: text("cursor").notNull().default('{"phase":"backfill","pending":[]}'),
+ imported: integer("imported").notNull().default(0), lastSyncedAt: integer("last_synced_at"), error: text("error"),
+ failures: integer("failures").notNull().default(0), retryAt: integer("retry_at").notNull().default(0),
+ leaseToken: text("lease_token"), leaseUntil: integer("lease_until").notNull().default(0), updatedAt: integer("updated_at").notNull(),
+});
+export const gmailSentSyncIssues = sqliteTable("gmail_sent_sync_issues", {
+ connectionId: text("connection_id").notNull().references(() => gmailSentSync.connectionId, { onDelete: "cascade" }),
+ sourceId: text("source_id").notNull(), error: text("error").notNull(), createdAt: integer("created_at").notNull(),
+}, t => [primaryKey({ columns: [t.connectionId, t.sourceId] })]);
 export const gmailOauthStates = sqliteTable("gmail_oauth_states", {
 	id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 	sessionHash: text("session_hash").notNull(), verifier: text("verifier").notNull(), expiresAt: integer("expires_at").notNull(),
@@ -1053,7 +1067,7 @@ export const paperlessJobs = sqliteTable("paperless_jobs", {
 
 export const schema = {
 	paperlessConnections, paperlessJobs,
-	gmailImportConnections, gmailImportJobs, gmailOauthStates,
+	gmailImportConnections, gmailImportJobs, gmailOauthStates, gmailSentSync, gmailSentSyncIssues,
 	users,
 	domains,
 	mailboxes,

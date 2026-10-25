@@ -8,10 +8,13 @@ import { recoverMboxSortingJobs } from "@/lib/import/mbox-sorting";
 import { recoverContentAudits } from "@/lib/mail-sorting/audit-jobs";
 import { runDriveTrashRetention } from "@/lib/drive/retention";
 
+import { recoverGmailSentSync } from "@/lib/import/gmail-sent-sync";
+
 /** Fire the daily 02:00 UTC backup and the recurring maintenance jobs, matching the cron triggers in wrangler.jsonc. */
 export function startScheduler(env: CloudflareEnv) {
 	let lastRunDay = "";
 	const timer = setInterval(() => {
+		recoverGmailSentSync(env).catch((error) => console.error("Gmail sent sync recovery failed", error));
 		recoverPaperlessJobs(env).catch((error) => console.error("Paperless recovery failed", error));
 		recoverDatabaseBackups(env).catch((error) => console.error("Backup recovery failed", error));
 		recoverBulkJobs(env).catch((error) => console.error("Bulk action recovery failed", error));

@@ -8,10 +8,11 @@ import { useLanguage } from "@/components/language-provider";
 import { notifyLabelsChanged } from "@/components/messages/use-mailbox-folders";
 import { authFetch, getClientSessionToken } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
+import { GmailSentSync, type SentSyncStatus } from "./gmail-sent-sync";
 import { Select } from "@/components/ui/select";
 
 type Job = { id: string; mailboxId: string; connectionId: string; status: string; processed: number; imported: number; skipped: number; total: number; error: string | null; canSkip?: boolean };
-type Status = { configured: boolean; missing: string[]; redirectUri: string | null; authorizationFailed: boolean; preferredConnectionId?: string | null; connections: { id: string; email: string }[]; jobs: Job[] };
+type Status = { configured: boolean; missing: string[]; redirectUri: string | null; authorizationFailed: boolean; preferredConnectionId?: string | null; connections: { id: string; email: string }[]; jobs: Job[]; sentSyncs?: SentSyncStatus[] };
 async function request<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
 	const session = getClientSessionToken();
 	const response = await authFetch(path, body === undefined ? { method, cache: "no-store" } : { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -30,7 +31,7 @@ export function GmailImport({ embedded = false }: { embedded?: boolean } = {}) {
 	const query = useQuery({ queryKey: ["gmail-import", user?.id], enabled: !!user,
 		queryFn: () => { const params = new URLSearchParams(window.location.search); return request<Status>(`/api/import/gmail?${new URLSearchParams({ callback: params.get("gmail") ?? "", connection: params.get("googleConnection") ?? "" })}`, undefined, "GET"); },
 		refetchOnWindowFocus: true,
-		refetchInterval: q => q.state.data?.jobs.some(job => job.status === "running") ? 5000 : false,
+		refetchInterval: q => q.state.data?.jobs.some(job => job.status === "running") || q.state.data?.sentSyncs?.some(sync => sync.enabled && sync.backfilling) ? 5000 : q.state.data?.sentSyncs?.some(sync => sync.enabled) ? 30000 : false,
 	});
 	useEffect(() => () => { running.current = false; }, [user?.id, selectedMailbox?.id]);
 	const connection = query.data?.connections.find(item => item.id === connectionId) ?? query.data?.connections.find(item => item.id === query.data?.preferredConnectionId) ?? query.data?.connections[0];
@@ -73,6 +74,7 @@ export function GmailImport({ embedded = false }: { embedded?: boolean } = {}) {
 			<div className="flex flex-wrap gap-2"><Button onClick={() => void run()} disabled={!canManage || busy || !query.data.configured}>{t("gmail.start")}</Button>
 			<Button variant="outline" disabled={busy} onClick={() => { if (connection && window.confirm(t("gmail.disconnectConfirm"))) { setBusy(true); void request(`/api/import/gmail/connections/${connection.id}`, undefined, "DELETE").then(() => query.refetch()).catch(err => setError(err instanceof Error ? err.message : t("gmail.failed"))).finally(() => setBusy(false)); } }}>{t("gmail.disconnect")}</Button></div>
 		</div> : null}
+		{connection && selectedMailbox && <GmailSentSync connectionId={connection.id} mailboxId={selectedMailbox.id} sync={query.data?.sentSyncs?.find(sync => sync.connectionId === connection.id)} disabled={!canManage || busy || !query.data?.configured} onChanged={() => query.refetch()} />}
 		{busy && activeImport && <Button variant="outline" disabled={pausing} onClick={() => { running.current = false; setPausing(true); }}>{t(pausing ? "gmail.pausing" : "gmail.pause")}</Button>}
 		{jobs.map(job => <div key={job.id} className="space-y-2 rounded-xl bg-neutral-50 p-4 text-sm text-neutral-700">
 			<p className="break-all font-medium">{query.data?.connections.find(item => item.id === job.connectionId)?.email} → {selectedMailbox?.localPart}@{selectedMailbox?.hostname}</p>

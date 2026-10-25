@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { List, ListRow } from "@/components/ui/list";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
 import { formatUserDate } from "@/lib/time/utils";
+import { ChatGptActionSetup } from "./chatgpt-action-setup";
 import { McpAgentInstructions } from "@/components/settings/mcp-agent-instructions";
 import type { ApiKeyScope } from "@/lib/api/scopes";
 import type { ManagedApiKey, McpKeyScope } from "./api-keys-settings-types";
@@ -88,7 +89,7 @@ export function ApiKeysSettings({ embedded = false }: { embedded?: boolean } = {
 			<fieldset className="space-y-2"><legend className="text-sm font-medium">{t("apiKeys.allowedMailboxes")}</legend>{mailboxes.length === 0 ? <p className="text-sm text-neutral-500">{t("apiKeys.noMailboxes")}</p> : mailboxes.map((mailbox) => <label key={mailbox.id} className="flex items-center gap-3 text-sm"><Checkbox checked={mailboxIds.includes(mailbox.id)} onChange={(event) => setMailboxIds((current) => event.target.checked ? [...current, mailbox.id] : current.filter((id) => id !== mailbox.id))} />{mailbox.localPart}@{mailbox.hostname}</label>)}<p className="text-xs text-neutral-500">{t("apiKeys.aliasHint")}</p></fieldset>
 			<Button type="submit" disabled={busy || !name.trim() || (!mailboxIds.length && (mcpAllowed ? mcpScopes.some((scope) => !scope.startsWith("mcp:calendar-")) : standardScopes.some((scope) => !scope.startsWith("calendar:")))) || (mcpAllowed ? !mcpScopes.length : !standardScopes.length)}><KeyRound className="h-4 w-4" />{busy ? t("apiKeys.creating") : t("apiKeys.createTitle")}</Button>
 		</form>}
-		{newKey && <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4"><code className="block break-all rounded bg-white p-2 text-xs">{newKey}</code>{createdMcpAllowed && <McpAgentInstructions mode="mail" apiKey={newKey} />}<div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(newKey).then(() => setCopied(true))}><Copy className="h-4 w-4" />{copied ? t("common.copied") : t("apiKeys.copyKey")}</Button><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setCreateOpen(false); setNewKey(null); setCopied(false); }}>{t("common.done")}</Button></div></div>}
+		{newKey && <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4"><code className="block break-all rounded bg-white p-2 text-xs">{newKey}</code>{createdMcpAllowed && <McpAgentInstructions mode="mail" apiKey={newKey} />}{!createdMcpAllowed && standardScopes.includes("send") && <ChatGptActionSetup mailboxes={mailboxes.filter(mailbox => mailboxIds.includes(mailbox.id)).map(mailbox => ({id:mailbox.id,address:`${mailbox.localPart}@${mailbox.hostname}`}))} />}<div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(newKey).then(() => setCopied(true))}><Copy className="h-4 w-4" />{copied ? t("common.copied") : t("apiKeys.copyKey")}</Button><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setCreateOpen(false); setNewKey(null); setCopied(false); }}>{t("common.done")}</Button></div></div>}
 		{error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
 			</DialogContent>
 		</Dialog>

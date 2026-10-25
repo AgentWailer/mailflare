@@ -102,3 +102,41 @@ paused with cleared leases. Restore the same encryption key or reconnect Google.
 node --test tests/gmail-import.test.mjs tests/imap-import-batch.test.mjs tests/nested-labels.test.mjs
 node tests/browser/gmail-import.mjs
 ```
+
+## Continuously sync Gmail Sent
+
+Under **Settings → Import → Google Workspace / Gmail**, connect the Google
+account, select the destination mailbox and enable **Automatically sync sent
+mail**. The same read-only OAuth grant is sufficient; no Gmail sending or write
+permission is requested.
+
+The server first scans **SENT only**, then uses Gmail history IDs to fetch new
+sent messages about every five minutes. An anchor is saved before the initial
+scan so messages sent during it are caught afterward. History IDs stay strings
+without losing integer precision. Expired history triggers a sent-only repair
+scan. Existing MIME Message-IDs skip raw downloads and preserve local state.
+The selected Google connection has one fixed Mailflare destination.
+
+Cloudflare Queue batches process up to three messages sequentially and checkpoint
+each one; cron recovers lost dispatches and expired leases. The Node runtime also
+runs recovery independently of the browser. Closing the app does not pause sync.
+Full snapshot imports and sent-sync batches exclude each other's leases to avoid
+concurrent duplicates. Incomplete copies stay hidden until attachments and
+checkpoint commit. Revoked Google access or mailbox permissions stop sync;
+transient errors back off automatically. Oversized/invalid messages are recorded
+as individual issues while remaining mail continues; retry targets one issue.
+
+This is a one-way copy of sent mail, including original recipients, Bcc, dates,
+MIME content and attachments. It does not propagate later Gmail deletions or
+change local stars/read state. Removing the Google connection stops sync and
+removes its operational records, while completed Mailflare messages remain.
+Backups include sent-sync settings, checkpoints and issue logs. Restore clears
+leases and disables sync until the owner explicitly re-enables it.
+
+Migration `0081_gmail_sent_sync.sql` is required. The existing OAuth Worker
+bindings listed above must be configured and Google authorization completed by
+the account owner before this can run. Gmail import setup is not automatically
+completed by deploying this feature.
+
+For sending directly from the ChatGPT app through Mailflare, see
+[ChatGPT setup](chatgpt-mailflare.md).

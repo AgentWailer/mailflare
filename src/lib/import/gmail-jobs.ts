@@ -69,7 +69,7 @@ export async function advanceGmailJob(env: CloudflareEnv, user: SessionUser, id:
 	if (job.status === "completed") return job;
 	const db = getDb(env), lease = newId("lease");
 	const [locked] = await db.update(gmailImportJobs).set({ status: "running", leaseToken: lease, leaseUntil: Date.now() + 5 * 60_000, error: null })
-		.where(and(eq(gmailImportJobs.id, id), eq(gmailImportJobs.userId, user.id), ne(gmailImportJobs.status, "completed"), or(isNull(gmailImportJobs.leaseToken), lt(gmailImportJobs.leaseUntil, Date.now())))).returning();
+		.where(and(eq(gmailImportJobs.id, id), eq(gmailImportJobs.userId, user.id), ne(gmailImportJobs.status, "completed"), or(isNull(gmailImportJobs.leaseToken), lt(gmailImportJobs.leaseUntil, Date.now())), sql`NOT EXISTS(SELECT 1 FROM gmail_sent_sync s WHERE s.connection_id=${gmailImportJobs.connectionId} AND s.mailbox_id=${gmailImportJobs.mailboxId} AND s.lease_token IS NOT NULL AND s.lease_until>=${Date.now()})`)).returning();
 	if (!locked) throw new Error("An import batch is already running. Wait before resuming.");
 	job = locked;
 	const ownedLease = and(eq(gmailImportJobs.id, id), eq(gmailImportJobs.userId, user.id), eq(gmailImportJobs.leaseToken, lease));

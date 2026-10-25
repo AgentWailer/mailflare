@@ -1,5 +1,6 @@
 import { processDatabaseBackup } from "@/lib/backups/runner";
 import { processPaperlessJob } from "@/lib/paperless/jobs";
+import { processGmailSentSync } from "@/lib/import/gmail-sent-sync";
 import { processBulkJob } from "@/lib/messages/bulk-jobs";
 import { createServer } from "node:http";
 import { join, resolve } from "node:path";
@@ -45,7 +46,11 @@ async function main() {
 		else await processOutboundQueue(env, body as OutboundQueueMessage);
 	});
 	runtime.agentQueue.setConsumer(async (body) => {
-		if (typeof body !== "object" || body === null || typeof (body as { jobId?: unknown }).jobId !== "string") return;
+		if (typeof body !== "object" || body === null) return;
+		if ((body as { kind?: unknown }).kind === "gmail.sent-sync" && typeof (body as { connectionId?: unknown }).connectionId === "string") {
+			await processGmailSentSync(env, (body as {connectionId:string}).connectionId);return;
+		}
+		if (typeof (body as { jobId?: unknown }).jobId !== "string") return;
 		const message = body as { kind: string; jobId: string };
 		if (message.kind === "database.backup") await processDatabaseBackup(env, message.jobId);
 		else if (message.kind === "agent.draft") await processAgentDraftJob(env, message.jobId);
