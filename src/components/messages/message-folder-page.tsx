@@ -39,6 +39,7 @@ import { useConversationView } from "./use-conversation-view";
 import { useOptimisticArchive } from "./use-optimistic-archive";
 import { useMailboxPreload } from "./use-mailbox-preload";
 import { useMessageDensity } from "./use-message-density";
+import { allMailFolderConfig } from "./message-folder-configs";
 import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction, SelectedMessage } from "./types";
 import {
 	formatMessageListTimestamp,
@@ -314,12 +315,16 @@ function MessageListRow({
 }
 
 export function MessageFolderPage({
-	config,
+	config: folderConfig,
 	compact = false,
 	selectedMessageId,
 	selection,
 }: MessageFolderPageProps) {
 	const { t, locale } = useLanguage();
+	const { query, input } = useMailSearch();
+	const searching = !!query.trim();
+	// Keep the route/reader mounted, but show and act on the global search scope.
+	const config = searching ? { ...allMailFolderConfig, titleKey: "search.results" as const } : folderConfig;
 	const readAllTask = useReadAllTask();
 	const router = useRouter();
 	const currentReader = useRef({ prefix: config.hrefPrefix, id: selectedMessageId });
@@ -329,7 +334,6 @@ export function MessageFolderPage({
 	selection ??= sharedSelection ?? undefined;
 	const title = config.titleKey ? t(config.titleKey) : config.title;
 	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
-	const { query, input } = useMailSearch();
 	const isMobile = useIsMobile();
 	const [density] = useMessageDensity();
 	const [internalOffset, setInternalOffset] = useState(0);
@@ -365,7 +369,7 @@ export function MessageFolderPage({
 	const folderCount = config.folderId
 		? counts.customFolders[config.folderId]
 		: counts.folders[config.folder];
-	const titleTotal = folderCount?.total ?? total;
+	const titleTotal = searching ? total : folderCount?.total ?? total;
 	const titleUnread = folderCount?.unread ?? 0;
 	const mailboxAddress = getMailboxAddress(selectedMailbox);
 	const currentAccountName = selectedMailbox?.displayName ?? selectedMailbox?.localPart;
@@ -619,7 +623,7 @@ export function MessageFolderPage({
 								<ChevronRight className="h-4 w-4" />
 							</Button>
 						</Tooltip>
-						{config.folder === "inbox" && (
+						{(config.folder === "inbox" || searching) && (
 							<Tooltip label={unreadOnly ? t("list.showingUnread") : t("list.showUnreadOnly")}>
 								<Button
 									type="button"
@@ -685,7 +689,7 @@ export function MessageFolderPage({
 					<MessageListRow
 						key={message.id}
 						message={message}
-						config={config}
+						config={searching && message.status === "draft" ? { ...config, folder: "drafts", hrefPrefix: "/drafts" } : searching && message.direction === "outbound" ? { ...config, folder: "sent" } : config}
 						selected={selectedIds.includes(message.id)}
 						active={message.id === selectedMessageId}
 						compact={compact || isMobile}

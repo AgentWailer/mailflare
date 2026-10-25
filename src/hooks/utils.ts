@@ -26,7 +26,10 @@ export function getMessageQueryParams(
 	filters?: MessageFilterOptions,
 	folderId?: string | null,
 ) {
-	const params = getMessageFolderParams(folder, mailboxId, folderId);
+	// Header searches span folders, labels and both mail directions. Keep mailbox
+	// access scoped, but never carry the currently open folder into a search.
+	const searching = !!(filters?.query?.trim() || filters?.title?.trim());
+	const params = searching ? new URLSearchParams(mailboxId ? { mailboxId } : {}) : getMessageFolderParams(folder, mailboxId, folderId);
 	params.set("timeZone", getUserTimeZone());
 	const searchFilters = filters?.query ? parseMessageSearchQuery(filters.query) : null;
 	const parsedFilters = searchFilters

@@ -12,15 +12,17 @@ import type { MessageNavigationResponse } from "@/app/api/messages/navigation/ty
 import type { MessageDetailNavigationContextValue, MessageDetailNavigationProps, MessageDetailNavigationProviderProps, MessageDetailNavigationSnapshot } from "./message-detail-navigation-types";
 import { getMessageDetailNavigationState } from "./message-detail-navigation-utils";
 import { useConversationView } from "./use-conversation-view";
+import { useMailSearch } from "@/components/mail-search/mail-search-context";
 
 const NavigationContext = createContext<MessageDetailNavigationContextValue | null>(null);
 
 export function MessageDetailNavigationProvider({ children, config }: MessageDetailNavigationProviderProps) {
 	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
 	const [conversationView] = useConversationView();
+	const { query } = useMailSearch();
 	const grouped = conversationView && config.folder !== "drafts";
 	const mailboxId = selectedMailbox?.id;
-	const key = `${config.folder}:${config.folderId ?? ""}:${mailboxId ?? "all"}:${grouped}`;
+	const key = JSON.stringify([config.folder, config.folderId, mailboxId, grouped, query]);
 	const [snapshot, setSnapshot] = useState<MessageDetailNavigationSnapshot>({ key: "", entries: [] });
 	useEffect(() => {
 		if (mailboxesLoading) return;
@@ -28,6 +30,7 @@ export function MessageDetailNavigationProvider({ children, config }: MessageDet
 		let requestNumber = 0;
 		let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 		const params = new URLSearchParams({ folder: config.folder });
+		if (query.trim()) params.set("q", query);
 		if (config.folderId) params.set("folderId", config.folderId);
 		if (mailboxId) params.set("mailboxId", mailboxId);
 		if (grouped) params.set("group", "thread");
@@ -61,7 +64,7 @@ export function MessageDetailNavigationProvider({ children, config }: MessageDet
 			window.removeEventListener("pageshow", scheduleLoad);
 			document.removeEventListener("visibilitychange", scheduleLoad);
 		};
-	}, [config.folder, config.folderId, grouped, key, mailboxId, mailboxesLoading]);
+	}, [config.folder, config.folderId, grouped, key, mailboxId, mailboxesLoading, query]);
 
 	const entries = snapshot.key === key ? snapshot.entries : [];
 	return <NavigationContext.Provider value={{ entries, hrefPrefix: config.hrefPrefix }}>{children}</NavigationContext.Provider>;

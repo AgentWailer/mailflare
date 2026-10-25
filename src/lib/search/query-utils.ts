@@ -9,15 +9,26 @@ import { dateFromZonedFields, normalizeTimeZone } from "@/lib/time/utils";
  *
  * The older `title:` and bare `:unread` / `:read` forms keep working.
  */
-const OPERATOR_RE = /(?:^|\s)(from|to|subject|title|has|is|after|before|newer|older):(?:"([^"]*)"|(\S+))/gi;
+const OPERATOR_RE = /(?:^|\s)(from|to|subject|title|has|is|in|after|before|newer|older):(?:"([^"]*)"|(\S+))/gi;
+const insidePhrase = (text: string, offset: number) => text.slice(0, offset).split('"').length % 2 === 0;
+
+/** Keep the explicit spam opt-in in the query so lists and background jobs agree. */
+export function setSearchIncludeSpam(raw: string, enabled: boolean): string {
+	const text = raw.replace(/(?:^|\s)in:(?:"anywhere"|anywhere)(?=\s|$)/gi, (match, offset: number) => insidePhrase(raw, offset) ? match : " ").trim();
+	return enabled ? `${text}${text ? " " : ""}in:anywhere` : text;
+}
 
 export function parseSearchQuery(raw: string, timeZone = "UTC"): ParsedSearchQuery {
 	const parsed: ParsedSearchQuery = { text: "", needsFullText: false };
 	let rest = raw ?? "";
 
-	rest = rest.replace(OPERATOR_RE, (_match, key: string, quoted: string | undefined, bare: string | undefined) => {
+	rest = rest.replace(OPERATOR_RE, (_match, key: string, quoted: string | undefined, bare: string | undefined, offset: number) => {
 		const value = (quoted ?? bare ?? "").trim();
 		switch (key.toLowerCase()) {
+			case "in":
+				if (value.toLowerCase() !== "anywhere" || insidePhrase(rest, offset)) return _match;
+				parsed.includeSpam = true;
+				break;
 			case "from":
 				parsed.from = value;
 				break;

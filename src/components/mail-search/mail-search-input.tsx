@@ -6,6 +6,7 @@ import { HeaderSearch } from "@/components/header-search";
 import { useMailSearch } from "./mail-search-context";
 import { useShortcuts } from "@/components/shortcuts";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
+import { MailSearchDetails } from "./mail-search-details";
 
 export function MailSearchInput() {
 	const { t } = useLanguage();
@@ -22,7 +23,7 @@ export function MailSearchInput() {
 			label={t("search.mail")}
 			placeholder={t("search.mail")}
 			inputProps={{ "data-mail-search-input": "" }}
-			trailing={query ? (
+			trailing={<>{query ? (
 				<button
 					type="button"
 					onMouseDown={(event) => event.preventDefault()}
@@ -41,7 +42,7 @@ export function MailSearchInput() {
 				>
 					<span className="text-[11px] font-mono">⌘K</span>
 				</button>
-			) : null}
+			) : null}<MailSearchDetails query={query} onChange={setQuery} /></>}
 		/>
 	);
 }

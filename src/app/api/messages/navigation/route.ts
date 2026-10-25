@@ -11,6 +11,8 @@ import { getEnv } from "@/lib/cloudflare";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
+import { messageListFilterConditions } from "@/lib/messages/list-filter";
+import { getRequestTimeZone } from "@/lib/time/utils";
 
 const folders: MessageFolder[] = ["inbox", "promotions", "social", "invoices", "orders", "starred", "all", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
 
@@ -41,31 +43,36 @@ export async function GET(request: Request) {
 			: eq(messages.userId, user.id));
 	}
 
-	if (folder === "inbox" || folder === "promotions" || folder === "social" || folder === "invoices" || folder === "orders") {
-		conditions.push(eq(messages.direction, "inbound"));
-		conditions.push(folderId ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
-		if (!folderId) {
-			conditions.push(folder === "inbox" ? inArray(messages.category, INBOX_CATEGORIES) : eq(messages.category,folder));
-			if(folder === "inbox") conditions.push(isNull(messages.folderId));
-			conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
-		}
-	} else if (folder === "all") {
-		conditions.push(eq(messages.direction, "inbound"), ne(messages.status, "template"));
-	} else if (folder === "starred") {
-		conditions.push(eq(messages.starred, true));
-	} else if (folder === "snoozed") {
-		conditions.push(eq(messages.status, "received"));
-		conditions.push(isNull(messages.folderId));
-		conditions.push(gt(messages.snoozedUntil, new Date()));
-	} else if (folder === "sent") {
-		conditions.push(eq(messages.direction, "outbound"));
-		conditions.push(eq(messages.status, "sent"));
-	} else if (folder === "scheduled") {
-		conditions.push(scheduledMessageCondition(db));
+	const query = params.get("q")?.trim();
+	if (query) {
+		conditions.push(...messageListFilterConditions(db, new URLSearchParams({ q: query }), getRequestTimeZone(request, user.timeZone)));
 	} else {
-		conditions.push(eq(messages.status, folder));
+		if (folder === "inbox" || folder === "promotions" || folder === "social" || folder === "invoices" || folder === "orders") {
+			conditions.push(eq(messages.direction, "inbound"));
+			conditions.push(folderId ? inArray(messages.status,["received","archived"]) : eq(messages.status, "received"));
+			if (!folderId) {
+				conditions.push(folder === "inbox" ? inArray(messages.category, INBOX_CATEGORIES) : eq(messages.category,folder));
+				if(folder === "inbox") conditions.push(isNull(messages.folderId));
+				conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
+			}
+		} else if (folder === "all") {
+			conditions.push(eq(messages.direction, "inbound"), ne(messages.status, "template"));
+		} else if (folder === "starred") {
+			conditions.push(eq(messages.starred, true));
+		} else if (folder === "snoozed") {
+			conditions.push(eq(messages.status, "received"));
+			conditions.push(isNull(messages.folderId));
+			conditions.push(gt(messages.snoozedUntil, new Date()));
+		} else if (folder === "sent") {
+			conditions.push(eq(messages.direction, "outbound"));
+			conditions.push(eq(messages.status, "sent"));
+		} else if (folder === "scheduled") {
+			conditions.push(scheduledMessageCondition(db));
+		} else {
+			conditions.push(eq(messages.status, folder));
+		}
+		if (folderId) conditions.push(labelCondition(folderId));
 	}
-	if (folderId) conditions.push(labelCondition(folderId));
 
 	const rows = await db.select({
 		id: messages.id,

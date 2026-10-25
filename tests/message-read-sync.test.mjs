@@ -15,6 +15,7 @@ after(()=>{rmSync(dir,{recursive:true,force:true});dom.window.close();});
 writeFileSync(join(dir,'mailbox.ts'),`export const useSelectedMailbox=()=>({selectedMailbox:{id:'box'},isLoading:false});`);
 writeFileSync(join(dir,'navigation.ts'),`export const useRouter=()=>({push:path=>{window.__navigated=path}});`);
 await build({stdin:{contents:`
+ export {MailSearchProvider} from './src/components/mail-search/mail-search-context';
  export {useMessageCounts} from './src/hooks/use-message-counts';
  export {useMessagePolling} from './src/hooks/use-message-polling';
  export {clearMessageClientState,fetchMessageCounts} from './src/hooks/utils';
@@ -39,7 +40,7 @@ async function mount(t,fetcher,props={}){
  visibility='visible';app.clearMessageClientState();localStorage.clear();sessionStorage.clear();document.body.innerHTML='<div id="root"></div>';
  t.mock.method(globalThis,'fetch',fetcher);root=createRoot(document.getElementById('root'));
  t.after(async()=>act(async()=>root.unmount()));
- await act(async()=>root.render(React.createElement(Screen,props)));
+ await act(async()=>root.render(React.createElement(app.MailSearchProvider,null,React.createElement(Screen,props))));
 }
 const countResponse=unread=>Response.json({counts:counts(unread)});
 
@@ -119,7 +120,7 @@ test('message changes update reader membership and delayed navigation cannot res
 
 test('switching mailboxes never displays the old count and deltas from another mailbox are ignored',async t=>{
  const pending=deferred();await mount(t,async url=>String(url).includes('mailboxId=other')?pending.promise:countResponse(7));
- await act(async()=>root.render(React.createElement(Screen,{mailbox:'other'})));
+ await act(async()=>root.render(React.createElement(app.MailSearchProvider,null,React.createElement(Screen,{mailbox:'other'}))));
  assert.equal(counter.counts.folders.inbox.unread,0,'old mailbox counts are not rendered while loading');
  await act(async()=>pending.resolve(countResponse(0)));
  await act(async()=>window.dispatchEvent(new CustomEvent('mailflare:message-counts-delta',{detail:{mailboxId:'box',inboxUnreadDelta:1}})));

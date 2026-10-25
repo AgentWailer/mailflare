@@ -171,7 +171,9 @@ test("all incoming mail includes every category, labels, archive, snooze and tra
 	assert.equal(counts.folders.inbox.unread,2);
 	assert.equal(await app.getUnreadBadgeCount(f.db,{id:'owner',email:'owner@example.test',role:'user'}),2);
 	const searched = app.getMessageQueryParams('all','box',{query:'from:scam@example.test',read:'unread'});
-	assert.deepEqual((await (await app.list(f.request('/api/messages?' + searched))).json()).messages.map(x=>x.id),['spam']);
+	assert.deepEqual((await (await app.list(f.request('/api/messages?' + searched))).json()).messages.map(x=>x.id),[]);
+	const withSpam = app.getMessageQueryParams('all','box',{query:'from:scam@example.test in:anywhere',read:'unread'});
+	assert.deepEqual((await (await app.list(f.request('/api/messages?' + withSpam))).json()).messages.map(x=>x.id),['spam']);
 	// No mailbox selected still respects access; an explicit foreign mailbox is rejected.
 	const unscoped = app.getMessageQueryParams('all');
 	assert.deepEqual((await (await app.list(f.request('/api/messages?' + unscoped))).json()).messages.map(x=>x.id),expected);

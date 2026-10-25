@@ -41,7 +41,7 @@ export type ScopeChunk = { messageIds: string[]; after: number; done: boolean };
 /** Shared by HTTP chunks and durable queue jobs; every chunk checks current grants. */
 export async function executeBulkScope(env: CloudflareEnv, user: import("@/lib/auth/types").SessionUser, input: BulkScopeInput, options: { preview?: boolean; pending?: ScopeChunk; beforeApply?: (chunk: ScopeChunk) => Promise<void> } = {}) {
 	if (input.actorId && input.actorId !== user.id) return NextResponse.json({ error: "Session changed" }, { status: 409 });
-	if (input.action === "delete" && (input.folderId || !["trash", "spam"].includes(input.folder))) return NextResponse.json({ error: "Permanent deletion requires Trash or Spam" }, { status: 400 });
+	if (input.action === "delete" && (input.folderId || input.q?.trim() || !["trash", "spam"].includes(input.folder))) return NextResponse.json({ error: "Permanent deletion requires Trash or Spam without a global search" }, { status: 400 });
 	const db = getDb(env);
 	const accessible = (await listAccessibleMailboxes(db, user)).map(mailbox => mailbox.id);
 	if (input.mailboxId && !accessible.includes(input.mailboxId)) return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });

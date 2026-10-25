@@ -19,11 +19,14 @@ await build({stdin:{contents:`
  export {POST as applyRule} from './src/app/api/routing-rules/[id]/apply/route';
  export {POST as saveRule} from './src/app/api/routing-rules/route';
  export {GET as list} from './src/app/api/messages/route';
+ export {GET as navigation} from './src/app/api/messages/navigation/route';
  export {GET as counts} from './src/app/api/messages/counts/route';
  export {processBulkJob,recoverBulkJobs,latestBulkJob} from './src/lib/messages/bulk-jobs';
  export {POST as createJob,GET as jobStatus,PATCH as controlJob} from './src/app/api/messages/bulk-jobs/route';
  export {exportDatabaseRecords,restoreDatabaseRecords} from './src/lib/backups/export';
  export {getMessageFolderParams} from './src/lib/messages/folder-params';
+ export {getMessageQueryParams} from './src/hooks/utils';
+ export {parseSearchQuery,setSearchIncludeSpam} from './src/lib/search/query-utils';
 `,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'next/headers':join(dir,'headers.mjs'),'next/server':'next/server.js','cloudflare:workers':'./server/runtime/cloudflare-workers.ts'},logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href);
 async function fixture(t){
@@ -265,4 +268,51 @@ test('historical recipient rules find Gmail among several recipients and preserv
  const job=await applySavedRule(f,id);await drain(f,job.id);
  assert.deepEqual(f.DB.db.prepare('SELECT message_id FROM message_labels ORDER BY message_id').all().map(x=>x.message_id),['gmail','googlemail']);
  assert.deepEqual({...f.DB.db.prepare("SELECT status,read FROM messages WHERE id='gmail'").get()},{status:'archived',read:1});
+});
+
+test('live search spans folders, categories and directions, excludes spam by default and preserves mailbox access for lists and bulk actions',async t=>{
+ const f=await fixture(t),normal=['received','archived','sent','draft','queued','failed','trash'];
+ for(const status of [...normal,'spam','template']){f.add('search-'+status,{status,subject:'Crossfolder receipt'});}
+ f.add('search-promo',{category:'promotions',subject:'Crossfolder receipt'});
+ f.add('search-social',{category:'social',subject:'Crossfolder receipt'});
+ f.add('search-invoice',{category:'invoices',subject:'Crossfolder receipt'});
+ f.add('search-order',{category:'orders',subject:'Crossfolder receipt'});
+ f.add('search-private',{mailbox:'private',subject:'Crossfolder receipt'});
+ f.add('search-unmatched',{subject:'Different content'});
+ f.DB.db.exec(`UPDATE messages SET direction='outbound' WHERE status IN ('sent','draft','queued','failed'); UPDATE messages SET folder_id='label',snoozed_until=9999999999 WHERE id='search-archived'`);
+ const expected=[...normal.map(status=>'search-'+status),'search-promo','search-social','search-invoice','search-order'].sort();
+ // Even stale folder parameters cannot silently narrow the header search.
+ for(const params of ['status=received&direction=inbound&category=primary','status=spam','folderId=label','status=draft&direction=outbound','starred=true','snoozed=true','scheduled=true']){
+  const response=await app.list(f.request(null,'owner','/api/messages?mailboxId=box&q=Crossfolder&'+params));assert.equal(response.status,200);const data=await response.json();
+  assert.deepEqual(data.messages.map(m=>m.id).sort(),expected);assert.equal(data.total,expected.length);
+ }
+ const grouped=await(await app.list(f.request(null,'owner','/api/messages?mailboxId=box&q=Crossfolder&group=thread'))).json();assert.deepEqual(grouped.messages.map(m=>m.id).sort(),expected);
+ const navigation=await(await app.navigation(f.request(null,'owner','/api/messages/navigation?folder=spam&mailboxId=box&q=Crossfolder'))).json();assert.deepEqual(navigation.messages.map(m=>m.id).sort(),expected);
+ const anywhere=await(await app.list(f.request(null,'owner','/api/messages?mailboxId=box&q='+encodeURIComponent('Crossfolder in:anywhere')))).json();assert.deepEqual(anywhere.messages.map(m=>m.id).sort(),[...expected,'search-spam'].sort());
+ const foreign=await app.list(f.request(null,'other','/api/messages?mailboxId=box&q=Crossfolder'));assert.equal(foreign.status,404);
+ const scope={folder:'inbox',mailboxId:'box',folderId:'label',q:'Crossfolder'};
+ const selection=await f.scopeChunk({...scope,action:'select'});assert.equal(selection.total,expected.length);
+ assert.equal(await f.complete(scope,'read',selection),expected.length);
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages WHERE read=1").get().n,expected.length);
+ for(const id of ['search-spam','search-template','search-private','search-unmatched'])assert.equal(f.DB.db.prepare('SELECT read FROM messages WHERE id=?').get(id).read,0);
+ const spamScope={folder:'all',mailboxId:'box',q:'Crossfolder in:anywhere'},spamSelection=await f.scopeChunk({...spamScope,action:'select'});assert.equal(spamSelection.total,expected.length+1);
+ assert.equal(await f.complete(spamScope,'read',spamSelection),1,'only the remaining unread spam match is processed');
+ assert.equal(f.DB.db.prepare("SELECT read FROM messages WHERE id='search-spam'").get().read,1);
+ const spamFolder=await(await app.list(f.request(null,'owner','/api/messages?mailboxId=box&status=spam'))).json();assert.deepEqual(spamFolder.messages.map(m=>m.id),['search-spam'],'opening Spam without a query still lists Spam');
+ const unsafeDelete=await app.bulkScope(f.request({folder:'spam',mailboxId:'box',q:'Crossfolder',action:'delete'}));assert.equal(unsafeDelete.status,400,'a stale client cannot permanently delete global search results as though they were a Spam folder');assert(f.DB.db.prepare("SELECT id FROM messages WHERE id='search-trash'").get());
+});
+
+
+test('search requests discard folder filters and the explicit spam choice survives the shared query grammar',()=>{
+ for(const folder of ['inbox','promotions','social','invoices','orders','starred','snoozed','sent','drafts','scheduled','archived','trash','spam','all']){
+  const params=app.getMessageQueryParams(folder,'box',{query:'Crossfolder',limit:25,offset:25,group:'thread'},'label');
+  assert.equal(params.get('q'),'Crossfolder');assert.equal(params.get('mailboxId'),'box');assert.equal(params.get('offset'),'25');assert.equal(params.get('group'),'thread');
+  for(const key of ['folderId','category','status','direction','starred','snoozed','scheduled'])assert.equal(params.has(key),false,key);
+ }
+ assert.equal(app.getMessageQueryParams('spam','box',{}).get('status'),'spam');
+ const raw='from:sender@example.test "Crossfolder receipt"';
+ const optedIn=app.setSearchIncludeSpam(raw,true),parsed=app.parseSearchQuery(optedIn);assert.equal(parsed.includeSpam,true);assert.equal(parsed.from,'sender@example.test');assert.equal(parsed.text,'"Crossfolder receipt"');
+ assert.equal(app.setSearchIncludeSpam(optedIn,true),optedIn);assert.equal(app.setSearchIncludeSpam(optedIn,false),raw);assert.equal(app.parseSearchQuery(app.setSearchIncludeSpam(optedIn,false)).includeSpam,undefined);
+ const phrase='\"example in:anywhere literal\"';assert.equal(app.parseSearchQuery(phrase).includeSpam,undefined);assert.equal(app.setSearchIncludeSpam(phrase,false),phrase);assert.equal(app.setSearchIncludeSpam(app.setSearchIncludeSpam(phrase,true),false),phrase);
+ assert.equal(app.parseSearchQuery('in:anywhere').needsFullText,false);assert.equal(app.parseSearchQuery('in:unknown').text,'in:unknown');
 });
