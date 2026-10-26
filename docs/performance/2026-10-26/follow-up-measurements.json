@@ -1,0 +1,1306 @@
+{
+  "before": {
+    "kind": "controlled lab; synthetic 100ms APIs; production assets; preview without HTTP compression; browser HTTP/1.1; INP field data unavailable",
+    "createdAt": "2026-10-26T10:26:09.862Z",
+    "machine": {
+      "cpu": "AMD EPYC 9V74 80-Core Processor",
+      "cores": 5,
+      "node": "v24.19.0",
+      "browser": "154.0.8037.57"
+    },
+    "conditions": {
+      "readerIdleMs": 500,
+      "trace": false,
+      "runs": 3,
+      "cpuThrottle": 4,
+      "rttMs": 100,
+      "downloadBytesPerSecond": 1500000,
+      "uploadBytesPerSecond": 750000
+    },
+    "summaries": [
+      {
+        "width": 390,
+        "cache": "cold",
+        "runs": 3,
+        "listMs": {
+          "p50": 3319.706537,
+          "p75": 3343.9603559999996,
+          "p95": 3343.9603559999996
+        },
+        "readerMs": {
+          "p50": 694.6679700000004,
+          "p75": 701.2547730000006,
+          "p95": 701.2547730000006
+        },
+        "readerJsTransferBytes": {
+          "p50": 472585,
+          "p75": 472585,
+          "p95": 472585
+        },
+        "lcpMs": {
+          "p50": 696,
+          "p75": 700,
+          "p95": 700
+        },
+        "ttfbMs": {
+          "p50": 29.599999994039536,
+          "p75": 36.900000005960464,
+          "p95": 36.900000005960464
+        },
+        "labInteractionMaxMs": {
+          "p50": 152,
+          "p75": 168,
+          "p95": 168
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "jsTransferBytes": {
+          "p50": 1258478,
+          "p75": 1263122,
+          "p95": 1263122
+        },
+        "cssTransferBytes": {
+          "p50": 128488,
+          "p75": 128488,
+          "p95": 128488
+        },
+        "requestCount": {
+          "p50": 96,
+          "p75": 99,
+          "p95": 99
+        },
+        "browserCacheHits": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "longTaskTotalMs": {
+          "p50": 636,
+          "p75": 670,
+          "p95": 670
+        }
+      },
+      {
+        "width": 390,
+        "cache": "warm",
+        "runs": 3,
+        "listMs": {
+          "p50": 1274.6182839999992,
+          "p75": 1392.6818409999996,
+          "p95": 1392.6818409999996
+        },
+        "readerMs": {
+          "p50": 428.13298900000154,
+          "p75": 528.5820559999993,
+          "p95": 528.5820559999993
+        },
+        "readerJsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "lcpMs": {
+          "p50": 300,
+          "p75": 308,
+          "p95": 308
+        },
+        "ttfbMs": {
+          "p50": 16.799999982118607,
+          "p75": 16.900000005960464,
+          "p95": 16.900000005960464
+        },
+        "labInteractionMaxMs": {
+          "p50": 80,
+          "p75": 96,
+          "p95": 96
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "jsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "cssTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "requestCount": {
+          "p50": 104,
+          "p75": 104,
+          "p95": 104
+        },
+        "browserCacheHits": {
+          "p50": 7,
+          "p75": 7,
+          "p95": 7
+        },
+        "longTaskTotalMs": {
+          "p50": 198,
+          "p75": 330,
+          "p95": 330
+        }
+      },
+      {
+        "width": 1440,
+        "cache": "cold",
+        "runs": 3,
+        "listMs": {
+          "p50": 3376.7537139999986,
+          "p75": 3399.719903000001,
+          "p95": 3399.719903000001
+        },
+        "readerMs": {
+          "p50": 804.5234569999993,
+          "p75": 900.0338940000001,
+          "p95": 900.0338940000001
+        },
+        "readerJsTransferBytes": {
+          "p50": 472585,
+          "p75": 472585,
+          "p95": 472585
+        },
+        "lcpMs": {
+          "p50": 692,
+          "p75": 712,
+          "p95": 712
+        },
+        "ttfbMs": {
+          "p50": 31.400000005960464,
+          "p75": 33.20000001788139,
+          "p95": 33.20000001788139
+        },
+        "labInteractionMaxMs": {
+          "p50": 192,
+          "p75": 232,
+          "p95": 232
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 1.8861454046639233e-05,
+          "p95": 1.8861454046639233e-05
+        },
+        "jsTransferBytes": {
+          "p50": 1258478,
+          "p75": 1258478,
+          "p95": 1258478
+        },
+        "cssTransferBytes": {
+          "p50": 128488,
+          "p75": 128488,
+          "p95": 128488
+        },
+        "requestCount": {
+          "p50": 96,
+          "p75": 96,
+          "p95": 96
+        },
+        "browserCacheHits": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "longTaskTotalMs": {
+          "p50": 765,
+          "p75": 822,
+          "p95": 822
+        }
+      },
+      {
+        "width": 1440,
+        "cache": "warm",
+        "runs": 3,
+        "listMs": {
+          "p50": 1420.882909,
+          "p75": 1434.3735820000002,
+          "p95": 1434.3735820000002
+        },
+        "readerMs": {
+          "p50": 571.4006100000006,
+          "p75": 589.4178249999968,
+          "p95": 589.4178249999968
+        },
+        "readerJsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "lcpMs": {
+          "p50": 276,
+          "p75": 312,
+          "p95": 312
+        },
+        "ttfbMs": {
+          "p50": 15.5,
+          "p75": 16,
+          "p95": 16
+        },
+        "labInteractionMaxMs": {
+          "p50": 136,
+          "p75": 144,
+          "p95": 144
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "jsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "cssTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "requestCount": {
+          "p50": 104,
+          "p75": 104,
+          "p95": 104
+        },
+        "browserCacheHits": {
+          "p50": 7,
+          "p75": 7,
+          "p95": 7
+        },
+        "longTaskTotalMs": {
+          "p50": 404,
+          "p75": 406,
+          "p95": 406
+        }
+      }
+    ],
+    "runs": [
+      {
+        "width": 390,
+        "run": 0,
+        "cache": "cold",
+        "listMs": 3263.5210520000005,
+        "readerMs": 694.6679700000004,
+        "readerJsTransferBytes": 472585,
+        "lcpMs": 696,
+        "cls": 0,
+        "labInteractionMaxMs": 168,
+        "ttfbMs": 36.900000005960464,
+        "jsTransferBytes": 1258478,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 532,
+        "maxLongTaskMs": 205
+      },
+      {
+        "width": 390,
+        "run": 0,
+        "cache": "warm",
+        "listMs": 1274.6182839999992,
+        "readerMs": 528.5820559999993,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 292,
+        "cls": 0,
+        "labInteractionMaxMs": 96,
+        "ttfbMs": 16.799999982118607,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 150,
+        "maxLongTaskMs": 100
+      },
+      {
+        "width": 390,
+        "run": 1,
+        "cache": "cold",
+        "listMs": 3319.706537,
+        "readerMs": 701.2547730000006,
+        "readerJsTransferBytes": 472585,
+        "lcpMs": 696,
+        "cls": 0,
+        "labInteractionMaxMs": 152,
+        "ttfbMs": 19.900000005960464,
+        "jsTransferBytes": 1258478,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 636,
+        "maxLongTaskMs": 220
+      },
+      {
+        "width": 390,
+        "run": 1,
+        "cache": "warm",
+        "listMs": 1392.6818409999996,
+        "readerMs": 428.13298900000154,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 300,
+        "cls": 0,
+        "labInteractionMaxMs": 80,
+        "ttfbMs": 16.900000005960464,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 330,
+        "maxLongTaskMs": 139
+      },
+      {
+        "width": 390,
+        "run": 2,
+        "cache": "cold",
+        "listMs": 3343.9603559999996,
+        "readerMs": 633.402482999998,
+        "readerJsTransferBytes": 467941,
+        "lcpMs": 700,
+        "cls": 0,
+        "labInteractionMaxMs": 128,
+        "ttfbMs": 29.599999994039536,
+        "jsTransferBytes": 1263122,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 99,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 670,
+        "maxLongTaskMs": 244
+      },
+      {
+        "width": 390,
+        "run": 2,
+        "cache": "warm",
+        "listMs": 1259.1311380000006,
+        "readerMs": 401.807797999998,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 308,
+        "cls": 0,
+        "labInteractionMaxMs": 80,
+        "ttfbMs": 16.5,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 198,
+        "maxLongTaskMs": 87
+      },
+      {
+        "width": 1440,
+        "run": 0,
+        "cache": "cold",
+        "listMs": 3357.9478030000028,
+        "readerMs": 804.5234569999993,
+        "readerJsTransferBytes": 472585,
+        "lcpMs": 676,
+        "cls": 0,
+        "labInteractionMaxMs": 192,
+        "ttfbMs": 26.099999994039536,
+        "jsTransferBytes": 1258478,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 735,
+        "maxLongTaskMs": 223
+      },
+      {
+        "width": 1440,
+        "run": 0,
+        "cache": "warm",
+        "listMs": 1409.7560830000002,
+        "readerMs": 571.4006100000006,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 276,
+        "cls": 0,
+        "labInteractionMaxMs": 136,
+        "ttfbMs": 16,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 404,
+        "maxLongTaskMs": 132
+      },
+      {
+        "width": 1440,
+        "run": 1,
+        "cache": "cold",
+        "listMs": 3399.719903000001,
+        "readerMs": 731.5530250000011,
+        "readerJsTransferBytes": 472585,
+        "lcpMs": 712,
+        "cls": 1.8861454046639233e-05,
+        "labInteractionMaxMs": 168,
+        "ttfbMs": 31.400000005960464,
+        "jsTransferBytes": 1258478,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 822,
+        "maxLongTaskMs": 230
+      },
+      {
+        "width": 1440,
+        "run": 1,
+        "cache": "warm",
+        "listMs": 1434.3735820000002,
+        "readerMs": 589.4178249999968,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 272,
+        "cls": 0,
+        "labInteractionMaxMs": 144,
+        "ttfbMs": 15.5,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 406,
+        "maxLongTaskMs": 144
+      },
+      {
+        "width": 1440,
+        "run": 2,
+        "cache": "cold",
+        "listMs": 3376.7537139999986,
+        "readerMs": 900.0338940000001,
+        "readerJsTransferBytes": 472585,
+        "lcpMs": 692,
+        "cls": 0,
+        "labInteractionMaxMs": 232,
+        "ttfbMs": 33.20000001788139,
+        "jsTransferBytes": 1258478,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 765,
+        "maxLongTaskMs": 251
+      },
+      {
+        "width": 1440,
+        "run": 2,
+        "cache": "warm",
+        "listMs": 1420.882909,
+        "readerMs": 498.757927000006,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 312,
+        "cls": 0,
+        "labInteractionMaxMs": 128,
+        "ttfbMs": 15.400000005960464,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 302,
+        "maxLongTaskMs": 147
+      }
+    ]
+  },
+  "after": {
+    "kind": "controlled lab; synthetic 100ms APIs; production assets; preview without HTTP compression; browser HTTP/1.1; INP field data unavailable",
+    "createdAt": "2026-10-26T10:28:02.052Z",
+    "machine": {
+      "cpu": "AMD EPYC 9V74 80-Core Processor",
+      "cores": 5,
+      "node": "v24.19.0",
+      "browser": "154.0.8037.57"
+    },
+    "conditions": {
+      "readerIdleMs": 500,
+      "trace": false,
+      "runs": 3,
+      "cpuThrottle": 4,
+      "rttMs": 100,
+      "downloadBytesPerSecond": 1500000,
+      "uploadBytesPerSecond": 750000
+    },
+    "summaries": [
+      {
+        "width": 390,
+        "cache": "cold",
+        "runs": 3,
+        "listMs": {
+          "p50": 3298.17778,
+          "p75": 3308.30451,
+          "p95": 3308.30451
+        },
+        "readerMs": {
+          "p50": 622.6993719999991,
+          "p75": 641.1818920000005,
+          "p95": 641.1818920000005
+        },
+        "readerJsTransferBytes": {
+          "p50": 351567,
+          "p75": 351567,
+          "p95": 351567
+        },
+        "lcpMs": {
+          "p50": 688,
+          "p75": 704,
+          "p95": 704
+        },
+        "ttfbMs": {
+          "p50": 31.299999982118607,
+          "p75": 42.599999994039536,
+          "p95": 42.599999994039536
+        },
+        "labInteractionMaxMs": {
+          "p50": 136,
+          "p75": 160,
+          "p95": 160
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "jsTransferBytes": {
+          "p50": 1258538,
+          "p75": 1260176,
+          "p95": 1260176
+        },
+        "cssTransferBytes": {
+          "p50": 128488,
+          "p75": 128488,
+          "p95": 128488
+        },
+        "requestCount": {
+          "p50": 96,
+          "p75": 97,
+          "p95": 97
+        },
+        "browserCacheHits": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "longTaskTotalMs": {
+          "p50": 603,
+          "p75": 641,
+          "p95": 641
+        }
+      },
+      {
+        "width": 390,
+        "cache": "warm",
+        "runs": 3,
+        "listMs": {
+          "p50": 1329.4027300000016,
+          "p75": 1353.4311229999985,
+          "p95": 1353.4311229999985
+        },
+        "readerMs": {
+          "p50": 438.9742669999996,
+          "p75": 495.88945199999944,
+          "p95": 495.88945199999944
+        },
+        "readerJsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "lcpMs": {
+          "p50": 272,
+          "p75": 312,
+          "p95": 312
+        },
+        "ttfbMs": {
+          "p50": 18.599999994039536,
+          "p75": 19,
+          "p95": 19
+        },
+        "labInteractionMaxMs": {
+          "p50": 96,
+          "p75": 112,
+          "p95": 112
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "jsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "cssTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "requestCount": {
+          "p50": 104,
+          "p75": 104,
+          "p95": 104
+        },
+        "browserCacheHits": {
+          "p50": 7,
+          "p75": 7,
+          "p95": 7
+        },
+        "longTaskTotalMs": {
+          "p50": 273,
+          "p75": 354,
+          "p95": 354
+        }
+      },
+      {
+        "width": 1440,
+        "cache": "cold",
+        "runs": 3,
+        "listMs": {
+          "p50": 3424.107896999998,
+          "p75": 3438.203945000001,
+          "p95": 3438.203945000001
+        },
+        "readerMs": {
+          "p50": 775.4412810000067,
+          "p75": 896.8536129999993,
+          "p95": 896.8536129999993
+        },
+        "readerJsTransferBytes": {
+          "p50": 351567,
+          "p75": 351567,
+          "p95": 351567
+        },
+        "lcpMs": {
+          "p50": 684,
+          "p75": 692,
+          "p95": 692
+        },
+        "ttfbMs": {
+          "p50": 22.299999982118607,
+          "p75": 24.19999998807907,
+          "p95": 24.19999998807907
+        },
+        "labInteractionMaxMs": {
+          "p50": 192,
+          "p75": 232,
+          "p95": 232
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "jsTransferBytes": {
+          "p50": 1258538,
+          "p75": 1258538,
+          "p95": 1258538
+        },
+        "cssTransferBytes": {
+          "p50": 128488,
+          "p75": 128488,
+          "p95": 128488
+        },
+        "requestCount": {
+          "p50": 96,
+          "p75": 96,
+          "p95": 96
+        },
+        "browserCacheHits": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "longTaskTotalMs": {
+          "p50": 829,
+          "p75": 845,
+          "p95": 845
+        }
+      },
+      {
+        "width": 1440,
+        "cache": "warm",
+        "runs": 3,
+        "listMs": {
+          "p50": 1374.162827,
+          "p75": 1394.2761660000033,
+          "p95": 1394.2761660000033
+        },
+        "readerMs": {
+          "p50": 595.9767429999993,
+          "p75": 607.5947789999991,
+          "p95": 607.5947789999991
+        },
+        "readerJsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "lcpMs": {
+          "p50": 308,
+          "p75": 316,
+          "p95": 316
+        },
+        "ttfbMs": {
+          "p50": 16.599999994039536,
+          "p75": 20.599999994039536,
+          "p95": 20.599999994039536
+        },
+        "labInteractionMaxMs": {
+          "p50": 144,
+          "p75": 152,
+          "p95": 152
+        },
+        "cls": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "jsTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "cssTransferBytes": {
+          "p50": 0,
+          "p75": 0,
+          "p95": 0
+        },
+        "requestCount": {
+          "p50": 104,
+          "p75": 104,
+          "p95": 104
+        },
+        "browserCacheHits": {
+          "p50": 7,
+          "p75": 7,
+          "p95": 7
+        },
+        "longTaskTotalMs": {
+          "p50": 379,
+          "p75": 429,
+          "p95": 429
+        }
+      }
+    ],
+    "runs": [
+      {
+        "width": 390,
+        "run": 0,
+        "cache": "cold",
+        "listMs": 3308.30451,
+        "readerMs": 598.3214269999999,
+        "readerJsTransferBytes": 351567,
+        "lcpMs": 688,
+        "cls": 0,
+        "labInteractionMaxMs": 136,
+        "ttfbMs": 42.599999994039536,
+        "jsTransferBytes": 1258538,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 641,
+        "maxLongTaskMs": 231
+      },
+      {
+        "width": 390,
+        "run": 0,
+        "cache": "warm",
+        "listMs": 1314.939553000001,
+        "readerMs": 438.9742669999996,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 312,
+        "cls": 0,
+        "labInteractionMaxMs": 96,
+        "ttfbMs": 18.099999994039536,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 224,
+        "maxLongTaskMs": 110
+      },
+      {
+        "width": 390,
+        "run": 1,
+        "cache": "cold",
+        "listMs": 3298.17778,
+        "readerMs": 622.6993719999991,
+        "readerJsTransferBytes": 349929,
+        "lcpMs": 688,
+        "cls": 0,
+        "labInteractionMaxMs": 160,
+        "ttfbMs": 31.299999982118607,
+        "jsTransferBytes": 1260176,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 97,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 603,
+        "maxLongTaskMs": 222
+      },
+      {
+        "width": 390,
+        "run": 1,
+        "cache": "warm",
+        "listMs": 1329.4027300000016,
+        "readerMs": 380.8285799999976,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 272,
+        "cls": 0,
+        "labInteractionMaxMs": 72,
+        "ttfbMs": 19,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 273,
+        "maxLongTaskMs": 105
+      },
+      {
+        "width": 390,
+        "run": 2,
+        "cache": "cold",
+        "listMs": 3262.9990959999996,
+        "readerMs": 641.1818920000005,
+        "readerJsTransferBytes": 351567,
+        "lcpMs": 704,
+        "cls": 0,
+        "labInteractionMaxMs": 128,
+        "ttfbMs": 18.5,
+        "jsTransferBytes": 1258538,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 596,
+        "maxLongTaskMs": 219
+      },
+      {
+        "width": 390,
+        "run": 2,
+        "cache": "warm",
+        "listMs": 1353.4311229999985,
+        "readerMs": 495.88945199999944,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 272,
+        "cls": 0,
+        "labInteractionMaxMs": 112,
+        "ttfbMs": 18.599999994039536,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 354,
+        "maxLongTaskMs": 117
+      },
+      {
+        "width": 1440,
+        "run": 0,
+        "cache": "cold",
+        "listMs": 3385.296853,
+        "readerMs": 896.8536129999993,
+        "readerJsTransferBytes": 351567,
+        "lcpMs": 692,
+        "cls": 0,
+        "labInteractionMaxMs": 232,
+        "ttfbMs": 22.299999982118607,
+        "jsTransferBytes": 1258538,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 796,
+        "maxLongTaskMs": 224
+      },
+      {
+        "width": 1440,
+        "run": 0,
+        "cache": "warm",
+        "listMs": 1374.162827,
+        "readerMs": 561.9722499999989,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 316,
+        "cls": 0,
+        "labInteractionMaxMs": 144,
+        "ttfbMs": 20.599999994039536,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 355,
+        "maxLongTaskMs": 115
+      },
+      {
+        "width": 1440,
+        "run": 1,
+        "cache": "cold",
+        "listMs": 3424.107896999998,
+        "readerMs": 693.4165970000031,
+        "readerJsTransferBytes": 351567,
+        "lcpMs": 672,
+        "cls": 0,
+        "labInteractionMaxMs": 192,
+        "ttfbMs": 20.100000023841858,
+        "jsTransferBytes": 1258538,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 829,
+        "maxLongTaskMs": 282
+      },
+      {
+        "width": 1440,
+        "run": 1,
+        "cache": "warm",
+        "listMs": 1394.2761660000033,
+        "readerMs": 595.9767429999993,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 280,
+        "cls": 0,
+        "labInteractionMaxMs": 152,
+        "ttfbMs": 16.099999994039536,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 429,
+        "maxLongTaskMs": 126
+      },
+      {
+        "width": 1440,
+        "run": 2,
+        "cache": "cold",
+        "listMs": 3438.203945000001,
+        "readerMs": 775.4412810000067,
+        "readerJsTransferBytes": 351567,
+        "lcpMs": 684,
+        "cls": 0,
+        "labInteractionMaxMs": 176,
+        "ttfbMs": 24.19999998807907,
+        "jsTransferBytes": 1258538,
+        "cssTransferBytes": 128488,
+        "imageTransferBytes": 6680,
+        "requestCount": 96,
+        "browserCacheHits": 0,
+        "longTaskTotalMs": 845,
+        "maxLongTaskMs": 266
+      },
+      {
+        "width": 1440,
+        "run": 2,
+        "cache": "warm",
+        "listMs": 1289.2906330000042,
+        "readerMs": 607.5947789999991,
+        "readerJsTransferBytes": 0,
+        "lcpMs": 308,
+        "cls": 0,
+        "labInteractionMaxMs": 128,
+        "ttfbMs": 16.599999994039536,
+        "jsTransferBytes": 0,
+        "cssTransferBytes": 0,
+        "imageTransferBytes": 300,
+        "requestCount": 104,
+        "browserCacheHits": 7,
+        "longTaskTotalMs": 379,
+        "maxLongTaskMs": 123
+      }
+    ]
+  },
+  "baselineCommit": "7750d88",
+  "production": {
+    "start": "2026-10-25T10:26:19.684Z",
+    "end": "2026-10-26T10:26:19.683Z",
+    "data": {
+      "viewer": {
+        "accounts": [
+          {
+            "workersInvocationsAdaptive": [
+              {
+                "quantiles": {
+                  "cpuTimeP50": 13375,
+                  "cpuTimeP75": 25850,
+                  "cpuTimeP95": 81943
+                },
+                "sum": {
+                  "errors": 0,
+                  "requests": 6659,
+                  "subrequests": 2147
+                }
+              }
+            ]
+          }
+        ],
+        "zones": [
+          {
+            "api": [
+              {
+                "count": 1,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/messages",
+                  "edgeResponseStatus": 499
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 0,
+                  "edgeTimeToFirstByteMsP75": 0,
+                  "edgeTimeToFirstByteMsP95": 0
+                }
+              },
+              {
+                "count": 917,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/messages",
+                  "edgeResponseStatus": 200
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 461,
+                  "edgeTimeToFirstByteMsP75": 580,
+                  "edgeTimeToFirstByteMsP95": 1704
+                }
+              },
+              {
+                "count": 1,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/inbox",
+                  "edgeResponseStatus": 401
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 19,
+                  "edgeTimeToFirstByteMsP75": 19,
+                  "edgeTimeToFirstByteMsP95": 19
+                }
+              },
+              {
+                "count": 329,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/messages/counts",
+                  "edgeResponseStatus": 200
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 371,
+                  "edgeTimeToFirstByteMsP75": 632,
+                  "edgeTimeToFirstByteMsP95": 1333
+                }
+              },
+              {
+                "count": 42,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/inbox",
+                  "edgeResponseStatus": 200
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 57,
+                  "edgeTimeToFirstByteMsP75": 129,
+                  "edgeTimeToFirstByteMsP95": 642
+                }
+              },
+              {
+                "count": 5,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/messages",
+                  "edgeResponseStatus": 500
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 1786,
+                  "edgeTimeToFirstByteMsP75": 2498,
+                  "edgeTimeToFirstByteMsP95": 2804
+                }
+              },
+              {
+                "count": 1,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/messages",
+                  "edgeResponseStatus": 401
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 22,
+                  "edgeTimeToFirstByteMsP75": 22,
+                  "edgeTimeToFirstByteMsP95": 22
+                }
+              },
+              {
+                "count": 182,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/auth/me",
+                  "edgeResponseStatus": 200
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 56,
+                  "edgeTimeToFirstByteMsP75": 138,
+                  "edgeTimeToFirstByteMsP95": 688
+                }
+              },
+              {
+                "count": 115,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/messages/navigation",
+                  "edgeResponseStatus": 200
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 412,
+                  "edgeTimeToFirstByteMsP75": 985,
+                  "edgeTimeToFirstByteMsP95": 5021
+                }
+              },
+              {
+                "count": 1,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/auth/me",
+                  "edgeResponseStatus": 401
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 395,
+                  "edgeTimeToFirstByteMsP75": 395,
+                  "edgeTimeToFirstByteMsP95": 395
+                }
+              },
+              {
+                "count": 1,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/inbox",
+                  "edgeResponseStatus": 499
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 0,
+                  "edgeTimeToFirstByteMsP75": 0,
+                  "edgeTimeToFirstByteMsP95": 0
+                }
+              },
+              {
+                "count": 12,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "clientRequestPath": "/api/auth/me",
+                  "edgeResponseStatus": 499
+                },
+                "quantiles": {
+                  "edgeTimeToFirstByteMsP50": 0,
+                  "edgeTimeToFirstByteMsP75": 0,
+                  "edgeTimeToFirstByteMsP95": 0
+                }
+              }
+            ],
+            "assets": [
+              {
+                "count": 297,
+                "dimensions": {
+                  "cacheStatus": "hit",
+                  "edgeResponseStatus": 200
+                }
+              },
+              {
+                "count": 393,
+                "dimensions": {
+                  "cacheStatus": "miss",
+                  "edgeResponseStatus": 200
+                }
+              },
+              {
+                "count": 1,
+                "dimensions": {
+                  "cacheStatus": "none",
+                  "edgeResponseStatus": 401
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "errors": null
+  },
+  "localLoad": {
+    "kind": "local SQLite adapter, 60000 synthetic messages; concurrency within one Node process, not Cloudflare CPU or production load",
+    "results": [
+      {
+        "grouped": false,
+        "concurrency": 1,
+        "requests": 5,
+        "p50": 32.713152000000264,
+        "p75": 34.37491900000032,
+        "p95": 37.794394999999895,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30001",
+          "nextId": "mail-29999",
+          "position": 30000,
+          "total": 60000
+        }
+      },
+      {
+        "grouped": false,
+        "concurrency": 8,
+        "requests": 40,
+        "p50": 123.18494999999984,
+        "p75": 181.12277500000027,
+        "p95": 236.03955099999985,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30001",
+          "nextId": "mail-29999",
+          "position": 30000,
+          "total": 60000
+        }
+      },
+      {
+        "grouped": true,
+        "concurrency": 1,
+        "requests": 5,
+        "p50": 55.623337999999876,
+        "p75": 63.26659900000004,
+        "p95": 63.813760999999886,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30003",
+          "nextId": "mail-29999",
+          "position": 15000,
+          "total": 30000
+        }
+      },
+      {
+        "grouped": true,
+        "concurrency": 8,
+        "requests": 40,
+        "p50": 211.15056299999924,
+        "p75": 314.42670500000077,
+        "p95": 406.60685999999987,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30003",
+          "nextId": "mail-29999",
+          "position": 15000,
+          "total": 30000
+        }
+      }
+    ]
+  }
+}

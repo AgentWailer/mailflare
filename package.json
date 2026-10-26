@@ -27,7 +27,7 @@
     "dev:node": "npm run db:bundle && node scripts/build-server.mjs && MAILFLARE_RUNTIME=node node dist/server.mjs",
     "perf:bench": "node scripts/benchmark-performance.mjs",
     "perf:navigation": "node scripts/benchmark-navigation.mjs",
-    "test:performance:ci": "node --test tests/cache-policy.test.mjs tests/time-format-performance.test.mjs tests/message-bulk-jobs.test.mjs tests/message-read-sync.test.mjs tests/account-switch.test.mjs tests/mail-startup-performance.test.mjs tests/mailbox-preload.test.mjs tests/worker-memory.test.mjs && npm run perf:headers && PERF_CHECK=1 PERF_RUNS=3 npm run perf:bench",
+    "test:performance:ci": "node --test tests/cache-policy.test.mjs tests/time-format-performance.test.mjs tests/message-bulk-jobs.test.mjs tests/message-read-sync.test.mjs tests/account-switch.test.mjs tests/mail-startup-performance.test.mjs tests/mailbox-preload.test.mjs tests/worker-memory.test.mjs tests/email-html.test.mjs && npm run perf:headers && PERF_CHECK=1 PERF_RUNS=3 npm run perf:bench",
     "perf:headers": "node scripts/verify-cache-headers.mjs"
   },
   "cloudflare": {

@@ -1,5 +1,5 @@
 import createDOMPurify from "dompurify";
-import * as css from "css-tree";
+import * as css from "./css-parser";
 import { parse, serialize, type DefaultTreeAdapterTypes } from "parse5";
 import parseSrcset from "parse-srcset";
 import type { SanitizeEmailHtmlOptions } from "@/app/(dashboard)/inbox/[messageId]/email-html-sanitizer-types";
