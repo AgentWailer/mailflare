@@ -74,3 +74,14 @@ test('browsers without requestIdleCallback use the quiet timer fallback',async t
  const f=await fixture(t);Object.defineProperty(window,'requestIdleCallback',{configurable:true,value:undefined});
  f.start();await f.advance(749);assert.equal(f.calls.length,0);await f.advance(1);assert.equal(f.routes[0],'/all');assert.equal(f.calls.length,1);
 });
+
+test('reader code warms once after the visible list and before folder work, without opening any message',async t=>{
+ const f=await fixture(t);let warmed=0,release;f.start({preloadReader:()=>{warmed++;return new Promise(resolve=>release=resolve);}});
+ await f.advance(749);assert.equal(warmed,0);await f.advance(1);assert.equal(warmed,1);assert.equal(f.calls.length,0);assert.equal(f.routes.length,0);
+ await f.advance(3000);assert.equal(warmed,1);assert.equal(f.calls.length,0,'large folder queries wait for reader code preparation');release();await f.flush();await f.advance(250);assert.equal(f.calls.length,1);assert.equal(f.routes[0],'/all');
+});
+
+test('reader preparation respects data saving and navigation cleanup',async t=>{
+ const f=await fixture(t);let warmed=0,release;f.connection.saveData=true;const stop=f.start({preloadReader:()=>{warmed++;return new Promise(resolve=>release=resolve);}});
+ await f.advance(3000);assert.equal(warmed,0);f.connection.saveData=false;f.connection.dispatchEvent(new Event('change'));await f.advance(1000);assert.equal(warmed,1);stop();release();await f.flush();await f.advance(5000);assert.equal(f.calls.length,0);
+});

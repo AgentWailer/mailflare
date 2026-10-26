@@ -45,3 +45,13 @@ test('legacy cached browsers retain small complete threads but oversized legacy 
  const f=await fixture(t);f.add('small');let result=await app.getMessageThreadForUser(f.env,f.user,'small',true);assert.equal(result.messages[0].htmlBody,'<p>Private body</p>');assert.equal(result.messages[0].bodyLoaded,true);
  f.add('large',{html:'x'.repeat(5*1024*1024)});f.queries.length=0;await assert.rejects(()=>app.getMessageThreadForUser(f.env,f.user,'large',true),app.ThreadBodyLimitError);assert(!f.queries.some(q=>q.startsWith('select "id", "text_body", "html_body"')),'legacy size is checked inside D1 before fetching full body columns');result=await app.getMessageThreadForUser(f.env,f.user,'large');assert.equal(result.messages.length,2);assert(result.messages.every(m=>m.bodyLoaded===false));
 });
+
+test('detail enrichment starts storage reads while independent contact metadata is pending, after access verification',async t=>{
+ const f=await fixture(t);f.add('mail');let release,storageReads=0;
+ const gate=new Promise(resolve=>release=resolve),prepare=f.DB.prepare.bind(f.DB);
+ f.DB.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);statement.bind=(...params)=>{const bound=bind(...params);if(sql.includes('from "contacts"')){const raw=bound.raw.bind(bound);bound.raw=async(...args)=>{await gate;return raw(...args);};}return bound;};return statement;};
+ f.env.BUCKET.get=async()=>{storageReads++;return null;};
+ const stages=[],pending=app.getMessageWithBodyForUser(f.env,f.user,'mail',stage=>stages.push(stage));
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(storageReads,1,'unsubscribe storage lookup must not wait for contacts');assert.deepEqual(stages,['lookup','access']);release();const data=await pending;assert.equal(data.body.textBody,'Private text');assert.deepEqual(stages,['lookup','access','metadata']);
+ storageReads=0;assert.equal(await app.getMessageWithBodyForUser(f.env,{id:'other',role:'user'},'mail'),null);assert.equal(storageReads,0,'denied users never trigger private enrichment');
+});

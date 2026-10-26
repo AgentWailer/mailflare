@@ -1,5 +1,7 @@
 # Performance-Prüfung Mailflare – 26. Oktober 2026
 
+Nachprüfung: [Erste Nachricht nach dem Neuladen](first-reader.md) mit separaten Vergleichsmessungen und Leser-Vorbereitung.
+
 Die Umsetzung behält Vinext/Vite 8 auf Cloudflare Workers mit Workers Static Assets, D1, R2, Durable Objects und Queues bei. Produktivziel ist `https://mail.steffenvonlindern.de`, geschützt durch Cloudflare Access. Hauptzielregion ist Deutschland/Europa. Die Produktions-D1 antwortete aus **EEUR**, hat rund **4,66 GB**, und Read Replication ist deaktiviert. Der Account besitzt **Workers Paid for Enterprise**, die Zone **Enterprise Website**. Vertragspreise sind nicht aus der Konfiguration ableitbar.
 
 ## Messbarer Vergleich

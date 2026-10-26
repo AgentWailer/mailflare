@@ -1,16 +1,13 @@
 "use client";
 
-import { createElement, useState, useMemo, useCallback } from "react";
+import { createElement, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, Ban, BellOff, Clock, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MessageActionMenuContent } from "@/components/messages/message-action-menu-content";
 import { useLanguage } from "@/components/language-provider";
 import { useCompose } from "@/components/compose/compose-context";
-import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
-import { InboxRules } from "@/components/settings/inbox-rules";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
-import { MessageSnoozeDialog } from "./message-snooze-dialog";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { useHotkeys, useShortcuts } from "@/components/shortcuts";
 import { Button } from "@/components/ui/button";
@@ -33,6 +30,10 @@ import {
 	openUnsubscribeUrl,
 	runSingleMessageAction,
 } from "./utils";
+
+const MessageSourceDialog = lazy(() => import("@/components/messages/message-source-dialog").then(module => ({ default: module.MessageSourceDialog })));
+const MessageSnoozeDialog = lazy(() => import("./message-snooze-dialog").then(module => ({ default: module.MessageSnoozeDialog })));
+const InboxRules = lazy(() => import("@/components/settings/inbox-rules").then(module => ({ default: module.InboxRules })));
 
 export function MessageActions({
 	messageId,
@@ -492,9 +493,11 @@ export function MessageActions({
 
 			</DropdownMenu.Root>
 
-			<MessageSourceDialog messageId={messageId} open={sourceOpen} onOpenChange={setSourceOpen} />
-			<MessageSnoozeDialog messageId={messageId} open={snoozeOpen} onOpenChange={setSnoozeOpen} />
+			<Suspense fallback={<span role="status" className="px-3 text-sm text-neutral-500">{t("common.loading")}</span>}>
+			{sourceOpen && <MessageSourceDialog messageId={messageId} open onOpenChange={setSourceOpen} />}
+			{snoozeOpen && <MessageSnoozeDialog messageId={messageId} open onOpenChange={setSnoozeOpen} />}
 			{filterOpen && mailboxId && <InboxRules sourceMessage={{id:messageId,mailboxId,fromAddr:senderAddress,subject:subject ?? messageMeta?.subject}} onClose={()=>setFilterOpen(false)} />}
+			</Suspense>
 
 			<span className="flex-1 max-md:hidden" />
 		</div>

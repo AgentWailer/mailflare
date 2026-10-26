@@ -1,10 +1,8 @@
 "use client";
 
-import { createElement, useEffect, useState } from "react";
+import { createElement, useEffect, useState, lazy, Suspense } from "react";
 import { Ban, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Reply, ReplyAll, Star } from "lucide-react";
 import { useCompose } from "@/components/compose/compose-context";
-import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
-import { InboxRules } from "@/components/settings/inbox-rules";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { getOwnAddressForMessage } from "@/app/(dashboard)/inbox/[messageId]/utils";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -25,6 +23,9 @@ import {
 import { toggleMessageStar } from "./message-list-row-actions-utils";
 import type { ThreadMessageActionsProps } from "./thread-message-actions-types";
 import type { ReplyMode } from "@/components/message-actions/types";
+
+const MessageSourceDialog = lazy(() => import("./message-source-dialog").then(module => ({ default: module.MessageSourceDialog })));
+const InboxRules = lazy(() => import("@/components/settings/inbox-rules").then(module => ({ default: module.InboxRules })));
 
 export function ThreadMessageActions({
 	message,
@@ -226,8 +227,10 @@ export function ThreadMessageActions({
 					)}
 				</MessageActionMenuContent>
 			</DropdownMenu.Root>
-			<MessageSourceDialog messageId={message.id} open={sourceOpen} onOpenChange={setSourceOpen} />
+			<Suspense fallback={<span role="status" className="text-sm text-neutral-500">{t("common.loading")}</span>}>
+			{sourceOpen && <MessageSourceDialog messageId={message.id} open onOpenChange={setSourceOpen} />}
 			{filterOpen && mailboxId && <InboxRules sourceMessage={{id:message.id,mailboxId,fromAddr:message.fromAddr,subject:message.subject}} onClose={()=>setFilterOpen(false)} />}
+			</Suspense>
 				</>
 			)}
 		</div>

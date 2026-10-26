@@ -7,6 +7,7 @@ import { preloadMessageDetail } from "@/lib/messages/detail-cache";
 import type { Message } from "@/hooks/types";
 import type { MessageNavigationState } from "./message-navigation-types";
 import { useMessageOpening } from "./message-opening";
+import { preloadMessageReader } from "./reader-preload";
 
 export function useMessageNavigation(href: string, message: Message): MessageNavigationState {
 	const pathname = usePathname();
@@ -15,6 +16,7 @@ export function useMessageNavigation(href: string, message: Message): MessageNav
 	const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	useEffect(() => () => clearTimeout(hoverTimer.current), []);
 	const [progress, setProgress] = useState<number | null>(null);
+	const warmReader = () => { if (!href.startsWith("/drafts/")) void preloadMessageReader().catch(() => {}); };
 
 	useEffect(() => {
 		if (progress === null) return;
@@ -26,6 +28,7 @@ export function useMessageNavigation(href: string, message: Message): MessageNav
 	function onNavigate(event: MouseEvent<HTMLAnchorElement>, markRead = false) {
 		if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 		event.preventDefault();
+		warmReader();
 		preloadMessageDetail({ ...message, read: markRead || message.read });
 		if (href === pathname) {
 			window.dispatchEvent(new CustomEvent("mailflare:message-retry", { detail: { messageId: message.id } }));
@@ -45,8 +48,8 @@ export function useMessageNavigation(href: string, message: Message): MessageNav
 
 	return {
 		progress: opening ? opening.pendingMessageId === message.id ? 12 : null : progress, onNavigate,
-		onIntent: () => preloadMessageDetail(message),
-		onHover: () => { clearTimeout(hoverTimer.current); hoverTimer.current = setTimeout(() => preloadMessageDetail(message), 120); },
+		onIntent: () => { warmReader(); preloadMessageDetail(message); },
+		onHover: () => { clearTimeout(hoverTimer.current); hoverTimer.current = setTimeout(() => { warmReader(); preloadMessageDetail(message); }, 120); },
 		onLeave: () => clearTimeout(hoverTimer.current),
 	};
 }

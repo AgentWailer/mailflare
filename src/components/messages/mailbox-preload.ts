@@ -5,14 +5,15 @@ import { fetchMailboxFolders } from "./use-mailbox-folders";
 
 const FOLDERS = ["all", "invoices", "promotions", "social", "orders", "inbox", "starred", "archived", "sent", "drafts", "snoozed", "scheduled", "spam", "trash"];
 type Connection = EventTarget & { saveData?: boolean; effectiveType?: string };
-type Options = { mailboxId: string; href: string; grouped: boolean; prefetchRoute: (href: string) => void };
+type Options = { mailboxId: string; href: string; grouped: boolean; prefetchRoute: (href: string) => void; preloadReader?: () => Promise<void> };
 
 /** One low-priority first page at a time, after the visible list has painted. */
-export function startMailboxPreload({ mailboxId, href, grouped, prefetchRoute }: Options): () => void {
+export function startMailboxPreload({ mailboxId, href, grouped, prefetchRoute, preloadReader }: Options): () => void {
 	const generation = getMessageClientGeneration(), token = getClientSessionToken();
 	const connection = (navigator as Navigator & { connection?: Connection }).connection;
 	const targets = FOLDERS.map(folder => `/${folder}`).filter(target => target !== href);
 	let stopped = false, running = false, labelsLoaded = false, index = 0;
+	let readerLoaded = !preloadReader;
 	let quietUntil = Date.now() + 750;
 	let timer: number | undefined, idle: number | undefined;
 	const current = () => !stopped && generation === getMessageClientGeneration() && token === getClientSessionToken();
@@ -34,6 +35,13 @@ export function startMailboxPreload({ mailboxId, href, grouped, prefetchRoute }:
 	async function step() {
 		if (!allowed()) return;
 		if (Date.now() < quietUntil || hasPendingMessageRequests()) { schedule(); return; }
+		if (!readerLoaded) {
+			readerLoaded = running = true;
+			try { await preloadReader?.(); }
+			catch { quietUntil = Date.now() + 3000; /* A click retries failed code loading. */ }
+			finally { running = false; schedule(); }
+			return;
+		}
 		while (index < targets.length) {
 			const target = targets[index++];
 			const params = getMailboxPageParams(target, mailboxId, grouped);

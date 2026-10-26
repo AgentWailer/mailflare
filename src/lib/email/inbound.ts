@@ -314,15 +314,20 @@ export async function getMessageWithBody(env: CloudflareEnv, userId: string, mes
 	};
 }
 
-export async function getMessageWithBodyForUser(env: CloudflareEnv, user: SessionUser, messageId: string) {
+export async function getMessageWithBodyForUser(env: CloudflareEnv, user: SessionUser, messageId: string, mark?: (stage: string) => void) {
 	const db = getDb(env);
 	const [message] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+	mark?.("lookup");
 	if (!message?.mailboxId) return null;
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
+	mark?.("access");
 	if (!access?.canRead) return null;
-	const contactNames = await getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr);
-	const attachments = await listMessageAttachments(env, messageId);
-	const unsubscribeUrl = await getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key);
+	const [contactNames, attachments, unsubscribeUrl] = await Promise.all([
+		getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr),
+		listMessageAttachments(env, messageId),
+		getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key),
+	]);
+	mark?.("metadata");
 	return { ...messageDetailPayload(message, contactNames), attachments, unsubscribeUrl };
 }
 
