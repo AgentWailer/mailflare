@@ -1,0 +1,894 @@
+{
+  "baselineCommit": "a784241",
+  "date": "2026-10-26",
+  "conditions": {
+    "runs": 5,
+    "cpuThrottle": 4,
+    "rttMs": 100,
+    "downloadBytesPerSecond": 1500000,
+    "uploadBytesPerSecond": 750000,
+    "uiLocale": "en (default application preference)",
+    "browserLocale": "de-DE",
+    "httpCompression": false,
+    "protocol": "HTTP/1.1 loopback preview",
+    "machine": {
+      "cpu": "AMD EPYC 9V74 80-Core Processor",
+      "cores": 5,
+      "node": "v24.19.0",
+      "browser": "154.0.8037.57"
+    },
+    "fieldData": false,
+    "trace": false
+  },
+  "before": [
+    {
+      "width": 390,
+      "cache": "cold",
+      "runs": 5,
+      "listMs": {
+        "p50": 3910.005193000001,
+        "p75": 3967.502772,
+        "p95": 4001.274073
+      },
+      "readerMs": {
+        "p50": 1287.7718630000018,
+        "p75": 1310.425717,
+        "p95": 1324.7624890000006
+      },
+      "lcpMs": {
+        "p50": 632,
+        "p75": 644,
+        "p95": 656
+      },
+      "ttfbMs": {
+        "p50": 31.900000005960464,
+        "p75": 33.29999998211861,
+        "p95": 35.29999998211861
+      },
+      "labInteractionMaxMs": {
+        "p50": 184,
+        "p75": 184,
+        "p95": 208
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "jsTransferBytes": {
+        "p50": 1271794,
+        "p75": 1271794,
+        "p95": 1271794
+      },
+      "cssTransferBytes": {
+        "p50": 128488,
+        "p75": 128488,
+        "p95": 128488
+      },
+      "requestCount": {
+        "p50": 140,
+        "p75": 140,
+        "p95": 140
+      },
+      "browserCacheHits": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "longTaskTotalMs": {
+        "p50": 734,
+        "p75": 773,
+        "p95": 780
+      }
+    },
+    {
+      "width": 390,
+      "cache": "warm",
+      "runs": 5,
+      "listMs": {
+        "p50": 1432.202013,
+        "p75": 1460.2011580000035,
+        "p95": 1503.9057319999993
+      },
+      "readerMs": {
+        "p50": 748.5785600000017,
+        "p75": 808.6582499999986,
+        "p95": 882.2103109999953
+      },
+      "lcpMs": {
+        "p50": 292,
+        "p75": 308,
+        "p95": 308
+      },
+      "ttfbMs": {
+        "p50": 17.099999994039536,
+        "p75": 19.099999994039536,
+        "p95": 19.19999998807907
+      },
+      "labInteractionMaxMs": {
+        "p50": 144,
+        "p75": 176,
+        "p95": 192
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "jsTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "cssTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "requestCount": {
+        "p50": 140,
+        "p75": 140,
+        "p95": 141
+      },
+      "browserCacheHits": {
+        "p50": 19,
+        "p75": 19,
+        "p95": 19
+      },
+      "longTaskTotalMs": {
+        "p50": 367,
+        "p75": 393,
+        "p95": 409
+      }
+    },
+    {
+      "width": 1440,
+      "cache": "cold",
+      "runs": 5,
+      "listMs": {
+        "p50": 4196.916582000005,
+        "p75": 4301.667936000005,
+        "p95": 4340.541806000008
+      },
+      "readerMs": {
+        "p50": 1521.4027730000016,
+        "p75": 1534.3029779999924,
+        "p95": 1790.7601240000076
+      },
+      "lcpMs": {
+        "p50": 628,
+        "p75": 628,
+        "p95": 636
+      },
+      "ttfbMs": {
+        "p50": 23.299999982118607,
+        "p75": 26.700000017881393,
+        "p95": 30.900000005960464
+      },
+      "labInteractionMaxMs": {
+        "p50": 304,
+        "p75": 328,
+        "p95": 416
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0.000018861454046639233,
+        "p95": 0.000018861454046639233
+      },
+      "jsTransferBytes": {
+        "p50": 1271794,
+        "p75": 1271794,
+        "p95": 1271794
+      },
+      "cssTransferBytes": {
+        "p50": 128488,
+        "p75": 128488,
+        "p95": 128488
+      },
+      "requestCount": {
+        "p50": 140,
+        "p75": 140,
+        "p95": 140
+      },
+      "browserCacheHits": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "longTaskTotalMs": {
+        "p50": 1016,
+        "p75": 1030,
+        "p95": 1065
+      }
+    },
+    {
+      "width": 1440,
+      "cache": "warm",
+      "runs": 5,
+      "listMs": {
+        "p50": 1455.2256359999956,
+        "p75": 1533.8796230000007,
+        "p95": 2312.6795379999967
+      },
+      "readerMs": {
+        "p50": 1169.954675999994,
+        "p75": 1246.6623140000083,
+        "p95": 1261.8991360000073
+      },
+      "lcpMs": {
+        "p50": 296,
+        "p75": 300,
+        "p95": 436
+      },
+      "ttfbMs": {
+        "p50": 16.900000005960464,
+        "p75": 16.900000005960464,
+        "p95": 34
+      },
+      "labInteractionMaxMs": {
+        "p50": 272,
+        "p75": 304,
+        "p95": 368
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "jsTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "cssTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "requestCount": {
+        "p50": 140,
+        "p75": 140,
+        "p95": 141
+      },
+      "browserCacheHits": {
+        "p50": 19,
+        "p75": 19,
+        "p95": 19
+      },
+      "longTaskTotalMs": {
+        "p50": 635,
+        "p75": 809,
+        "p95": 1238
+      }
+    }
+  ],
+  "after": [
+    {
+      "width": 390,
+      "cache": "cold",
+      "runs": 5,
+      "listMs": {
+        "p50": 3328.0434569999998,
+        "p75": 3361.6059430000023,
+        "p95": 3407.131562999999
+      },
+      "readerMs": {
+        "p50": 1121.2164860000012,
+        "p75": 1180.6493499999997,
+        "p95": 1209.5535139999993
+      },
+      "lcpMs": {
+        "p50": 696,
+        "p75": 712,
+        "p95": 724
+      },
+      "ttfbMs": {
+        "p50": 21.599999994039536,
+        "p75": 40.099999994039536,
+        "p95": 57.70000001788139
+      },
+      "labInteractionMaxMs": {
+        "p50": 136,
+        "p75": 144,
+        "p95": 152
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "jsTransferBytes": {
+        "p50": 1255604,
+        "p75": 1255604,
+        "p95": 1255604
+      },
+      "cssTransferBytes": {
+        "p50": 128488,
+        "p75": 128488,
+        "p95": 128488
+      },
+      "requestCount": {
+        "p50": 96,
+        "p75": 96,
+        "p95": 96
+      },
+      "browserCacheHits": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "longTaskTotalMs": {
+        "p50": 675,
+        "p75": 694,
+        "p95": 733
+      }
+    },
+    {
+      "width": 390,
+      "cache": "warm",
+      "runs": 5,
+      "listMs": {
+        "p50": 1322.7275879999988,
+        "p75": 1324.8172479999994,
+        "p95": 1353.4200149999997
+      },
+      "readerMs": {
+        "p50": 579.1876310000007,
+        "p75": 590.4919509999963,
+        "p95": 593.6716670000005
+      },
+      "lcpMs": {
+        "p50": 288,
+        "p75": 296,
+        "p95": 304
+      },
+      "ttfbMs": {
+        "p50": 18.19999998807907,
+        "p75": 18.700000017881393,
+        "p95": 20.099999994039536
+      },
+      "labInteractionMaxMs": {
+        "p50": 96,
+        "p75": 112,
+        "p95": 112
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "jsTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "cssTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "requestCount": {
+        "p50": 96,
+        "p75": 96,
+        "p95": 98
+      },
+      "browserCacheHits": {
+        "p50": 9,
+        "p75": 9,
+        "p95": 9
+      },
+      "longTaskTotalMs": {
+        "p50": 181,
+        "p75": 270,
+        "p95": 305
+      }
+    },
+    {
+      "width": 1440,
+      "cache": "cold",
+      "runs": 5,
+      "listMs": {
+        "p50": 3407.836964000002,
+        "p75": 3417.7659490000005,
+        "p95": 3479.0460690000036
+      },
+      "readerMs": {
+        "p50": 1416.0663889999996,
+        "p75": 1442.7295630000008,
+        "p95": 1538.9107299999887
+      },
+      "lcpMs": {
+        "p50": 696,
+        "p75": 720,
+        "p95": 728
+      },
+      "ttfbMs": {
+        "p50": 21.099999994039536,
+        "p75": 22,
+        "p95": 27.5
+      },
+      "labInteractionMaxMs": {
+        "p50": 224,
+        "p75": 224,
+        "p95": 224
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "jsTransferBytes": {
+        "p50": 1255604,
+        "p75": 1255604,
+        "p95": 1255604
+      },
+      "cssTransferBytes": {
+        "p50": 128488,
+        "p75": 128488,
+        "p95": 128488
+      },
+      "requestCount": {
+        "p50": 96,
+        "p75": 96,
+        "p95": 96
+      },
+      "browserCacheHits": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "longTaskTotalMs": {
+        "p50": 882,
+        "p75": 899,
+        "p95": 907
+      }
+    },
+    {
+      "width": 1440,
+      "cache": "warm",
+      "runs": 5,
+      "listMs": {
+        "p50": 1423.2334259999989,
+        "p75": 1443.4917920000007,
+        "p95": 1464.8660549999986
+      },
+      "readerMs": {
+        "p50": 690.9072799999994,
+        "p75": 700.1830139999947,
+        "p95": 740.2270270000008
+      },
+      "lcpMs": {
+        "p50": 284,
+        "p75": 296,
+        "p95": 312
+      },
+      "ttfbMs": {
+        "p50": 17.900000005960464,
+        "p75": 20.5,
+        "p95": 23.399999976158142
+      },
+      "labInteractionMaxMs": {
+        "p50": 136,
+        "p75": 144,
+        "p95": 168
+      },
+      "cls": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "jsTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "cssTransferBytes": {
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "requestCount": {
+        "p50": 96,
+        "p75": 96,
+        "p95": 96
+      },
+      "browserCacheHits": {
+        "p50": 9,
+        "p75": 9,
+        "p95": 9
+      },
+      "longTaskTotalMs": {
+        "p50": 401,
+        "p75": 438,
+        "p95": 500
+      }
+    }
+  ],
+  "navigationBefore": {
+    "kind": "local SQLite adapter, 60000 synthetic messages; concurrency within one Node process, not Cloudflare CPU or production load",
+    "results": [
+      {
+        "grouped": false,
+        "concurrency": 1,
+        "requests": 5,
+        "p50": 61.258894000000055,
+        "p75": 72.19106099999999,
+        "p95": 78.69754199999988,
+        "responseBytes": 2040014,
+        "entries": 60000
+      },
+      {
+        "grouped": false,
+        "concurrency": 8,
+        "requests": 40,
+        "p50": 273.15960799999993,
+        "p75": 414.725864,
+        "p95": 544.9578790000005,
+        "responseBytes": 2040014,
+        "entries": 60000
+      },
+      {
+        "grouped": true,
+        "concurrency": 1,
+        "requests": 5,
+        "p50": 59.93390100000033,
+        "p75": 60.23764800000026,
+        "p95": 69.98767700000008,
+        "responseBytes": 1020014,
+        "entries": 30000
+      },
+      {
+        "grouped": true,
+        "concurrency": 8,
+        "requests": 40,
+        "p50": 277.1386799999991,
+        "p75": 417.2444400000004,
+        "p95": 533.1547329999994,
+        "responseBytes": 1020014,
+        "entries": 30000
+      }
+    ]
+  },
+  "navigationAfter": {
+    "kind": "local SQLite adapter, 60000 synthetic messages; concurrency within one Node process, not Cloudflare CPU or production load",
+    "results": [
+      {
+        "grouped": false,
+        "concurrency": 1,
+        "requests": 5,
+        "p50": 31.945169000000078,
+        "p75": 31.95928099999992,
+        "p95": 36.93643299999985,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30001",
+          "nextId": "mail-29999",
+          "position": 30000,
+          "total": 60000
+        }
+      },
+      {
+        "grouped": false,
+        "concurrency": 8,
+        "requests": 40,
+        "p50": 120.96847899999966,
+        "p75": 181.438897,
+        "p95": 233.35041899999987,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30001",
+          "nextId": "mail-29999",
+          "position": 30000,
+          "total": 60000
+        }
+      },
+      {
+        "grouped": true,
+        "concurrency": 1,
+        "requests": 5,
+        "p50": 49.973079999999754,
+        "p75": 50.03586399999995,
+        "p95": 50.24589900000001,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30003",
+          "nextId": "mail-29999",
+          "position": 15000,
+          "total": 30000
+        }
+      },
+      {
+        "grouped": true,
+        "concurrency": 8,
+        "requests": 40,
+        "p50": 216.84072300000025,
+        "p75": 329.33631400000013,
+        "p95": 401.7951430000003,
+        "responseBytes": 109,
+        "entries": 0,
+        "navigation": {
+          "previousId": "mail-30003",
+          "nextId": "mail-29999",
+          "position": 15000,
+          "total": 30000
+        }
+      }
+    ]
+  },
+  "dateBefore": {
+    "iterations": 1000,
+    "samples": [
+      140.910064,
+      143.44534499999997,
+      120.29566299999999,
+      145.265968,
+      128.43944199999999
+    ]
+  },
+  "dateAfter": {
+    "iterations": 1000,
+    "samples": [
+      16.679907,
+      2.1977899999999977,
+      2.062025999999989,
+      2.144829999999999,
+      2.168145999999993
+    ]
+  },
+  "production": {
+    "approximatelyCapturedAt": "2026-10-26T07:18:26.771Z",
+    "source": "Cloudflare adaptive analytics, preceding 24 hours; production SQL is read-only",
+    "apis": [
+      {
+        "count": 865,
+        "dimensions": {
+          "cacheStatus": "none",
+          "clientRequestPath": "/api/messages",
+          "edgeResponseStatus": 200
+        },
+        "quantiles": {
+          "edgeTimeToFirstByteMsP50": 459,
+          "edgeTimeToFirstByteMsP75": 580,
+          "edgeTimeToFirstByteMsP95": 1626
+        }
+      },
+      {
+        "count": 303,
+        "dimensions": {
+          "cacheStatus": "none",
+          "clientRequestPath": "/api/messages/counts",
+          "edgeResponseStatus": 200
+        },
+        "quantiles": {
+          "edgeTimeToFirstByteMsP50": 374,
+          "edgeTimeToFirstByteMsP75": 682,
+          "edgeTimeToFirstByteMsP95": 1333
+        }
+      },
+      {
+        "count": 112,
+        "dimensions": {
+          "cacheStatus": "none",
+          "clientRequestPath": "/api/auth/me",
+          "edgeResponseStatus": 200
+        },
+        "quantiles": {
+          "edgeTimeToFirstByteMsP50": 70,
+          "edgeTimeToFirstByteMsP75": 261,
+          "edgeTimeToFirstByteMsP95": 2077
+        }
+      },
+      {
+        "count": 73,
+        "dimensions": {
+          "cacheStatus": "none",
+          "clientRequestPath": "/api/messages/navigation",
+          "edgeResponseStatus": 200
+        },
+        "quantiles": {
+          "edgeTimeToFirstByteMsP50": 611,
+          "edgeTimeToFirstByteMsP75": 1293,
+          "edgeTimeToFirstByteMsP95": 5474
+        }
+      },
+      {
+        "count": 37,
+        "dimensions": {
+          "cacheStatus": "none",
+          "clientRequestPath": "/inbox",
+          "edgeResponseStatus": 200
+        },
+        "quantiles": {
+          "edgeTimeToFirstByteMsP50": 58,
+          "edgeTimeToFirstByteMsP75": 124,
+          "edgeTimeToFirstByteMsP95": 658
+        }
+      }
+    ],
+    "workers": [
+      {
+        "quantiles": {
+          "cpuTimeP50": 15944,
+          "cpuTimeP75": 30129,
+          "cpuTimeP95": 93945,
+          "durationP50": 0.040165626,
+          "durationP95": 0.6429214
+        },
+        "sum": {
+          "errors": 0,
+          "requests": 5054,
+          "subrequests": 1995
+        }
+      }
+    ],
+    "workerCpuTimeUnit": "microseconds (verified against GraphQL schema); duration quantiles are GB*s, not wall time",
+    "assetCache": [
+      {
+        "count": 129,
+        "dimensions": {
+          "cacheStatus": "hit",
+          "edgeResponseStatus": 200
+        }
+      },
+      {
+        "count": 299,
+        "dimensions": {
+          "cacheStatus": "miss",
+          "edgeResponseStatus": 200
+        }
+      }
+    ],
+    "d1": {
+      "capturedAt": "2026-10-26T07:43:48.460Z",
+      "description": "Read-only production D1 SELECT; auth/API/browser time excluded; no old full archive query replayed",
+      "results": [
+        {
+          "grouped": false,
+          "durationMs": 70.2735,
+          "rowsRead": 507812,
+          "rowsWritten": 0,
+          "roundTripMs": 488.1641420000001,
+          "servedByRegion": "EEUR"
+        },
+        {
+          "grouped": false,
+          "durationMs": 66.7142,
+          "rowsRead": 507812,
+          "rowsWritten": 0,
+          "roundTripMs": 481.6427269999999,
+          "servedByRegion": "EEUR"
+        },
+        {
+          "grouped": false,
+          "durationMs": 66.3945,
+          "rowsRead": 507812,
+          "rowsWritten": 0,
+          "roundTripMs": 456.23129500000005,
+          "servedByRegion": "EEUR"
+        },
+        {
+          "grouped": true,
+          "durationMs": 375.5071,
+          "rowsRead": 669075,
+          "rowsWritten": 0,
+          "roundTripMs": 762.9555599999999,
+          "servedByRegion": "EEUR"
+        },
+        {
+          "grouped": true,
+          "durationMs": 125.2219,
+          "rowsRead": 669075,
+          "rowsWritten": 0,
+          "roundTripMs": 549.8338619999995,
+          "servedByRegion": "EEUR"
+        },
+        {
+          "grouped": true,
+          "durationMs": 130.8974,
+          "rowsRead": 669075,
+          "rowsWritten": 0,
+          "roundTripMs": 523.7069949999996,
+          "servedByRegion": "EEUR"
+        }
+      ],
+      "plans": [
+        {
+          "grouped": false,
+          "details": [
+            "MATERIALIZE heads",
+            "SEARCH messages USING COVERING INDEX messages_category_page_cover_idx (mailbox_id=?)",
+            "MATERIALIZE target",
+            "SCAN heads",
+            "SCAN t",
+            "SCAN h",
+            "SCALAR SUBQUERY 4",
+            "SCAN h",
+            "SCAN t",
+            "USE TEMP B-TREE FOR ORDER BY",
+            "SCALAR SUBQUERY 5",
+            "SCAN h",
+            "SCAN t",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        },
+        {
+          "grouped": true,
+          "details": [
+            "MATERIALIZE heads",
+            "CO-ROUTINE (subquery-2)",
+            "CO-ROUTINE (subquery-9)",
+            "SEARCH messages USING COVERING INDEX messages_conversation_cover_idx (mailbox_id=?)",
+            "SCAN (subquery-9)",
+            "SCAN (subquery-2)",
+            "MATERIALIZE target",
+            "SCAN heads",
+            "SCALAR SUBQUERY 4",
+            "SEARCH messages USING INDEX sqlite_autoindex_messages_1 (id=?)",
+            "SCAN t",
+            "SCAN h",
+            "SCALAR SUBQUERY 6",
+            "SCAN h",
+            "SCAN t",
+            "USE TEMP B-TREE FOR ORDER BY",
+            "SCALAR SUBQUERY 7",
+            "SCAN h",
+            "SCAN t",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Synthetic authenticated browser APIs, no live mailbox session",
+    "No production RUM LCP/INP/CLS dataset available",
+    "Five lab runs per width/cache: p95 is the largest observed sample, not a stable population percentile",
+    "Uncompressed preview transfer sizes; production Brotli is enabled but authenticated compressed transfers could not be inspected",
+    "Local concurrency benchmark uses SQLite and one Node process, not distributed production traffic",
+    "Exact navigation positions still scan indexed metadata; old client API requests remain compatible"
+  ],
+  "cacheHeaderVerification": [
+    {
+      "path": "/_next/static/chunks/framework-CC43ETI3.js",
+      "status": 200,
+      "cacheControl": "public,max-age=31536000,immutable",
+      "etag": true,
+      "repeatStatus": 304
+    },
+    {
+      "path": "/sw.js",
+      "status": 200,
+      "cacheControl": "no-cache",
+      "etag": true,
+      "repeatStatus": 304
+    },
+    {
+      "path": "/locales/de.json",
+      "status": 200,
+      "cacheControl": "public,max-age=0,must-revalidate",
+      "etag": true,
+      "repeatStatus": 304
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "status": 200,
+      "cacheControl": "no-cache",
+      "etag": false
+    },
+    {
+      "path": "/inbox",
+      "status": 200,
+      "cacheControl": "private, no-store",
+      "etag": false
+    },
+    {
+      "path": "/api/auth/me",
+      "status": 401,
+      "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "etag": false
+    }
+  ]
+}

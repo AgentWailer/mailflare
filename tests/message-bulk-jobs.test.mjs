@@ -316,3 +316,19 @@ test('search requests discard folder filters and the explicit spam choice surviv
  const phrase='\"example in:anywhere literal\"';assert.equal(app.parseSearchQuery(phrase).includeSpam,undefined);assert.equal(app.setSearchIncludeSpam(phrase,false),phrase);assert.equal(app.setSearchIncludeSpam(app.setSearchIncludeSpam(phrase,true),false),phrase);
  assert.equal(app.parseSearchQuery('in:anywhere').needsFullText,false);assert.equal(app.parseSearchQuery('in:unknown').text,'in:unknown');
 });
+
+test('bounded reader navigation matches legacy order without serializing the archive and keeps search, grouping and mailbox isolation',async t=>{
+ const f=await fixture(t);for(const id of ['a','b','c','d'])f.add(id,{subject:'Navigation receipt'});f.add('foreign',{mailbox:'private',subject:'Navigation receipt'});f.add('spam-nav',{status:'spam',subject:'Navigation receipt'});
+ f.DB.db.exec("UPDATE messages SET thread_id='shared-thread' WHERE id IN ('a','c')");
+ for(const grouped of [false,true]){
+  const path='/api/messages/navigation?folder=all&mailboxId=box&q=Navigation'+(grouped?'&group=thread':'');
+  const legacy=(await(await app.navigation(f.request(null,'owner',path))).json()).messages;
+  for(let i=0;i<legacy.length;i++){
+   const response=await app.navigation(f.request(null,'owner',path+'&messageId='+legacy[i].id)),text=await response.text(),data=JSON.parse(text);
+   assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert(response.headers.get('Server-Timing').includes('navigation;dur='));assert.deepEqual(data.messages,[]);assert(text.length<350);
+   assert.deepEqual(data.navigation,{previousId:legacy[i-1]?.id??null,nextId:legacy[i+1]?.id??null,position:i+1,total:legacy.length});
+  }
+  const absent=await(await app.navigation(f.request(null,'owner',path+'&messageId=foreign'))).json();assert.equal(absent.navigation.position,0);assert.equal(absent.navigation.total,0);
+ }
+ const denied=await app.navigation(f.request(null,'other','/api/messages/navigation?folder=all&mailboxId=box&messageId=a'));assert.equal(denied.status,404);
+});

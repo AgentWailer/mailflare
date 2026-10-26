@@ -17,3 +17,16 @@ test('private response policy preserves status, location and separate session co
  const headers=new Headers({Location:'/inbox'});headers.append('Set-Cookie','ep_session=fake; HttpOnly');headers.append('Set-Cookie','ep_accounts=fake; HttpOnly');
  const response=applyAppCachePolicy(new Request('https://mail.test/'),new Response(null,{status:307,headers}));assert.equal(response.status,307);assert.equal(response.headers.get('Location'),'/inbox');assert.equal(response.headers.getSetCookie().length,2);
 });
+test('personalized APIs override accidental public policies and session writes never enter a cache',async()=>{
+ for(const path of ['/api/messages','/api/auth/me','/api/mailboxes','/api/settings/mcp-oauth']){
+  for(const actor of ['owner-a','owner-b']){
+   const response=applyAppCachePolicy(new Request('https://mail.test'+path,{headers:{Authorization:'Bearer '+actor,Cookie:'ep_session='+actor}}),Response.json({owner:actor},{headers:{'Cache-Control':'public, max-age=3600, s-maxage=86400'}}));
+   assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.equal((await response.json()).owner,actor);
+  }
+ }
+ const response=applyAppCachePolicy(new Request('https://mail.test/api/branding/icon'),new Response('image',{headers:{'Content-Type':'image/png','Cache-Control':'public, max-age=3600','Set-Cookie':'ep_session=synthetic; HttpOnly'}}));assert.equal(response.headers.get('Cache-Control'),'private, no-store');
+});
+test('private browser images vary by authentication and missing hashed assets are never immutable',()=>{
+ const image=applyAppCachePolicy(new Request('https://mail.test/api/contacts/logo'),new Response('png',{headers:{'Cache-Control':'private, max-age=300','Content-Type':'image/png',ETag:'"image-v1"'}}));assert.equal(image.headers.get('Cache-Control'),'private, max-age=300');assert.match(image.headers.get('Vary'),/Cookie, Authorization/);assert.equal(image.headers.get('ETag'),'"image-v1"');
+ const missing=applyAppCachePolicy(new Request('https://mail.test/_next/static/missing.js'),new Response('Not found',{status:404,headers:{'Cache-Control':'public, max-age=31536000, immutable'}}));assert.equal(missing.headers.get('Cache-Control'),'private, no-store');
+});

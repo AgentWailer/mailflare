@@ -16,6 +16,17 @@ export default defineConfig({
 	server: { allowedHosts: ["mailflare.local", "mail.dev"] },
 	plugins: [
 		{
+			name: "client-ui-chunks",
+			configEnvironment(name) {
+				if (name !== "client") return;
+				// Share small UI dependencies across routes instead of fetching a
+				// separate module for each icon/hook. Editors and PDFs stay lazy.
+				return { build: { rolldownOptions: { output: { codeSplitting: { groups: [
+					{ name: "ui-primitives", test: /node_modules[\\/](?:@radix-ui[\\/]|lucide-react[\\/]|react-remove-scroll|react-style-singleton|use-sidecar|use-callback-ref|aria-hidden)/, priority: 20 },
+				] } } } } };
+			},
+		},
+		{
 			name: "pdf-preview-resources",
 			applyToEnvironment: environment => environment.name === "client",
 			async generateBundle() {

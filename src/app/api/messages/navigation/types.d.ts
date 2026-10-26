@@ -5,4 +5,7 @@ export type MessageNavigationEntry = {
 
 export type MessageNavigationResponse = {
 	messages: MessageNavigationEntry[];
+	navigation?: MessageNavigationWindow;
 };
+
+export type MessageNavigationWindow = { previousId: string | null; nextId: string | null; position: number; total: number };

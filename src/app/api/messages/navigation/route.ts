@@ -13,10 +13,13 @@ import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
 import { messageListFilterConditions } from "@/lib/messages/list-filter";
 import { getRequestTimeZone } from "@/lib/time/utils";
+import { loadNavigationWindow } from "@/lib/messages/navigation-window";
+import { requestTiming } from "@/lib/server-timing";
 
 const folders: MessageFolder[] = ["inbox", "promotions", "social", "invoices", "orders", "starred", "all", "snoozed", "sent", "scheduled", "archived", "spam", "trash"];
 
 export async function GET(request: Request) {
+	const timing = requestTiming();
 	const env = getEnv();
 	const user = await getCurrentUser(env, request);
 	if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -73,7 +76,18 @@ export async function GET(request: Request) {
 		}
 		if (folderId) conditions.push(labelCondition(folderId));
 	}
+	if (params.get("read") === "unread") conditions.push(eq(messages.read, false));
+	if (params.get("read") === "read") conditions.push(eq(messages.read, true));
 
+	timing.mark("auth_scope");
+	const messageId = params.get("messageId");
+	if (messageId) {
+		if (messageId.length > 200) return NextResponse.json({ error: "Invalid message" }, { status: 400 });
+		const navigation = await loadNavigationWindow(db, and(...conditions)!, messageId, grouped);
+		timing.mark("navigation");
+		return NextResponse.json({ messages: [], navigation }, { headers: { ...timing.headers(), "Cache-Control": "private, no-store" } });
+	}
+	// Compatibility for older clients; current readers always request a bounded window.
 	const rows = await db.select({
 		id: messages.id,
 		read: messages.read,

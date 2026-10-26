@@ -52,7 +52,12 @@ try{
   const beforeClick=await page.evaluate(()=>performance.getEntriesByType('resource').filter(entry=>entry.name.endsWith('.js')).map(entry=>({name:new URL(entry.name).pathname,bytes:entry.transferSize})));
   assert(beforeClick.reduce((sum,entry)=>sum+entry.bytes,0)<1_350_000,'startup JavaScript budget stays below 1.35 MB without compression');
   assert(!beforeClick.some(entry=>/\/(?:compose-form|agent-panel)-/.test(entry.name)),'closed editor and assistant are not downloaded at startup');
+  assert(!beforeClick.some(entry=>/\/(?:command-palette|shortcuts-help-dialog)-/.test(entry.name)),'closed shortcut dialogs stay out of the startup path');
   assert.equal(events.filter(event=>event.rsc&&event.prefetch&&event.at<listAt).length,0,'folder route prefetch must wait until the visible list is ready');
+  if(width===1440){
+   await page.locator('button[title="Open Command Palette (⌘K)"]').click();const command=page.getByPlaceholder('Type a command or search actions...');await command.waitFor();assert(await command.evaluate(input=>input===document.activeElement),'deferred palette receives keyboard focus');await page.keyboard.press('Escape');await command.waitFor({state:'hidden'});
+   await page.getByRole('button',{name:/Shortcuts.*\?/i}).click();await page.getByRole('heading',{name:'Keyboard Shortcuts',exact:true}).waitFor();await page.getByRole('button',{name:'Close',exact:true}).last().click();
+  }
   await first.click();const clicked=Date.now();await page.locator('[data-message-opening]').waitFor();const acknowledgementMs=Date.now()-clicked;assert(acknowledgementMs<1000,'first click must receive immediate feedback');assert.equal(await page.locator('[data-message-opening] h1').textContent(),'Cold start mail 0');
   await page.waitForFunction(()=>true);for(let i=0;i<100&&!state.release;i++)await pause(20);assert(state.held&&state.release,'real router navigation is pending');
   assert(events.some(event=>event.path==='/api/messages/cold-0'),'body starts before the route response returns');assert.equal(await page.getByText('Message content cold-0',{exact:true}).count(),0);

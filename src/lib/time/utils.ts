@@ -1,6 +1,20 @@
 import type { ZonedDay } from "./types";
 
 const fieldFormatters = new Map<string, Intl.DateTimeFormat>();
+const timeZones = new Map<string, { valid: boolean; zone: string }>();
+const displayFormatters = new Map<string, Intl.DateTimeFormat>();
+let deviceZone: { checkedAt: number; zone: string } | undefined;
+
+function checkedTimeZone(value: string) {
+	let result = timeZones.get(value);
+	if (!result) {
+		try { result = { valid: true, zone: new Intl.DateTimeFormat("en-US", { timeZone: value }).resolvedOptions().timeZone }; }
+		catch { result = { valid: false, zone: "UTC" }; }
+		if (timeZones.size >= 64) timeZones.clear();
+		timeZones.set(value, result);
+	}
+	return result;
+}
 
 function getFieldFormatter(timeZone: string): Intl.DateTimeFormat {
 	let formatter = fieldFormatters.get(timeZone);
@@ -16,20 +30,11 @@ function getFieldFormatter(timeZone: string): Intl.DateTimeFormat {
 }
 
 export function normalizeTimeZone(value?: string | null): string {
-	try {
-		return new Intl.DateTimeFormat("en-US", { timeZone: value || "UTC" }).resolvedOptions().timeZone;
-	} catch {
-		return "UTC";
-	}
+	return checkedTimeZone(value || "UTC").zone;
 }
 
 export function isValidTimeZone(value: string): boolean {
-	try {
-		new Intl.DateTimeFormat("en-US", { timeZone: value });
-		return true;
-	} catch {
-		return false;
-	}
+	return checkedTimeZone(value).valid;
 }
 
 export function getUserTimeZone(): string {
@@ -39,7 +44,11 @@ export function getUserTimeZone(): string {
 			if (typeof saved?.timeZone === "string" && isValidTimeZone(saved.timeZone)) return normalizeTimeZone(saved.timeZone);
 		} catch { /* Device time remains available without storage. */ }
 	}
-	return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+	const now = Date.now();
+	if (!deviceZone || now < deviceZone.checkedAt || now - deviceZone.checkedAt >= 60_000) {
+		deviceZone = { checkedAt: now, zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" };
+	}
+	return deviceZone.zone;
 }
 
 export function getRequestTimeZone(request: Request, preferredTimeZone?: string | null): string {
@@ -53,7 +62,15 @@ export function getDisplayLocale(): string | undefined {
 }
 
 export function formatUserDate(value: Date | string, options: Intl.DateTimeFormatOptions): string {
-	return new Intl.DateTimeFormat(getDisplayLocale(), { ...options, timeZone: getUserTimeZone() }).format(new Date(value));
+	const locale = getDisplayLocale(), settings = { ...options, timeZone: getUserTimeZone() };
+	const key = JSON.stringify([locale, Object.entries(settings).sort(([a], [b]) => a.localeCompare(b))]);
+	let formatter = displayFormatters.get(key);
+	if (!formatter) {
+		formatter = new Intl.DateTimeFormat(locale, settings);
+		if (displayFormatters.size >= 64) displayFormatters.clear();
+		displayFormatters.set(key, formatter);
+	}
+	return formatter.format(new Date(value));
 }
 
 export function formatUserDateTimeLocal(value: Date): string {

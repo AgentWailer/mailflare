@@ -45,7 +45,7 @@ try{
    for(const url of searchRequests){assert.equal(url.searchParams.get('mailboxId'),'box');for(const key of ['status','direction','category','folderId','starred','snoozed','scheduled'])assert.equal(url.searchParams.has(key),false,key+' must not constrain global search');}
    if(start==='/inbox'){
     await page.locator('[data-message-row="archive"] a').first().click();await page.waitForURL('**/all/archive');await page.getByText('Archived receipt content',{exact:true}).waitFor();
-    assert(navigationRequests.some(url=>url.searchParams.get('q')==='Crossfolder'),'reader navigation retains the search query and spam exclusion');
+    assert(navigationRequests.every(url=>url.searchParams.get('q')==='Crossfolder'),'server navigation retains the search query; a complete visible page needs no extra navigation request');
     await page.goBack();await page.locator('[data-message-row="archive"]').waitFor();
    }
    await page.getByRole('button',{name:'Clear search',exact:true}).click();await page.locator('[data-message-row="initial"]').waitFor();assert.equal(new URL(page.url()).pathname,start);await page.getByRole('button',{name:'Advanced search',exact:true}).click();assert.equal(await page.getByRole('dialog').getByRole('checkbox',{name:'Include spam',exact:true}).isChecked(),false,'clearing search resets explicit spam inclusion');

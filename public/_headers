@@ -3,3 +3,9 @@
 
 /sender-logos/*
   Cache-Control: public,max-age=86400
+
+/locales/*
+  Cache-Control: public,max-age=0,must-revalidate
+
+/sw.js
+  Cache-Control: no-cache

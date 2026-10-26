@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useMemo } from "react";
+import React, { createContext, useContext, useState, useMemo, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import {
   Inbox,
@@ -19,9 +19,10 @@ import { useLanguage } from "@/components/language-provider";
 import { useCompose } from "@/components/compose/compose-context";
 import type { ShortcutDefinition, CommandItem } from "./types";
 import { useHotkeys } from "./use-hotkeys";
-import { CommandPalette } from "./command-palette";
-import { ShortcutsHelpDialog } from "./shortcuts-help-dialog";
 import { useShortcutsEnabled } from "./use-shortcuts-enabled";
+
+const CommandPalette = lazy(() => import("./command-palette").then(module => ({ default: module.CommandPalette })));
+const ShortcutsHelpDialog = lazy(() => import("./shortcuts-help-dialog").then(module => ({ default: module.ShortcutsHelpDialog })));
 
 interface ShortcutsContextValue {
   shortcutsEnabled: boolean;
@@ -321,18 +322,20 @@ export function ShortcutsProvider({
     >
       {children}
       {shortcutsEnabled && !shortcutsPreferenceLoading && (
-        <>
+        <Suspense fallback={<span role="status" className="sr-only">{t("nav.loading")}</span>}>
+          {isCommandPaletteOpen &&
           <CommandPalette
             isOpen={isCommandPaletteOpen}
             onClose={closeCommandPalette}
             commands={allCommands}
-          />
+          />}
+          {isHelpModalOpen &&
           <ShortcutsHelpDialog
             isOpen={isHelpModalOpen}
             onClose={closeHelpModal}
             shortcuts={baseShortcuts}
-          />
-        </>
+          />}
+        </Suspense>
       )}
     </ShortcutsContext.Provider>
   );

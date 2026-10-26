@@ -1,0 +1,33 @@
+name: Performance budgets
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_REMOTE_BINDINGS: 'false'
+      WRANGLER_SEND_METRICS: 'false'
+      PERF_OUTPUT: artifacts/performance/ci.json
+      PERF_CACHE_OUTPUT: artifacts/performance/cache-headers.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:performance:ci
+      - run: PERF_OUTPUT=artifacts/performance/navigation.json npm run perf:navigation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-measurements
+          path: artifacts/performance/

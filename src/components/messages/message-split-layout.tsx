@@ -135,7 +135,7 @@ export function MessageSplitLayout({
 			)}
 			<MessageListVisibilityContext.Provider value={{ visible: listVisible, toggle: () => { const visible = !manualListVisible; setManualListVisible(visible); saveMessageListVisible(visible); }, singleColumn: !twoColumnReading, backHref: config.hrefPrefix, backLabel: config.titleKey ? t(config.titleKey) : config.title }}>
 			<section data-message-reading-pane aria-label={t("settings.reading.title")} className={`min-h-0 min-w-0 overflow-hidden bg-white flex-col h-full ${selectedMessageId ? "flex" : "hidden lg:flex"}`}>
-				{pendingMessage ? <><MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantOpen} /></MessageReaderToolbar><MessageOpeningPreview key={pendingMessage.id} message={pendingMessage} href={opening?.href ?? config.hrefPrefix} /></> : selectedMessageId ? <MessageDetailNavigationProvider config={config}>{children}</MessageDetailNavigationProvider> :
+				{pendingMessage ? <><MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantOpen} /></MessageReaderToolbar><MessageOpeningPreview key={pendingMessage.id} message={pendingMessage} href={opening?.href ?? config.hrefPrefix} /></> : selectedMessageId ? <MessageDetailNavigationProvider config={config} messageId={selectedMessageId}>{children}</MessageDetailNavigationProvider> :
 					<div data-empty-reader role="status" className="flex flex-1 justify-center px-6 pt-12 text-sm text-neutral-500">{t("message.noConversationSelected")}</div>}
 			</section>
 			</MessageListVisibilityContext.Provider>

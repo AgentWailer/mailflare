@@ -18,7 +18,7 @@ await build({stdin:{contents:`
  export {MailSearchProvider} from './src/components/mail-search/mail-search-context';
  export {useMessageCounts} from './src/hooks/use-message-counts';
  export {useMessagePolling} from './src/hooks/use-message-polling';
- export {clearMessageClientState,fetchMessageCounts} from './src/hooks/utils';
+ export {clearMessageClientState,fetchMessageCounts,fetchMessageList,getMessageQueryParams} from './src/hooks/utils';
  export {runBulkMessageAction} from './src/components/messages/utils';
  export {MessageDetailNavigationProvider,MessageDetailNavigation} from './src/components/messages/message-detail-navigation';
  export {getMessageDetailNavigationState} from './src/components/messages/message-detail-navigation-utils';
@@ -30,11 +30,11 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {
 const counts=unread=>({folders:{inbox:{total:7,unread},all:{total:9,unread:unread+2}},customFolders:{work:{total:7,unread}},mailboxes:[{mailboxId:'box',total:9,unread:unread+2,inbox:7}]});
 const entries=Array.from({length:7},(_,i)=>({id:'mail-'+i,unread:true}));
 let counter,root;
-function Screen({mailbox='box',navigation=false}) {
+function Screen({mailbox='box',navigation=false,selectedId}) {
  counter=app.useMessageCounts(mailbox);
  return React.createElement(React.Fragment,null,
   React.createElement('output',null,counter.counts.folders.inbox.unread),
-  navigation&&React.createElement(app.MessageDetailNavigationProvider,{config:{folder:'inbox',hrefPrefix:'/inbox'}},React.createElement(app.MessageDetailNavigation,{messageId:'mail-2'})));
+  navigation&&React.createElement(app.MessageDetailNavigationProvider,{config:{folder:'inbox',hrefPrefix:'/inbox'},messageId:selectedId},React.createElement(app.MessageDetailNavigation,{messageId:selectedId??'mail-2'})));
 }
 async function mount(t,fetcher,props={}){
  visibility='visible';app.clearMessageClientState();localStorage.clear();sessionStorage.clear();document.body.innerHTML='<div id="root"></div>';
@@ -142,4 +142,24 @@ test('quiet counter changes are forwarded to other browser tabs without a refres
  assert.equal(messages.length,1,'received realtime updates are not rebroadcast');
  await act(async()=>pollingRoot.unmount());assert.equal(closed,true);
  window.dispatchEvent(new Event('mailflare:message-counts-changed'));assert.equal(messages.length,1,'unmount removes the forwarding listener');
+});
+
+
+test('reader requests only the selected navigation window and renders the full position without a mailbox-sized array',async t=>{
+ await mount(t,async raw=>{if(raw.startsWith('/api/messages/navigation')){const url=new URL(raw,'https://mailflare.test');assert.equal(url.searchParams.get('messageId'),'mail-2');return Response.json({messages:[],navigation:{previousId:'mail-1',nextId:'mail-3',position:3,total:60000}});}return countResponse(0);},{navigation:true,selectedId:'mail-2'});
+ assert.equal(document.querySelector('[aria-live]').textContent,'3 of 60000');
+ await act(async()=>document.querySelector('button[aria-label="Older email"]').click());assert.equal(window.__navigated,'/inbox/mail-3');
+});
+
+
+test('navigation reuses the visible page without per-click archive queries and rechecks on focus or page boundaries',async t=>{
+ let navigationRequests=0;
+ await mount(t,async raw=>{if(raw.startsWith('/api/messages/navigation')){navigationRequests++;const id=new URL(raw,'https://mailflare.test').searchParams.get('messageId');return Response.json({messages:[],navigation:{previousId:'mail-1',nextId:'mail-7',position:id==='mail-6'?7:3,total:60000}});}if(raw.startsWith('/api/messages?'))return Response.json({messages:entries,total:60000,offset:0,limit:25});return countResponse(0);});
+ await app.fetchMessageList(app.getMessageQueryParams('inbox','box',{query:'',limit:25,read:'all',group:'thread'}));
+ const render=id=>act(async()=>root.render(React.createElement(app.MailSearchProvider,null,React.createElement(Screen,{navigation:true,selectedId:id}))));
+ await render('mail-2');assert.equal(navigationRequests,0);assert.equal(document.querySelector('[aria-live]').textContent,'3 of 60000');
+ await render('mail-3');assert.equal(navigationRequests,0);assert.equal(document.querySelector('[aria-live]').textContent,'4 of 60000');
+ await act(async()=>{window.dispatchEvent(new Event('mailflare:message-counts-changed'));await delay();});assert.equal(navigationRequests,0,'read counters do not change membership of an unfiltered list');
+ await act(async()=>{window.dispatchEvent(new Event('focus'));await delay();});assert.equal(navigationRequests,1);
+ await render('mail-6');assert.equal(navigationRequests,2,'an unknown next page requires a bounded server window');
 });
