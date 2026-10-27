@@ -66,11 +66,20 @@ export async function POST(request: Request) {
 		forwardSourceId = source.id;
 	}
 
-	const draftId = newId("msg");
+	if (input.requestId !== undefined && (typeof input.requestId !== "string" || !/^[a-f0-9-]{36}$/i.test(input.requestId) || input.forwardOfMessageId)) {
+		return NextResponse.json({ error: "Invalid draft request ID" }, { status: 400 });
+	}
+	// User-scoped deterministic ID makes a lost creation response safe to retry.
+	const digest = input.requestId ? await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${user.id}:${input.requestId}`)) : null;
+	const draftId = digest ? `msg_${Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("")}` : newId("msg");
+	if (digest) {
+		const [existing] = await db.select({ id: messages.id, status: messages.status }).from(messages).where(and(eq(messages.id, draftId), eq(messages.userId, user.id))).limit(1);
+		if (existing) return existing.status === "draft" ? NextResponse.json({ draft: { id: existing.id, reused: true } }) : NextResponse.json({ error: "Draft already completed" }, { status: 409 });
+	}
 	const text = input.text ?? "";
 	const html = input.html ?? "";
 
-	await db.insert(messages).values({
+	const inserted = await db.insert(messages).values({
 		id: draftId,
 		userId: user.id,
 		mailboxId: sender.mailboxId,
@@ -88,7 +97,11 @@ export async function POST(request: Request) {
 		inReplyTo: input.inReplyTo || null,
 		references: input.references || null,
 		threadId: input.threadId || null,
-	});
+	}).onConflictDoNothing().returning({ id: messages.id });
+	if (!inserted.length) {
+		const [existing] = await db.select({ status: messages.status }).from(messages).where(and(eq(messages.id, draftId), eq(messages.userId, user.id))).limit(1);
+		return existing?.status === "draft" ? NextResponse.json({ draft: { id: draftId, reused: true } }) : NextResponse.json({ error: "Draft already completed" }, { status: 409 });
+	}
 
 	const attachments = forwardSourceId ? await copyMessageAttachments(env, forwardSourceId, draftId) : [];
 	return NextResponse.json({ draft: { id: draftId, attachments } });

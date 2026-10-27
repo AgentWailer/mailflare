@@ -8,7 +8,7 @@
     "build:next": "npm run db:bundle && MAILFLARE_RUNTIME=node next build",
     "start": "vite preview --port 3000",
     "lint": "eslint .",
-    "test:performance": "node --test tests/mail-startup-performance.test.mjs tests/session-startup.test.mjs tests/message-bulk-jobs.test.mjs tests/mail-list-refresh.test.mjs tests/cache-policy.test.mjs tests/menu-performance.test.mjs tests/persistent-reading-pane.test.mjs tests/background-query-performance.test.mjs tests/mailbox-preload.test.mjs tests/account-switch.test.mjs tests/wallet-attachments.test.mjs tests/message-density.test.mjs && node tests/browser/cold-start.mjs && node tests/browser/category-tabs.mjs && node tests/browser/mailbox-preload.mjs && node tests/browser/navigation-performance.mjs && node tests/browser/attachment-preview.mjs && node tests/browser/mail-display-settings.mjs && node tests/browser/email-responsive.mjs",
+    "test:performance": "node --test tests/mail-startup-performance.test.mjs tests/session-startup.test.mjs tests/message-bulk-jobs.test.mjs tests/mail-list-refresh.test.mjs tests/cache-policy.test.mjs tests/menu-performance.test.mjs tests/persistent-reading-pane.test.mjs tests/background-query-performance.test.mjs tests/mailbox-preload.test.mjs tests/account-switch.test.mjs tests/wallet-attachments.test.mjs tests/message-density.test.mjs && node tests/browser/cold-start.mjs && node tests/browser/category-tabs.mjs && node tests/browser/mailbox-preload.mjs && node tests/browser/navigation-performance.mjs && node tests/browser/attachment-preview.mjs && node tests/browser/mail-display-settings.mjs && node tests/browser/email-responsive.mjs && node tests/browser/draft-recovery.mjs",
     "deploy": "npm run build && npm run deploy:worker",
     "deploy:worker": "wrangler deploy",
     "deploy:local": "npm run deploy",
@@ -27,7 +27,7 @@
     "dev:node": "npm run db:bundle && node scripts/build-server.mjs && MAILFLARE_RUNTIME=node node dist/server.mjs",
     "perf:bench": "node scripts/benchmark-performance.mjs",
     "perf:navigation": "node scripts/benchmark-navigation.mjs",
-    "test:performance:ci": "node --test tests/cache-policy.test.mjs tests/time-format-performance.test.mjs tests/message-bulk-jobs.test.mjs tests/message-read-sync.test.mjs tests/account-switch.test.mjs tests/mail-startup-performance.test.mjs tests/mailbox-preload.test.mjs tests/worker-memory.test.mjs tests/email-html.test.mjs && npm run perf:headers && PERF_CHECK=1 PERF_RUNS=3 npm run perf:bench",
+    "test:performance:ci": "node --test tests/cache-policy.test.mjs tests/time-format-performance.test.mjs tests/message-bulk-jobs.test.mjs tests/message-read-sync.test.mjs tests/account-switch.test.mjs tests/mail-startup-performance.test.mjs tests/mailbox-preload.test.mjs tests/worker-memory.test.mjs tests/email-html.test.mjs tests/draft-idempotency.test.mjs tests/folder-read-all-client.test.mjs && npm run perf:headers && PERF_CHECK=1 PERF_RUNS=3 npm run perf:bench",
     "perf:headers": "node scripts/verify-cache-headers.mjs"
   },
   "cloudflare": {

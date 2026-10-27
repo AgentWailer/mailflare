@@ -199,6 +199,7 @@
 	"compose.error.invalidAddress": "„{address}“ ist keine gültige E-Mail-Adresse",
 	"compose.error.emptyBody": "Schreiben Sie eine Nachricht, bevor Sie sie senden",
 	"compose.error.draftAttachments": "Die Anhänge konnten dem Entwurf nicht hinzugefügt werden",
+	"compose.recoveredText": "Nicht gespeicherter Text in diesem Tab wiederhergestellt. Bitte füge noch nicht gespeicherte Dateien erneut hinzu.",
 	"compose.error.saveDraft": "Der Entwurf konnte nicht gespeichert werden. Lassen Sie dieses Fenster offen und prüfen Sie Ihre Verbindung.",
 	"compose.error.saveForReview": "Der Entwurf konnte nicht zur Prüfung gespeichert werden",
 	"compose.error.aiMetadata": "Die Metadaten des KI-Entwurfs fehlen",

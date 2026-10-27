@@ -12,6 +12,10 @@ const SESSION_STORAGE_KEY = "mailflare-session-token";
 export const AUTH_SESSION_CHANGED_EVENT = "mailflare:auth-session-changed";
 
 function dispatchAuthSessionChanged(authenticated: boolean): void {
+	try {
+		localStorage.removeItem("mailflare-recovery-scope");
+		for (const key of Object.keys(sessionStorage)) if (key.startsWith("mailflare-compose-recovery:")) sessionStorage.removeItem(key);
+	} catch { /* Storage may be disabled. */ }
 	if (typeof window === "undefined") return;
 	window.dispatchEvent(
 		new CustomEvent<AuthSessionChangedDetail>(AUTH_SESSION_CHANGED_EVENT, {

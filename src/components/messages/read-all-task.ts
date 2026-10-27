@@ -20,11 +20,11 @@ const listeners = new Set<() => void>();
 const publish = (next: ReadAllTask | null) => { task = next; for (const listener of listeners) listener(); };
 const subscribe = (listener: () => void) => { listeners.add(listener); if (listeners.size === 1) void refreshBulkTask(); return () => { listeners.delete(listener); if (!listeners.size) { clearTimeout(timer); timer = undefined; } }; };
 const emptySnapshot = () => null;
-function schedule() { clearTimeout(timer); if (listeners.size) timer = setTimeout(() => void refreshBulkTask(), task?.status === "running" ? 2000 : 15000); }
+function schedule() { clearTimeout(timer); if (listeners.size && document.visibilityState !== "hidden") timer = setTimeout(() => void refreshBulkTask(), task?.status === "running" ? 2000 : 300000); }
 function changed() { clearMessageDetailCache(); window.dispatchEvent(new Event("mailflare:messages-changed")); }
 /** Only observe the server job. Closing this subscriber never cancels its queue work. */
 export async function refreshBulkTask() {
- if (!listeners.size) return;
+ if (!listeners.size || document.visibilityState === "hidden") return;
  const token = getClientSessionToken(), version = generation;
  if (submitting || readingGeneration === version) { schedule(); return; }
  readingGeneration = version;
@@ -49,7 +49,7 @@ if (typeof window !== "undefined") {
  window.addEventListener("storage", () => { if (session !== getClientSessionToken()) reset(); });
  window.addEventListener("focus", () => void refreshBulkTask());
  window.addEventListener("online", () => void refreshBulkTask());
- document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") void refreshBulkTask(); });
+ document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") void refreshBulkTask(); else clearTimeout(timer); });
 }
 export function useReadAllTask() {
  return useSyncExternalStore(subscribe, () => task, emptySnapshot);

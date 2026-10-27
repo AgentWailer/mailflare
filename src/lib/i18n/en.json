@@ -201,6 +201,7 @@
 	"compose.error.invalidAddress": "\"{address}\" is not a valid email address",
 	"compose.error.emptyBody": "Write a message before sending",
 	"compose.error.draftAttachments": "Could not add attachments to the draft",
+	"compose.recoveredText": "Unsaved text restored in this tab. Please attach any unsaved files again.",
 	"compose.error.saveDraft": "Draft could not be saved. Keep this window open and check your connection.",
 	"compose.error.saveForReview": "Could not save the draft for review",
 	"compose.error.aiMetadata": "AI draft metadata is missing",

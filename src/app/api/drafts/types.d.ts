@@ -1,4 +1,5 @@
 export type DraftPayload = {
+	requestId?: string;
 	mailboxId?: string | null;
 	from?: string;
 	to?: string;

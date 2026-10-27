@@ -119,9 +119,9 @@ export async function GET(request: Request) {
 		? getConversationLabels(db, keys, where).then(labels => labels.map(({ threadKey, ...label }) => ({ messageId: threadKey, ...label })))
 		: getMessageLabels(db, rows.map(row => row.id));
 	const [members, countRows, jobs, contactEntries, labels, repairedPreviews, attachmentCounts] = await Promise.all([
-		membersPromise, threadCountsPromise, jobsPromise, contactsPromise, labelsPromise,
-		repairVisiblePreviews(db, rows).catch(() => new Map<string, string>()),
-		getListAttachmentCounts(db, rows, groupByThread, where),
+		timing.measure("members", membersPromise), timing.measure("threadCounts", threadCountsPromise), timing.measure("jobs", jobsPromise), timing.measure("contacts", contactsPromise), timing.measure("labels", labelsPromise),
+		timing.measure("previewRepair", repairVisiblePreviews(db, rows).catch(() => new Map<string, string>())),
+		timing.measure("attachments", getListAttachmentCounts(db, rows, groupByThread, where)),
 	]);
 	timing.mark("metadata");
 	for (const member of members) {

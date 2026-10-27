@@ -63,3 +63,12 @@ test('a stale status response cannot replace a newly accepted operation',async t
  await act(async()=>app.startReadAllTask(scope));await wait(()=>current?.id==='job');await act(async()=>oldBody({job:{...data(20000,'done'),id:'old-job'}}));assert.equal(current.id,'job');assert.equal(current.status,'running');
  job={...job,status:'done'};await act(async()=>app.refreshBulkTask());
 });
+
+
+test('idle polling backs off and hidden tabs stop reading until return',async t=>{
+ const timers=[];let reads=0;const real=setTimeout;
+ t.mock.method(globalThis,'setTimeout',(fn,ms,...args)=>{timers.push(ms);return real(fn,ms,...args);});
+ await mount(t,async()=>{reads++;return Response.json({job:null});});await wait(()=>reads>0);assert(timers.includes(300000));
+ Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));const before=reads;await app.refreshBulkTask();assert.equal(reads,before);
+ Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));await wait(()=>reads>before);
+});
