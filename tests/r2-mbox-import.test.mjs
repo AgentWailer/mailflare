@@ -243,7 +243,7 @@ test('transaction backfill rechecks old primary decisions once and preserves arc
  const f=await sortingFixture(t,mail('bill','Read').replace('Mail bill','Rechnung 2026-123')+mail('order','Inbox').replace('Mail order','Bestellbestätigung #123')+mail('manual','Inbox')+mail('legacy','Inbox'));
  f.DB.db.exec(`UPDATE messages SET category='primary',sorting_decision='{"source":"rule","category":"primary","policyVersion":3}' WHERE subject='Rechnung 2026-123';UPDATE messages SET sorting_decision='{"source":"manual","category":"primary"}' WHERE subject='Mail manual';UPDATE messages SET sorting_decision='{"source":"clef","category":"primary","policyVersion":3}' WHERE subject='Mail legacy'`);
  await app.controlMboxSortingJob(f.env,f.user,f.job.id,'start');const done=await drainSorting(f);assert.equal(done.processed,2);assert.equal(done.invoices_count,1);assert.equal(done.promotions_count,1);assert.equal(f.aiCalls.length,1);
- const invoice=f.DB.db.prepare("SELECT category,status,sorting_decision FROM messages WHERE subject='Rechnung 2026-123'").get();assert.equal(invoice.category,'invoices');assert.equal(invoice.status,'archived');assert.equal(JSON.parse(invoice.sorting_decision).policyVersion,8);
+ const invoice=f.DB.db.prepare("SELECT category,status,sorting_decision FROM messages WHERE subject='Rechnung 2026-123'").get();assert.equal(invoice.category,'invoices');assert.equal(invoice.status,'archived');assert.equal(JSON.parse(invoice.sorting_decision).policyVersion,9);
  await app.processMboxSortingJob(f.env,f.job.id);assert.equal(f.aiCalls.length,1);assert.equal(f.DB.db.prepare("SELECT category FROM messages WHERE subject='Mail manual'").get().category,'primary');
 });
 

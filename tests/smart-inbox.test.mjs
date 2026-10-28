@@ -917,7 +917,7 @@ test('German account security events survive wrong CLEF spam answers, sender lea
   const result = await app.classifyIncomingMail(f.env, { ...input, subject });
   assert.equal(result.category, 'primary', subject);
   assert.equal(result.reason, 'protected_account_security', subject);
-  assert.equal(result.policyVersion, 8);
+  assert.equal(result.policyVersion, 9);
   assert.equal(app.resolveRoutineMail({ ...input, subject }), null);
  }
  assert.equal(calls, 0);
@@ -1015,7 +1015,7 @@ test("sender logos require login, mailbox access and an existing owner's contact
 test('five-category sorting separates real receipts/orders from coupons and protects security with zero AI charges', async t => {
  const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('promotions')};};
  for(const [subject,category] of [['Ihre Rechnung 2026-123','invoices'],['Zahlungsbeleg #123','invoices'],['Quittung für deine Fahrt','invoices'],['Your payment confirmation','invoices'],['Gutschrift zur Bestellung','invoices'],['Bestellung 123 ist eingegangen','orders'],['Versandbestätigung','orders'],['Order confirmation #123','orders'],['Sicherheitswarnung von Google','primary']]){
-  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,8);assert.equal(result.source,'rule');
+  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,9);assert.equal(result.source,'rule');
  }
  assert.equal(calls,0);
  const coupon=await app.classifyIncomingMail(f.env,{...f.input,subject:'Rechnung erstellen: 40% Rabatt',text:'Spare jetzt beim Kauf',headers:{'List-Unsubscribe':'<https://example.test>'}});assert.equal(coupon.category,'promotions');
@@ -1231,7 +1231,7 @@ test('collection correspondence, objections and deadlines stay visible despite b
  f.DB.db.exec("INSERT INTO mail_sorting_overrides(mailbox_id,sender,category) VALUES('box','case@example.test','promotions')");
  const base={...f.input,sender:'case@example.test',text:'Vielen Dank für Ihre E-Mail. Wir prüfen Ihren Widerspruch zum Aktenzeichen TEST-123.',headers:{'List-Unsubscribe':'<https://example.test/unsub>'}};
  for(const subject of ['Ihre Email bzgl. Widerspruch wegen Verdachts auf Identitätsmissbrauch – Aktenzeichen TEST-123','Unser Aktenzeichen: TEST-456 / Forderung der Firma Beispiel','Letzte Mahnung','Zahlungsaufforderung','Mahnbescheid','Notice of default']){
-  const result=await app.classifyIncomingMail(f.env,{...base,subject});assert.equal(result.category,'primary',subject);assert.equal(result.reason,'protected_legal_or_payment_demand');assert.equal(result.policyVersion,8);
+  const result=await app.classifyIncomingMail(f.env,{...base,subject});assert.equal(result.category,'primary',subject);assert.equal(result.reason,'protected_legal_or_payment_demand');assert.equal(result.policyVersion,9);
  }
  assert.equal(calls,0,'important cases do not need another AI call');
  f.DB.db.exec("DELETE FROM mail_sorting_overrides WHERE sender='case@example.test'");
@@ -1265,7 +1265,7 @@ test('System One sorting uses the matching Omni selector, records the model and 
  const result=await app.classifyIncomingMail(f.env,f.input);
  assert.equal(calls.length,1);assert.equal(calls[0].model,'@cf/cloudflare/clef-omni');assert.equal(calls[0].request.model,'clef-omni');
  assert.equal(calls[0].request.questions.category.type,'choice');for(const key of ['inbox','action','security','marketing'])assert.equal(calls[0].request.questions[key].type,'noul');
- assert.equal(result.category,'promotions');assert.equal(result.model,'@cf/cloudflare/clef-omni');assert.equal(result.policyVersion,8);
+ assert.equal(result.category,'promotions');assert.equal(result.model,'@cf/cloudflare/clef-omni');assert.equal(result.policyVersion,9);
  assert.deepEqual(f.DB.db.prepare('SELECT requests,input_tokens FROM mail_sorting_usage').get(),{requests:1,input_tokens:1234});
  const settings=await(await app.getSettings(f.request('/api/settings/mail-sorting?mailboxId=box'))).json();assert.equal(settings.model,'@cf/cloudflare/clef-omni');
 });
@@ -1321,4 +1321,53 @@ test('sorting sees meaningful content beyond tracking URLs and invisible prehead
  assert.equal(safety.category,'primary');assert.equal(safety.reason,'protected_legal_or_payment_demand');
  assert.equal(app.prepareSortingText('x'.repeat(200000)).length,6000);
  assert.equal(app.prepareSortingText('https://fake.example.test/confirm?password=secret'),'https://fake.example.test');
+});
+
+test('encoded newsletter padding is decoded before clipping, while link hosts remain available',()=>{
+ const body=('&#160;&#8204;&zwnj;&#x034f;&shy;').repeat(1500)+' Actual content after the padding https://shop.example.test/click?private=token';
+ const text=app.prepareSortingText(body);assert(text.startsWith('Actual content after the padding'));assert(text.endsWith('https://shop.example.test'));assert(!text.includes('private='));
+ assert.equal(app.prepareSortingText('&#xD800; &#1114112;'),'&#xD800; &#1114112;');
+});
+
+test('clear advertising is not vetoed by weak general inbox relevance; concrete risks still win',()=>{
+ const ad={...answers('promotions',.89),inbox:{type:'noul',noul:.28}};
+ assert.equal(app.resolveClefDecision(ad,.8,0).category,'promotions');
+ assert.equal(app.resolveClefDecision(ad,.9,0).category,'primary','respect stricter confidence');
+ for(const modified of [{inbox:{type:'noul',noul:.6}},{action:{type:'noul',noul:.15}},{security:{type:'noul',noul:.15}}])assert.equal(app.resolveClefDecision({...ad,...modified},.8,0).category,'primary');
+});
+
+test('editorial newsletters are routed without AI while operational bulletins and personal transactions stay protected',async t=>{
+ const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('promotions')};};
+ const headers={'List-Id':'Weekly publication','List-Unsubscribe':'<https://example.test/unsub>'};
+ for(const [subject,text] of [
+  ['Daily political headlines',"Good morning. Let's get into the headlines. Staff Writer, Newsletters. Unsubscribe"],
+  ['Aktuelle Nachrichten am Morgen','Der Newsletter für Deutschland. Die wichtigsten Nachrichten. Abbestellen'],
+  ['Workout of the Day: Gymnastics','Here is your daily workout. Unsubscribe'],
+ ]){
+  const result=await app.classifyIncomingMail(f.env,{...f.input,subject,text,headers});assert.equal(result.category,'promotions');assert.equal(result.reason,'editorial_newsletter');
+ }
+ assert.equal(calls,0);
+ for(const [subject,text] of [
+  ['Security Update — October','Our security newsletter: Severity: High. CVE-2026-12345. Please upgrade. Unsubscribe'],
+  ['Ihre Rechnung zum Newsletter-Abonnement','Rechnung für Ihren bestehenden Vertrag, 19 EUR. Newsletter. Abmelden'],
+  ['Bestätigung der Kündigung deines Abonnements','Your newsletter subscription cancellation is confirmed. Unsubscribe'],
+  ['Widerspruch - Aktenzeichen TEST-123','Wir prüfen Ihren Widerspruch. Newsletter abbestellen'],
+ ]){
+  const result=await app.classifyIncomingMail(f.env,{...f.input,subject,text,headers});assert.notEqual(result.category,'promotions',subject);
+ }
+ assert.equal(calls,0);
+ assert.equal(app.resolveRoutineMail({...f.input,subject:'Weekly newsletter',text:'Unsubscribe',headers:{}}),null,'list delivery evidence required');
+ assert.equal(app.resolveRoutineMail({...f.input,subject:'Personal question',text:'Please send the documents tomorrow. Newsletter unsubscribe',headers}),null,'footer alone is insufficient');
+});
+
+test('an instructional mention of a confirmation code does not bypass AI; real login codes remain protected',async t=>{
+ const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('promotions')};};
+ const ad=await app.classifyIncomingMail(f.env,{...f.input,subject:'Entdecken Sie unsere App für die Familie',text:'In dieser Anleitung erklären wir den Bestätigungscode. Sie erhalten ihn später beim Anmelden. Jetzt unsere App entdecken.'});
+ assert.equal(ad.category,'promotions');assert.equal(calls,1);
+ for(const [subject,text] of [
+  ['123456 is your X verification code','Use your code to confirm your account.'],
+  ['Angeforderte Bestätigung','Ihr Bestätigungscode: 123456. Gültig für zehn Minuten.'],
+  ['Your verification code','Use the requested code to sign in.'],
+ ]){const result=await app.classifyIncomingMail(f.env,{...f.input,subject,text});assert.equal(result.category,'primary',subject);}
+ assert.equal(calls,1);
 });

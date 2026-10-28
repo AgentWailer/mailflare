@@ -23,7 +23,8 @@ export function resolveTransactionMail(input: RoutineInput): SortingDecision | n
 	const subject = input.subject?.normalize("NFKC").toLowerCase() ?? "";
 	const text = input.text?.normalize("NFKC").toLowerCase().slice(0, 6000) ?? "";
 	// Coupons, purchase invitations and invoice software newsletters are not actual transactions.
-	if (/\b(rabatt|gutschein|coupon|discount|sale|angebot|angebote|offer|newsletter|black friday)\b|jetzt bestellen|order now/.test(subject)) return null;
+	if (/\b(rabatt|gutschein|coupon|discount|sale|angebot|angebote|offer|black friday)\b|jetzt bestellen|order now/.test(subject)) return null;
+	if (/\bnewsletter\b/.test(subject) && !/^(?:ihre|deine|your)\s+(?:rechnung|quittung|invoice|receipt)\b/.test(subject)) return null;
 	// Reminders for an agreed payment are financial mail, even without the word Rechnung.
 	// Require a concrete debit/payment event; "flexible installments" in an advert is insufficient.
 	if (/\b(?:ihre|deine|your)\s+(?:nächste\s+)?(?:ratenzahlung(?:-rate)?|rate|installment|instalment)\b.{0,70}\b(?:abgebucht|fällig|due|debited)\b/u.test(subject) ||
@@ -61,15 +62,31 @@ export function isBulkMail(input: Pick<RoutineInput, "headers">): boolean {
 	);
 }
 
+/** Vulnerability bulletins remain actionable even when sent as a mailing list. */
+export function isOperationalSecurityNotice(input: RoutineInput): boolean {
+	return /security (?:update|advisory|advisories|bulletin)|sicherheits(?:update|lücke|lücken)/i.test(input.subject ?? "") &&
+		/\b(?:CVE-\d{4}-\d+|GHSA-[a-z\d-]+)|severity:\s*(?:high|critical)|kritische sicherheitslücke/i.test(input.text?.slice(0, 6000) ?? "");
+}
+
+/** An explanation mentioning codes is not itself a delivered authentication code. */
+function containsAuthenticationRequest(input: RoutineInput): boolean {
+	const subject = input.subject ?? "";
+	const text = input.text?.slice(0, 6000) ?? "";
+	const code = "(?:verification code|confirmation code|bestätigungscode|sicherheitscode|einmalcode|one-time code)";
+	return new RegExp(`\\b(?:your|dein(?:en|er)?|ihr(?:en|er)?)\\s+(?:[a-z0-9-]+\\s+){0,2}${code}\\b`, "i").test(subject) ||
+		new RegExp(`\\b${code}\\s*(?:(?:is|ist|lautet)\\s*)?[:–-]?\\s*(?:[0-9][ -]?){4,8}\\b`, "i").test(text) ||
+		/\b(?:you requested|sie haben|du hast).{0,60}(?:password reset|passwort.{0,20}zurückzusetzen)/i.test(text);
+}
+
 /** Never quarantine a conversation, security alert or transaction merely because it has list headers. */
 export function isProtectedRoutineMail(input: RoutineInput): boolean {
 	const subject = input.subject?.toLowerCase() ?? "";
-	const text = input.text?.toLowerCase().slice(0, 6000) ?? "";
-	return isConsequentialNotice(input) || isAccountSecurityNotice(input) || /^(re|aw|fw|fwd|wg):/.test(subject.trim()) ||
+	return isConsequentialNotice(input) || isAccountSecurityNotice(input) || isOperationalSecurityNotice(input) || /^(re|aw|fw|fwd|wg):/.test(subject.trim()) ||
 		!!resolveTransactionMail(input) ||
+		/(?:bestätigung|confirmation).{0,55}(?:kündigung|widerruf|cancellation|termination)|(?:kündigung|widerruf|cancellation).{0,55}(?:bestätigt|confirmed)/i.test(subject) ||
 		/\b(anmeldung|login)\b|message from|nachricht von|sent you a message|hat dir eine nachricht/.test(subject) ||
 		Object.keys(input.headers ?? {}).some((key) => key.toLowerCase() === "in-reply-to") ||
-		/\b(verification code|bestätigungscode|password reset|passwort zurücksetzen)\b/.test(text);
+		containsAuthenticationRequest(input);
 }
 
 /** Narrow shortcuts spare AI calls without categorizing every message from a company's domain. */
@@ -82,6 +99,12 @@ export function resolveRoutineMail(input: RoutineInput): SortingDecision | null 
 		return { category: "social", source: "rule", reason: "social_job_alert" };
 	if (!isBulkMail(input)) return null;
 	const text = input.text?.toLowerCase().slice(0, 6000) ?? "";
+	// Explicit editorial formats, with mailing-list delivery AND opt-out wording.
+	// An unsubscribe footer alone cannot override an account or personal notice.
+	const editorial = /\b(?:newsletter|workout of the day|daily briefing|weekly roundup)\b/i.test(subject) ||
+		/der newsletter für|staff writer,? newsletters|let['’]s get into the headlines|in (?:diesem|unserem|this|our) newsletter/i.test(text.slice(0, 1800));
+	if (editorial && /unsubscribe|abbestellen|abmelden|e-mail-einstellungen|email preferences/i.test(text))
+		return { category: "promotions", source: "rule", reason: "editorial_newsletter" };
 	if (
 		(/\b(sale|discount|rabatt|gutschein|coupon|black friday|sonderaktion)\b|\d+\s*%/.test(subject) ||
 			/\b(spare|sparen|save)\b.{0,30}(?:[€$£]|\beur\b|\busd\b)|(?:[€$£]\s*\d+|\d+\s*(?:€|eur))\b.{0,30}\b(rabatt|discount|off|sparen)\b/.test(subject)) &&

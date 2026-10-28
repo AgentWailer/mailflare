@@ -13,6 +13,11 @@ export type SortingState = {
  */
 export function prepareSortingText(value: string | null | undefined): string {
 	return (value ?? "").slice(0, 131072)
+		.replace(/&#(x[\da-f]{1,6}|\d{1,7});/gi, (entity, digits: string) => {
+			const code = digits[0].toLowerCase() === "x" ? parseInt(digits.slice(1), 16) : Number(digits);
+			return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : entity;
+		})
+		.replace(/&(?:nbsp|ensp|emsp|thinsp|zwnj|zwj|shy|ZeroWidthSpace);/gi, " ")
 		.replace(/\bhttps?:\/\/[^\s<>"\]]+/gi, (link) => {
 			try { return new URL(link).origin; } catch { return "[invalid URL]"; }
 		})

@@ -1,6 +1,6 @@
 import { buildSortingRequest, categoryCriteria, prepareSortingText, SORTING_MODEL, SORTING_MODEL_NAME } from "./decision-request";
 export { categoryCriteria, SORTING_MODEL } from "./decision-request";
-import { resolveRoutineMail, resolveTransactionMail, resolveUnavailableSorting, isProtectedRoutineMail, isAccountSecurityNotice, isConsequentialNotice } from "./routine";
+import { resolveRoutineMail, resolveTransactionMail, resolveUnavailableSorting, isProtectedRoutineMail, isAccountSecurityNotice, isOperationalSecurityNotice, isConsequentialNotice } from "./routine";
 import { analyzeAuthentication } from "@/lib/spam/analyzers/authentication";
 import { getSortingExamples } from "./learning";
 import { CONTENT_POLICY_VERSION } from "./content-review";
@@ -93,7 +93,12 @@ export function resolveClefDecision(
 		return { ...result, source: "clef", reason: "transaction_uncertain", reviewRequired: true };
 	// Excluding primary is insufficient: moving mail away also needs strong
 	// evidence for its actual destination, especially advertising.
-	if (inboxProbability > 1 - threshold + 1e-9 || probabilities.primary > 0.2)
+	// A mildly positive generic "inbox relevance" answer must not veto a clear
+	// advertising classification when every concrete personal/security signal is low.
+	// Strong inbox relevance, personal correspondence and financial uncertainty still win.
+	const clearAdvertising = probabilities.promotions >= threshold && probabilities.primary <= 0.1 &&
+		(answers.action.noul ?? 1) < 0.1 && (answers.security.noul ?? 1) < 0.1 && inboxProbability < 0.5;
+	if ((inboxProbability > 1 - threshold + 1e-9 && !clearAdvertising) || probabilities.primary > 0.2)
 		return { ...result, source: "clef", reason: "inbox_uncertain" };
 	if (probabilities.spam >= threshold && spamScore >= 40)
 		return { ...result, source: "clef", reason: "spam_correlated", spam: true };
@@ -164,7 +169,7 @@ export async function classifyIncomingMail(
 		const unavailable = (reason: string) => input.conservativeReview
 			? { ...fallback, reason } : resolveUnavailableSorting(input, reason);
 		if (config.mode === "off") return finalize({ ...fallback, reason: "disabled" });
-		const securityNotice = isAccountSecurityNotice(input);
+		const securityNotice = isAccountSecurityNotice(input) || isOperationalSecurityNotice(input);
 		const consequentialNotice = isConsequentialNotice(input);
 		// Read only authentication results from Cloudflare's receiver, never trust a From name.
 		const authentication = analyzeAuthentication(input.headers).map((signal) => signal.id);
