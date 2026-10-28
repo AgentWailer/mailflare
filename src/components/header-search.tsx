@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { Search } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import { Input } from "@/components/ui/input";
 import type { HeaderSearchProps } from "./header-search-types";
 
@@ -10,6 +11,7 @@ import type { HeaderSearchProps } from "./header-search-types";
 // until tapped, then covers the header at full width; the wrapper still fills the row so
 // whatever follows it stays pushed to the right. Mail uses the inline phone variant inside its search capsule.
 export function HeaderSearch({ value, onChange, label, placeholder, onSubmit, trailing, inputProps, mobileInline = false }: HeaderSearchProps) {
+	const { t } = useLanguage();
 	const [expanded, setExpanded] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +34,8 @@ export function HeaderSearch({ value, onChange, label, placeholder, onSubmit, tr
 				onSubmit={(event) => { event.preventDefault(); onSubmit?.(); }}
 				className={clsx("h-12 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-[#eaf1fb] px-4 text-neutral-600 transition-colors md:flex md:focus-within:ring-2 md:focus-within:ring-blue-500/30", mobileInline ? "mail-search-form flex md:gap-3 md:px-3 max-md:bg-transparent max-md:px-2 max-md:gap-2" : expanded ? "flex max-md:fixed max-md:inset-x-2 max-md:top-2 max-md:z-[60] max-md:shadow-md focus-within:ring-2 focus-within:ring-blue-500/30" : "max-md:hidden")}
 			>
-				<Search aria-hidden="true" className={clsx("shrink-0", mobileInline ? "h-5 w-5 md:h-6 md:w-6" : "h-5 w-5")} />
+				{mobileInline && <button type="button" data-search-back aria-label={t("navigation.close")} onMouseDown={event => event.preventDefault()} onClick={event => { inputRef.current?.blur(); event.currentTarget.blur(); }} className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-neutral-200"><ArrowLeft aria-hidden="true" className="h-5 w-5" /></button>}
+				<Search aria-hidden="true" className={clsx("mail-search-icon shrink-0", mobileInline ? "h-5 w-5 md:h-6 md:w-6" : "h-5 w-5")} />
 				<Input
 					ref={inputRef}
 					{...inputProps}

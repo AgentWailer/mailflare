@@ -55,7 +55,8 @@ html, body {
 		.mail-desktop-row time { min-width: 56px; font-size: 11px; }
 	}
 	@container mail-list (max-width: 480px) {
-		.mail-list-pagination :is([data-message-range], .mail-unread-filter) { display: none; }
+		.mail-list-pagination [data-message-range] { display: none; }
+		.mail-mobile-list-toolbar:has(.mail-bulk-toolbar) .mail-unread-filter { display: none; }
 	}
 	@container mail-list (max-width: 360px) {
 		.mail-mobile-list-toolbar:has(.mail-bulk-toolbar) .mail-list-pagination { display: none; }
@@ -88,6 +89,52 @@ html, body {
 @media (pointer: coarse) {
 	[data-message-density="compact"] .mail-desktop-row,
 	[data-message-density="compact"] .mail-desktop-row button { min-height: 44px; }
+}
+
+/* Keep narrow reading lists readable when an adjacent panel takes space. */
+.mail-row-actions { background-color: var(--mail-hover-background); border-radius: 8px; }
+.mail-message-row[data-selected="true"] .mail-row-actions { background-color: var(--mail-selected-background); }
+.mail-desktop-summary [data-message-labels] { max-width: 40%; overflow: hidden; }
+.mail-category-strip { scrollbar-width: none; }
+.mail-category-strip::-webkit-scrollbar { display: none; }
+.mail-category-scroll { display: flex; flex: 0 0 32px; align-items: center; justify-content: center; color: var(--foreground); }
+.mail-category-scroll:disabled { opacity: .3; }
+.mail-category-scroll:not(:disabled):hover { background-color: var(--mail-hover-background); }
+:dir(rtl) .mail-category-scroll svg { transform: rotate(180deg); }
+@media (max-width: 767px), (pointer: coarse) {
+ .mail-category-scroll { flex-basis: 44px; }
+}
+@media (min-width: 768px) {
+ @container mail-list (max-width: 620px) {
+  .mail-desktop-row { min-height: 64px; }
+  [data-message-density="compact"] .mail-desktop-row { min-height: 52px; }
+  .mail-desktop-row > a { grid-template-columns: 28px minmax(0,1fr) auto; grid-template-rows: auto auto; gap: 2px 8px; padding-block: 6px; }
+  .mail-desktop-row > a > :first-child { grid-column: 1; grid-row: 1 / 3; }
+  .mail-desktop-party { grid-column: 2; grid-row: 1; }
+  .mail-desktop-summary { grid-column: 2 / 4; grid-row: 2; }
+  .mail-desktop-row time { grid-column: 3; grid-row: 1; }
+  .mail-desktop-summary [data-message-labels] { order: 2; max-width: 30%; }
+  .mail-desktop-summary [data-message-label-chip]:not(:first-child), .mail-desktop-summary [data-message-label-overflow] { display: none; }
+  .mail-desktop-summary .mail-narrow-label-count { display: inline; }
+  .mail-desktop-subject { max-width: 100%; }
+  .mail-desktop-snippet, .mail-desktop-copy [data-preview-separator] { display: none; }
+  .mail-row-actions { top: 0; right: 12px; transform: none; }
+  .mail-row-actions button { width: 28px; height: 28px; padding: 0; }
+ }
+}
+@media (max-width: 767px) {
+ .mail-mobile-header .mail-search-form:not(:focus-within) :is([data-search-clear], [data-search-details]) { display: none; }
+ .mail-mobile-header:has(.mail-search-form:focus-within) :is(.mail-header-menu, [data-mail-header-actions]) { display: none; }
+ .mail-mobile-header:has(.mail-search-form:focus-within) .mail-search-icon { display: none; }
+ .mail-mobile-header .mail-search-form:focus-within { gap: 0; padding-inline: 4px; }
+ .mail-mobile-header .mail-search-form:focus-within [data-search-back] { display: flex; }
+ .mail-mobile-header .mail-search-form:focus-within input { padding-inline: 4px; }
+}
+@media (max-width: 374px) {
+ /* Keep the folder name and pagination readable instead of squeezing both into one line. */
+ .mail-mobile-list .mail-mobile-list-toolbar { height: auto; min-height: 44px; flex-wrap: wrap; column-gap: 0; }
+ .mail-mobile-list-toolbar:not(:has(.mail-bulk-toolbar)) > :first-child { flex-basis: 100%; }
+ .mail-mobile-list-toolbar:not(:has(.mail-bulk-toolbar)) .mail-list-pagination { margin-left: auto; }
 }
 
 @keyframes mail-empty-float {

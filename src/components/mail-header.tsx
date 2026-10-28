@@ -16,7 +16,7 @@ export function MailHeader({ assistantEnabled, assistantOpen, onToggleAssistant,
 	const readingMessage = /^\/(inbox|all|promotions|social|invoices|orders|starred|snoozed|sent|scheduled|archived|spam|trash)\/[^/]+\/?$/.test(pathname) || /^\/folders\/[^/]+\/[^/]+\/?$/.test(pathname);
 	return (
 		<header className={clsx("mail-mobile-header flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm max-md:gap-1 max-md:pr-2", readingMessage && !assistantOpen && "max-lg:hidden")}>
-			<MobileMenuButton className="ml-2" />
+			<MobileMenuButton className="mail-header-menu ml-2" />
 			<MailSearchInput />
 			<div data-mail-header-actions className="ml-auto flex shrink-0 items-center gap-1 md:gap-2">
 			{assistantEnabled && <Button type="button" variant="ghost" size="sm" className={clsx("hidden h-11 w-11 shrink-0 rounded-full px-0 md:flex", assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600")} onClick={onToggleAssistant} aria-label={assistantOpen ? t("agent.assistant.close") : t("agent.assistant.open")} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}

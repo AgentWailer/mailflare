@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { MailOpen } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Message } from "@/hooks/types";
 import { MessageOpeningContext } from "./message-opening";
@@ -136,7 +137,7 @@ export function MessageSplitLayout({
 			<MessageListVisibilityContext.Provider value={{ visible: listVisible, toggle: () => { const visible = !manualListVisible; setManualListVisible(visible); saveMessageListVisible(visible); }, singleColumn: !twoColumnReading, backHref: config.hrefPrefix, backLabel: config.titleKey ? t(config.titleKey) : config.title }}>
 			<section data-message-reading-pane aria-label={t("settings.reading.title")} className={`min-h-0 min-w-0 overflow-hidden bg-white flex-col h-full ${selectedMessageId ? "flex" : "hidden lg:flex"}`}>
 				{pendingMessage ? <><MessageReaderToolbar><MessageReadingHeaderButton assistantVisible={assistantOpen} /></MessageReaderToolbar><MessageOpeningPreview key={pendingMessage.id} message={pendingMessage} href={opening?.href ?? config.hrefPrefix} /></> : selectedMessageId ? <MessageDetailNavigationProvider config={config} messageId={selectedMessageId}>{children}</MessageDetailNavigationProvider> :
-					<div data-empty-reader role="status" className="flex flex-1 justify-center px-6 pt-12 text-sm text-neutral-500">{t("message.noConversationSelected")}</div>}
+					<div data-empty-reader role="status" className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6 text-center text-sm text-neutral-500"><span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-50 text-neutral-400"><MailOpen className="h-8 w-8" strokeWidth={1.25} /></span><span>{t("message.noConversationSelected")}</span></div>}
 			</section>
 			</MessageListVisibilityContext.Provider>
 		</div>

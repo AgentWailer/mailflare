@@ -239,7 +239,7 @@ function MessageListRow({
 			{(config.folder !== "inbox" || message.direction !== "inbound") && (
 				<Icon className="h-4 w-4 text-neutral-300" />
 			)}
-			<span className="flex min-w-0 items-center gap-2">
+			<span className="mail-desktop-party flex min-w-0 items-center gap-2">
 				{avatar}
 				<span className={clsx(unread && "font-semibold", getMessagePartyClassName(rowMessage, config.folder))}>{party}</span>
 
@@ -247,12 +247,12 @@ function MessageListRow({
 					<span className="ml-2 text-xs text-neutral-500">{message.threadCount}</span>
 				)}
 			</span>
-			<span className="flex min-w-0 items-center gap-2 text-neutral-700">
+			<span className="mail-desktop-summary flex min-w-0 items-center gap-2 text-neutral-700">
 				<MessageLabelChips labels={rowMessage.labels} />
-				<span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-					<span title={rowMessage.subject ?? t("list.noSubject")} className={clsx("min-w-0 max-w-[65%] truncate", unread && "font-semibold text-neutral-900")}>{rowMessage.subject ?? t("list.noSubject")}</span>
-					<span aria-hidden="true" className="shrink-0 text-neutral-400">–</span>
-					<span title={getMessagePreview(rowMessage, config.folder, t)} className="min-w-0 flex-1 truncate text-neutral-600">{getMessagePreview(rowMessage, config.folder, t)}</span>
+				<span className="mail-desktop-copy flex min-w-0 flex-1 items-baseline gap-1.5">
+					<span title={rowMessage.subject ?? t("list.noSubject")} className={clsx("mail-desktop-subject min-w-0 max-w-[65%] truncate", unread && "font-semibold text-neutral-900")}>{rowMessage.subject ?? t("list.noSubject")}</span>
+					<span data-preview-separator aria-hidden="true" className="shrink-0 text-neutral-400">–</span>
+					<span title={getMessagePreview(rowMessage, config.folder, t)} className="mail-desktop-snippet min-w-0 flex-1 truncate text-neutral-600">{getMessagePreview(rowMessage, config.folder, t)}</span>
 				</span>
 				{attachmentIndicator}
 			</span>

@@ -65,11 +65,12 @@ try{
   const panelTitle=panel.getByRole('heading',{name:'Quick settings',exact:true}),close=panel.getByRole('button',{name:'Close',exact:true});assert.equal(await close.count(),1,'one close control per panel');const titleBox=await panelTitle.boundingBox(),closeBox=await close.boundingBox();assert(closeBox.width>=44&&closeBox.height>=44);assert(Math.abs(center(titleBox).y-center(closeBox).y)<1,'title and close icon share the same centre '+JSON.stringify({width,titleBox,closeBox}));assert(closeBox.x>=titleBox.x+titleBox.width,'title leaves room for close control');
   const motion=await panel.evaluate(el=>({transition:getComputedStyle(el).transitionDuration,animation:getComputedStyle(el).animationName}));
   if(width>=1024)assert(motion.transition.includes('0.3s'));else assert.equal(motion.animation,'mail-quick-settings-sheet-show');
+  const comfortablePanelHeight=(await row.boundingBox()).height;
   await panel.getByRole('radio',{name:/^Compact /}).check();
   await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='compact');
-  const compactHeight=(await row.boundingBox()).height;assert(compactHeight<initialHeight,JSON.stringify({width,compactHeight,initialHeight}));
+  const compactHeight=(await row.boundingBox()).height;assert(compactHeight<comfortablePanelHeight,JSON.stringify({width,compactHeight,comfortablePanelHeight}));
   assert(await row.evaluate(el=>window.__originalMailRow===el),'density change preserves the list DOM');
-  if(width>=1024){assert(compactHeight<=30);assert.equal(await row.locator('.mail-row-avatar').count(),0);const main=page.locator('main.mail-mobile-main');assert((await main.boundingBox()).x+(await main.boundingBox()).width<=(await panel.boundingBox()).x,'desktop panel sits beside the mailbox');}
+  if(width>=1024){const listWidth=(await page.locator('.mail-mobile-list').boundingBox()).width;assert(listWidth<=620?compactHeight>=52&&compactHeight<=60:compactHeight<=30,'narrow rows retain readable sender and subject lines');assert.equal(await row.locator('.mail-row-avatar').count(),0);const main=page.locator('main.mail-mobile-main');assert((await main.boundingBox()).x+(await main.boundingBox()).width<=(await panel.boundingBox()).x,'desktop panel sits beside the mailbox');}
   else {assert(compactHeight>=60);assert(await row.locator('.mail-row-snippet').isVisible());assert.equal(await page.locator('[data-mobile-compose]').isVisible(),false);const bounds=await panel.boundingBox();assert(bounds.x>=0&&bounds.x+bounds.width<=width+1);assert(bounds.y+bounds.height<=901);}
   if(width>=1024){assert((await row.getByText('Message 0',{exact:true}).boundingBox()).width>=40,'message subject retains room next to quick settings');const mainBounds=await page.locator('main.mail-mobile-main').boundingBox();for(const button of await toolbar.locator('button:visible').all()){const box=await button.boundingBox();assert(box.x+box.width<=mainBounds.x+mainBounds.width+1,'quick settings leave toolbar controls reachable');}}
   await page.screenshot({path:`/tmp/mailflare-density-${width}.png`});
@@ -86,9 +87,10 @@ try{
    await page.emulateMedia({reducedMotion:'reduce'});await gear.click();await panel.waitFor();assert.equal(await panel.evaluate(el=>getComputedStyle(el).transitionDuration),'0s');assert.equal(await slot.evaluate(el=>getComputedStyle(el).transitionProperty),'none');await close.click();await panel.waitFor({state:'hidden'});await page.emulateMedia({reducedMotion:'no-preference'});
   }
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  await page.reload({waitUntil:'domcontentloaded'});await row.waitFor();await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='compact');assert.equal((await row.boundingBox()).height,compactHeight);
-  await gear.click();await panel.waitFor();assert(await panel.getByRole('radio',{name:/^Compact /}).isChecked());
-  await panel.getByRole('radio',{name:/^Comfortable /}).check();await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='comfortable');assert.equal((await row.boundingBox()).height,initialHeight);
+  await page.waitForTimeout(350);const closedCompactHeight=(await row.boundingBox()).height;
+  await page.reload({waitUntil:'domcontentloaded'});await row.waitFor();await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='compact');assert.equal((await row.boundingBox()).height,closedCompactHeight);
+  await gear.click();await panel.waitFor();await page.waitForTimeout(350);assert(await panel.getByRole('radio',{name:/^Compact /}).isChecked());
+  await panel.getByRole('radio',{name:/^Comfortable /}).check();await page.waitForFunction(()=>document.querySelector('[data-message-density]')?.dataset.messageDensity==='comfortable');assert.equal((await row.boundingBox()).height,comfortablePanelHeight);
   await close.click();await panel.waitFor({state:'hidden'});await page.waitForFunction(()=>document.activeElement?.id==='mail-quick-settings-toggle');
   if(width>=1024){await page.evaluate(()=>{localStorage.setItem('theme','dark');document.documentElement.classList.add('dark');});assert.notEqual(await row.evaluate(el=>getComputedStyle(el).backgroundColor),await read.evaluate(el=>getComputedStyle(el).backgroundColor));await page.screenshot({path:'/tmp/mailflare-density-dark.png'});}
   await selectAll.check();

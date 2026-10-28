@@ -26,9 +26,10 @@ export function MailSearchInput() {
 			trailing={<>{query ? (
 				<button
 					type="button"
+					data-search-clear
 					onMouseDown={(event) => event.preventDefault()}
 					onClick={() => setQuery("")}
-					className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+					className="flex h-11 w-11 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
 					aria-label={t("search.clear")}
 				>
 					<X className="h-4 w-4" />

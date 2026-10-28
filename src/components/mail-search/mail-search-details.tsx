@@ -19,7 +19,7 @@ export function MailSearchDetails({ query, onChange }: { query: string; onChange
 		if (next) { setText(setSearchIncludeSpam(query, false)); setIncludeSpam(spamIncluded); }
 		setOpen(next);
 	}}>
-		<DialogTrigger asChild><button type="button" aria-label={t("search.advanced")} title={t("search.advanced")} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-neutral-200 ${spamIncluded ? "bg-blue-100 text-blue-700" : "text-neutral-500"}`}><SlidersHorizontal className="h-5 w-5" /></button></DialogTrigger>
+		<DialogTrigger asChild><button type="button" data-search-details aria-label={t("search.advanced")} title={t("search.advanced")} className={`flex h-11 w-11 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full hover:bg-neutral-200 ${spamIncluded ? "bg-blue-100 text-blue-700" : "text-neutral-500"}`}><SlidersHorizontal className="h-5 w-5" /></button></DialogTrigger>
 		<DialogContent className="max-md:top-auto max-md:bottom-0 max-md:w-full max-md:max-h-[85dvh] max-md:translate-y-0 max-md:rounded-b-none max-md:pb-[max(24px,env(safe-area-inset-bottom))]">
 			<DialogHeader><DialogTitle>{t("search.advanced")}</DialogTitle><DialogDescription>{t("search.scopeHint")}</DialogDescription></DialogHeader>
 			<form className="space-y-5" onSubmit={event => { event.preventDefault(); onChange(setSearchIncludeSpam(text, includeSpam)); setOpen(false); }}>

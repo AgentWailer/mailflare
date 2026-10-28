@@ -12,12 +12,13 @@ export function MessageLabelChips({ labels, compact = false }: { labels: Message
 	return (
 		<span data-message-labels role="group" className={`inline-flex min-w-0 shrink-0 items-center gap-1 ${compact ? "max-w-[55%]" : "max-w-[70%]"}`} aria-label={`${t("smart.labels")}: ${names}`} title={names}>
 			{labels.slice(0, visible).map(label => (
-				<span key={label.id} title={label.name} className={`inline-flex min-w-0 items-center gap-1 rounded bg-neutral-100 font-normal leading-4 text-neutral-700 ${compact ? "max-w-32 px-1 text-[10px]" : "max-w-36 px-1.5 py-0.5 text-xs first:shrink-0"}`}>
+				<span data-message-label-chip key={label.id} title={label.name} className={`inline-flex min-w-0 items-center gap-1 rounded bg-neutral-100 font-normal leading-4 text-neutral-700 ${compact ? "max-w-32 px-1 text-[10px]" : "max-w-36 px-1.5 py-0.5 text-xs"}`}>
 					<span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
 					<span className="truncate">{label.name}</span>
 				</span>
 			))}
-			{labels.length > visible && <span className={`shrink-0 rounded bg-neutral-100 px-1 font-normal leading-4 text-neutral-700 ${compact ? "text-[10px]" : "py-0.5 text-xs"}`}>+{labels.length - visible}</span>}
+			{labels.length > visible && <span data-message-label-overflow className={`shrink-0 rounded bg-neutral-100 px-1 font-normal leading-4 text-neutral-700 ${compact ? "text-[10px]" : "py-0.5 text-xs"}`}>+{labels.length - visible}</span>}
+			{!compact && labels.length > 1 && <span aria-hidden="true" className="mail-narrow-label-count hidden shrink-0 rounded bg-neutral-100 px-1 py-0.5 text-xs font-normal leading-4 text-neutral-700">+{labels.length - 1}</span>}
 		</span>
 	);
 }

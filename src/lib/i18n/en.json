@@ -2549,5 +2549,7 @@
 	"backups.phase.objects": "Copying and verifying files",
 	"backups.phase.manifest": "Verifying the rescue inventory",
 	"backups.phase.publish": "Final verification",
-	"backups.phase.cleanup": "Verified rescue point; removing the previous version"
+	"backups.phase.cleanup": "Verified rescue point; removing the previous version",
+	"message.categories.previous": "Previous categories",
+	"message.categories.next": "More categories"
 }

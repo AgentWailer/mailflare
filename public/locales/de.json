@@ -2435,5 +2435,8 @@
 	"backups.phase.objects": "Dateien kopieren und prüfen",
 	"backups.phase.manifest": "Rettungsbestand prüfen",
 	"backups.phase.publish": "Abschließende Prüfung",
-	"backups.phase.cleanup": "Rettungsstand geprüft; vorherige Version aufräumen"
+	"backups.phase.cleanup": "Rettungsstand geprüft; vorherige Version aufräumen",
+	"navigation.scheduled": "Geplant",
+	"message.categories.previous": "Vorherige Kategorien",
+	"message.categories.next": "Weitere Kategorien"
 }
