@@ -1,4 +1,4 @@
-import { buildSortingRequest, categoryCriteria, SORTING_MODEL, SORTING_MODEL_NAME } from "./decision-request";
+import { buildSortingRequest, categoryCriteria, prepareSortingText, SORTING_MODEL, SORTING_MODEL_NAME } from "./decision-request";
 export { categoryCriteria, SORTING_MODEL } from "./decision-request";
 import { resolveRoutineMail, resolveTransactionMail, resolveUnavailableSorting, isProtectedRoutineMail, isAccountSecurityNotice, isConsequentialNotice } from "./routine";
 import { analyzeAuthentication } from "@/lib/spam/analyzers/authentication";
@@ -68,12 +68,19 @@ export function resolveClefDecision(
 		return { ...fallback, reason: "invalid_model_response" };
 	// Old saved responses lack the inbox question; category.primary provides a replay-compatible fallback.
 	const inboxProbability = answers.inbox?.noul ?? probabilities.primary;
+	// Optional for replaying decisions saved before the marketing question existed.
+	// Validate it before it can authorize any move; category probabilities alone
+	// split their mass between advertising and spam for ordinary newsletters.
+	const marketing = answers.marketing;
+	if (marketing && (marketing.type !== "noul" || typeof marketing.noul !== "number" || !Number.isFinite(marketing.noul) || marketing.noul < 0 || marketing.noul > 1))
+		return { ...fallback, reason: "invalid_model_response" };
 	const result = {
 		...fallback,
 		probabilities,
 		inboxProbability,
 		personalProbability: answers.action.noul,
 		securityProbability: answers.security.noul,
+		...(marketing ? { marketingProbability: marketing.noul } : {}),
 		suggestedCategory: category.choice,
 	};
 	if ((answers.action.noul ?? 1) >= 0.5 || (answers.security.noul ?? 1) >= 0.2)
@@ -90,11 +97,18 @@ export function resolveClefDecision(
 		return { ...result, source: "clef", reason: "inbox_uncertain" };
 	if (probabilities.spam >= threshold && spamScore >= 40)
 		return { ...result, source: "clef", reason: "spam_correlated", spam: true };
+	// A positive marketing answer supplies actual advertising evidence. Neither
+	// a low inbox score nor an uncorrelated spam guess is enough on its own.
+	// All personal, security, transaction and primary-inbox safeguards above apply.
+	const marketingThreshold = probabilities.promotions >= 0.5 && probabilities.promotions > Math.max(probabilities.social, probabilities.spam)
+		? threshold : Math.max(0.9, threshold);
+	if ((marketing?.noul ?? 0) >= marketingThreshold && probabilities.social < threshold)
+		return { ...result, category: "promotions", suggestedCategory: "promotions", source: "clef", reason: "marketing_confirmed" };
 	if (probabilities.spam >= Math.max(probabilities.promotions, probabilities.social))
 		return { ...result, source: "clef", reason: "spam_uncertain", reviewRequired: true };
 	const destination = probabilities.social > probabilities.promotions ? "social" : "promotions";
-	const requiredConfidence = destination === "promotions" ? Math.max(0.9, threshold) : threshold;
-	if (probabilities[destination] < requiredConfidence)
+	// Respect the mailbox's configured confidence instead of silently forcing 90%.
+	if (probabilities[destination] < threshold)
 		return { ...result, source: "clef", reason: "category_uncertain", reviewRequired: true };
 	return { ...result, category: destination, source: "clef", reason: destination };
 
@@ -136,6 +150,7 @@ export async function classifyIncomingMail(
 	};
 	let mode: "active" | "observe" | "off" | undefined;
 	try {
+		input = { ...input, text: prepareSortingText(input.text) };
 		const db = getDb(env);
 		const sender = getEmailAddress(input.sender).trim().toLowerCase();
 		const [settings] = await db

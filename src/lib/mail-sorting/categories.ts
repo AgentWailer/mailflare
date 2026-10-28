@@ -20,6 +20,7 @@ export type SortingDecision = {
 	inboxProbability?: number;
 	personalProbability?: number;
 	securityProbability?: number;
+	marketingProbability?: number;
 	learningExamples?: number;
 };
 /** Inbox membership; explicit archive/move/snooze actions still take precedence. */

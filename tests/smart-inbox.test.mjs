@@ -27,6 +27,7 @@ await build({
  export {createSession,getUserFromSession,deleteSession} from './src/lib/auth/session.ts';
  export {getCurrentUser} from './src/lib/auth/cookies.ts';
  export {listAccessibleMailboxes} from './src/lib/mailboxes/access.ts';
+ export {buildSortingRequest,prepareSortingText} from './src/lib/mail-sorting/decision-request.ts';
  export {classifyIncomingMail,resolveClefDecision} from './src/lib/mail-sorting/classifier.ts';
  export {shouldNotifyMail,isPrimaryInboxMail} from './src/lib/mail-sorting/categories.ts';
  export {getUnreadBadgeCount} from './src/lib/push/badge.ts';
@@ -916,7 +917,7 @@ test('German account security events survive wrong CLEF spam answers, sender lea
   const result = await app.classifyIncomingMail(f.env, { ...input, subject });
   assert.equal(result.category, 'primary', subject);
   assert.equal(result.reason, 'protected_account_security', subject);
-  assert.equal(result.policyVersion, 7);
+  assert.equal(result.policyVersion, 8);
   assert.equal(app.resolveRoutineMail({ ...input, subject }), null);
  }
  assert.equal(calls, 0);
@@ -1014,7 +1015,7 @@ test("sender logos require login, mailbox access and an existing owner's contact
 test('five-category sorting separates real receipts/orders from coupons and protects security with zero AI charges', async t => {
  const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('promotions')};};
  for(const [subject,category] of [['Ihre Rechnung 2026-123','invoices'],['Zahlungsbeleg #123','invoices'],['Quittung für deine Fahrt','invoices'],['Your payment confirmation','invoices'],['Gutschrift zur Bestellung','invoices'],['Bestellung 123 ist eingegangen','orders'],['Versandbestätigung','orders'],['Order confirmation #123','orders'],['Sicherheitswarnung von Google','primary']]){
-  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,7);assert.equal(result.source,'rule');
+  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,8);assert.equal(result.source,'rule');
  }
  assert.equal(calls,0);
  const coupon=await app.classifyIncomingMail(f.env,{...f.input,subject:'Rechnung erstellen: 40% Rabatt',text:'Spare jetzt beim Kauf',headers:{'List-Unsubscribe':'<https://example.test>'}});assert.equal(coupon.category,'promotions');
@@ -1220,8 +1221,9 @@ test('a real low-advertising / uncorrelated-spam decision is never converted to 
  const probabilities={invoices:.0243,orders:.0319,primary:.0827,promotions:.0347,social:.0336,spam:.7928};
  const decision=app.resolveClefDecision({category:{type:'choice',choice:'spam',probabilities},inbox:{type:'noul',noul:.063},action:{type:'noul',noul:.0264},security:{type:'noul',noul:.0515}},.8,0);
  assert.equal(decision.category,'primary');assert.equal(decision.reason,'spam_uncertain');assert.equal(decision.reviewRequired,true);assert.notEqual(decision.spam,true);
- for(const probability of [.4,.6,.8,.89])assert.equal(app.resolveClefDecision(answers('promotions',probability),.8,0).category,'primary');
- assert.equal(app.resolveClefDecision(answers('promotions',.95),.8,0).category,'promotions');
+ for(const probability of [.4,.6,.79])assert.equal(app.resolveClefDecision(answers('promotions',probability),.8,0).category,'primary');
+ for(const probability of [.8,.89,.95])assert.equal(app.resolveClefDecision(answers('promotions',probability),.8,0).category,'promotions');
+ assert.equal(app.resolveClefDecision(answers('promotions',.89),.9,0).category,'primary');
 });
 
 test('collection correspondence, objections and deadlines stay visible despite bulk headers, sender overrides and wrong AI guesses',async t=>{
@@ -1229,7 +1231,7 @@ test('collection correspondence, objections and deadlines stay visible despite b
  f.DB.db.exec("INSERT INTO mail_sorting_overrides(mailbox_id,sender,category) VALUES('box','case@example.test','promotions')");
  const base={...f.input,sender:'case@example.test',text:'Vielen Dank für Ihre E-Mail. Wir prüfen Ihren Widerspruch zum Aktenzeichen TEST-123.',headers:{'List-Unsubscribe':'<https://example.test/unsub>'}};
  for(const subject of ['Ihre Email bzgl. Widerspruch wegen Verdachts auf Identitätsmissbrauch – Aktenzeichen TEST-123','Unser Aktenzeichen: TEST-456 / Forderung der Firma Beispiel','Letzte Mahnung','Zahlungsaufforderung','Mahnbescheid','Notice of default']){
-  const result=await app.classifyIncomingMail(f.env,{...base,subject});assert.equal(result.category,'primary',subject);assert.equal(result.reason,'protected_legal_or_payment_demand');assert.equal(result.policyVersion,7);
+  const result=await app.classifyIncomingMail(f.env,{...base,subject});assert.equal(result.category,'primary',subject);assert.equal(result.reason,'protected_legal_or_payment_demand');assert.equal(result.policyVersion,8);
  }
  assert.equal(calls,0,'important cases do not need another AI call');
  f.DB.db.exec("DELETE FROM mail_sorting_overrides WHERE sender='case@example.test'");
@@ -1262,8 +1264,8 @@ test('System One sorting uses the matching Omni selector, records the model and 
  f.env.AI.run=async(model,request)=>{calls.push({model,request});return {model:'clef-omni',answers:answers('promotions'),usage:{input_tokens:1234}};};
  const result=await app.classifyIncomingMail(f.env,f.input);
  assert.equal(calls.length,1);assert.equal(calls[0].model,'@cf/cloudflare/clef-omni');assert.equal(calls[0].request.model,'clef-omni');
- assert.equal(calls[0].request.questions.category.type,'choice');for(const key of ['inbox','action','security'])assert.equal(calls[0].request.questions[key].type,'noul');
- assert.equal(result.category,'promotions');assert.equal(result.model,'@cf/cloudflare/clef-omni');assert.equal(result.policyVersion,7);
+ assert.equal(calls[0].request.questions.category.type,'choice');for(const key of ['inbox','action','security','marketing'])assert.equal(calls[0].request.questions[key].type,'noul');
+ assert.equal(result.category,'promotions');assert.equal(result.model,'@cf/cloudflare/clef-omni');assert.equal(result.policyVersion,8);
  assert.deepEqual(f.DB.db.prepare('SELECT requests,input_tokens FROM mail_sorting_usage').get(),{requests:1,input_tokens:1234});
  const settings=await(await app.getSettings(f.request('/api/settings/mail-sorting?mailboxId=box'))).json();assert.equal(settings.model,'@cf/cloudflare/clef-omni');
 });
@@ -1271,4 +1273,52 @@ test('System One sorting uses the matching Omni selector, records the model and 
 test('a mismatched returned decision model is treated as unavailable instead of acting on its classification',async t=>{
  const f=await fixture(t);f.env.AI.run=async()=>({model:'unexpected-model',answers:answers('promotions')});
  const result=await app.classifyIncomingMail(f.env,f.input);assert.equal(result.category,'primary');assert.equal(result.reason,'invalid_model_response');assert.equal(result.reviewRequired,true);assert.equal(result.model,'@cf/cloudflare/clef-omni');
+});
+
+test('explicit marketing evidence resolves advertising/spam ambiguity without weakening protected categories',()=>{
+ const split={category:{type:'choice',choice:'promotions',probabilities:{primary:.0169,invoices:.0027,orders:.0068,promotions:.6197,social:.0167,spam:.3372}},inbox:{type:'noul',noul:.0171},action:{type:'noul',noul:.0099},security:{type:'noul',noul:.0104}};
+ assert.equal(app.resolveClefDecision(split,.8,0).category,'primary','no advertising-specific evidence, no move');
+ const confirmed={...split,marketing:{type:'noul',noul:.97}};
+ const result=app.resolveClefDecision(confirmed,.8,0);assert.equal(result.category,'promotions');assert.equal(result.reason,'marketing_confirmed');assert.equal(result.marketingProbability,.97);assert.equal(result.suggestedCategory,'promotions');
+ assert.equal(app.resolveClefDecision(confirmed,.99,0).category,'primary','honor stricter user setting');
+ for(const [key,value] of [['inbox',.3],['action',.6],['security',.3]])assert.equal(app.resolveClefDecision({...confirmed,[key]:{type:'noul',noul:value}},.8,0).category,'primary',key);
+ const transaction={...confirmed,category:{type:'choice',choice:'promotions',probabilities:{primary:.05,invoices:.25,orders:.05,promotions:.55,social:.05,spam:.05}}};
+ assert.equal(app.resolveClefDecision(transaction,.8,0).reason,'transaction_uncertain');
+ const personal={...confirmed,category:{type:'choice',choice:'primary',probabilities:{primary:.4,invoices:.01,orders:.01,promotions:.35,social:.01,spam:.22}}};
+ assert.equal(app.resolveClefDecision(personal,.8,0).reason,'inbox_uncertain');
+ const spam={...answers('spam',.95),marketing:{type:'noul',noul:.98}};
+ assert.equal(app.resolveClefDecision(spam,.8,60).spam,true,'correlated spam takes precedence');
+ assert.equal(app.resolveClefDecision(spam,.8,0).category,'promotions','explicit marketing evidence required for spam-like advertisements');
+ assert.equal(app.resolveClefDecision(spam,.8,0).suggestedCategory,'promotions','observation mode must show the final proposal');
+ assert.equal(app.resolveClefDecision({...spam,marketing:{type:'noul',noul:.05}},.8,0).reason,'spam_uncertain');
+ assert.equal(app.resolveClefDecision({...answers('social',.95),marketing:{type:'noul',noul:.97}},.8,0).category,'social');
+ for(const marketing of [{type:'choice',noul:.98},{type:'noul',noul:NaN},{type:'noul',noul:1.01},{type:'noul',noul:'0.98'}])assert.equal(app.resolveClefDecision({...confirmed,marketing},.8,0).reason,'invalid_model_response');
+});
+
+test('confirmed advertising is persisted outside primary while legal mail remains protected from the same model',async t=>{
+ const f=await fixture(t);const events=[];let calls=0;
+ f.env.AI.run=async()=>{calls++;return {model:'clef-omni',answers:{...answers('promotions',.65),marketing:{type:'noul',noul:.98}}};};
+ f.env.REALTIME={getByName:()=>({fetch:async(_url,init)=>{events.push(JSON.parse(init.body));return new Response(null,{status:204});}})};
+ f.env.BUCKET={get:async()=>({arrayBuffer:async()=>new TextEncoder().encode('From: News <news@example.test>\r\nTo: owner@example.test\r\nSubject: Discover our latest products\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nExplore the new collection in our online store. Subscribe to our weekly product newsletter.').buffer})};
+ await app.processInboundMessage(f.env,{from:'news@example.test',to:'owner@example.test',rawR2Key:'synthetic/marketing-confirmed.eml',headers:{'Authentication-Results':'mx.cloudflare.net; dmarc=pass; dkim=pass'}});
+ const row=f.DB.db.prepare("SELECT category,status,sorting_decision FROM messages WHERE raw_r2_key='synthetic/marketing-confirmed.eml'").get();
+ assert.equal(row.category,'promotions');assert.equal(row.status,'received');assert.equal(JSON.parse(row.sorting_decision).reason,'marketing_confirmed');assert.equal(calls,1);assert.equal(events[0].silent,true);
+ const personal=await app.classifyIncomingMail(f.env,{...f.input,subject:'Widerspruch - Aktenzeichen TEST-123',text:'Wir bestätigen Ihren Widerspruch gegen die Forderung.'});
+ assert.equal(personal.category,'primary');assert.equal(personal.reason,'protected_legal_or_payment_demand');assert.equal(calls,1);
+});
+
+
+test('sorting sees meaningful content beyond tracking URLs and invisible preheader padding',async t=>{
+ const f=await fixture(t);let request;
+ f.env.AI.run=async(_model,input)=>{request=input;return {answers:answers('promotions')};};
+ const padding='\u034f \u00ad\u200b'.repeat(1500);
+ const tracking='https://tracking.example.test/click?token='+ 'a'.repeat(9000);
+ const text=padding+' View online '+tracking+' Our weekly newsletter: discover our new products and offers.';
+ await app.classifyIncomingMail(f.env,{...f.input,subject:'Weekly update',text});
+ assert(request.state.visibleText.includes('Our weekly newsletter'));assert(request.state.visibleText.includes('https://tracking.example.test'));
+ assert(!request.state.visibleText.includes('token='));assert(!request.state.visibleText.includes('\u034f'));assert(request.state.visibleText.length<250);
+ const safety=await app.classifyIncomingMail(f.env,{...f.input,subject:'Bitte beachten',text:padding+tracking+' Inkasso: Aktenzeichen TEST-123. Bitte zahlen Sie die offene Forderung bis zur Frist.'});
+ assert.equal(safety.category,'primary');assert.equal(safety.reason,'protected_legal_or_payment_demand');
+ assert.equal(app.prepareSortingText('x'.repeat(200000)).length,6000);
+ assert.equal(app.prepareSortingText('https://fake.example.test/confirm?password=secret'),'https://fake.example.test');
 });
