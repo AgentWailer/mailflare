@@ -1,4 +1,12 @@
 {
+	"message.selectToRead": "Wähle eine Nachricht aus der Liste, um sie hier zu lesen.",
+	"settings.display.customize": "Posteingang anpassen",
+	"settings.display.categories": "Kategorien anzeigen",
+	"settings.display.preview": "Vorschautext anzeigen",
+	"settings.display.unreadMarks": "Ungelesene hervorheben",
+	"settings.display.avatars": "Absenderbilder anzeigen",
+	"settings.display.pageSize": "Nachrichten pro Seite",
+
 	"navigation.categories": "Kategorien",
 	"navigation.moreFolders": "Weitere Ordner",
 	"navigation.fewerFolders": "Weniger Ordner",

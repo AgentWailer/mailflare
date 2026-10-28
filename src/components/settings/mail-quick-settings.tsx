@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { LanguageSelector } from "@/components/language-selector";
+import { MailDisplayOptionsSettings } from "./mail-display-options";
+import { InboxShortcutsSettings } from "./inbox-shortcuts-settings";
 import { X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -41,9 +44,12 @@ export default function MailQuickSettings({ open, onClose }: { open: boolean; on
 			{desktop ? closeButton : <DialogClose asChild>{closeButton}</DialogClose>}
 		</div>
 		<div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-4">
-			<MessageDensitySettings />
+			<MessageDensitySettings className="quick-density" />
+			<div className="border-t border-neutral-200 pt-4"><AppearanceSettings visual /></div>
 			<div className="border-t border-neutral-200 pt-4"><InboxReadingLayoutSettings compact /></div>
-			<div className="border-t border-neutral-200 pt-4"><AppearanceSettings compact /></div>
+			<div className="border-t border-neutral-200 pt-4"><MailDisplayOptionsSettings /></div>
+			<div className="border-t border-neutral-200 pt-4"><LanguageSelector /></div>
+			<div className="hidden border-t border-neutral-200 pt-4 md:block"><InboxShortcutsSettings compact /></div>
 		</div>
 		<div className="shrink-0 border-t border-neutral-200 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
 			<Link href="/settings/inbox" prefetch={false} onClick={onClose} className="flex min-h-11 items-center justify-center rounded-full border border-neutral-300 px-4 text-sm font-medium text-blue-700 hover:bg-blue-50">{t("settings.quick.allSettings")}</Link>

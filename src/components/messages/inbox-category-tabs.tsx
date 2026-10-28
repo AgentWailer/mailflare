@@ -1,5 +1,7 @@
 "use client";
 
+import { readMailDisplayOptions } from "./use-mail-display-options";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -64,7 +66,7 @@ export function InboxCategoryTabs({ folder, compact = false, onRefresh, refreshi
 	}
 	function warm(category: MessageFolder) {
 		if (!selectedMailbox || isLoading) return;
-		void fetchMessageList(getMessageQueryParams(category, selectedMailbox.id, { query, limit: 25, group: conversationView ? "thread" : undefined })).catch(() => {});
+		void fetchMessageList(getMessageQueryParams(category, selectedMailbox.id, { query, limit: readMailDisplayOptions().pageSize, group: conversationView ? "thread" : undefined })).catch(() => {});
 	}
 	return <nav data-inbox-categories aria-label={t("smart.category")} className="flex min-w-0 shrink-0 border-b border-neutral-200">
 		{edges.overflow && <button type="button" aria-label={t("message.categories.previous")} disabled={edges.start} onClick={() => scrollTabs(-1)} className="mail-category-scroll"><ChevronLeft aria-hidden="true" className="h-4 w-4" /></button>}

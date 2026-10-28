@@ -24,7 +24,7 @@ async function mount(t,{layout='bottom',locale='de',prefix='/inbox',visible=true
 const navigate=path=>act(async()=>{window.history.replaceState({},'',path);window.dispatchEvent(new Event('fixture:navigate'));});
 
 test('overview keeps a stable empty reader without opening a conversation automatically',async t=>{
- await mount(t);assert.equal(window.location.pathname,'/inbox');assert.equal(document.querySelector('[data-empty-reader]').textContent,'Keine Konversation ausgewählt');assert.equal(document.querySelectorAll('[data-message-list]').length,1);assert.equal(document.querySelector('[data-route-content]'),null);assert.equal(window.__listMounts,1);
+ await mount(t);assert.equal(window.location.pathname,'/inbox');assert.equal(document.querySelector('[data-empty-reader] p').textContent,'Keine Konversation ausgewählt');assert.equal(document.querySelectorAll('[data-message-list]').length,1);assert.equal(document.querySelector('[data-route-content]'),null);assert.equal(window.__listMounts,1);
  await act(async()=>window.dispatchEvent(new Event('mailflare:messages-changed')));assert.equal(window.location.pathname,'/inbox');assert.equal(window.__listMounts,1);
 });
 
@@ -35,7 +35,7 @@ for(const layout of ['bottom','right'])test(`${layout} pane preserves the list D
 });
 
 test('English empty state and custom label routes use the persistent pane',async t=>{
- await mount(t,{locale:'en',prefix:'/folders/work'});assert.equal(document.querySelector('[data-empty-reader]').textContent,'No conversation selected');await navigate('/folders/work/one');assert(document.querySelector('[data-route-content]'));await navigate('/folders/work');assert(document.querySelector('[data-empty-reader]'));assert.equal(window.__listMounts,1);
+ await mount(t,{locale:'en',prefix:'/folders/work'});assert.equal(document.querySelector('[data-empty-reader] p').textContent,'No conversation selected');await navigate('/folders/work/one');assert(document.querySelector('[data-route-content]'));await navigate('/folders/work');assert(document.querySelector('[data-empty-reader]'));assert.equal(window.__listMounts,1);
 });
 
 test('disabled reading preference keeps a full list and only renders the reader when explicitly opened',async t=>{

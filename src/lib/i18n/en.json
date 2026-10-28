@@ -1,4 +1,12 @@
 {
+	"message.selectToRead": "Select a message from the list to read it here.",
+	"settings.display.customize": "Customize inbox",
+	"settings.display.categories": "Show categories",
+	"settings.display.preview": "Show preview text",
+	"settings.display.unreadMarks": "Show unread dots",
+	"settings.display.avatars": "Show sender images",
+	"settings.display.pageSize": "Messages per page",
+
 	"navigation.categories": "Categories",
 	"navigation.moreFolders": "More folders",
 	"navigation.fewerFolders": "Fewer folders",

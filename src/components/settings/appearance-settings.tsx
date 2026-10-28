@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { Select } from "@/components/ui/select";
@@ -18,8 +18,9 @@ const OPTIONS: { value: ThemePreference; labelKey: TranslationKey }[] = [
 	{ value: "dark", labelKey: "settings.theme.dark" },
 ];
 
-export function AppearanceSettings({ compact = false }: { compact?: boolean } = {}) {
+export function AppearanceSettings({ compact = false, visual = false }: { compact?: boolean; visual?: boolean } = {}) {
 	const { t } = useLanguage();
+	const name = useId();
 	const [preference, setPreference] = useState<ThemePreference>("system");
 
 	useEffect(() => {
@@ -29,6 +30,9 @@ export function AppearanceSettings({ compact = false }: { compact?: boolean } = 
 		return () => window.removeEventListener(THEME_CHANGED_EVENT, sync);
 	}, []);
 
+	if (visual) return <fieldset className="mail-theme-options"><legend className="mb-3 text-sm font-semibold text-neutral-900">{t("settings.theme.label")}</legend><div className="grid grid-cols-3 gap-2">
+		{[OPTIONS[1], OPTIONS[2], OPTIONS[0]].map(option => <label key={option.value} className="grid cursor-pointer grid-cols-[14px_minmax(0,1fr)] items-center gap-x-1 text-xs text-neutral-700"><input type="radio" name={name} value={option.value} checked={preference === option.value} onChange={() => { setPreference(option.value); saveThemePreference(option.value); }} className="peer h-3.5 w-3.5 accent-blue-600" /><span aria-hidden="true" data-theme-preview={option.value} className="mail-theme-preview order-first col-span-2 mb-2 flex h-14 overflow-hidden rounded-lg border-2 border-neutral-200 peer-checked:border-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400"><i /><b><em /><em /><em /></b></span><span>{t(option.labelKey)}</span></label>)}
+	</div></fieldset>;
 	return (
 		<label className={compact ? "flex min-w-0 flex-col gap-1" : "flex items-start gap-3 rounded-xl bg-neutral-50 p-4"}>
 			<span className="flex-1">

@@ -38,6 +38,7 @@ import { MessageNavigationProgress, useMessageNavigation } from "./message-navig
 import { useConversationView } from "./use-conversation-view";
 import { useOptimisticArchive } from "./use-optimistic-archive";
 import { useMailboxPreload } from "./use-mailbox-preload";
+import { useMailDisplayOptions } from "./use-mail-display-options";
 import { useMessageDensity } from "./use-message-density";
 import { allMailFolderConfig } from "./message-folder-configs";
 import type { MessageFolderPageProps, MessageListRowProps, RowMessageAction, SelectedMessage } from "./types";
@@ -61,7 +62,7 @@ import {
 } from "@/lib/messages/permanent-delete-utils";
 import clsx from "clsx";
 
-const pageSize = 25;
+
 
 function MessageListRow({
 	message,
@@ -70,6 +71,7 @@ function MessageListRow({
 	active = false,
 	compact = false,
 	dense = false,
+	showAvatar = false,
 	currentAccountName,
 	onSelectedChange,
 	onMessageAction,
@@ -97,8 +99,8 @@ function MessageListRow({
 	const outbound = message.direction === "outbound";
  const attachmentCount = message.attachmentCount ?? 0;
  const attachmentLabel = attachmentCount > 0 ? t("thread.attachmentCount", {count:attachmentCount}) : "";
- const attachmentIndicator = attachmentCount > 0 ? <span role="img" aria-label={attachmentLabel} title={attachmentLabel} className="inline-flex shrink-0 items-center text-neutral-500"><Paperclip aria-hidden="true" className="h-3.5 w-3.5" /></span> : null;
-	const avatar = !compact && dense ? null : <span className="mail-row-avatar shrink-0"><SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-10 w-10 text-lg" : "h-6 w-6 text-xs"} /></span>;
+ const attachmentIndicator = attachmentCount > 0 ? <span role="img" aria-label={attachmentLabel} title={attachmentLabel} className="mail-row-attachment inline-flex shrink-0 items-center text-neutral-500"><Paperclip aria-hidden="true" className="h-3.5 w-3.5" /></span> : null;
+	const avatar = !showAvatar || (!compact && dense) ? null : <span className="mail-row-avatar shrink-0"><SenderAvatar mailboxId={message.mailboxId} address={outbound ? message.toAddr : message.fromAddr} name={party} hasAvatar={outbound ? message.toContactHasAvatar : message.fromContactHasAvatar} className={compact ? "h-10 w-10 text-lg" : "h-6 w-6 text-xs"} /></span>;
 
 	async function runRowAction(action: RowMessageAction) {
 		const previousRead = read;
@@ -160,14 +162,14 @@ function MessageListRow({
 				}}
 			>
 				<MessageNavigationProgress progress={navigation.progress} />
-				<label className="relative z-10 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full">
-					<input type="checkbox" checked={selected} onChange={event => onSelectedChange(message.id, event.target.checked)} className="peer sr-only" aria-label={t("list.selectFrom", { sender: party })} />
-					<span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>
+				<label className="mail-row-select relative z-10 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full">
+					<input type="checkbox" checked={selected} onChange={event => onSelectedChange(message.id, event.target.checked)} className={showAvatar ? "peer sr-only" : "h-4 w-4 accent-blue-600"} aria-label={t("list.selectFrom", { sender: party })} />
+					{showAvatar && <span className="rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">{selected ? <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-5 w-5" /></span> : avatar}</span>}
 				</label>
 				<Link href={href} prefetch={false} onPointerEnter={navigation.onHover} onPointerLeave={navigation.onLeave} onFocus={navigation.onIntent} onTouchStart={navigation.onIntent} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className={clsx("min-w-0", rowLinkClassName)}>
 					<span className="mail-row-party flex items-baseline justify-between gap-2 text-sm leading-5">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
-							{party}
+							<span aria-hidden="true" className="mail-unread-dot" /><span className="mail-party-name min-w-0 truncate">{party}</span>
 
 							{(message.threadCount ?? 1) > 1 && (
 								<span className="ml-2 text-xs font-normal text-neutral-500">{message.threadCount}</span>
@@ -240,7 +242,7 @@ function MessageListRow({
 				<Icon className="h-4 w-4 text-neutral-300" />
 			)}
 			<span className="mail-desktop-party flex min-w-0 items-center gap-2">
-				{avatar}
+				{avatar}<span aria-hidden="true" className="mail-unread-dot" />
 				<span className={clsx(unread && "font-semibold", getMessagePartyClassName(rowMessage, config.folder))}>{party}</span>
 
 				{(message.threadCount ?? 1) > 1 && (
@@ -336,6 +338,8 @@ export function MessageFolderPage({
 	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
 	const isMobile = useIsMobile();
 	const [density] = useMessageDensity();
+	const [display] = useMailDisplayOptions();
+	const pageSize = display.pageSize;
 	const [internalOffset, setInternalOffset] = useState(0);
 	const offset = selection?.offset ?? internalOffset;
 	const setOffset = selection?.setOffset ?? setInternalOffset;
@@ -374,7 +378,7 @@ export function MessageFolderPage({
 	const mailboxAddress = getMailboxAddress(selectedMailbox);
 	const currentAccountName = selectedMailbox?.displayName ?? selectedMailbox?.localPart;
 	const pageRange = getPageRange(offset, messages.length, total);
-	const hasCategoryTabs = !config.folderId && ["inbox", "promotions", "social", "invoices", "orders"].includes(config.folder);
+	const hasCategoryTabs = display.categories && !config.folderId && ["inbox", "promotions", "social", "invoices", "orders"].includes(config.folder);
 	const selectedMessages = selection?.selectedMessages ?? internalSelectedMessages;
 	const setSelectedMessages =
 		selection?.setSelectedMessages ?? setInternalSelectedMessages;
@@ -399,7 +403,7 @@ export function MessageFolderPage({
 	const expandSelectedIds = (ids: string[]) =>
 		ids.flatMap((id) => selectedMessages.find(message => message.id === id)?.messageIds ?? rowMessageIds(messages.find((message) => message.id === id) ?? { id } as Message));
 
-	const selectionScope = JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped]);
+	const selectionScope = JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped, pageSize]);
 	const allMatchingSelected = allSelection?.key === selectionScope && selectedIds.length > 0;
 	const previousScope = useRef(selectionScope);
 	const previousOffset = useRef(offset);
@@ -558,7 +562,7 @@ export function MessageFolderPage({
 	}
 
 	return (
-		<div data-message-density={density} className="mail-mobile-list flex h-full min-h-0 flex-col">
+		<div data-message-density={density} data-preview={display.preview} data-unread-marks={display.unreadMarks} data-avatars={display.avatars} className="mail-mobile-list flex h-full min-h-0 flex-col">
 			<div className="mail-mobile-list-toolbar flex h-12 shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-3">
 				<div className="flex min-w-0 flex-1 items-center gap-2 max-md:gap-1">
 					<Tooltip label={t("list.selectAll")} className="shrink-0">
@@ -694,6 +698,7 @@ export function MessageFolderPage({
 						active={message.id === selectedMessageId}
 						compact={compact || isMobile}
 						dense={density === "compact"}
+						showAvatar={display.avatars}
 						currentAccountName={currentAccountName}
 						onSelectedChange={updateSelectedMessage}
 						onMessageAction={runRowMessageAction}

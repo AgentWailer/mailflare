@@ -44,7 +44,7 @@ try{
   await page.route('**/api/**',async route=>{
    const url=new URL(route.request().url()),path=url.pathname;let data=response(url);
    if(path==='/api/folders')data={folders:labels};
-   if(path==='/api/messages')data={messages,total:messages.length,limit:25,offset:0};
+   if(path==='/api/messages')data={messages,total:messages.length,limit:Number(url.searchParams.get('limit')||25),offset:0};
    if(/^\/api\/messages\/mail-\d+$/.test(path)){const message=messages.find(m=>m.id===path.split('/').at(-1));data={message,body:{textBody:'Guten Tag,\n\nvielen Dank für das freundliche Gespräch. Anbei die besprochenen Unterlagen. Bitte geben Sie uns bis Freitag Bescheid.\n\nHerzliche Grüße\nMara Schneider',htmlBody:null},attachments:[]};}
    await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
@@ -91,6 +91,18 @@ try{
   if(width>=1024){await row.hover();await page.waitForTimeout(250);for(const button of await row.locator('.mail-row-actions button').all())assert(await button.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'hover actions are clickable');await shot('hover');await page.mouse.move(0,0);}
   const search=page.locator('[data-mail-search-input]');await search.fill('Unterlagen');await page.waitForTimeout(400);await shot('search');if(width<768){const inputBox=await search.boundingBox();assert(inputBox.width>=width-164,'active phone search has room for text');await page.locator('[data-search-back]').click();assert.equal(await search.inputValue(),'Unterlagen','closing expanded search keeps the query');assert(await page.locator('#mail-quick-settings-toggle').isVisible());}await search.fill('');await search.blur();
   await page.locator('#mail-quick-settings-toggle').click();const panel=page.locator('[data-mail-quick-settings]');await panel.waitFor();await page.waitForTimeout(400);await shot('settings');
+  if(process.env.DESIGN_REVIEW){
+   const list=page.locator('[data-message-density]');
+   for(const [name,attr] of [['Vorschautext anzeigen','data-preview'],['Ungelesene hervorheben','data-unread-marks'],['Absenderbilder anzeigen','data-avatars']]){
+    const control=panel.getByRole('switch',{name,exact:true}),before=await control.getAttribute('aria-checked');await control.click();assert.equal(await list.getAttribute(attr),String(before!=='true'));await control.click();assert.equal(await list.getAttribute(attr),before);
+   }
+   const categoriesControl=panel.getByRole('switch',{name:'Kategorien anzeigen',exact:true});await categoriesControl.click();assert.equal(await page.locator('[data-inbox-categories]').count(),0);await categoriesControl.click();await page.locator('[data-inbox-categories]').waitFor();
+   const request=page.waitForRequest(r=>new URL(r.url()).pathname==='/api/messages'&&new URL(r.url()).searchParams.get('limit')==='50');await panel.getByRole('combobox',{name:'Nachrichten pro Seite',exact:true}).selectOption('50');await request;await panel.getByRole('combobox',{name:'Nachrichten pro Seite',exact:true}).selectOption('25');
+   assert(await panel.getByRole('combobox',{name:'Sprache',exact:true}).isVisible());
+   if(width>=1024){const layout=panel.getByRole('combobox',{name:'Lesebereich',exact:true});await layout.selectOption('right');await page.waitForTimeout(400);await panel.locator('div.overflow-y-auto').evaluate(el=>el.scrollTop=0);await shot('design-right-reader');await layout.selectOption('bottom');await page.waitForTimeout(400);}
+   await panel.getByRole('radio',{name:'Dunkel',exact:true}).check();assert(await page.locator('html').evaluate(el=>el.classList.contains('dark')));await panel.getByRole('radio',{name:dark?'Dunkel':'Hell',exact:true}).check();await panel.locator('div.overflow-y-auto').evaluate(el=>el.scrollTop=0);
+  }
+
   await panel.getByRole('radio',{name:/^Kompakt/}).check();await page.waitForTimeout(350);await shot('compact-settings');
   if(width>=1024){const subject=row.locator('.mail-desktop-subject'),summary=row.locator('.mail-desktop-summary'),chips=row.locator('[data-message-labels]');const sb=await subject.boundingBox(),cb=await chips.boundingBox(),mb=await summary.boundingBox();assert(sb.width>=110,'long subject retains useful width '+sb.width);assert(cb.x+cb.width<=mb.x+mb.width+1,'labels fit the row');const noOverlap=sb.x+sb.width<=cb.x+1||cb.x+cb.width<=sb.x+1;assert(noOverlap,'subject and labels never overlap');}
   const heading=await panel.locator('[data-mail-quick-settings-header]').boundingBox(),close=await panel.getByRole('button',{name:'Schließen',exact:true}).boundingBox();assert(close.y>=heading.y&&close.y+close.height<=heading.y+heading.height+1);
@@ -100,7 +112,7 @@ try{
   if(await next.isVisible()){await next.click();await page.waitForTimeout(450);assert(await strip.evaluate(el=>el.scrollLeft>0),'category arrows scroll the strip');}
   await nav.getByRole('link',{name:'Bestellung',exact:true}).click();await page.waitForURL('**/orders');await page.waitForTimeout(350);const active=nav.locator('[aria-current="page"]');const a=await active.boundingBox(),n=await strip.boundingBox();assert(a.x>=n.x-1&&a.x+a.width<=n.x+n.width+1,'active category is fully visible');await shot('category');await page.goBack();await page.waitForURL('**/inbox');await row.waitFor();
   const toolbar=await page.locator('.mail-mobile-list-toolbar').boundingBox(),tabs=await nav.boundingBox();assert(toolbar.y+toolbar.height<=tabs.y+1,'pagination never overlaps categories');
-  await row.locator('a').click();await page.waitForTimeout(700);await page.getByText('vielen Dank für das freundliche Gespräch.',{exact:false}).waitFor();await shot('reader');
+  await row.locator('a').click();await page.waitForTimeout(700);await page.getByText('vielen Dank für das freundliche Gespräch.',{exact:false}).waitFor();await shot('reader');if(width<768)assert.equal(await page.locator('.mail-mobile-header').isVisible(),false,'mobile reader reserves the screen for the message');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'page overflow '+width);
   console.log(JSON.stringify({width,dark,errors}));assert.deepEqual(errors,[]);await page.close();
  }

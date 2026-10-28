@@ -1,3 +1,4 @@
+import { readMailDisplayOptions } from "@/components/messages/use-mail-display-options";
 import { getMessageQueryParams, fetchMessageList } from "@/hooks/utils";
 import type { MessageFolder } from "@/hooks/types";
 
@@ -14,7 +15,7 @@ export function getMailboxPageParams(href: string, mailboxId?: string, conversat
 	const params = getMessageQueryParams(
 		folder,
 		mailboxId,
-		{ limit: 25, offset: 0, group: grouped && folder !== "drafts" ? "thread" : undefined },
+		{ limit: readMailDisplayOptions().pageSize, offset: 0, group: grouped && folder !== "drafts" ? "thread" : undefined },
 		customFolderId,
 	);
 	return params;
