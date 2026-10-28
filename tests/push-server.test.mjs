@@ -77,7 +77,7 @@ test('badge counts only unread primary inbox mail and clears when it is read',as
 test('domain administrators never receive notifications for someone else’s personal mailbox',async t=>{
  const f=await fixture(t);assert.deepEqual(await app.getMailboxNotificationUserIds(f.env,'mailbox','owner'),['owner']);
  await app.sendPushNotifications(f.env,['owner','other'],f.payload);assert.equal(f.deliveries.length,1);assert.equal(f.deliveries[0].url,'https://web.push.apple.com/owner');
- const payload=f.decrypt(f.deliveries[0].init.body);assert.equal(payload.unreadCount,1);assert.equal(payload.title,'Invoice');assert.equal(payload.url,'/inbox/message');
+ const payload=f.decrypt(f.deliveries[0].init.body);assert.equal(payload.unreadCount,1);assert.equal(payload.title,'Sam');assert.equal(payload.body,'Invoice');assert.equal(payload.url,'/inbox/message');
  assert.match(f.deliveries[0].init.headers.Authorization,/^vapid t=/);
 });
 
@@ -126,3 +126,34 @@ test('missing VAPID server keys are reported explicitly and expired endpoints ar
   f.database.db.exec("UPDATE messages SET status='archived' WHERE id='message'");await app.sendPushNotifications(f.env,['owner'],f.payload);
   assert.equal(f.deliveries.length,0);
  });
+
+
+test('encrypted push contains sender, subject and readable message content without tracking links',async t=>{
+ const f=await fixture(t);
+ f.database.db.prepare("UPDATE messages SET snippet=?,text_body=? WHERE id='message'").run('View this email in your browser https://tracking.example.test/long-token','Your payment has arrived. Thank you!');
+ await app.sendPushNotifications(f.env,['owner','other'],f.payload);
+ assert.equal(f.deliveries.length,1);
+ const payload=f.decrypt(f.deliveries[0].init.body);
+ assert.equal(payload.title,'Sam');assert.equal(payload.body,'Invoice\nYour payment has arrived. Thank you!');
+ assert.equal(payload.tag,'message');assert.equal(payload.url,'/inbox/message');assert.equal(payload.unreadCount,1);
+ assert(!Buffer.from(f.deliveries[0].init.body).includes(Buffer.from('Your payment')),'content remains encrypted in transit to push provider');
+});
+
+test('HTML-only mail gets a plain preview; empty sender name falls back to address',async t=>{
+ const f=await fixture(t);
+ f.database.db.prepare("UPDATE messages SET html_body=? WHERE id='message'").run('<html><head><style>hidden CSS</style></head><body><p>Your parcel arrives tomorrow.</p><a href="https://tracking.example.test">Track parcel</a></body></html>');
+ await app.sendPushNotifications(f.env,['owner'],{...f.payload,fromName:'  ',subject:null});
+ const payload=f.decrypt(f.deliveries[0].init.body);
+ assert.equal(payload.title,'sam@example.test');assert.equal(payload.body,'Your parcel arrives tomorrow. Track parcel');
+});
+
+test('long Unicode push previews stay bounded without corrupting emoji or injecting header lines',async t=>{
+ const f=await fixture(t);
+ f.database.db.prepare("UPDATE messages SET snippet=? WHERE id='message'").run('📦'.repeat(1000));
+ await app.sendPushNotifications(f.env,['owner'],{...f.payload,fromName:'Sam\r\nExample',subject:'😀'.repeat(1000)});
+ const payload=f.decrypt(f.deliveries[0].init.body);
+ assert.equal(payload.title,'Sam Example');assert.equal(payload.body.split('\n').length,2);
+ assert(Array.from(payload.body.split('\n')[0]).length<=100);assert(Array.from(payload.body.split('\n')[1]).length<=180);
+ assert(!payload.body.includes('�'));assert(Buffer.byteLength(JSON.stringify(payload))<3000);
+ assert(Buffer.from(f.deliveries[0].init.body).length<4096);
+});

@@ -1,9 +1,10 @@
 import { shouldNotifyMail } from "@/lib/mail-sorting/categories";
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messages, pushSubscriptions, sessions, users } from "@/db/schema";
 import type { NewMessageNotification } from "@/lib/realtime/types";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { buildMailPushContent } from "./notification-content";
 import { getUnreadBadgeCount } from "./badge";
 
 type VapidConfig = {
@@ -269,10 +270,18 @@ async function deliverPushNotifications(
 	if (!config || uniqueUserIds.length === 0) return result;
 
 	const db = getDb(env);
+	let content = { title: "Mailflare", body: "Push notifications are working." };
 	if (payload) {
-  const [message] = await db.select().from(messages).where(and(eq(messages.id,payload.messageId),eq(messages.mailboxId,payload.mailboxId))).limit(1);
-  if (payload.silent || !message || !shouldNotifyMail(message) || (message.snoozedUntil && message.snoozedUntil > new Date())) return result;
- }
+		// Do not materialize full message bodies in the Worker just to show a preview.
+		const [message] = await db.select({
+			status: messages.status, folderId: messages.folderId, category: messages.category,
+			snoozedUntil: messages.snoozedUntil, snippet: messages.snippet,
+			text: sql<string | null>`substr(${messages.textBody}, 1, 16384)`,
+			html: sql<string | null>`substr(${messages.htmlBody}, 1, 65536)`,
+		}).from(messages).where(and(eq(messages.id, payload.messageId), eq(messages.mailboxId, payload.mailboxId))).limit(1);
+		if (payload.silent || !message || !shouldNotifyMail(message) || (message.snoozedUntil && message.snoozedUntil > new Date())) return result;
+		content = buildMailPushContent({ ...payload, snippet: message.snippet, text: message.text, html: message.html });
+	}
 	const subscriptions = await db
 		.select({
 			id: pushSubscriptions.id,
@@ -307,8 +316,7 @@ async function deliverPushNotifications(
 					unreadCounts.set(subscription.user.id, unreadCount);
 				}
 				const notificationPayload = JSON.stringify({
-					title: payload ? (payload.subject || "New email").slice(0, 180) : "Mailflare",
-					body: payload ? `From ${(payload.fromName ?? payload.from).slice(0, 240)}` : "Push notifications are working.",
+					...content,
 					icon: "/icon-192.png",
 					badge: "/icon-96.png",
 					tag: payload?.messageId ?? "mailflare-push-test",

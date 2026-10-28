@@ -51,3 +51,9 @@ test('notification URLs cannot escape the installation origin',async()=>{
  await w.dispatch('notificationclick',{notification:{data:{url:'https://attacker.test'},close(){}}});
  assert.deepEqual(w.opened,['https://mailflare.test/inbox']);
 });
+
+
+test('mail notification keeps sender heading and subject/snippet line break from the encrypted payload',async()=>{
+ const w=worker();await w.push({title:'Sam Example',body:'Invoice October\nYour payment has arrived.',url:'/inbox/message',tag:'message',unreadCount:2});
+ assert.equal(w.notifications[0].title,'Sam Example');assert.equal(w.notifications[0].body,'Invoice October\nYour payment has arrived.');assert.equal(w.notifications[0].tag,'message');
+});
