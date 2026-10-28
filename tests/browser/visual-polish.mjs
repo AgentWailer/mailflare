@@ -54,6 +54,19 @@ try{
   await shot('inbox');
   if(process.env.TABS_REVIEW){
    const nav=page.locator('[data-inbox-categories]');
+   if(width<768){
+    const strip=nav.locator('.mail-category-strip');
+    const box=await strip.boundingBox();
+    assert(Math.abs(box.x)<1&&Math.abs(box.width-width)<1,'mobile category strip uses the entire viewport width');
+    for(const arrow of await nav.locator('.mail-category-scroll').all())assert.equal(await arrow.isVisible(),false,'mobile arrows take no space');
+    await strip.evaluate(el=>el.scrollLeft=el.scrollWidth);
+    await page.waitForTimeout(100);
+    assert.equal(await nav.getAttribute('data-scroll-end'),'true');
+    if(await strip.evaluate(el=>el.scrollWidth>el.clientWidth))assert.equal(await nav.getAttribute('data-scroll-start'),'false');
+    await strip.evaluate(el=>el.scrollLeft=0);
+    await page.waitForTimeout(100);
+    assert.equal(await nav.getAttribute('data-scroll-start'),'true');
+   }
    await nav.locator('a[href="/orders"]').click();await page.waitForURL('**/orders');await row.waitFor();await page.waitForTimeout(350);await shot('tabs-orders');
    for(const fontScale of width<768?[1,1.25]:[1]){
     if(fontScale!==1){await page.evaluate(scale=>document.documentElement.style.fontSize=`${16*scale}px`,fontScale);await page.waitForTimeout(300);await shot('tabs-large-text');}

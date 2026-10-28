@@ -891,7 +891,19 @@ body:has(.mail-mobile-shell, [data-app-profile], [data-auth-compact]) .fork-sour
  .mail-mobile-header .mail-search-form:focus-within { padding-inline: 4px; }
  .mail-mobile-main { border-radius: 0; }
  .mail-mobile-list-toolbar { min-height: 44px; }
- [data-inbox-categories] { padding: 4px 8px 8px; }
+ [data-inbox-categories] { padding: 4px 0 8px; gap: 0; }
+ [data-inbox-categories] .mail-category-scroll { display: none; }
+ /* Edge fades hint at more categories without taking space from the touch strip. */
+ [data-inbox-categories] .mail-category-strip {
+  --category-fade-left: 0px;
+  --category-fade-right: 0px;
+  mask-image: linear-gradient(to right, transparent, #000 var(--category-fade-left), #000 calc(100% - var(--category-fade-right)), transparent);
+ }
+ [data-inbox-categories][data-scroll-start="false"] .mail-category-strip { --category-fade-left: 12px; }
+ [data-inbox-categories][data-scroll-end="false"] .mail-category-strip { --category-fade-right: 12px; }
+ [data-inbox-categories]:dir(rtl) .mail-category-strip { --category-fade-left: 0px; --category-fade-right: 0px; }
+ [data-inbox-categories][data-scroll-start="false"]:dir(rtl) .mail-category-strip { --category-fade-right: 12px; }
+ [data-inbox-categories][data-scroll-end="false"]:dir(rtl) .mail-category-strip { --category-fade-left: 12px; }
  [data-category-tab] { min-height: 36px; padding: 8px 10px; font-size: 11px; }
  [data-category-tab] svg { display: none; }
  [data-mobile-compose] { width: 56px; height: 56px; min-height: 56px; border-radius: 50%; justify-content: center; padding: 0; box-shadow: 0 6px 20px #155ee533; }
