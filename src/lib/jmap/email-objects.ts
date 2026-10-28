@@ -230,7 +230,7 @@ export function buildEmailObject(
 		to: toAddressObjects(row.toAddr),
 		cc: toAddressObjects(row.ccAddr),
 		bcc: toAddressObjects(row.bccAddr),
-		replyTo: null,
+		replyTo: toAddressObjects(row.replyTo),
 		subject: row.subject,
 		sentAt,
 		hasAttachment: attached.length > 0,
@@ -250,20 +250,15 @@ export async function loadAttachmentsByMessage(
 ): Promise<Map<string, AttachmentRow[]>> {
 	const result = new Map<string, AttachmentRow[]>();
 	if (messageIds.length === 0) return result;
-	const rows = await ctx.db
-		.select()
-		.from(messageAttachments)
-		.where(
-			and(
-				inArray(messageAttachments.messageId, messageIds),
-				isNull(messageAttachments.trashedAt),
-			),
-		);
-	for (const row of rows) {
-		const list = result.get(row.messageId) ?? [];
-		list.push(row);
-		result.set(row.messageId, list);
-	}
+	const unique = [...new Set(messageIds)];
+ for (let offset = 0; offset < unique.length; offset += 100) {
+  const rows = await ctx.db.select().from(messageAttachments).where(and(inArray(messageAttachments.messageId, unique.slice(offset, offset + 100)), isNull(messageAttachments.trashedAt)));
+  for (const row of rows) {
+   const list = result.get(row.messageId) ?? [];
+   list.push(row);
+   result.set(row.messageId, list);
+  }
+ }
 	return result;
 }
 

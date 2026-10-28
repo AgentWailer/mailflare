@@ -1,3 +1,4 @@
+import { getMimeEssence } from "@/lib/http/content-type";
 /** Shared by the viewer and authenticated download route. Never infer active documents. */
 const filenameTypes: Record<string, string> = {
 	pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", jfif: "image/jpeg",
@@ -18,7 +19,9 @@ const genericTypes = new Set(["", "application/octet-stream", "binary/octet-stre
 	"application/force-download", "application/x-download", "application/x-octet-stream"]);
 
 export function resolveAttachmentContentType(contentType: string, filename?: string): string {
-	const normalized = (contentType || "").split(";", 1)[0].trim().toLowerCase();
+	// Never turn ambiguous MIME metadata into a permitted type by dropping parameters.
+	if (contentType && !getMimeEssence(contentType)) return "application/octet-stream";
+	const normalized = getMimeEssence(contentType) ?? "";
 	const type = Object.hasOwn(aliases, normalized) ? aliases[normalized] : normalized;
 	const extension = filename?.trim().toLowerCase().split(".").pop() ?? "";
 	// Some senders label binary files as plain text. Only known passive formats

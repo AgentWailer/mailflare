@@ -19,7 +19,7 @@ import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { listMessageAttachments, storeMessageAttachments } from "@/lib/email/attachments";
 import { inboundAttachmentLimitReason } from "@/lib/email/inbound-attachments";
 import { inboundMessageId } from "@/lib/email/inbound-id";
-import { getUnsubscribeUrlFromRawR2Key } from "@/lib/email/unsubscribe";
+import { getMessageHeaderMetadata } from "@/lib/email/unsubscribe";
 import { resolveThreadId } from "@/lib/email/threading";
 import { normalizeMessageId } from "@/lib/email/thread-lookup";
 import type { SessionUser } from "@/lib/auth/types";
@@ -187,6 +187,7 @@ export async function processInboundMessage(
 			fromAddr,
 			toAddr,
 			ccAddr: parsed.ccAddr,
+			replyTo: parsed.replyTo,
 			subject: parsed.subject,
 			snippet,
 			textBody: parsed.text,
@@ -298,7 +299,8 @@ export async function getMessageWithBody(env: CloudflareEnv, userId: string, mes
 	if (!message || message.userId !== userId) return null;
 	const contactNames = await getMessageContactNames(env, userId, message.fromAddr, message.toAddr);
 	const attachments = await listMessageAttachments(env, messageId);
-	const unsubscribeUrl = await getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key);
+	const { unsubscribeUrl, replyTo } = await getMessageHeaderMetadata(env, message.rawR2Key);
+	message.replyTo ??= replyTo;
 	const [scheduledJob] = message.direction === "outbound" && message.status === "queued"
 		? await db
 			.select({ scheduledAt: outboundJobs.scheduledAt })
@@ -322,11 +324,13 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
 	mark?.("access");
 	if (!access?.canRead) return null;
-	const [contactNames, attachments, unsubscribeUrl] = await Promise.all([
+	const [contactNames, attachments, headerMetadata] = await Promise.all([
 		getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr),
 		listMessageAttachments(env, messageId),
-		getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key),
+		getMessageHeaderMetadata(env, message.rawR2Key),
 	]);
+	const { unsubscribeUrl, replyTo } = headerMetadata;
+	message.replyTo ??= replyTo;
 	mark?.("metadata");
 	return { ...messageDetailPayload(message, contactNames), attachments, unsubscribeUrl };
 }
@@ -348,9 +352,9 @@ export async function getMessageMetadataForUser(env: CloudflareEnv, user: Sessio
 	if (!message?.mailboxId) return null;
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
 	if (!access?.canRead) return null;
-	const [attachments, unsubscribeUrl] = await Promise.all([
+	const [attachments, headerMetadata] = await Promise.all([
 		listMessageAttachments(env, messageId),
-		getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key),
+		getMessageHeaderMetadata(env, message.rawR2Key),
 	]);
-	return { attachments, unsubscribeUrl };
+	return { attachments, ...headerMetadata };
 }

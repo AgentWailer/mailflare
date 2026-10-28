@@ -1,3 +1,4 @@
+import { getInlineContentType, getMimeEssence } from "@/lib/http/content-type";
 import { resolveAttachmentContentType } from "@/lib/email/attachment-preview";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
@@ -25,13 +26,14 @@ export async function GET(request: Request, { params }: AttachmentRouteParams) {
 	const contentType = resolveAttachmentContentType(attachment.contentType, attachment.filename);
 	const wallet = isWalletPass(attachment.contentType, attachment.filename);
 	const nativeOpenRequested = wallet && url.searchParams.get("open") === "1";
+	const safeType = getInlineContentType(contentType);
 	const inline =
 		!downloadRequested &&
-		(nativeOpenRequested || attachment.disposition === "inline" ||
-			(previewRequested && isPreviewableAttachmentType(contentType)));
+		(nativeOpenRequested || (safeType !== null && (attachment.disposition === "inline" ||
+			(previewRequested && isPreviewableAttachmentType(safeType)))));
 	const headers = new Headers();
 	object.writeHttpMetadata(headers);
-	headers.set("Content-Type", wallet ? WALLET_PASS_CONTENT_TYPE : contentType);
+	headers.set("Content-Type", wallet ? WALLET_PASS_CONTENT_TYPE : (safeType ?? getMimeEssence(contentType) ?? "application/octet-stream"));
 	headers.set("Content-Length", String(attachment.size));
 	headers.set("Content-Disposition", getAttachmentContentDisposition(attachment.filename, inline));
 	headers.set("X-Content-Type-Options", "nosniff");

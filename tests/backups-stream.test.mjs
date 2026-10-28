@@ -54,3 +54,15 @@ test('a failed R2 part retains its previous cursor and retries safely',async t=>
  const f=await fixture(t);f.add.run('mail','Hello','Original');const id=await app.createBackupRecord(f.env,'manual','owner');f.failNextPart();await app.processDatabaseBackup(f.env,id);const checkpoint=JSON.parse(f.row(id).checkpoint);assert.equal(checkpoint.parts.length,0);assert.equal(checkpoint.cursor.started,false);
  f.DB.db.prepare('UPDATE backups SET lease_until=0 WHERE id=?').run(id);const doc=await f.drain(id);assert.equal(doc.tables.messages.length,1);assert.equal(doc.tables.messages[0].text_body,'Original');
 });
+
+test('Reply-To survives new backups and old records without the column still restore',async t=>{
+ const f=await fixture(t);f.add.run('mail','Subject','Body');
+ f.DB.db.exec("UPDATE messages SET reply_to='support@example.test' WHERE id='mail'");
+ const id=await app.createBackupRecord(f.env,'manual','owner');
+ const doc=await f.drain(id);assert.equal(doc.tables.messages[0].reply_to,'support@example.test');
+ await app.restoreDatabaseRecords(f.DB,new TextEncoder().encode(JSON.stringify(doc)).buffer);
+ assert.equal(f.DB.db.prepare("SELECT reply_to FROM messages WHERE id='mail'").get().reply_to,'support@example.test');
+ delete doc.tables.messages[0].reply_to;
+ await app.restoreDatabaseRecords(f.DB,new TextEncoder().encode(JSON.stringify(doc)).buffer);
+ assert.equal(f.DB.db.prepare("SELECT reply_to FROM messages WHERE id='mail'").get().reply_to,null);
+});

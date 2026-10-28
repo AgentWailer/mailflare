@@ -99,6 +99,7 @@ export async function importMessageToMailbox(
 		fromAddr,
 		toAddr,
 		ccAddr: parsed.ccAddr,
+		replyTo: parsed.replyTo,
 		bccAddr: parsed.bccAddr,
 		subject: parsed.subject,
 		snippet: buildSnippet(parsed.text, parsed.html),
@@ -125,16 +126,23 @@ export async function importMessageToMailbox(
 			httpMetadata: { contentType: "message/rfc822" },
 		});
 		await storeMessageAttachments(env, messageId, parsed.attachments, { validate: false });
+
+		if (input.stagingId && !input.keepStaged) await db.update(messages).set({ status: placement.status }).where(eq(messages.id, messageId));
+	} catch (error) {
+		await deleteMessageWithObjects(env, db, messageId, rawR2Key);
+		throw error;
+	}
+
+	// Contact enrichment must never discard successfully stored mail.
+	try {
 		const contactAddress = direction === "outbound" ? toAddr : fromAddr;
 		await upsertContactFromAddress(env, {
 			userId: input.userId,
 			address: contactAddress,
 			source: direction === "outbound" ? "outbound" : "inbound",
 		});
-		if (input.stagingId && !input.keepStaged) await db.update(messages).set({ status: placement.status }).where(eq(messages.id, messageId));
-	} catch (error) {
-		await deleteMessageWithObjects(env, db, messageId, rawR2Key);
-		throw error;
+	} catch {
+		console.warn("Imported message saved; contact update failed", { messageId });
 	}
 
 	return { id: messageId, created: true };

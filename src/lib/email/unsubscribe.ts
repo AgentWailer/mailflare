@@ -62,9 +62,17 @@ export function extractUnsubscribeUrlFromRaw(raw: ArrayBuffer): UnsubscribeUrl {
 		?? null;
 }
 
+/** One bounded header read supplies both old messages' Reply-To and List-Unsubscribe. */
+export async function getMessageHeaderMetadata(env: CloudflareEnv, rawR2Key: string | null): Promise<{ unsubscribeUrl: UnsubscribeUrl; replyTo: string | null }> {
+ const empty = { unsubscribeUrl: null, replyTo: null };
+ if (!rawR2Key) return empty;
+ const raw = await env.BUCKET.get(rawR2Key, { range: { offset: 0, length: maxHeaderBytes } });
+ if (!raw) return empty;
+ const bytes = await raw.arrayBuffer();
+ const headers = parseHeaders(getHeaderBlock(bytes));
+ return { unsubscribeUrl: extractUnsubscribeUrlFromRaw(bytes), replyTo: headers.get("reply-to")?.join(", ") || null };
+}
+
 export async function getUnsubscribeUrlFromRawR2Key(env: CloudflareEnv, rawR2Key: string | null): Promise<UnsubscribeUrl> {
-	if (!rawR2Key) return null;
-	const raw = await env.BUCKET.get(rawR2Key, { range: { offset: 0, length: maxHeaderBytes } });
-	if (!raw) return null;
-	return extractUnsubscribeUrlFromRaw(await raw.arrayBuffer());
+ return (await getMessageHeaderMetadata(env, rawR2Key)).unsubscribeUrl;
 }

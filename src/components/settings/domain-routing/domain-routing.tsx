@@ -20,6 +20,8 @@ import { RoutingRuleSelect } from "./routing-rule-select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { CardGridSkeleton } from "@/components/page-skeletons";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { canManageDomains } from "@/lib/auth/admin";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import type { DomainRoutingProps, DomainRule, DomainRuleInput, DomainRuleMailbox } from "./types";
 import {
@@ -45,6 +47,7 @@ const ACTION_ICONS = {
 export function DomainRouting({ domain }: DomainRoutingProps = {}) {
 	const { t } = useLanguage();
 	const qc = useQueryClient();
+	const user = useCurrentUser();
 	const { selectedMailbox, isLoading: isMailboxLoading } = useSelectedMailbox();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editing, setEditing] = useState<DomainRule | null>(null);
@@ -54,7 +57,7 @@ export function DomainRouting({ domain }: DomainRoutingProps = {}) {
 	const domainId = domain?.id ?? selectedMailbox?.domainId ?? "";
 	const mailboxId = selectedMailbox?.id ?? "";
 	const mailboxAccessId = domain ? undefined : mailboxId;
-	const canManage = !!domain || selectedMailbox?.permission === "full_access";
+	const canManage = !!user && canManageDomains(user);
 	const rulesQueryKey = ["domain-rules", domainId, mailboxAccessId ?? "admin"] as const;
 
 	const rules = useQuery({

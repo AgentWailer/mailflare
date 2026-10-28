@@ -170,7 +170,8 @@ export function buildReplyQuoteHtml(
 }
 
 /**
- * Who a reply goes to. A plain reply answers the sender; reply-all also keeps
+ * Who a reply goes to. A plain reply answers the sender, or the Reply-To
+ * addresses when the message names any (RFC 5322 §3.6.2); reply-all also keeps
  * everyone else on the To and Cc lines, minus the mailbox's own addresses so
  * the author is not mailing themselves. Replying to a sent message re-addresses
  * its original recipients.
@@ -196,7 +197,8 @@ export function getReplyRecipients(
     return { to, cc };
   }
 
-  const to = unique([message.fromAddr]);
+  const replyTo = unique(splitEmailAddressList(message.replyTo));
+  const to = replyTo.length ? replyTo : unique([message.fromAddr]);
   if (mode !== "replyAll") return { to, cc: [] };
   const cc = unique([...splitEmailAddressList(message.toAddr), ...splitEmailAddressList(message.ccAddr)]);
   return { to, cc };

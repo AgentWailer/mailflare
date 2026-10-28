@@ -1,6 +1,6 @@
 import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
 import { getMessageLabels, validLabelIds } from "@/lib/mail-sorting/labels";
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { messages } from "@/db/schema";
 import { newId } from "@/lib/ids";
 import { buildSnippet, parseRawMime } from "@/lib/email/parse";
@@ -40,6 +40,7 @@ type MessageRow = typeof messages.$inferSelect;
 
 /** The columns a draft row is made of, shared by `Email/set` create and `Email/import`. */
 type DraftRow = {
+	replyTo?: string | null;
 	mailboxId: string;
 	fromAddr: string;
 	toAddr: string;
@@ -69,6 +70,7 @@ async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 		fromAddr: row.fromAddr,
 		toAddr: row.toAddr,
 		ccAddr: row.ccAddr,
+		replyTo: row.replyTo ?? null,
 		bccAddr: row.bccAddr,
 		subject: row.subject,
 		snippet: buildSnippet(row.textBody, row.htmlBody),
@@ -99,16 +101,25 @@ async function scope(ctx: JmapContext) {
 	};
 }
 
-export async function loadMessages(
-	ctx: JmapContext,
-	ids: string[],
-): Promise<MessageRow[]> {
-	if (ids.length === 0) return [];
-	const { condition } = await scope(ctx);
-	return ctx.db
-		.select()
-		.from(messages)
-		.where(and(condition, inArray(messages.id, ids)));
+/** Split scope and requested ids independently so even 100+ mailbox grants stay within D1's 100 parameters. */
+async function scopedIdBatches(ctx: JmapContext, ids: string[]) {
+ const accessible = [...await listAccessibleMailboxIdSet(ctx)];
+ const scopes: SQL[] = [];
+ for (let i = 0; i < accessible.length; i += 50) scopes.push(inArray(messages.mailboxId, accessible.slice(i, i + 50)));
+ if (!scopes.length) scopes.push(ctx.auth.mailboxIds ? sql`1 = 0` : eq(messages.userId, ctx.auth.userId));
+ const unique = [...new Set(ids)];
+ const batches: { condition: SQL; ids: string[] }[] = [];
+ for (const condition of scopes) for (let i = 0; i < unique.length; i += 50) batches.push({ condition, ids: unique.slice(i, i + 50) });
+ return batches;
+}
+
+export async function loadMessages(ctx: JmapContext, ids: string[]): Promise<MessageRow[]> {
+ if (!ids.length) return [];
+ const rows: MessageRow[] = [];
+ for (const batch of await scopedIdBatches(ctx, ids)) {
+  rows.push(...await ctx.db.select().from(messages).where(and(batch.condition, inArray(messages.id, batch.ids))));
+ }
+ return rows;
 }
 
 export const emailGet: JmapMethodHandler = async (ctx, args) => {
@@ -691,6 +702,7 @@ async function importEmail(
 		fromAddr: sender.fromAddr,
 		toAddr: parsed.toAddr ?? "",
 		ccAddr: parsed.ccAddr,
+		replyTo: parsed.replyTo,
 		bccAddr: parsed.bccAddr,
 		subject: parsed.subject,
 		textBody: parsed.text,
@@ -813,13 +825,13 @@ export const threadGet: JmapMethodHandler = async (ctx, args) => {
 			"requestTooLarge",
 			"Thread/get needs an explicit list of ids",
 		);
-	const { condition } = await scope(ctx);
 	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
-	const rows = await ctx.db
-		.select({ id: messages.id, thread: threadKey })
-		.from(messages)
-		.where(and(condition, inArray(threadKey, ids)))
-		.orderBy(asc(messages.createdAt));
+ const rows: { id: string; thread: string; createdAt: Date }[] = [];
+ for (const batch of await scopedIdBatches(ctx, ids)) {
+  rows.push(...await ctx.db.select({ id: messages.id, thread: threadKey, createdAt: messages.createdAt }).from(messages)
+   .where(and(batch.condition, inArray(threadKey, batch.ids))).orderBy(asc(messages.createdAt)));
+ }
+ rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
 	const grouped = new Map<string, string[]>();
 	for (const row of rows)
 		grouped.set(row.thread, [...(grouped.get(row.thread) ?? []), row.id]);

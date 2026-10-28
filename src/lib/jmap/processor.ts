@@ -1,3 +1,4 @@
+import { safeErrorCategory } from "@/lib/security/logging";
 import { CAPABILITY_CORE, CAPABILITY_MAIL, CAPABILITY_SUBMISSION, LIMITS } from "./constants";
 import { JmapError } from "./errors";
 import { mailboxChanges, mailboxGet, mailboxQuery, mailboxSet } from "./mailboxes";
@@ -113,8 +114,10 @@ export async function processRequest(ctx: JmapContext, request: JmapRequest): Pr
 			if (error instanceof JmapError) {
 				responses.push(["error", error.toMethodError(), callId]);
 			} else {
-				console.error(`JMAP ${name} failed`, error);
-				responses.push(["error", { type: "serverFail", description: error instanceof Error ? error.message : "Unexpected error" }, callId]);
+				console.error(`JMAP ${name} failed`, safeErrorCategory(error));
+			// error.message can embed SQL text with bound parameters; the client
+			// only needs a generic error, not the query.
+			responses.push(["error", { type: "serverFail", description: "The method failed on the server" }, callId]);
 			}
 		}
 	}

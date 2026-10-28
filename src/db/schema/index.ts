@@ -252,6 +252,8 @@ export const messages = sqliteTable(
 		toAddr: text("to_addr").notNull(),
 		ccAddr: text("cc_addr"),
 		bccAddr: text("bcc_addr"),
+		/** Full Reply-To header, comma-joined. Replies go here instead of `fromAddr` when set. */
+		replyTo: text("reply_to"),
 		subject: text("subject"),
 		snippet: text("snippet"),
 		textBody: text("text_body"),
@@ -404,7 +406,7 @@ export const outboundJobs = sqliteTable("outbound_jobs", {
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
 	messageId: text("message_id").references(() => messages.id, { onDelete: "set null" }),
-	status: text("status", { enum: ["queued", "sent", "failed"] }).notNull().default("queued"),
+	status: text("status", { enum: ["queued", "sending", "sent", "failed"] }).notNull().default("queued"),
 	payload: text("payload").notNull(),
 	error: text("error"),
 	scheduledAt: integer("scheduled_at", { mode: "timestamp" }),

@@ -19,6 +19,7 @@ export type Message = {
 	toAddr: string;
 	ccAddr?: string | null;
 	bccAddr?: string | null;
+	replyTo?: string | null;
 	fromContactName?: string | null;
 	fromContactHasAvatar?: boolean;
 	toContactHasAvatar?: boolean;

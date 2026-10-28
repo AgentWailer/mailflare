@@ -89,7 +89,7 @@ export default function MessageDetailPage() {
         if (cachedData.attachments !== undefined) return;
         try {
           const metadata = await fetchMessageMetadata(messageId);
-          if (!cancelled) setData((current) => current ? { ...current, ...metadata } : current);
+          if (!cancelled) setData((current) => current ? { ...current, ...metadata, message: current.message ? { ...current.message, replyTo: current.message.replyTo ?? metadata.replyTo } : undefined } : current);
         } catch {
           // The message body remains usable if supplemental metadata is unavailable.
         }

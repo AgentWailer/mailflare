@@ -104,3 +104,15 @@ test('filename fallback never enables HTML, SVG, executables or double extension
   const response=await f.get('?preview=1');assert.match(response.headers.get('Content-Disposition'),/^attachment;/);assert.match(response.headers.get('Content-Security-Policy'),/sandbox/);assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');await response.body.cancel();
  }
 });
+
+test('sender inline disposition never enables active or ambiguous MIME types',async t=>{
+ const f=await fixture(t);
+ for(const type of ['text/html','image/svg+xml;charset=utf-8','image/png, text/html','image/png; x=1, text/html']){
+  f.DB.db.prepare("UPDATE message_attachments SET filename='untrusted.bin',content_type=?,disposition='inline'").run(type);
+  const response=await f.get('?preview=1');
+  assert.match(response.headers.get('Content-Disposition'),/^attachment;/);
+  assert(!response.headers.get('Content-Type').includes(','));
+  assert.equal(response.headers.get('Cache-Control'),'private, no-store');
+  await response.body.cancel();
+ }
+});

@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/hieunc229/mailflare.git",
+  "reviewedCommit": "f9839770f468b0137c781460372a10d949c4f971",
+  "reviewedAt": "2026-10-28",
+  "note": "Review cursor, not a merged version. See docs/upstream-maintenance.md for selectively ported fixes and deferred changes."
+}

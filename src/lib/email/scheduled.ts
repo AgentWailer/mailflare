@@ -16,3 +16,29 @@ export function scheduledMessageCondition(db: ReturnType<typeof getDb>): SQL {
 		),
 	)!;
 }
+
+/** When a queued outbound message is scheduled to go out; null when it is not scheduled. */
+export async function getScheduledTime(db: ReturnType<typeof getDb>, messageId: string): Promise<Date | null> {
+	const [job] = await db
+		.select({ scheduledAt: outboundJobs.scheduledAt })
+		.from(outboundJobs)
+		.where(and(eq(outboundJobs.messageId, messageId), eq(outboundJobs.status, "queued"), isNotNull(outboundJobs.scheduledAt)))
+		.limit(1);
+	return job?.scheduledAt ?? null;
+}
+
+/** Cancels a scheduled send and returns the message to Drafts. Deletes only a job that is
+ * still waiting: the queue consumer claims it (queued -> sending) before delivering, so a
+ * send already under way is left alone. Returns false when there was nothing to cancel. */
+export async function cancelScheduledSend(db: ReturnType<typeof getDb>, messageId: string): Promise<boolean> {
+	const waiting = and(eq(outboundJobs.messageId, messageId), eq(outboundJobs.status, "queued"), isNotNull(outboundJobs.scheduledAt));
+ // D1 batch is transactional: returning to Drafts and removing the queued job
+ // either both commit or both roll back. Delivery's conditional claim competes
+ // with this transaction, never with an intermediate state.
+ const [, deleted] = await db.batch([
+  db.update(messages).set({ status: "draft" }).where(and(eq(messages.id, messageId), eq(messages.status, "queued"),
+   exists(db.select({ id: outboundJobs.id }).from(outboundJobs).where(waiting)))),
+  db.delete(outboundJobs).where(waiting).returning({ id: outboundJobs.id }),
+ ]);
+ return deleted.length > 0;
+}

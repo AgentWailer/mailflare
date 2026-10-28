@@ -20,7 +20,7 @@ function pdfFixture(){
  const xref=Buffer.byteLength(data);data+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`+offsets.slice(1).map(offset=>String(offset).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;return Buffer.from(data);
 }
 const pdf=pdfFixture(),filename='Receipt-with-a-long-filename-2026.pdf';
-const message={id:'receipt',mailboxId:'box',direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender@example.test',toAddr:'owner@example.test',subject:'Receipt for the trip',snippet:'Your receipt is attached.',labels:[],hasAttachments:true,createdAt:'2026-10-15T12:00:00Z'};
+const message={id:'receipt',mailboxId:'box',direction:'inbound',status:'received',category:'primary',read:true,starred:false,fromAddr:'sender@example.test',replyTo:'Support <reply@example.test>',toAddr:'owner@example.test',subject:'Receipt for the trip',snippet:'Your receipt is attached.',labels:[],hasAttachments:true,createdAt:'2026-10-15T12:00:00Z'};
 const attachment={id:'pdf-file',messageId:'receipt',filename,type:'application/pdf',size:pdf.length,disposition:'attachment'};
 const images=['png','jpeg','gif','webp'].map(ext=>({id:'image-'+ext,messageId:'receipt',filename:'Photo.'+ext.toUpperCase(),type:'application/octet-stream',size:100,disposition:'attachment'}));
 const brokenImage={...images[0],id:'broken-image',filename:'Retry-image.png'};
@@ -39,7 +39,7 @@ try{
  preview=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(port)],{cwd:process.cwd(),env:{...process.env,XDG_CONFIG_HOME:temporary,CLOUDFLARE_REMOTE_BINDINGS:'false'},stdio:['ignore','pipe','pipe']});for(const stream of [preview.stdout,preview.stderr])stream.on('data',data=>serverLog+=data.toString());
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Preview exited');await pause(200);}assert(ready);
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
- for(const viewport of [{width:320,height:700},{width:390,height:844},{width:844,height:390},{width:1440,height:900}]){
+ for(const viewport of [{width:320,height:700},{width:390,height:844},{width:844,height:390},{width:1440,height:900}].filter(v=>!process.env.VIEWPORT_WIDTH||v.width===Number(process.env.VIEWPORT_WIDTH))){
   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[],requests=[];let detailCalls=0,preload=false,pdfFailure=false,walletOpens=0,imageFailure=false;
   attachment.type=viewport.width===320?'application/octet-stream':viewport.width===390?'Application/PDF; name="receipt.pdf"':viewport.width===844?'application/x-pdf':'application/pdf';
   const imageBytes=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=100;canvas.height=80;const ctx=canvas.getContext('2d');ctx.fillStyle='blue';ctx.fillRect(0,0,100,80);return Object.fromEntries(['png','jpeg','webp'].map(ext=>[ext,canvas.toDataURL('image/'+ext).split(',')[1]]));});
@@ -48,6 +48,7 @@ try{
   // Context routing also covers a popup's initial navigation request.
   await page.context().route('**/api/messages/receipt/attachments/wallet-file*',async route=>{walletOpens++;assert.equal(new URL(route.request().url()).search,'?open=1');return route.fulfill({contentType:'text/html',body:'<p>Native Wallet handoff boundary</p>'});});
   await page.route('**/api/**',async route=>{const request=route.request(),url=new URL(request.url());if(request.headers()['x-mailflare-preload']==='1')preload=true;
+   if(url.pathname==='/api/drafts'&&request.method()==='POST')return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Synthetic stop after checking reply recipient'})});
    if(url.pathname==='/api/messages/receipt'&&++detailCalls===1)return route.fulfill({status:500,body:''});
    if(url.pathname.endsWith('/attachments/broken-image'))return route.fulfill({status:imageFailure?200:503,contentType:'image/png',body:imageFailure?Buffer.from(imageBytes.png,'base64'):''});
    if(url.pathname.includes('/attachments/image-')){const ext=url.pathname.split('image-').pop();return route.fulfill({status:imageFailure?503:200,contentType:'image/'+ext,body:imageFailure?'':Buffer.from(imageBytes[ext],'base64')});}
@@ -84,6 +85,16 @@ try{
    await dialog.getByRole('button',{name:'Close',exact:true}).click();await dialog.waitFor({state:'hidden'});
   }
   if(viewport.width===390){await page.getByRole('button').filter({hasText:brokenImage.filename}).click();await dialog.getByRole('button',{name:'Try again',exact:true}).waitFor();assert.equal(await dialog.getByRole('link',{name:'Download',exact:true}).count(),2);imageFailure=true;await dialog.getByRole('button',{name:'Try again',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-attachment-viewer] img')?.naturalWidth>0);await dialog.getByRole('button',{name:'Close',exact:true}).click();await dialog.waitFor({state:'hidden'});}
-  assert.deepEqual(errors,[]);assert(!requests.some(url=>!url.startsWith(origin)),'PDFs and rendering resources stay on the application origin');console.log(JSON.stringify({viewport,transientReaderFailureRecovered:true,fullscreen:viewport.width<1024,allPages:true,bothEdgesRendered:true,zoom:true,download:true,walletHandoff:true,pdfMime:attachment.type,images:true,imageRetry:viewport.width===390}));await page.close();
+  try {
+   const [replyRequest]=await Promise.all([
+    page.waitForRequest(r=>new URL(r.url()).pathname==='/api/drafts'&&r.method()==='POST',{timeout:10000}),
+    page.getByRole('button',{name:/^Reply(?: \(r\))?$/}).first().click({timeout:10000}),
+   ]);
+   assert.equal(replyRequest.postDataJSON().to,'Support <reply@example.test>','reader Reply uses Reply-To rather than From');
+  } catch(error) {
+   await page.screenshot({path:`/tmp/upstream-reply-${viewport.width}-failure.png`});
+   console.error(JSON.stringify({viewport,buttons:await page.getByRole('button',{name:/^Reply(?: \(r\))?$/}).evaluateAll(buttons=>buttons.map(b=>({html:b.outerHTML,rect:b.getBoundingClientRect().toJSON()}))),errors}));throw error;
+  }
+  assert.deepEqual(errors,[]);assert(!requests.some(url=>!url.startsWith(origin)),'PDFs and rendering resources stay on the application origin');console.log(JSON.stringify({viewport,transientReaderFailureRecovered:true,replyToRecipient:true,fullscreen:viewport.width<1024,allPages:true,bothEdgesRendered:true,zoom:true,download:true,walletHandoff:true,pdfMime:attachment.type,images:true,imageRetry:viewport.width===390}));await page.close();
  }
 }finally{await browser?.close();if(preview){preview.kill('SIGTERM');await new Promise(resolve=>{if(preview.exitCode!==null)return resolve();preview.once('exit',resolve);setTimeout(()=>{preview.kill('SIGKILL');resolve();},5000).unref();});}writeFileSync('/tmp/mailflare-pdf-browser-preview.log',serverLog);rmSync(temporary,{recursive:true,force:true});}

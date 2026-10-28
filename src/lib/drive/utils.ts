@@ -1,3 +1,4 @@
+import { getInlineContentType } from "@/lib/http/content-type";
 import type { DriveCrumb, DriveRole, DriveRow } from "./types";
 
 /**
@@ -48,13 +49,5 @@ export function driveContentDisposition(filename: string, inline: boolean): stri
 
 /** Types that are safe to render in the browser; everything else (HTML, SVG, scripts) is forced to download. */
 export function isDriveInlineSafe(contentType: string): boolean {
-	return (
-		contentType === "application/pdf" ||
-		contentType.startsWith("audio/") ||
-		contentType.startsWith("video/") ||
-		(contentType.startsWith("image/") && contentType !== "image/svg+xml") ||
-		contentType === "text/plain" ||
-		contentType === "text/csv" ||
-		contentType === "application/json"
-	);
+ return getInlineContentType(contentType) !== null;
 }

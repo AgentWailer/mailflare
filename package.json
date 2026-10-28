@@ -29,7 +29,8 @@
     "perf:bench": "node scripts/benchmark-performance.mjs",
     "perf:navigation": "node scripts/benchmark-navigation.mjs",
     "test:performance:ci": "node --test tests/cache-policy.test.mjs tests/time-format-performance.test.mjs tests/message-bulk-jobs.test.mjs tests/message-read-sync.test.mjs tests/account-switch.test.mjs tests/mail-startup-performance.test.mjs tests/mailbox-preload.test.mjs tests/worker-memory.test.mjs tests/email-html.test.mjs tests/draft-idempotency.test.mjs tests/folder-read-all-client.test.mjs && npm run perf:headers && PERF_CHECK=1 PERF_RUNS=3 npm run perf:bench",
-    "perf:headers": "node scripts/verify-cache-headers.mjs"
+    "perf:headers": "node scripts/verify-cache-headers.mjs",
+    "test:upstream-fixes": "node --test tests/domain-routing-permissions.test.mjs tests/inline-content-type.test.mjs tests/scheduled-send-race.test.mjs tests/import-contact-failure.test.mjs tests/reply-recipients.test.mjs tests/jmap-batch-limit.test.mjs tests/wallet-attachments.test.mjs tests/backups-stream.test.mjs"
   },
   "cloudflare": {
     "bindings": {

@@ -1,0 +1,37 @@
+name: Upstream and dependency watch
+on:
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Compare upstream without merging or executing its code
+        run: node scripts/upstream/report.mjs
+      - name: Audit current lockfile without installing packages
+        shell: bash
+        run: |
+          status=0
+          npm audit --omit=dev --json > artifacts/upstream/dependency-audit.json || status=$?
+          echo "Dependency audit exit code: $status" >> artifacts/upstream/report.md
+          node -e 'const fs=require("node:fs");const a=JSON.parse(fs.readFileSync("artifacts/upstream/dependency-audit.json","utf8"));if(a.error)throw Error("Dependency audit unavailable");console.log(JSON.stringify(a.metadata.vulnerabilities));' >> artifacts/upstream/report.md
+      - name: Show review summary
+        if: always()
+        run: |
+          if [ -f artifacts/upstream/report.md ]; then cat artifacts/upstream/report.md >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upstream-review
+          path: artifacts/upstream/
+          retention-days: 30

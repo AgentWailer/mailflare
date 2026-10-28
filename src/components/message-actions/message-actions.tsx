@@ -110,6 +110,7 @@ export function MessageActions({
 		fromAddr: senderAddress,
 		toAddr: "",
 		ccAddr: null,
+		replyTo: null,
 		providerMessageId: null,
 		references: null,
 		threadId: null,
@@ -137,7 +138,7 @@ export function MessageActions({
 		} finally {
 			setPendingAction(null);
 		}
-	}, [mailboxId, senderAddress, ownAddress, subject, bodyText, bodyHtml, messageMeta?.createdAt, replyable, ownAddresses, openDraftComposer, t]);
+	}, [mailboxId, senderAddress, ownAddress, subject, bodyText, bodyHtml, messageMeta, replyable, ownAddresses, openDraftComposer, t]);
 
 	const shortcuts = useMemo(
 		() => [
