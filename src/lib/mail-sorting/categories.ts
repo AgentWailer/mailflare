@@ -15,6 +15,8 @@ export type SortingDecision = {
 	reviewRequired?: boolean;
 	fallbackReason?: string;
 	policyVersion?: number;
+	/** Requested Workers AI model, recorded only when a model was evaluated. */
+	model?: string;
 	inboxProbability?: number;
 	personalProbability?: number;
 	securityProbability?: number;

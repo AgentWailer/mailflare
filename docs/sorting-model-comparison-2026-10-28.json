@@ -1,0 +1,2488 @@
+{
+  "date": "2026-10-28T10:58:05.627Z",
+  "method": "Sequential REST from workspace; synthetic DE mail; model plus policy, before deterministic shortcuts; not native binding latency or field accuracy",
+  "distinctCases": 24,
+  "runsPerModel": 2,
+  "summary": [
+    {
+      "model": "clef-flash",
+      "total": 48,
+      "success": 48,
+      "correct": 26,
+      "hiddenImportant": 0,
+      "p50": 489,
+      "p95": 793,
+      "inputTokens": 56094
+    },
+    {
+      "model": "clef",
+      "total": 48,
+      "success": 48,
+      "correct": 34,
+      "hiddenImportant": 0,
+      "p50": 389,
+      "p95": 765,
+      "inputTokens": 56094
+    },
+    {
+      "model": "clef-omni",
+      "total": 48,
+      "success": 48,
+      "correct": 34,
+      "hiddenImportant": 0,
+      "p50": 315,
+      "p95": 672,
+      "inputTokens": 56618
+    }
+  ],
+  "results": [
+    {
+      "id": "collection-reply",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 844,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1197,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-reply",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 571,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1197,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-reply",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 634,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1216,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "objection-ack",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 641,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "inbox_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1182,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "objection-ack",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 828,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1182,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "objection-ack",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 294,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1204,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "personal-deadline",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 596,
+      "actualModel": "clef-flash",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1178,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "personal-deadline",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 383,
+      "actualModel": "clef",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1178,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "personal-deadline",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 680,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1194,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "support-reply",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 613,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "support-reply",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 381,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "support-reply",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 697,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1193,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "invoice",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 477,
+      "actualModel": "clef-flash",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1174,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "invoice",
+      "model": "clef",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 389,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "invoices",
+      "reason": "invoices",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1174,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "invoice",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 330,
+      "actualModel": "clef-omni",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1190,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "order",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "orders",
+      "elapsedMs": 597,
+      "actualModel": "clef-flash",
+      "choice": "orders",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "order",
+      "model": "clef",
+      "run": 0,
+      "expected": "orders",
+      "elapsedMs": 384,
+      "actualModel": "clef",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "order",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "orders",
+      "elapsedMs": 309,
+      "actualModel": "clef-omni",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1184,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "coupon",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 470,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1171,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "coupon",
+      "model": "clef",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 480,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1171,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "coupon",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 299,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "promotions",
+      "reason": "promotions",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1182,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-marketing",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 591,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-marketing",
+      "model": "clef",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 229,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-marketing",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 619,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1176,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "social-digest",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "social",
+      "elapsedMs": 588,
+      "actualModel": "clef-flash",
+      "choice": "social",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "social-digest",
+      "model": "clef",
+      "run": 0,
+      "expected": "social",
+      "elapsedMs": 378,
+      "actualModel": "clef",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "social-digest",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "social",
+      "elapsedMs": 332,
+      "actualModel": "clef-omni",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1176,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 634,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 339,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 308,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1176,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "phishing",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "spam",
+      "elapsedMs": 478,
+      "actualModel": "clef-flash",
+      "choice": "spam",
+      "category": "spam",
+      "reason": "spam_correlated",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "phishing",
+      "model": "clef",
+      "run": 0,
+      "expected": "spam",
+      "elapsedMs": 339,
+      "actualModel": "clef",
+      "choice": "spam",
+      "category": "spam",
+      "reason": "spam_correlated",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "phishing",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "spam",
+      "elapsedMs": 297,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "spam",
+      "reason": "spam_correlated",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1183,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "prompt-injection",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 616,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "prompt-injection",
+      "model": "clef",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 439,
+      "actualModel": "clef",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "prompt-injection",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 299,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1183,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-collection-ack",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 479,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1167,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-collection-ack",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 561,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1167,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-collection-ack",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 317,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1172,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-personal-request",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 658,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1153,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-personal-request",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 405,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1153,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-personal-request",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 479,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1158,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "refund",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 482,
+      "actualModel": "clef-flash",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1164,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "refund",
+      "model": "clef",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 530,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1164,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "refund",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 498,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1169,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "generic-invoice",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 610,
+      "actualModel": "clef-flash",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "generic-invoice",
+      "model": "clef",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 509,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "invoices",
+      "reason": "invoices",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "generic-invoice",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "invoices",
+      "elapsedMs": 506,
+      "actualModel": "clef-omni",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-order",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "orders",
+      "elapsedMs": 494,
+      "actualModel": "clef-flash",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-order",
+      "model": "clef",
+      "run": 0,
+      "expected": "orders",
+      "elapsedMs": 589,
+      "actualModel": "clef",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-order",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "orders",
+      "elapsedMs": 303,
+      "actualModel": "clef-omni",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security-newsletter",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 483,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security-newsletter",
+      "model": "clef",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 362,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security-newsletter",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 307,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1166,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-sales-personal-greeting",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 464,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1172,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-sales-personal-greeting",
+      "model": "clef",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 389,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1172,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-sales-personal-greeting",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 306,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1177,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "failed-payment",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 619,
+      "actualModel": "clef-flash",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "failed-payment",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 750,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "failed-payment",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 320,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "inbox_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1166,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "contract-update",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 473,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "contract-update",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 327,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "contract-update",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 672,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1181,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "newsletter-legal-footer",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 466,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "newsletter-legal-footer",
+      "model": "clef",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 670,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "newsletter-legal-footer",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "promotions",
+      "elapsedMs": 510,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "promotions",
+      "reason": "promotions",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1190,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "bank-security",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 489,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1162,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "bank-security",
+      "model": "clef",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 345,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1162,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "bank-security",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "primary",
+      "elapsedMs": 298,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1167,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-social",
+      "model": "clef-flash",
+      "run": 0,
+      "expected": "social",
+      "elapsedMs": 536,
+      "actualModel": "clef-flash",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1156,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-social",
+      "model": "clef",
+      "run": 0,
+      "expected": "social",
+      "elapsedMs": 223,
+      "actualModel": "clef",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1156,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-social",
+      "model": "clef-omni",
+      "run": 0,
+      "expected": "social",
+      "elapsedMs": 333,
+      "actualModel": "clef-omni",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-reply",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 407,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1197,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-reply",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 339,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1216,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-reply",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 596,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1197,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "objection-ack",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 342,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1182,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "objection-ack",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 486,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1204,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "objection-ack",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 461,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "inbox_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1182,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "personal-deadline",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 326,
+      "actualModel": "clef",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1178,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "personal-deadline",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 298,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1194,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "personal-deadline",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 478,
+      "actualModel": "clef-flash",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1178,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "support-reply",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 494,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "support-reply",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 304,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1193,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "support-reply",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 482,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "invoice",
+      "model": "clef",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 383,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "invoices",
+      "reason": "invoices",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1174,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "invoice",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 322,
+      "actualModel": "clef-omni",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1190,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "invoice",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 495,
+      "actualModel": "clef-flash",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1174,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "order",
+      "model": "clef",
+      "run": 1,
+      "expected": "orders",
+      "elapsedMs": 339,
+      "actualModel": "clef",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "order",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "orders",
+      "elapsedMs": 314,
+      "actualModel": "clef-omni",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1184,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "order",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "orders",
+      "elapsedMs": 474,
+      "actualModel": "clef-flash",
+      "choice": "orders",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "coupon",
+      "model": "clef",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 513,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1171,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "coupon",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 315,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "promotions",
+      "reason": "promotions",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1182,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "coupon",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 444,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1171,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-marketing",
+      "model": "clef",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 384,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-marketing",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 302,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1176,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "collection-marketing",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 623,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "social-digest",
+      "model": "clef",
+      "run": 1,
+      "expected": "social",
+      "elapsedMs": 1022,
+      "actualModel": "clef",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "social-digest",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "social",
+      "elapsedMs": 319,
+      "actualModel": "clef-omni",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1176,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "social-digest",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "social",
+      "elapsedMs": 457,
+      "actualModel": "clef-flash",
+      "choice": "social",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 379,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 309,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1176,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 489,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "phishing",
+      "model": "clef",
+      "run": 1,
+      "expected": "spam",
+      "elapsedMs": 765,
+      "actualModel": "clef",
+      "choice": "spam",
+      "category": "spam",
+      "reason": "spam_correlated",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "phishing",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "spam",
+      "elapsedMs": 297,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "spam",
+      "reason": "spam_correlated",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1183,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "phishing",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "spam",
+      "elapsedMs": 697,
+      "actualModel": "clef-flash",
+      "choice": "spam",
+      "category": "spam",
+      "reason": "spam_correlated",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "prompt-injection",
+      "model": "clef",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 401,
+      "actualModel": "clef",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "prompt-injection",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 320,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1183,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "prompt-injection",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 486,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-collection-ack",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 407,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1167,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-collection-ack",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 310,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1172,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-collection-ack",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 465,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1167,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-personal-request",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 391,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1153,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-personal-request",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 327,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1158,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-personal-request",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 602,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1153,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "refund",
+      "model": "clef",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 559,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1164,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "refund",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 299,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1169,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "refund",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 511,
+      "actualModel": "clef-flash",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1164,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "generic-invoice",
+      "model": "clef",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 454,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "invoices",
+      "reason": "invoices",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "generic-invoice",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 321,
+      "actualModel": "clef-omni",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "generic-invoice",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "invoices",
+      "elapsedMs": 465,
+      "actualModel": "clef-flash",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-order",
+      "model": "clef",
+      "run": 1,
+      "expected": "orders",
+      "elapsedMs": 387,
+      "actualModel": "clef",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-order",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "orders",
+      "elapsedMs": 317,
+      "actualModel": "clef-omni",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1170,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-order",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "orders",
+      "elapsedMs": 477,
+      "actualModel": "clef-flash",
+      "choice": "orders",
+      "category": "orders",
+      "reason": "orders",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1165,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security-newsletter",
+      "model": "clef",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 395,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security-newsletter",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 286,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1166,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "security-newsletter",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 472,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-sales-personal-greeting",
+      "model": "clef",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 692,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1172,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-sales-personal-greeting",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 506,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1177,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-sales-personal-greeting",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 1095,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1172,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "failed-payment",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 346,
+      "actualModel": "clef",
+      "choice": "invoices",
+      "category": "primary",
+      "reason": "transaction_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "failed-payment",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 299,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "inbox_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1166,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "failed-payment",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 470,
+      "actualModel": "clef-flash",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "spam_uncertain",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "contract-update",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 517,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "contract-update",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 310,
+      "actualModel": "clef-omni",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1181,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "contract-update",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 475,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1163,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "newsletter-legal-footer",
+      "model": "clef",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 227,
+      "actualModel": "clef",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "newsletter-legal-footer",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 304,
+      "actualModel": "clef-omni",
+      "choice": "promotions",
+      "category": "promotions",
+      "reason": "promotions",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1190,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "newsletter-legal-footer",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "promotions",
+      "elapsedMs": 610,
+      "actualModel": "clef-flash",
+      "choice": "promotions",
+      "category": "primary",
+      "reason": "category_uncertain",
+      "correct": false,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1175,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "bank-security",
+      "model": "clef",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 224,
+      "actualModel": "clef",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1162,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "bank-security",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 310,
+      "actualModel": "clef-omni",
+      "choice": "spam",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1167,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "bank-security",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "primary",
+      "elapsedMs": 487,
+      "actualModel": "clef-flash",
+      "choice": "primary",
+      "category": "primary",
+      "reason": "personal_or_security",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1162,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-social",
+      "model": "clef",
+      "run": 1,
+      "expected": "social",
+      "elapsedMs": 351,
+      "actualModel": "clef",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1156,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-social",
+      "model": "clef-omni",
+      "run": 1,
+      "expected": "social",
+      "elapsedMs": 319,
+      "actualModel": "clef-omni",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1161,
+        "output_tokens": 0
+      }
+    },
+    {
+      "id": "en-social",
+      "model": "clef-flash",
+      "run": 1,
+      "expected": "social",
+      "elapsedMs": 793,
+      "actualModel": "clef-flash",
+      "choice": "social",
+      "category": "social",
+      "reason": "social",
+      "correct": true,
+      "hiddenImportant": false,
+      "usage": {
+        "input_tokens": 1156,
+        "output_tokens": 0
+      }
+    }
+  ]
+}
