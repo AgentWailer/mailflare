@@ -52,6 +52,29 @@ try{
   await page.waitForTimeout(1400);
   const shot=async name=>{await page.screenshot({path:`${out}/${width}${dark?'-dark':''}-${name}.png`});};
   await shot('inbox');
+  if(process.env.MENU_REVIEW){
+   if(width<768)await page.getByRole('button',{name:'Menü öffnen',exact:true}).click();
+   const sidebar=page.locator('aside').filter({has:page.locator('a[href="/inbox"]')}).first();
+   await page.waitForTimeout(300);await shot('menu');
+   const more=sidebar.locator('[data-mail-more-folders]');
+   assert.equal(await more.getAttribute('aria-expanded'),'false');
+   assert(await sidebar.locator('a[href="/drafts"]').isVisible());
+   assert.equal(await sidebar.locator('a[href="/spam"]').count(),0);
+   await more.click();assert(await sidebar.locator('a[href="/spam"]').isVisible());await shot('menu-expanded');await more.click();
+   const utilities=sidebar.locator('a[href="/settings/account"]');const ub=await utilities.boundingBox();assert(ub.y+ub.height<= (width<768?844:900));
+   if(width<768){await sidebar.getByRole('button',{name:'Schließen',exact:true}).click();await page.waitForTimeout(250);assert.equal(await sidebar.getAttribute('aria-hidden'),'true');await page.getByRole('button',{name:'Menü öffnen',exact:true}).click();await page.keyboard.press('Escape');await page.waitForTimeout(250);assert.equal(await sidebar.getAttribute('aria-hidden'),'true');await page.getByRole('button',{name:'Menü öffnen',exact:true}).click();}
+   await sidebar.locator('a[href="/folders/work"]').scrollIntoViewIfNeeded();await shot('menu-labels');
+   if(width<768){await sidebar.locator('a[href="/folders/work"]').click();await page.waitForURL('**/folders/work');await page.waitForTimeout(300);assert.equal(await sidebar.getAttribute('aria-hidden'),'true');}
+   if(width<768)await page.getByRole('button',{name:'Menü öffnen',exact:true}).click();
+   if(await more.getAttribute('aria-expanded')==='false')await more.click();
+   await sidebar.locator('a[href="/archived"]').click();await page.waitForURL('**/archived');
+   if(width<768)await page.getByRole('button',{name:'Menü öffnen',exact:true}).click();
+   if(await more.getAttribute('aria-expanded')==='true')await more.click();
+   assert(await sidebar.locator('a[href="/archived"][aria-current="page"]').isVisible(),'active secondary folder is never hidden');
+   if(width>=768){await row.waitFor();await page.waitForTimeout(350);await sidebar.locator('a[href="/sent"]').hover();await page.waitForTimeout(200);await shot('menu-hover');}
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
+   console.log(JSON.stringify({width,dark,menu:true,errors}));await page.close();continue;
+  }
   if(width>=1024){await row.hover();await page.waitForTimeout(250);for(const button of await row.locator('.mail-row-actions button').all())assert(await button.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'hover actions are clickable');await shot('hover');await page.mouse.move(0,0);}
   const search=page.locator('[data-mail-search-input]');await search.fill('Unterlagen');await page.waitForTimeout(400);await shot('search');if(width<768){const inputBox=await search.boundingBox();assert(inputBox.width>=width-164,'active phone search has room for text');await page.locator('[data-search-back]').click();assert.equal(await search.inputValue(),'Unterlagen','closing expanded search keeps the query');assert(await page.locator('#mail-quick-settings-toggle').isVisible());}await search.fill('');await search.blur();
   await page.locator('#mail-quick-settings-toggle').click();const panel=page.locator('[data-mail-quick-settings]');await panel.waitFor();await page.waitForTimeout(400);await shot('settings');

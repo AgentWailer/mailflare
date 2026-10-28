@@ -1,4 +1,7 @@
 {
+	"navigation.categories": "Categories",
+	"navigation.moreFolders": "More folders",
+	"navigation.fewerFolders": "Fewer folders",
 	"navigation.compose": "Compose",
 	"navigation.composeMobile": "Compose",
 	"navigation.inbox": "Inbox",

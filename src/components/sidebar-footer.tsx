@@ -1,20 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import packageJson from "../../package.json";
 import { useSidebar } from "./sidebar-state";
 import { useShortcuts } from "./shortcuts";
-import { Keyboard } from "lucide-react";
+import { Keyboard, Settings } from "lucide-react";
 import { useLanguage } from "./language-provider";
 
 export function SidebarFooter() {
 	const { t } = useLanguage();
-	const { minimal } = useSidebar();
+	const { minimal, mobile } = useSidebar();
 	const { openHelpModal, shortcutsEnabled, shortcutsPreferenceLoading } = useShortcuts();
 	if (minimal) return null;
 
   return (
-    <div className="px-3 pt-3 flex flex-col gap-2">
-      {shortcutsEnabled && !shortcutsPreferenceLoading && (
+    <div className="sidebar-utilities pt-2 flex flex-col gap-1">
+      <Link prefetch={false} href="/settings/account" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200/60"><Settings className="h-5 w-5 shrink-0" />{t("settings.nav.settings")}</Link>
+      {!mobile && shortcutsEnabled && !shortcutsPreferenceLoading && (
         <button
           type="button"
           onClick={openHelpModal}
@@ -29,7 +31,7 @@ export function SidebarFooter() {
           </kbd>
         </button>
       )}
-      <PoweredBy />
+      <PoweredBy className="px-3 py-1" />
     </div>
   );
 }

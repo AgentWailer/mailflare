@@ -2,13 +2,20 @@
 
 import clsx from "clsx";
 import { Menu } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useSidebar } from "./sidebar-state";
 import { useLanguage } from "./language-provider";
 
 export function SidebarAside({ children, className }: { children: ReactNode; className?: string }) {
 	const { mobile, mobileOpen, toggle } = useSidebar();
 	const hidden = mobile && !mobileOpen;
+	const aside = useRef<HTMLElement>(null);
+	useEffect(() => {
+		if (!mobile || !mobileOpen) return;
+		const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		aside.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+		return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+	}, [mobile, mobileOpen]);
 
 	return (
 		<>
@@ -18,10 +25,12 @@ export function SidebarAside({ children, className }: { children: ReactNode; cla
 				className={clsx("fixed inset-0 z-[100] bg-black/40 transition-opacity duration-200 ease-out motion-reduce:transition-none md:hidden", mobileOpen ? "opacity-100" : "pointer-events-none opacity-0")}
 			/>
 			<aside
+				ref={aside}
+				onKeyDown={event => { if (mobile && mobileOpen && event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); toggle(); } }}
 				aria-hidden={hidden}
 				inert={hidden}
 				className={clsx(
-					"fixed inset-y-0 left-0 z-[110] w-[min(85vw,300px)] min-h-0 min-w-0 bg-[#f6f8fc] transition-transform duration-200 ease-out motion-reduce:transition-none",
+					"mail-sidebar fixed inset-y-0 left-0 z-[110] w-[min(90vw,340px)] rounded-r-3xl md:rounded-none min-h-0 min-w-0 bg-[#f6f8fc] transition-transform duration-200 ease-out motion-reduce:transition-none",
 					"md:relative md:z-30 md:w-[var(--sidebar-width)] md:translate-x-0 md:shadow-none",
 					mobileOpen ? "translate-x-0 shadow-xl" : "-translate-x-full",
 					className,

@@ -1,4 +1,7 @@
 {
+	"navigation.categories": "Kategorien",
+	"navigation.moreFolders": "Weitere Ordner",
+	"navigation.fewerFolders": "Weniger Ordner",
 	"navigation.compose": "Verfassen",
 	"navigation.composeMobile": "Schreiben",
 	"navigation.inbox": "Posteingang",

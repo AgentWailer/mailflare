@@ -782,3 +782,27 @@ body:has(.mail-mobile-shell, [data-app-profile], [data-auth-compact]) .fork-sour
 	.pull-refresh-motion,
 	.swipe-row-motion { transition: none !important; }
 }
+
+/* Navigation shares one inset, icon column and active surface across folders/labels. */
+.mail-navigation .sidebar-scroll { padding-inline: 12px; scrollbar-gutter: auto; }
+.mail-navigation .sidebar-nav-item:not(.w-10) { padding-inline: 12px; border-radius: 12px; }
+.mail-navigation .sidebar-nav-item > svg { flex-shrink: 0; }
+.mail-navigation .sidebar-nav-item[aria-current="page"] { background: var(--mail-selected-background); color: var(--foreground); }
+.mail-navigation button.sidebar-nav-item { margin-left: 0; width: 100%; justify-content: flex-start; min-height: 48px; }
+.mail-navigation button.sidebar-nav-item.w-11 { width: 44px; }
+.mail-navigation .sidebar-nav-item:focus-visible, .sidebar-utilities a:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.mail-nav-heading { padding: 4px 12px 8px; font-size: 12px; font-weight: 600; color: var(--foreground); opacity: .65; }
+.mail-nav-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.mail-navigation button.sidebar-nav-item > span { flex: initial; }
+.mail-nav-label-heading { margin-top: 16px; padding-left: 12px; border-top: 1px solid var(--border); }
+.mail-navigation .sidebar-label-row { border-radius: 12px; }
+.mail-navigation .sidebar-label-row:has([aria-current="page"]) { background: var(--mail-selected-background); }
+.mail-navigation .sidebar-label-link [aria-current="page"] { background: transparent; }
+.mail-navigation .label-group-toggle { transform: translateX(-12px); }
+.sidebar-utilities { border-top: 1px solid var(--border); }
+@media (max-width: 767px) {
+ .mail-sidebar .sidebar-top { padding-top: max(16px, env(safe-area-inset-top)); }
+ .mail-sidebar .sidebar-bottom { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+ .mail-navigation .sidebar-nav-item { min-height: 44px; font-size: 15px; }
+ .mail-sidebar .sidebar-top button { height: 44px; width: 44px; }
+}

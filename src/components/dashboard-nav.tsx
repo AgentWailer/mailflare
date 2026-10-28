@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Archive,
+  ChevronDown,
   CalendarClock,
   Clock,
   FileText,
@@ -87,12 +88,14 @@ const links = [
 ] satisfies (Omit<NavLink, "label"> & { labelKey: TranslationKey })[];
 
 
-// Keep the saved two-list ordering compatible while displaying both lists in full.
+// Retain saved folder ordering. Secondary destinations are disclosed without losing the active route.
+const CATEGORY_HREFS = ["/invoices", "/orders", "/promotions", "/social"];
 const MORE_LINK_HREFS = ["/drafts", "/archived", "/spam", "/trash"];
 
 export function DashboardNav({ className }: { className?: string }) {
   const { t } = useLanguage();
   const { minimal } = useSidebar();
+  const [expandedFolders, setExpandedFolders] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { selectedMailbox, isLoading } = useSelectedMailbox();
@@ -168,7 +171,9 @@ export function DashboardNav({ className }: { className?: string }) {
 
   const isActiveHref = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const composeLink = linksWithCounts.find((link) => link.href === "/compose");
-  const mainLinks = linksWithCounts.filter((link) => link.href !== "/compose" && !MORE_LINK_HREFS.includes(link.href!));
+  const mainLinks = linksWithCounts.filter((link) => link.href !== "/compose" && !MORE_LINK_HREFS.includes(link.href!) && !CATEGORY_HREFS.includes(link.href!));
+  const categoryLinks = CATEGORY_HREFS.map(href => linksWithCounts.find(link => link.href === href)!);
+  const visibleMailLinks = (ids: string[]) => minimal || expandedFolders ? ids : ids.filter(href => ["/inbox", "/starred", "/all", "/sent", "/drafts"].includes(href) || isActiveHref(href) || (href === "/scheduled" && counts.folders.scheduled.total > 0));
   const moreLinks = linksWithCounts.filter((link) => MORE_LINK_HREFS.includes(link.href!));
   const visibleFolders = folders.filter(folder => !hiddenLabelIds.includes(folder.id));
 
@@ -252,25 +257,30 @@ export function DashboardNav({ className }: { className?: string }) {
   }
 
   return (
-    <SidebarScaffold className={className} header={<SidebarHeader href="/inbox" />} footer={<SidebarFooter />}>
+    <SidebarScaffold className={`mail-navigation ${className ?? ""}`} header={<SidebarHeader href="/inbox" />} footer={<SidebarFooter />}>
       {composeLink && <NavItem labelClassName="font-medium" link={composeLink} />}
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
+      {!minimal && <h2 className="mail-nav-heading">{t("settings.nav.mailbox")}</h2>}
       <ReorderableList
         storageKey="mailflare:nav:layout"
         initialItemAfter={{ "/all": "/starred" }}
         enabled={!minimal}
         lists={[
-          { id: "main", items: mainLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })) },
+          { id: "main", visibleIds: visibleMailLinks, items: mainLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })) },
           {
             id: "more",
+            visibleIds: visibleMailLinks,
             items: moreLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })),
           },
         ]}
       />
+      {!minimal && <button type="button" data-mail-more-folders aria-expanded={expandedFolders} onClick={() => setExpandedFolders(value => !value)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-neutral-600 hover:bg-neutral-200/60 md:min-h-9"><ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${expandedFolders ? "rotate-180" : ""}`} /><span>{t(expandedFolders ? "navigation.fewerFolders" : "navigation.moreFolders")}</span></button>}
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
+      {!minimal && <h2 className="mail-nav-heading mail-nav-section">{t("navigation.categories")}</h2>}
+      <ReorderableList storageKey="mailflare:nav:categories" enabled={!minimal} lists={[{id:"categories",items:categoryLinks.map(link=>({id:link.href!,node:<NavItem link={link}/>}))}]} />
       {!minimal && (
-        <div className="mt-2 ml-3 mr-2 flex min-h-11 shrink-0 items-center gap-1 pl-3">
-          <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t("smart.labels")}</span>
+        <div className="mail-nav-label-heading flex min-h-11 shrink-0 items-center gap-1">
+          <span className="min-w-0 flex-1 text-xs font-semibold text-neutral-500">{t("smart.labels")}</span>
           <Link prefetch={false} href="/settings/inbox#labels" aria-label={t("labels.visibility.title")} title={t("labels.visibility.title")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"><Settings2 className="h-4 w-4" /></Link>
           {canManageLabels && (
             <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>

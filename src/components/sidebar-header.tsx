@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, TextAlignJustify } from "lucide-react";
+import { X, TextAlignJustify } from "lucide-react";
 import { useBranding } from "./branding-provider";
 import { useSidebar } from "./sidebar-state";
 import type { SidebarHeaderProps } from "./sidebar-state-types";
@@ -11,9 +11,9 @@ import { useLanguage } from "./language-provider";
 export function SidebarHeader({ href, label }: SidebarHeaderProps) {
 	const { t } = useLanguage();
 	const branding = useBranding();
-	const { minimal, toggle } = useSidebar();
-	const toggleButton = <button type="button" onClick={toggle} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-200" aria-label={minimal ? t("navigation.expandMenu") : t("navigation.collapseMenu")}>
-		{minimal ? <img src={branding.iconUrl} height={32} width={32} alt="" /> : <TextAlignJustify size={18} />}
+	const { minimal, mobile, toggle } = useSidebar();
+	const toggleButton = <button type="button" onClick={toggle} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-200" aria-label={mobile ? t("navigation.close") : minimal ? t("navigation.expandMenu") : t("navigation.collapseMenu")}>
+		{mobile ? <X size={20} /> : minimal ? <img src={branding.iconUrl} height={32} width={32} alt="" /> : <TextAlignJustify size={18} />}
 	</button>;
 	return (
 		<div className={`mb-3 flex h-10 items-center ${minimal ? "" : "gap-2 px-1"}`}>
