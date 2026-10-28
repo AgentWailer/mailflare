@@ -36,21 +36,26 @@ export function InboxCategoryTabs({ folder, compact = false, onRefresh, refreshi
 		const next = { overflow: el.scrollWidth > el.clientWidth + 1, start: offset <= 1, end: offset + el.clientWidth >= el.scrollWidth - 1 };
 		setEdges(previous => previous.overflow === next.overflow && previous.start === next.start && previous.end === next.end ? previous : next);
 	}
-	useEffect(() => {
-		const el = strip.current;
-		if (!el) return;
-		const observer = new ResizeObserver(measure);
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, []);
-	useEffect(() => {
+	function revealActiveTab() {
 		const el = strip.current;
 		const active = el?.querySelector<HTMLElement>('[aria-current="page"]');
 		if (!el || !active) return;
-		// Only scroll the tab strip, never the mailbox or the document.
+		// Scroll only this strip, including after font size or viewport changes.
 		const box = el.getBoundingClientRect(), tab = active.getBoundingClientRect();
 		if (tab.left < box.left) el.scrollLeft -= box.left - tab.left;
 		else if (tab.right > box.right) el.scrollLeft += tab.right - box.right;
+	}
+	useEffect(() => {
+		const el = strip.current;
+		if (!el) return;
+		const observer = new ResizeObserver(() => { revealActiveTab(); measure(); });
+		observer.observe(el);
+		// Text can grow while the strip's own width stays unchanged.
+		for (const tab of el.children) observer.observe(tab);
+		return () => observer.disconnect();
+	}, []);
+	useEffect(() => {
+		revealActiveTab();
 		measure();
 	}, [folder, edges.overflow]);
 	function scrollTabs(direction: number) {
@@ -64,7 +69,7 @@ export function InboxCategoryTabs({ folder, compact = false, onRefresh, refreshi
 	return <nav data-inbox-categories aria-label={t("smart.category")} className="flex min-w-0 shrink-0 border-b border-neutral-200">
 		{edges.overflow && <button type="button" aria-label={t("message.categories.previous")} disabled={edges.start} onClick={() => scrollTabs(-1)} className="mail-category-scroll"><ChevronLeft aria-hidden="true" className="h-4 w-4" /></button>}
 		<div ref={strip} onScroll={measure} className="mail-category-strip flex min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
-		{categories.map(({ folder: category, href, label, icon: Icon }) => <Link key={category} href={href} prefetch={false} scroll={false} onPointerEnter={() => warm(category)} onFocus={() => warm(category)} onTouchStart={() => warm(category)} onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (folder !== category) router.push(href, { scroll: false }); }} aria-current={folder === category ? "page" : undefined} title={t(label)} className={`flex min-h-11 min-w-24 flex-1 shrink-0 items-center justify-center gap-2 whitespace-nowrap border-b-2 px-3 text-xs sm:text-sm ${compact ? "flex-col gap-0.5 py-1" : ""} ${folder === category ? "border-blue-600 font-medium text-blue-700" : "border-transparent text-neutral-600 hover:bg-neutral-50"}`}><Icon className={`h-4 w-4 shrink-0 ${compact ? "hidden" : "max-sm:hidden"}`} /><span className="min-w-0 text-center leading-4">{t(label)}</span></Link>)}
+		{categories.map(({ folder: category, href, label, icon: Icon }) => <Link key={category} data-category-tab={category} href={href} prefetch={false} scroll={false} onPointerEnter={() => warm(category)} onFocus={() => warm(category)} onTouchStart={() => warm(category)} onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (folder !== category) router.push(href, { scroll: false }); }} aria-current={folder === category ? "page" : undefined} title={t(label)} className={`flex min-h-11 min-w-max flex-[1_0_auto] items-center justify-center gap-2 whitespace-nowrap border-b-2 px-3 text-xs sm:text-sm ${compact ? "flex-col gap-0.5 py-1" : ""} ${folder === category ? "border-blue-600 font-medium text-blue-700" : "border-transparent text-neutral-600 hover:bg-neutral-50"}`}><Icon className={`h-4 w-4 shrink-0 ${compact ? "hidden" : "max-sm:hidden"}`} /><span className="shrink-0 text-center leading-4">{t(label)}</span></Link>)}
 		</div>
 		{edges.overflow && <button type="button" aria-label={t("message.categories.next")} disabled={edges.end} onClick={() => scrollTabs(1)} className="mail-category-scroll"><ChevronRight aria-hidden="true" className="h-4 w-4" /></button>}
 		{onRefresh && <MessageRefreshButton onRefresh={onRefresh} refreshing={refreshing} disabled={disabled} />}

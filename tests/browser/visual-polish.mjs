@@ -52,6 +52,19 @@ try{
   await page.waitForTimeout(1400);
   const shot=async name=>{await page.screenshot({path:`${out}/${width}${dark?'-dark':''}-${name}.png`});};
   await shot('inbox');
+  if(process.env.TABS_REVIEW){
+   const nav=page.locator('[data-inbox-categories]');
+   await nav.locator('a[href="/orders"]').click();await page.waitForURL('**/orders');await row.waitFor();await page.waitForTimeout(350);await shot('tabs-orders');
+   for(const fontScale of width<768?[1,1.25]:[1]){
+    if(fontScale!==1){await page.evaluate(scale=>document.documentElement.style.fontSize=`${16*scale}px`,fontScale);await page.waitForTimeout(300);await shot('tabs-large-text');}
+    const bounds=await nav.locator('a').evaluateAll(links=>links.map(link=>{const box=link.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(link.querySelector('span'));const text=range.getBoundingClientRect();return {name:link.textContent,linkLeft:box.left,linkRight:box.right,textLeft:text.left,textRight:text.right};}));
+    for(const b of bounds)assert(b.textLeft>=b.linkLeft+8&&b.textRight<=b.linkRight-8,'category text must fit its own padded tab: '+JSON.stringify(b));
+    const activeBox=await nav.locator('[aria-current="page"]').boundingBox(),stripBox=await nav.locator('.mail-category-strip').boundingBox();assert(activeBox.x>=stripBox.x-1&&activeBox.x+activeBox.width<=stripBox.x+stripBox.width+1,'active tab stays visible after font resize');
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
+    console.log(JSON.stringify({width,dark,fontScale,tabs:true,bounds}));
+   }
+   await page.close();continue;
+  }
   if(process.env.MENU_REVIEW){
    if(width<768)await page.getByRole('button',{name:'Menü öffnen',exact:true}).click();
    const sidebar=page.locator('aside').filter({has:page.locator('a[href="/inbox"]')}).first();
