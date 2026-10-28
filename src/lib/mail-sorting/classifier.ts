@@ -102,6 +102,17 @@ export function resolveClefDecision(
 		return { ...result, source: "clef", reason: "inbox_uncertain" };
 	if (probabilities.spam >= threshold && spamScore >= 40)
 		return { ...result, source: "clef", reason: "spam_correlated", spam: true };
+	// Product offers can look like unsolicited spam to the category question.
+	// When the separate marketing answer confirms an advertisement and every
+	// personal/transaction signal is low, the remaining uncertainty is Werbung
+	// versus Spam, not whether the message belongs in the primary inbox.
+	// Keep it in the reversible Promotions view; spam still needs corroboration.
+	const advertisingSpamAmbiguity = probabilities.spam >= probabilities.promotions &&
+		probabilities.promotions + probabilities.spam >= Math.max(0.9, threshold) &&
+		probabilities.primary <= 0.1 && probabilities.invoices + probabilities.orders <= 0.1 &&
+		inboxProbability < 0.1 && (answers.action.noul ?? 1) < 0.1 && (answers.security.noul ?? 1) < 0.1;
+	if (advertisingSpamAmbiguity && (marketing?.noul ?? 0) >= Math.max(0.8, threshold))
+		return { ...result, category: "promotions", suggestedCategory: "promotions", source: "clef", reason: "marketing_spam_ambiguity" };
 	// A positive marketing answer supplies actual advertising evidence. Neither
 	// a low inbox score nor an uncorrelated spam guess is enough on its own.
 	// All personal, security, transaction and primary-inbox safeguards above apply.
