@@ -1,9 +1,9 @@
 import { htmlToReadableText } from "@/lib/email/reply-content-utils";
-import { isAccountSecurityNotice, resolveTransactionMail, resolveRoutineMail } from "./routine";
+import { isAccountSecurityNotice, isConsequentialNotice, resolveTransactionMail, resolveRoutineMail } from "./routine";
 import type { SortingDecision } from "./categories";
 import { cleanSnippetText } from "@/lib/email/snippet";
 
-export const CONTENT_POLICY_VERSION = 5;
+export const CONTENT_POLICY_VERSION = 6;
 export type ReviewMessage = {
  id: string; row_id: number; from_addr: string; to_addr: string; subject: string | null;
  category: string; sorting_decision: string | null; text_body: string | null; html_body: string | null;
@@ -36,6 +36,7 @@ export function deterministicReview(message: ReviewMessage): SortingDecision | n
  const headers: Record<string, string> = message.in_reply_to ? { "in-reply-to": message.in_reply_to } : {};
  const input = { sender: message.from_addr, subject: message.subject, text: reviewText(message),
   headers };
+ if (isConsequentialNotice(input)) return { category: "primary", source: "rule", reason: "protected_legal_or_payment_demand" };
  if (isAccountSecurityNotice(input)) return { category: "primary", source: "rule", reason: "protected_account_security" };
  // A reply may mention an invoice from quoted history; protect the conversation.
  if (/^(?:re|aw)\s*:/i.test(message.subject?.trim() ?? "") || message.in_reply_to)

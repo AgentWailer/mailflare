@@ -850,16 +850,16 @@ test("label deletion rejects unauthenticated, foreign, mismatched and read-only 
 });
 
 
-test('two-stage decisions route known non-inbox mail despite split category probabilities',()=>{
+test('uncertain destination or uncorrelated spam remains visible in primary',()=>{
  const replay=(probabilities,inbox=.01)=>({category:{type:'choice',choice:Object.entries(probabilities).sort((a,b)=>b[1]-a[1])[0][0],probabilities},inbox:{type:'noul',noul:inbox},action:{type:'noul',noul:.01},security:{type:'noul',noul:.01}});
  const uber=replay({primary:.0226,promotions:.4114,social:.0197,spam:.5463});
- assert.equal(app.resolveClefDecision(uber,.8,0).category,'promotions');assert.equal(app.resolveClefDecision(uber,.8,0).reviewRequired,true);
+ assert.equal(app.resolveClefDecision(uber,.8,0).category,'primary');assert.equal(app.resolveClefDecision(uber,.8,0).reviewRequired,true);
  const linkedin=replay({primary:.019,promotions:.1252,social:.8036,spam:.0522});assert.equal(app.resolveClefDecision(linkedin,.8,0).category,'social');
- const split=replay({primary:.05,promotions:.4,social:.45,spam:.1},.2);assert.equal(app.resolveClefDecision(split,.8,0).category,'social');
+ const split=replay({primary:.05,promotions:.4,social:.45,spam:.1},.2);assert.equal(app.resolveClefDecision(split,.8,0).category,'primary');
  assert.equal(app.resolveClefDecision({...split,inbox:{type:'noul',noul:.21}},.8,0).category,'primary');
  assert.equal(app.resolveClefDecision({...split,inbox:{type:'noul',noul:.15}},.9,0).category,'primary');
  assert.equal(app.resolveClefDecision(answers('spam',.95),.8,50).spam,true);
- assert.equal(app.resolveClefDecision(answers('spam',.99),.8,0).category,'promotions');
+ assert.equal(app.resolveClefDecision(answers('spam',.99),.8,0).category,'primary');
  for(const field of ['action','security'])assert.equal(app.resolveClefDecision({...uber,[field]:{type:'noul',noul:field==='action'?.6:.3}},.8,50).category,'primary');
  for(const noul of [NaN,1.1,-.1])assert.equal(app.resolveClefDecision({...uber,inbox:{type:'noul',noul}},.8,0).reason,'invalid_model_response');
 });
@@ -916,7 +916,7 @@ test('German account security events survive wrong CLEF spam answers, sender lea
   const result = await app.classifyIncomingMail(f.env, { ...input, subject });
   assert.equal(result.category, 'primary', subject);
   assert.equal(result.reason, 'protected_account_security', subject);
-  assert.equal(result.policyVersion, 5);
+  assert.equal(result.policyVersion, 6);
   assert.equal(app.resolveRoutineMail({ ...input, subject }), null);
  }
  assert.equal(calls, 0);
@@ -965,9 +965,9 @@ test('authenticated Google security alerts are stored in primary and delivered w
  assert.equal(calls, 0); assert.equal(events.length, 1); assert.equal(events[0].silent, false);
 });
 
-test('AI failures quarantine non-personal list mail in Promotions while off and observe stay respected',async t=>{
+test('AI failure and quota exhaustion keep list mail visible while off and observe stay respected',async t=>{
  const f=await fixture(t),input={...f.input,headers:{'List-Unsubscribe':'<https://example.test/unsub>'},subject:'Weekly newsletter'};
- delete f.env.AI;const result=await app.classifyIncomingMail(f.env,input);assert.equal(result.category,'promotions');assert.equal(result.fallbackReason,'unavailable');assert.equal(app.shouldNotifyMail({status:'received',category:result.category}),false);
+ delete f.env.AI;const result=await app.classifyIncomingMail(f.env,input);assert.equal(result.category,'primary');assert.equal(result.reviewRequired,true);assert.equal(result.fallbackReason,'unavailable');assert.equal(app.shouldNotifyMail({status:'received',category:result.category}),true);
  assert.equal((await app.classifyIncomingMail(f.env,{...input,subject:'Your receipt'})).category,'invoices');
  f.DB.db.exec("INSERT INTO mailbox_sorting_settings(mailbox_id,mode,daily_limit,threshold) VALUES('box','observe',0,.8)");assert.equal((await app.classifyIncomingMail(f.env,input)).category,'primary');
  f.DB.db.exec("UPDATE mailbox_sorting_settings SET mode='off'");assert.equal((await app.classifyIncomingMail(f.env,input)).category,'primary');
@@ -1014,7 +1014,7 @@ test("sender logos require login, mailbox access and an existing owner's contact
 test('five-category sorting separates real receipts/orders from coupons and protects security with zero AI charges', async t => {
  const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('promotions')};};
  for(const [subject,category] of [['Ihre Rechnung 2026-123','invoices'],['Zahlungsbeleg #123','invoices'],['Quittung für deine Fahrt','invoices'],['Your payment confirmation','invoices'],['Gutschrift zur Bestellung','invoices'],['Bestellung 123 ist eingegangen','orders'],['Versandbestätigung','orders'],['Order confirmation #123','orders'],['Sicherheitswarnung von Google','primary']]){
-  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,5);assert.equal(result.source,'rule');
+  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,6);assert.equal(result.source,'rule');
  }
  assert.equal(calls,0);
  const coupon=await app.classifyIncomingMail(f.env,{...f.input,subject:'Rechnung erstellen: 40% Rabatt',text:'Spare jetzt beim Kauf',headers:{'List-Unsubscribe':'<https://example.test>'}});assert.equal(coupon.category,'promotions');
@@ -1214,4 +1214,45 @@ test('list attachment counts exclude inline/trash files and stay scoped to match
  // A newer message without a file still represents the older member's attachment.
  f.DB.db.exec("DELETE FROM message_attachments WHERE id='pdf'");const older=await list('status=received&folderId=work&group=thread');assert.equal(older.find(m=>m.id==='primary').attachmentCount,1);
  assert(single.every(m=>!('attachments' in m)&&!('textBody' in m)&&!('htmlBody' in m)));
+});
+
+test('a real low-advertising / uncorrelated-spam decision is never converted to Promotions',()=>{
+ const probabilities={invoices:.0243,orders:.0319,primary:.0827,promotions:.0347,social:.0336,spam:.7928};
+ const decision=app.resolveClefDecision({category:{type:'choice',choice:'spam',probabilities},inbox:{type:'noul',noul:.063},action:{type:'noul',noul:.0264},security:{type:'noul',noul:.0515}},.8,0);
+ assert.equal(decision.category,'primary');assert.equal(decision.reason,'spam_uncertain');assert.equal(decision.reviewRequired,true);assert.notEqual(decision.spam,true);
+ for(const probability of [.4,.6,.8,.89])assert.equal(app.resolveClefDecision(answers('promotions',probability),.8,0).category,'primary');
+ assert.equal(app.resolveClefDecision(answers('promotions',.95),.8,0).category,'promotions');
+});
+
+test('collection correspondence, objections and deadlines stay visible despite bulk headers, sender overrides and wrong AI guesses',async t=>{
+ const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('spam',.99)};};
+ f.DB.db.exec("INSERT INTO mail_sorting_overrides(mailbox_id,sender,category) VALUES('box','case@example.test','promotions')");
+ const base={...f.input,sender:'case@example.test',text:'Vielen Dank für Ihre E-Mail. Wir prüfen Ihren Widerspruch zum Aktenzeichen TEST-123.',headers:{'List-Unsubscribe':'<https://example.test/unsub>'}};
+ for(const subject of ['Ihre Email bzgl. Widerspruch wegen Verdachts auf Identitätsmissbrauch – Aktenzeichen TEST-123','Unser Aktenzeichen: TEST-456 / Forderung der Firma Beispiel','Letzte Mahnung','Zahlungsaufforderung','Mahnbescheid','Notice of default']){
+  const result=await app.classifyIncomingMail(f.env,{...base,subject});assert.equal(result.category,'primary',subject);assert.equal(result.reason,'protected_legal_or_payment_demand');assert.equal(result.policyVersion,6);
+ }
+ assert.equal(calls,0,'important cases do not need another AI call');
+ f.DB.db.exec("DELETE FROM mail_sorting_overrides WHERE sender='case@example.test'");
+ const bodyCase=await app.classifyIncomingMail(f.env,{...base,subject:'Bitte beachten',text:'Inkasso: Unser Aktenzeichen TEST-789. Bitte zahlen Sie die offene Forderung bis zum Ende der Frist.'});assert.equal(bodyCase.reason,'protected_legal_or_payment_demand');
+ delete f.env.AI;assert.equal((await app.classifyIncomingMail(f.env,base)).category,'primary');
+});
+
+test('marketing about collection services is not protected and clear spam evidence still wins',async t=>{
+ const f=await fixture(t);
+ for(const subject of ['Newsletter: Tipps für Ihr Inkasso','Webinar: Mahnungen schreiben','Inkassosoftware für Unternehmen']){
+  assert.equal((await app.classifyIncomingMail(f.env,{...f.input,subject,text:'Lernen Sie unser Angebot kennen. Jetzt buchen!'})).category,'promotions');
+ }
+ f.env.AI.run=async()=>({answers:answers('spam',.99)});
+ const result=await app.classifyIncomingMail(f.env,{...f.input,subject:'Zahlungsaufforderung',text:'Aktenzeichen TEST-123',spamScore:60,headers:{'Authentication-Results':'mx.cloudflare.net; dmarc=fail; dkim=fail'}});
+ assert.equal(result.spam,true);assert.notEqual(result.reason,'protected_legal_or_payment_demand');
+});
+
+test('new collection mail is persisted in primary and generates an ordinary inbox notification',async t=>{
+ const f=await fixture(t);let calls=0;const events=[];
+ f.env.AI.run=async()=>{calls++;return {answers:answers('spam',.99)};};
+ f.env.REALTIME={getByName:()=>({fetch:async(_url,init)=>{events.push(JSON.parse(init.body));return new Response(null,{status:204});}})};
+ f.env.BUCKET={get:async()=>({arrayBuffer:async()=>new TextEncoder().encode('From: Case team <case@example.test>\r\nTo: owner@example.test\r\nSubject: Widerspruch - Aktenzeichen TEST-123\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nVielen Dank fuer Ihre E-Mail. Wir pruefen Ihren Widerspruch.').buffer})};
+ await app.processInboundMessage(f.env,{from:'case@example.test',to:'owner@example.test',rawR2Key:'synthetic/collection.eml',headers:{'Authentication-Results':'mx.cloudflare.net; dmarc=pass; dkim=pass'}});
+ const row=f.DB.db.prepare("SELECT category,status,sorting_decision FROM messages WHERE raw_r2_key='synthetic/collection.eml'").get();
+ assert.equal(row.category,'primary');assert.equal(row.status,'received');assert.equal(JSON.parse(row.sorting_decision).reason,'protected_legal_or_payment_demand');assert.equal(calls,0);assert.equal(events.length,1);assert.equal(events[0].silent,false);
 });

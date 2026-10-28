@@ -18,7 +18,7 @@ export type ContentAuditJob = {
 };
 const ACTIVE = "'pending','running','waiting','paused'";
 const ELIGIBLE = "direction='inbound' AND status IN ('received','archived')";
-const AI_ELIGIBLE = "category IN ('primary','invoices','orders') AND snoozed_until IS NULL AND (sorting_decision IS NULL OR CASE WHEN json_valid(sorting_decision) THEN coalesce(json_extract(sorting_decision,'$.source'),'') NOT IN ('manual','reviewed','override') AND (coalesce(json_extract(sorting_decision,'$.policyVersion'),0)<5 OR json_extract(sorting_decision,'$.source')='fallback') ELSE 1 END)";
+const AI_ELIGIBLE = `category IN ('primary','invoices','orders') AND snoozed_until IS NULL AND (sorting_decision IS NULL OR CASE WHEN json_valid(sorting_decision) THEN coalesce(json_extract(sorting_decision,'$.source'),'') NOT IN ('manual','reviewed','override') AND (coalesce(json_extract(sorting_decision,'$.policyVersion'),0)<${CONTENT_POLICY_VERSION} OR json_extract(sorting_decision,'$.source')='fallback') ELSE 1 END)`;
 const LEASE_MS = 180_000;
 const load = (env: Pick<CloudflareEnv, "DB">, id: string) => env.DB.prepare("SELECT * FROM mail_content_audit_jobs WHERE id=?").bind(id).first<ContentAuditJob>();
 const enqueue = async (env: CloudflareEnv, id: string) => env.AGENT_QUEUE?.send({ kind: "mail.content-audit", jobId: id });

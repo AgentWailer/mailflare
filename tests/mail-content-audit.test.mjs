@@ -126,3 +126,12 @@ test('restoring new learning fields to an older schema fails before deleting exi
  const older=new app.SqliteDatabase(':memory:');t.after(()=>older.db.close());const migrationDir=join(dir,'before-content-audit');mkdirSync(migrationDir);for(const name of readdirSync('drizzle/migrations').filter(name=>name.endsWith('.sql')&&name<'0076_'))writeFileSync(join(migrationDir,name),readFileSync(join('drizzle/migrations',name)));await app.applyMigrations(older,migrationDir);
  older.db.exec("INSERT INTO users(id,email,password_hash,name,created_at) VALUES('sentinel','sentinel@test.invalid','hash','Sentinel',1)");await assert.rejects(()=>app.restoreDatabaseRecords(older,backup.buffer),/migrations before restoring content learning/);assert.equal(older.db.prepare('SELECT id FROM users').get().id,'sentinel');
 });
+
+test('review repairs collection categories without undoing archive state or explicit user decisions',async t=>{
+ const f=await fixture(t);
+ const notice={subject:'Unser Aktenzeichen: TEST-123 / Forderung der Firma Beispiel',text:'Wir nehmen Bezug auf Ihre letzte Mitteilung.',category:'promotions'};
+ f.add('collection',notice);f.add('manual-collection',{...notice,decision:'{"source":"manual","reason":"user_correction"}'});
+ const job=await f.start();await f.drain(job.id);
+ const fixed=f.DB.db.prepare("SELECT category,status,sorting_decision FROM messages WHERE id='collection'").get();assert.equal(fixed.category,'primary');assert.equal(fixed.status,'archived');assert.equal(JSON.parse(fixed.sorting_decision).reason,'protected_legal_or_payment_demand');
+ assert.equal(f.DB.db.prepare("SELECT category FROM messages WHERE id='manual-collection'").get().category,'promotions');assert.equal(f.row(job.id).review_count,1);assert.equal(f.calls.length,0);
+});

@@ -3,6 +3,21 @@ import type { SortingDecision } from "./categories";
 
 type RoutineInput = { sender: string; subject?: string | null; text?: string | null; headers?: Record<string, string> };
 
+/** Personal legal/collection matters need attention, even in automated acknowledgements. */
+export function isConsequentialNotice(input: RoutineInput): boolean {
+	const subject = input.subject?.normalize("NFKC").toLowerCase() ?? "";
+	const text = input.text?.normalize("NFKC").toLowerCase().slice(0, 6000) ?? "";
+	// Educational/marketing content about debt collection is not a personal claim.
+	if (/\b(?:newsletter|webinar|seminar|ratgeber|inkassosoftware|invoicing software)\b|tipps (?:für|zum|zur)|software für/.test(subject)) return false;
+	const legal = /\b(?:inkasso|inkassoverfahren|forderung(?:en|sangelegenheit)?|widerspruch|identitätsmissbrauch|zahlungsaufforderung|mahnung|mahnbescheid|vollstreckung|fristsetzung|debt collection|payment demand|legal notice|notice of default)\b/u;
+	const reference = /\b(?:aktenzeichen|geschäftszeichen|vorgangsnummer|case (?:number|reference)|reference number)\s*[:#-]?\s*[\w/-]*\d[\w/-]*/iu;
+	if (legal.test(subject) && reference.test(subject + " " + text)) return true;
+	if (/\b(?:zahlungsaufforderung|mahnbescheid|vollstreckungsbescheid|letzte mahnung|letzte zahlungserinnerung|fristsetzung|payment demand|notice of default)\b/u.test(subject)) return true;
+	// Generic subjects require a case reference plus a concrete claim/request in the body.
+	return legal.test(text) && reference.test(text) &&
+		/\b(?:offene forderung|gegenständliche forderung|zahlen sie|überweisen sie|bitte.{0,25}(?:antworten|melden|zahlen)|frist|ihren widerspruch|ihre letzte mitteilung|outstanding (?:debt|balance)|please (?:pay|respond)|payment due)\b/u.test(text);
+}
+
 /** Require transaction wording, not a merchant domain or the mere presence of a price. */
 export function resolveTransactionMail(input: RoutineInput): SortingDecision | null {
 	const subject = input.subject?.normalize("NFKC").toLowerCase() ?? "";
@@ -50,7 +65,7 @@ export function isBulkMail(input: Pick<RoutineInput, "headers">): boolean {
 export function isProtectedRoutineMail(input: RoutineInput): boolean {
 	const subject = input.subject?.toLowerCase() ?? "";
 	const text = input.text?.toLowerCase().slice(0, 6000) ?? "";
-	return isAccountSecurityNotice(input) || /^(re|aw|fw|fwd|wg):/.test(subject.trim()) ||
+	return isConsequentialNotice(input) || isAccountSecurityNotice(input) || /^(re|aw|fw|fwd|wg):/.test(subject.trim()) ||
 		!!resolveTransactionMail(input) ||
 		/\b(anmeldung|login)\b|message from|nachricht von|sent you a message|hat dir eine nachricht/.test(subject) ||
 		Object.keys(input.headers ?? {}).some((key) => key.toLowerCase() === "in-reply-to") ||
@@ -80,8 +95,6 @@ export function resolveRoutineMail(input: RoutineInput): SortingDecision | null 
 	return null;
 }
 
-export function resolveUnavailableSorting(input: RoutineInput, reason: string): SortingDecision {
-	return isBulkMail(input) && !isProtectedRoutineMail(input)
-		? { category: "promotions", source: "fallback", reason: "bulk_review", reviewRequired: true, fallbackReason: reason }
-		: { category: "primary", source: "fallback", reason };
+export function resolveUnavailableSorting(_input: RoutineInput, reason: string): SortingDecision {
+	return { category: "primary", source: "fallback", reason, reviewRequired: true, fallbackReason: reason };
 }
