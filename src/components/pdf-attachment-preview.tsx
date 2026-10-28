@@ -91,7 +91,7 @@ export default function PdfAttachmentPreview({ url }: { url: string }) {
 			</div>
 		</div>
 		<div ref={setScroll} data-pdf-scroll className="min-h-0 flex-1 overflow-auto overscroll-contain bg-neutral-200 pb-[max(8px,env(safe-area-inset-bottom))]">
-			{error ? <div role="alert" className="space-y-3 p-6 text-center text-sm"><p>{t("attachment.loadFailed")}</p><button type="button" className="min-h-11 rounded-xl border border-neutral-300 px-4" onClick={() => { setError(false); setAttempt(value => value + 1); }}>{t("message.retry")}</button></div> : pdf && width > 0 ?
+			{error ? <div role="alert" className="space-y-3 p-6 text-center text-sm"><p>{t("attachment.loadFailed")}</p><button type="button" className="min-h-11 rounded-xl border border-neutral-300 px-4" onClick={() => { setPdf(null); setError(false); setAttempt(value => value + 1); }}>{t("message.retry")}</button><a href={url} target="_blank" rel="noopener noreferrer" className="mx-2 inline-flex min-h-11 items-center rounded-xl border border-neutral-300 px-4">{t("attachment.openSeparately")}</a></div> : pdf && width > 0 ?
 				<div className="mx-auto flex min-w-full flex-col items-center gap-2 p-2" style={{ width: width * zoom + 16 }}>
 					{Array.from({ length: pdf.numPages }, (_, index) => <PdfPage key={index} pdf={pdf} number={index + 1} width={width * zoom} scroll={scroll} />)}
 				</div> : <div role="status" className="p-6 text-center text-sm text-neutral-600">{t("nav.loadingPage")}</div>}

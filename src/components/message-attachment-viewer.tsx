@@ -21,35 +21,28 @@ import {
 
 const PdfAttachmentPreview = lazy(() => import("./pdf-attachment-preview"));
 
-export function MessageAttachmentViewer({
-	attachment,
-	messageId,
-	onOpenChange,
-	open,
-}: MessageAttachmentViewerProps) {
+function AttachmentPreviewBody({ attachment, messageId }: { attachment: NonNullable<MessageAttachmentViewerProps["attachment"]>; messageId: string }) {
 	const { t } = useLanguage();
 	const [textContent, setTextContent] = useState("");
 	const [textError, setTextError] = useState("");
+	const [textLoaded, setTextLoaded] = useState(false);
+	const [mediaError, setMediaError] = useState(false);
+	const [attempt, setAttempt] = useState(0);
 
-	const previewKind = attachment ? getAttachmentPreviewKind(attachment) : "unsupported";
-	const previewUrl = attachment
-		? getAttachmentFileUrl(messageId, attachment.id, "preview")
-		: "";
-	const downloadUrl = attachment
-		? getAttachmentFileUrl(messageId, attachment.id, "download")
-		: "";
+	const previewKind = getAttachmentPreviewKind(attachment);
+	const previewUrl = getAttachmentFileUrl(messageId, attachment.id, "preview");
+	const downloadUrl = getAttachmentFileUrl(messageId, attachment.id, "download");
 
 	useEffect(() => {
-		if (!open || !attachment || previewKind !== "text") return;
+		if (previewKind !== "text") return;
 		let cancelled = false;
-		setTextContent("");
-		setTextError("");
+		const controller = new AbortController();
 
-		authFetch(previewUrl)
+		authFetch(previewUrl, { signal: controller.signal })
 			.then(async (response) => {
 				if (!response.ok) throw new Error(t("attachment.loadFailed"));
 				const content = await response.text();
-				if (!cancelled) setTextContent(content);
+				if (!cancelled) { setTextContent(content); setTextLoaded(true); }
 			})
 			.catch((error) => {
 				if (!cancelled) {
@@ -59,10 +52,67 @@ export function MessageAttachmentViewer({
 
 		return () => {
 			cancelled = true;
+			controller.abort();
 		};
-	}, [attachment, open, previewKind, previewUrl, t]);
+	}, [previewKind, previewUrl, t, attempt]);
 
+	return (
+		<div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-neutral-100">
+			{!mediaError && previewKind === "image" && (
+				<img
+					key={`${previewUrl}:${attempt}`}
+					onError={() => setMediaError(true)}
+					src={previewUrl}
+					alt={attachment.filename}
+					className="max-h-full max-w-full object-contain"
+				/>
+			)}
+			{previewKind === "pdf" && (
+				<Suspense fallback={<div role="status" className="p-6 text-sm">{t("nav.loadingPage")}</div>}><PdfAttachmentPreview key={previewUrl} url={previewUrl} /></Suspense>
+			)}
+			{previewKind === "wallet" && <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
+				<WalletCards className="h-12 w-12 text-neutral-700" aria-hidden="true" />
+				<h2 className="text-lg font-semibold">{t("attachment.wallet")}</h2>
+				<p className="text-sm text-neutral-600">{t("attachment.walletDescription")}</p>
+				<Button asChild><a href={getAttachmentFileUrl(messageId, attachment.id, "open")} target="_blank" rel="noopener noreferrer">{t("attachment.openWallet")}</a></Button>
+			</div>}
+			{!mediaError && previewKind === "audio" && (
+				<audio key={`${previewUrl}:${attempt}`} onError={() => setMediaError(true)} src={previewUrl} controls className="w-[min(560px,90%)]" />
+			)}
+			{!mediaError && previewKind === "video" && (
+				<video key={`${previewUrl}:${attempt}`} onError={() => setMediaError(true)} playsInline src={previewUrl} controls className="max-h-full max-w-full" />
+			)}
+			{previewKind === "text" && (
+				textError || textLoaded ? (
+					<pre className="h-full w-full overflow-auto whitespace-pre-wrap p-5 text-sm text-neutral-800">
+						{textError || textContent}
+					</pre>
+				) : (
+					<div className="h-full w-full space-y-3 bg-white p-5">
+						<Skeleton className="h-4 w-full" />
+						<Skeleton className="h-4 w-11/12" />
+						<Skeleton className="h-4 w-4/5" />
+					</div>
+				)
+			)}
+			{(previewKind === "unsupported" || mediaError) && (
+				<div className="flex flex-col items-center gap-3 px-6 text-center">
+					<FileWarning className="h-10 w-10 text-neutral-400" />
+					<p className="text-sm text-neutral-600">
+						{t(mediaError ? "attachment.loadFailed" : "attachment.unsupported")}
+					</p>
+					{mediaError && <Button variant="outline" onClick={() => { setMediaError(false); setAttempt(value => value + 1); }}>{t("message.retry")}</Button>}
+					<Button asChild><a href={downloadUrl} download={attachment.filename}>{t("attachment.download")}</a></Button>
+				</div>
+			)}
+		</div>
+	);
+}
+
+export function MessageAttachmentViewer({ attachment, messageId, onOpenChange, open }: MessageAttachmentViewerProps) {
+	const { t } = useLanguage();
 	if (!attachment) return null;
+	const downloadUrl = getAttachmentFileUrl(messageId, attachment.id, "download");
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,51 +125,7 @@ export function MessageAttachmentViewer({
 					</Button>
 				</DialogHeader>
 
-				<div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-neutral-100">
-					{previewKind === "image" && (
-						<img
-							src={previewUrl}
-							alt={attachment.filename}
-							className="max-h-full max-w-full object-contain"
-						/>
-					)}
-					{open && previewKind === "pdf" && (
-						<Suspense fallback={<div role="status" className="p-6 text-sm">{t("nav.loadingPage")}</div>}><PdfAttachmentPreview key={previewUrl} url={previewUrl} /></Suspense>
-					)}
-					{previewKind === "wallet" && <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
-						<WalletCards className="h-12 w-12 text-neutral-700" aria-hidden="true" />
-						<h2 className="text-lg font-semibold">{t("attachment.wallet")}</h2>
-						<p className="text-sm text-neutral-600">{t("attachment.walletDescription")}</p>
-						<Button asChild><a href={getAttachmentFileUrl(messageId, attachment.id, "open")} target="_blank" rel="noopener noreferrer">{t("attachment.openWallet")}</a></Button>
-					</div>}
-					{previewKind === "audio" && (
-						<audio src={previewUrl} controls className="w-[min(560px,90%)]" />
-					)}
-					{previewKind === "video" && (
-						<video src={previewUrl} controls className="max-h-full max-w-full" />
-					)}
-					{previewKind === "text" && (
-						textError || textContent ? (
-							<pre className="h-full w-full overflow-auto whitespace-pre-wrap p-5 text-sm text-neutral-800">
-								{textError || textContent}
-							</pre>
-						) : (
-							<div className="h-full w-full space-y-3 bg-white p-5">
-								<Skeleton className="h-4 w-full" />
-								<Skeleton className="h-4 w-11/12" />
-								<Skeleton className="h-4 w-4/5" />
-							</div>
-						)
-					)}
-					{previewKind === "unsupported" && (
-						<div className="flex flex-col items-center gap-3 px-6 text-center">
-							<FileWarning className="h-10 w-10 text-neutral-400" />
-							<p className="text-sm text-neutral-600">
-								{t("attachment.unsupported")}
-							</p>
-						</div>
-					)}
-				</div>
+				<AttachmentPreviewBody key={`${messageId}:${attachment.id}`} attachment={attachment} messageId={messageId} />
 			</DialogContent>
 		</Dialog>
 	);

@@ -66,3 +66,41 @@ test('Wallet cards open a native link directly and the fallback viewer offers Wa
   link=[...dialog.querySelectorAll('a')].find(anchor=>anchor.textContent==='Open in Apple Wallet');assert(link);assert.equal(link.getAttribute('href'),'/api/messages/mail/attachments/pass?open=1');assert.equal(link.target,'_blank');assert.equal(link.hasAttribute('download'),false);
  }finally{await act(async()=>root.unmount());}
 });
+
+test('common attachments with generic, mixed-case and parameterized MIME metadata open through the same authenticated preview path',async t=>{
+ const f=await fixture(t);
+ for(const [filename,type,expected,kind] of [
+  ['Invoice.PDF','application/octet-stream','application/pdf','pdf'],
+  ['Invoice.pdf','Application/PDF; name="Invoice.pdf"','application/pdf','pdf'],
+  ['Invoice.pdf','application/x-pdf','application/pdf','pdf'],
+  ['Invoice.pdf','text/plain','application/pdf','pdf'],
+  ['Photo.JPG','application/octet-stream','image/jpeg','image'],
+  ['Photo.png','','image/png','image'],
+  ['Photo.gif','IMAGE/GIF; name="Photo.gif"','image/gif','image'],
+  ['Photo.webp','binary/octet-stream','image/webp','image'],
+  ['Photo.avif','application/octet-stream','image/avif','image'],
+  ['Voice.MP3','application/octet-stream','audio/mpeg','audio'],
+  ['Video.mp4','application/octet-stream','video/mp4','video'],
+  ['Notes.txt','application/octet-stream','text/plain','text'],
+ ]) {
+  assert.equal(app.getAttachmentPreviewKind({filename,type}),kind);
+  f.DB.db.prepare('UPDATE message_attachments SET filename=?,content_type=?').run(filename,type);
+  let response=await f.get('?preview=1');assert.equal(response.status,200);assert.equal(response.headers.get('Content-Type'),expected);assert.match(response.headers.get('Content-Disposition'),/^inline;/);assert.equal(response.headers.get('Cache-Control'),'private, no-store');await response.body.cancel();
+  response=await f.get('?download=1');assert.match(response.headers.get('Content-Disposition'),/^attachment;/);await response.body.cancel();
+ }
+});
+
+test('filename fallback never enables HTML, SVG, executables or double extensions as active previews',async t=>{
+ const f=await fixture(t);
+ for(const [filename,type] of [
+  ['invoice.pdf.exe','application/octet-stream'],['invoice.html','application/octet-stream'],
+  ['invoice.svg','application/octet-stream'],['invoice.pdf','text/html'],
+  ['invoice.jpg','Image/Svg+Xml; charset=utf-8'],['invoice.pdf','application/javascript'],
+  ['constructor','application/octet-stream'],['__proto__','application/octet-stream'],
+  ['document.docx','application/octet-stream'],
+ ]) {
+  assert.equal(app.getAttachmentPreviewKind({filename,type}),'unsupported');
+  f.DB.db.prepare('UPDATE message_attachments SET filename=?,content_type=?').run(filename,type);
+  const response=await f.get('?preview=1');assert.match(response.headers.get('Content-Disposition'),/^attachment;/);assert.match(response.headers.get('Content-Security-Policy'),/sandbox/);assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');await response.body.cancel();
+ }
+});

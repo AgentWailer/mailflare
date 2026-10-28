@@ -1,3 +1,4 @@
+import { resolveAttachmentContentType } from "@/lib/email/attachment-preview";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { getAttachmentForUser } from "@/lib/email/attachments";
@@ -21,15 +22,16 @@ export async function GET(request: Request, { params }: AttachmentRouteParams) {
 	const url = new URL(request.url);
 	const previewRequested = url.searchParams.get("preview") === "1";
 	const downloadRequested = url.searchParams.get("download") === "1";
+	const contentType = resolveAttachmentContentType(attachment.contentType, attachment.filename);
 	const wallet = isWalletPass(attachment.contentType, attachment.filename);
 	const nativeOpenRequested = wallet && url.searchParams.get("open") === "1";
 	const inline =
 		!downloadRequested &&
 		(nativeOpenRequested || attachment.disposition === "inline" ||
-			(previewRequested && isPreviewableAttachmentType(attachment.contentType)));
+			(previewRequested && isPreviewableAttachmentType(contentType)));
 	const headers = new Headers();
 	object.writeHttpMetadata(headers);
-	headers.set("Content-Type", wallet ? WALLET_PASS_CONTENT_TYPE : attachment.contentType);
+	headers.set("Content-Type", wallet ? WALLET_PASS_CONTENT_TYPE : contentType);
 	headers.set("Content-Length", String(attachment.size));
 	headers.set("Content-Disposition", getAttachmentContentDisposition(attachment.filename, inline));
 	headers.set("X-Content-Type-Options", "nosniff");
