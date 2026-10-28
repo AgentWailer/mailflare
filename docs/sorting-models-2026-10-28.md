@@ -65,3 +65,25 @@ Release through the existing Git-to-Cloudflare build. No migrations or new bindi
 - Authenticated catalog: `GET /accounts/{account}/ai/models/search`
 - Authenticated schema: `GET /accounts/{account}/ai/models/schema?model=…`
 - Verified inference: `POST /accounts/{account}/ai/run/@cf/cloudflare/{model}`
+
+
+## Follow-up: Clairic research preview
+
+The first catalog filter missed `@cf/cloudflare/clairic`: its description says “System One-style” rather than “decision model”. The full live catalog and schema subsequently confirmed availability on 28 October. Cloudflare explicitly marks it **early research preview**, lists a 65,536-token context and USD 0.10 per million input tokens.
+
+Clairic is not a drop-in Clef classification endpoint. It accepts a string `state` and typed `fields` (`text`, `number`, `date`, `time`, `datetime`, `duration`, `list`, `estimate`, `forecast`), rather than Clef's `questions` with `choice` and `noul`. Text outputs are source spans. Outputs include `value`, `p_null`, `confidence` and sometimes `guess`. Its documented schema mentions 8,192-token passes and possible splitting; the probe reported three passes per call. Use returned usage rather than estimating cost from message length alone.
+
+Eight synthetic extraction probes tested case references, explicit personal deadlines, outstanding amounts and source sentences for personal actions. All expected asserted fields matched, including nulls for advertising, paid receipts and no-action acknowledgements. Requests took 358–572 ms (median 402.5 ms) from this workspace, with 6,400 billed input tokens reported across eight calls. This small, short-text probe is not a general accuracy guarantee or a comparison with the 24-case category benchmark.
+
+A particularly important result: absent deadlines sometimes had invented `guess` dates while `value` correctly remained null and `p_null` was high. A safe future adapter must ignore `guess`, reject truncated/malformed outputs, respect nullness and validate source spans; `confidence` alone does not prove that a field exists. Extracted payment demands also do not establish legitimacy or authorization to pay.
+
+Clairic is therefore a promising optional **fact extraction** complement (case references, deadlines, amounts), not the default category selector. It is not enabled in automatic mail processing by this change. Adding another inference to every email would add cost/latency without demonstrated classification benefit. The existing Omni rollout remains the selected runtime change; this probe adds no production dependency on the research preview.
+
+Reproduce using configured credentials, synthetic inputs only:
+
+```sh
+node scripts/probe-clairic-extraction.mjs --live
+```
+
+Evidence: `docs/clairic-extraction-probe-2026-10-28.json`.
+Official source: https://developers.cloudflare.com/workers-ai/models/clairic/ and the live Workers AI catalog/schema APIs listed above.

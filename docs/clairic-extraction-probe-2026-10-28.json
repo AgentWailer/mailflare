@@ -1,0 +1,466 @@
+{
+  "date": "2026-10-28T11:04:27.722Z",
+  "method": "Synthetic extraction probe, not a classification benchmark; early research preview",
+  "results": [
+    {
+      "id": "collection",
+      "elapsedMs": 572,
+      "expected": {
+        "case_reference": "AZ-123",
+        "deadline": "2026-11-15",
+        "amount": 148.5
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.32591450214385986,
+          "span": [
+            19,
+            25
+          ],
+          "guess": "AZ-123",
+          "confidence": 0.9733219146728516,
+          "value": "AZ-123"
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 0.0037169521674513817,
+          "guess": "2026-11-15",
+          "confidence": 0.9999940395605619,
+          "value": "2026-11-15"
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 4.513281908202771e-07,
+          "guess": 148.5,
+          "confidence": 0.9999927282771777,
+          "value": 148.5
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.40791749954223633,
+          "span": [
+            68,
+            152
+          ],
+          "guess": "Bitte zahlen Sie bis zum 15. November 2026 oder teilen Sie uns Ihren Widerspruch mit",
+          "confidence": 0.3283025920391083,
+          "value": "Bitte zahlen Sie bis zum 15. November 2026 oder teilen Sie uns Ihren Widerspruch mit"
+        }
+      },
+      "usage": {
+        "state_tokens": 48,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 827,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    },
+    {
+      "id": "acknowledgement",
+      "elapsedMs": 396,
+      "expected": {
+        "case_reference": "CASE-456",
+        "deadline": null,
+        "amount": null,
+        "action": null
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.005437918473035097,
+          "span": [
+            51,
+            59
+          ],
+          "guess": "CASE-456",
+          "confidence": 0.9996578693389893,
+          "value": "CASE-456"
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 0.9999932050704956,
+          "guess": "2026-11-04",
+          "confidence": 0.028747914761526282,
+          "value": null
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 0.999876856803894,
+          "guess": 0,
+          "confidence": 0.9235833142081223,
+          "value": null
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.9714715480804443,
+          "span": [
+            136,
+            154
+          ],
+          "guess": "nichts unternehmen",
+          "confidence": 0.525676965713501,
+          "value": null
+        }
+      },
+      "usage": {
+        "state_tokens": 35,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 788,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    },
+    {
+      "id": "advert",
+      "elapsedMs": 385,
+      "expected": {
+        "case_reference": null,
+        "deadline": null,
+        "amount": null,
+        "action": null
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.9990804195404053,
+          "span": [
+            67,
+            119
+          ],
+          "guess": "Kaufen Sie jetzt und sparen Sie 50 Prozent. Abmelden",
+          "confidence": 0.16557937860488892,
+          "value": null
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 0.9885214567184448,
+          "guess": "2026-11-15",
+          "confidence": 0.9982096559250891,
+          "value": null
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 0.9798106551170349,
+          "guess": 19.99,
+          "confidence": 0.59262821325555,
+          "value": null
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.9710999727249146,
+          "span": [
+            111,
+            119
+          ],
+          "guess": "Abmelden",
+          "confidence": 0.6781612634658813,
+          "value": null
+        }
+      },
+      "usage": {
+        "state_tokens": 44,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 815,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    },
+    {
+      "id": "application",
+      "elapsedMs": 523,
+      "expected": {
+        "case_reference": null,
+        "deadline": "2026-11-20",
+        "amount": null
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.9999138116836548,
+          "span": [
+            89,
+            97
+          ],
+          "guess": "Nachweis",
+          "confidence": 0.26050910353660583,
+          "value": null
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 5.588145722867921e-05,
+          "guess": "2026-11-20",
+          "confidence": 0.9999988079083906,
+          "value": "2026-11-20"
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 0.9999679327011108,
+          "guess": 0,
+          "confidence": 0.8519061198774102,
+          "value": null
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.0017235735431313515,
+          "span": [
+            51,
+            123
+          ],
+          "guess": "Bitte senden Sie den unterschriebenen Nachweis bis zum 20. November 2026",
+          "confidence": 0.5808043479919434,
+          "value": "Bitte senden Sie den unterschriebenen Nachweis bis zum 20. November 2026"
+        }
+      },
+      "usage": {
+        "state_tokens": 40,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 803,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    },
+    {
+      "id": "support",
+      "elapsedMs": 409,
+      "expected": {
+        "case_reference": null,
+        "deadline": null,
+        "amount": null
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.9993159770965576,
+          "span": [
+            0,
+            5
+          ],
+          "guess": "Danke",
+          "confidence": 0.2664393484592438,
+          "value": null
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 0.9999644756317139,
+          "guess": "2026-10-04",
+          "confidence": 0.03830898053754804,
+          "value": null
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 0.9998718500137329,
+          "guess": 0,
+          "confidence": 0.7669654639092222,
+          "value": null
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.0005438015214167535,
+          "span": [
+            28,
+            87
+          ],
+          "guess": "Bitte senden Sie uns die Seriennummer Ihres defekten Geräts",
+          "confidence": 0.9781522154808044,
+          "value": "Bitte senden Sie uns die Seriennummer Ihres defekten Geräts"
+        }
+      },
+      "usage": {
+        "state_tokens": 29,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 770,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    },
+    {
+      "id": "paid-receipt",
+      "elapsedMs": 358,
+      "expected": {
+        "case_reference": null,
+        "deadline": null,
+        "amount": null,
+        "action": null
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.9917269945144653,
+          "span": [
+            9,
+            15
+          ],
+          "guess": "RE-789",
+          "confidence": 0.9812039732933044,
+          "value": null
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 0.9999988079071045,
+          "guess": "2025-11-04",
+          "confidence": 0.06273751225373997,
+          "value": null
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 0.9543123841285706,
+          "guess": 0,
+          "confidence": 0.692545358850148,
+          "value": null
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.9592886567115784,
+          "span": [
+            97,
+            124
+          ],
+          "guess": "Es ist nichts weiter zu tun",
+          "confidence": 0.5898422002792358,
+          "value": null
+        }
+      },
+      "usage": {
+        "state_tokens": 37,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 794,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    },
+    {
+      "id": "english-claim",
+      "elapsedMs": 369,
+      "expected": {
+        "case_reference": "EN-234",
+        "deadline": "2026-11-30",
+        "amount": 75.25
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.18330970406532288,
+          "span": [
+            15,
+            21
+          ],
+          "guess": "EN-234",
+          "confidence": 0.995422899723053,
+          "value": "EN-234"
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 0.0887412503361702,
+          "guess": "2026-11-30",
+          "confidence": 0.9998336034616133,
+          "value": "2026-11-30"
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 4.185386387689505e-06,
+          "guess": 75.25,
+          "confidence": 0.9999927282706124,
+          "value": 75.25
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.07759563624858856,
+          "span": [
+            61,
+            110
+          ],
+          "guess": "Please respond to this claim by November 30, 2026",
+          "confidence": 0.7121960520744324,
+          "value": "Please respond to this claim by November 30, 2026"
+        }
+      },
+      "usage": {
+        "state_tokens": 37,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 794,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    },
+    {
+      "id": "legal-newsletter",
+      "elapsedMs": 499,
+      "expected": {
+        "case_reference": null,
+        "deadline": null,
+        "amount": null,
+        "action": null
+      },
+      "answers": {
+        "case_reference": {
+          "type": "text",
+          "p_null": 0.9995576739311218,
+          "span": [
+            131,
+            137
+          ],
+          "guess": "49 EUR",
+          "confidence": 0.25909507274627686,
+          "value": null
+        },
+        "deadline": {
+          "type": "date",
+          "p_null": 0.9997153878211975,
+          "guess": "2026-11-15",
+          "confidence": 0.9763597733475716,
+          "value": null
+        },
+        "amount": {
+          "type": "number",
+          "p_null": 0.9954832792282104,
+          "guess": 49,
+          "confidence": 0.2735634994689458,
+          "value": null
+        },
+        "action": {
+          "type": "text",
+          "p_null": 0.9978435039520264,
+          "span": [
+            96,
+            137
+          ],
+          "guess": "Buchen Sie jetzt unser Seminar für 49 EUR",
+          "confidence": 0.5418264269828796,
+          "value": null
+        }
+      },
+      "usage": {
+        "state_tokens": 42,
+        "image_tokens": 0,
+        "schema_tokens": 683,
+        "input_tokens": 809,
+        "output_tokens": 0,
+        "passes": 3
+      },
+      "truncated": false,
+      "mismatches": []
+    }
+  ]
+}
