@@ -156,5 +156,45 @@
     "subject": "This week on your professional network",
     "text": "Your profile appeared in 34 searches. See suggested connections and popular posts from your network.",
     "listMail": true
+  },
+  {
+    "id": "free-product-launch",
+    "expected": "promotions",
+    "subject": "Wider: full screen browsing",
+    "text": "Hi, Jordi here. I made a new browser extension. The first 10000 people can download it for free, then it costs a small one-time fee. Download now and let me know what you think. Unsubscribe."
+  },
+  {
+    "id": "free-template-campaign",
+    "expected": "promotions",
+    "subject": "Halloween Email Templates Inside",
+    "text": "Hi there! Try our free Halloween email templates in Gmail. Pick a design, edit and send. No coding needed. Try Free Templates. Your friends at the productivity team. Unsubscribe from this list.",
+    "listMail": true
+  },
+  {
+    "id": "job-board-recommendation",
+    "expected": "promotions",
+    "subject": "Du bist Traumkandidat: Recruiting Intern",
+    "text": "Hallo, hier ist ein Job, der eine gute Option sein könnte. Für dich empfohlen: Praktikum im Recruiting. Ich bin interessiert. Jobempfehlungen abbestellen.",
+    "listMail": true
+  },
+  {
+    "id": "public-neighborhood-question",
+    "expected": "social",
+    "subject": "My kid is having a birthday party",
+    "text": "Popular posts in your neighborhood. A neighbor posted: My kid is having a birthday party. Does anyone know a venue? View post. Like. Comment. Email preferences. This is a community digest, not a direct message.",
+    "listMail": true
+  },
+  {
+    "id": "forum-digest",
+    "expected": "social",
+    "subject": "Aktuell im Forum",
+    "text": "Neue Beiträge in deiner Community: Diskussionen und Antworten der Woche. Beitrag ansehen, kommentieren oder liken. E-Mail-Benachrichtigungen abbestellen.",
+    "listMail": true
+  },
+  {
+    "id": "personal-recruiter",
+    "expected": "primary",
+    "subject": "Interview zu Ihrer Bewerbung",
+    "text": "Hallo, vielen Dank für Ihre Bewerbung. Wir möchten Sie am Dienstag zum persönlichen Gespräch einladen. Bitte bestätigen Sie den Termin oder schlagen Sie eine Alternative vor."
   }
 ]

@@ -99,11 +99,19 @@ export function resolveRoutineMail(input: RoutineInput): SortingDecision | null 
 		return { category: "social", source: "rule", reason: "social_job_alert" };
 	if (!isBulkMail(input)) return null;
 	const text = input.text?.toLowerCase().slice(0, 6000) ?? "";
-	// Explicit editorial formats, with mailing-list delivery AND opt-out wording.
+	// Public forum excerpts may use first person without being a message to the
+	// recipient. Require both a digest heading and a list delivery signal.
+	if (/aktuell im forum|forum digest|community digest|neues aus (?:dem|deinem) forum/i.test(subject) &&
+		/beiträge|diskussionen|mehr lesen|recent posts|discussions|read more/i.test(text))
+		return { category: "social", source: "rule", reason: "social_forum_digest" };
+	// Explicit editorial formats require mailing-list delivery and content evidence.
 	// An unsubscribe footer alone cannot override an account or personal notice.
 	const editorial = /\b(?:newsletter|workout of the day|daily briefing|weekly roundup)\b/i.test(subject) ||
 		/der newsletter für|staff writer,? newsletters|let['’]s get into the headlines|in (?:diesem|unserem|this|our) newsletter/i.test(text.slice(0, 1800));
-	if (editorial && /unsubscribe|abbestellen|abmelden|e-mail-einstellungen|email preferences/i.test(text))
+	// Long editions can place their footer beyond the bounded content window.
+	// A clear editorial signature plus the list header is sufficient evidence.
+	const editorialSignature = /staff writer,?\s*newsletters|let['’]s get into the headlines/i.test(text.slice(0, 1800));
+	if (editorial && (editorialSignature || /unsubscribe|abbestellen|abmelden|e-mail-einstellungen|email preferences/i.test(text)))
 		return { category: "promotions", source: "rule", reason: "editorial_newsletter" };
 	if (
 		(/\b(sale|discount|rabatt|gutschein|coupon|black friday|sonderaktion)\b|\d+\s*%/.test(subject) ||

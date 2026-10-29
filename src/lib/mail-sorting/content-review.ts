@@ -3,7 +3,7 @@ import { isAccountSecurityNotice, isConsequentialNotice, resolveTransactionMail,
 import type { SortingDecision } from "./categories";
 import { cleanSnippetText } from "@/lib/email/snippet";
 
-export const CONTENT_POLICY_VERSION = 10;
+export const CONTENT_POLICY_VERSION = 11;
 export type ReviewMessage = {
  id: string; row_id: number; from_addr: string; to_addr: string; subject: string | null;
  category: string; sorting_decision: string | null; text_body: string | null; html_body: string | null;

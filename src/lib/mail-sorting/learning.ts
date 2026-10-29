@@ -27,19 +27,17 @@ export async function getSortingExamples(env: Pick<CloudflareEnv, "DB">, mailbox
 	const score = (row: typeof examples[number]) => {
 		const words = tokens(row.subject);
 		const overlap = [...wanted].filter(word => words.has(word)).length;
-		return (getEmailAddress(row.from_addr).toLowerCase() === sender ? 4 : 0) + (overlap ? 8 * overlap / Math.max(wanted.size, words.size) : 0);
+		const similarity = overlap / Math.max(1, wanted.size, words.size);
+		// One generic word (e.g. "email" or "update") does not make a security
+		// correction relevant to a product newsletter from another sender.
+		return (getEmailAddress(row.from_addr).toLowerCase() === sender ? 4 : 0) +
+			(overlap >= 2 && similarity >= 0.35 ? 8 * similarity : 0);
 	};
 	examples.sort((a, b) => score(b) - score(a));
-	// Relevant examples first, then diverse categories rather than six copies of one newsletter.
-	const selected = examples.filter(row => score(row) > 0).slice(0, LEARNING_EXAMPLE_LIMIT);
-	for (const row of examples) {
-		if (selected.length >= LEARNING_EXAMPLE_LIMIT) break;
-		if (!selected.includes(row) && !selected.some(other => other.category === row.category)) selected.push(row);
-	}
-	for (const row of examples) {
-		if (selected.length >= LEARNING_EXAMPLE_LIMIT) break;
-		if (!selected.includes(row)) selected.push(row);
-	}
+	// Never pad a live request with unrelated corrections: their content can be
+	// mistaken for evidence about the current message. Context-free callers can
+	// still retrieve recent learning examples for inspection.
+	const selected = (context ? examples.filter(row => score(row) > 0) : examples).slice(0, LEARNING_EXAMPLE_LIMIT);
 	return selected.map((row) => ({
 		sender: getEmailAddress(row.from_addr).toLowerCase().slice(0, 200),
 		subject: row.subject?.slice(0, 200) ?? "",

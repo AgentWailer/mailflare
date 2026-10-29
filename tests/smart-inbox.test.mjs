@@ -917,7 +917,7 @@ test('German account security events survive wrong CLEF spam answers, sender lea
   const result = await app.classifyIncomingMail(f.env, { ...input, subject });
   assert.equal(result.category, 'primary', subject);
   assert.equal(result.reason, 'protected_account_security', subject);
-  assert.equal(result.policyVersion, 10);
+  assert.equal(result.policyVersion, 11);
   assert.equal(app.resolveRoutineMail({ ...input, subject }), null);
  }
  assert.equal(calls, 0);
@@ -1015,7 +1015,7 @@ test("sender logos require login, mailbox access and an existing owner's contact
 test('five-category sorting separates real receipts/orders from coupons and protects security with zero AI charges', async t => {
  const f=await fixture(t);let calls=0;f.env.AI.run=async()=>{calls++;return {answers:answers('promotions')};};
  for(const [subject,category] of [['Ihre Rechnung 2026-123','invoices'],['Zahlungsbeleg #123','invoices'],['Quittung für deine Fahrt','invoices'],['Your payment confirmation','invoices'],['Gutschrift zur Bestellung','invoices'],['Bestellung 123 ist eingegangen','orders'],['Versandbestätigung','orders'],['Order confirmation #123','orders'],['Sicherheitswarnung von Google','primary']]){
-  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,10);assert.equal(result.source,'rule');
+  const result=await app.classifyIncomingMail(f.env,{...f.input,subject});assert.equal(result.category,category,subject);assert.equal(result.policyVersion,11);assert.equal(result.source,'rule');
  }
  assert.equal(calls,0);
  const coupon=await app.classifyIncomingMail(f.env,{...f.input,subject:'Rechnung erstellen: 40% Rabatt',text:'Spare jetzt beim Kauf',headers:{'List-Unsubscribe':'<https://example.test>'}});assert.equal(coupon.category,'promotions');
@@ -1231,7 +1231,7 @@ test('collection correspondence, objections and deadlines stay visible despite b
  f.DB.db.exec("INSERT INTO mail_sorting_overrides(mailbox_id,sender,category) VALUES('box','case@example.test','promotions')");
  const base={...f.input,sender:'case@example.test',text:'Vielen Dank für Ihre E-Mail. Wir prüfen Ihren Widerspruch zum Aktenzeichen TEST-123.',headers:{'List-Unsubscribe':'<https://example.test/unsub>'}};
  for(const subject of ['Ihre Email bzgl. Widerspruch wegen Verdachts auf Identitätsmissbrauch – Aktenzeichen TEST-123','Unser Aktenzeichen: TEST-456 / Forderung der Firma Beispiel','Letzte Mahnung','Zahlungsaufforderung','Mahnbescheid','Notice of default']){
-  const result=await app.classifyIncomingMail(f.env,{...base,subject});assert.equal(result.category,'primary',subject);assert.equal(result.reason,'protected_legal_or_payment_demand');assert.equal(result.policyVersion,10);
+  const result=await app.classifyIncomingMail(f.env,{...base,subject});assert.equal(result.category,'primary',subject);assert.equal(result.reason,'protected_legal_or_payment_demand');assert.equal(result.policyVersion,11);
  }
  assert.equal(calls,0,'important cases do not need another AI call');
  f.DB.db.exec("DELETE FROM mail_sorting_overrides WHERE sender='case@example.test'");
@@ -1265,7 +1265,7 @@ test('System One sorting uses the matching Omni selector, records the model and 
  const result=await app.classifyIncomingMail(f.env,f.input);
  assert.equal(calls.length,1);assert.equal(calls[0].model,'@cf/cloudflare/clef-omni');assert.equal(calls[0].request.model,'clef-omni');
  assert.equal(calls[0].request.questions.category.type,'choice');for(const key of ['inbox','action','security','marketing'])assert.equal(calls[0].request.questions[key].type,'noul');
- assert.equal(result.category,'promotions');assert.equal(result.model,'@cf/cloudflare/clef-omni');assert.equal(result.policyVersion,10);
+ assert.equal(result.category,'promotions');assert.equal(result.model,'@cf/cloudflare/clef-omni');assert.equal(result.policyVersion,11);
  assert.deepEqual(f.DB.db.prepare('SELECT requests,input_tokens FROM mail_sorting_usage').get(),{requests:1,input_tokens:1234});
  const settings=await(await app.getSettings(f.request('/api/settings/mail-sorting?mailboxId=box'))).json();assert.equal(settings.model,'@cf/cloudflare/clef-omni');
 });
@@ -1402,9 +1402,40 @@ test('spam-like product advertising is persisted outside Inbox; observation and 
  f.env.BUCKET={get:async()=>({arrayBuffer:async()=>new TextEncoder().encode('From: Product offers <offers@example.test>\r\nTo: owner@example.test\r\nSubject: Rundumschutz fuer Ihr Zuhause vor Insekten\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nDas neue Geraet schuetzt Ihr Zuhause vor Insekten. Jetzt bestellen. Opt out.').buffer})};
  await app.processInboundMessage(f.env,{from:'offers@example.test',to:'owner@example.test',rawR2Key:'synthetic/household-ad.eml',headers:{}});
  const row=f.DB.db.prepare("SELECT category,status,sorting_decision FROM messages WHERE raw_r2_key='synthetic/household-ad.eml'").get();
- assert.equal(row.category,'promotions');assert.equal(row.status,'received');assert.equal(JSON.parse(row.sorting_decision).reason,'marketing_spam_ambiguity');assert.equal(JSON.parse(row.sorting_decision).policyVersion,10);assert.equal(events[0].silent,true);
+ assert.equal(row.category,'promotions');assert.equal(row.status,'received');assert.equal(JSON.parse(row.sorting_decision).reason,'marketing_spam_ambiguity');assert.equal(JSON.parse(row.sorting_decision).policyVersion,11);assert.equal(events[0].silent,true);
  const legal=await app.classifyIncomingMail(f.env,{...f.input,sender:'kontakt@coeo-inkasso.de',subject:'Widerspruch - Aktenzeichen TEST-123',text:'Wir bestaetigen Ihren Widerspruch gegen die Forderung.'});
  assert.equal(legal.category,'primary');assert.equal(legal.reason,'protected_legal_or_payment_demand');assert.equal(calls,1);
  f.DB.db.exec("INSERT INTO mailbox_sorting_settings(mailbox_id,mode,daily_limit,threshold) VALUES('box','observe',1000,.8) ON CONFLICT(mailbox_id) DO UPDATE SET mode='observe'");
  const observation=await app.classifyIncomingMail(f.env,f.input);assert.equal(observation.category,'primary');assert.equal(observation.suggestedCategory,'promotions');assert.equal(observation.reason,'observation');
+});
+
+test('unrelated corrections never pad a live classification request or contaminate newsletter context',async t=>{
+ const f=await fixture(t);
+ const insert=f.DB.db.prepare('INSERT INTO mail_sorting_feedback(id,mailbox_id,sender,subject,category,excerpt,corrected_at) VALUES(?,?,?,?,?,?,?)');
+ insert.run('security','box','security@example.test','Security update','primary','Your account has been compromised. Reset your password.','2026-10-29');
+ insert.run('claim','box','legal@example.test','Ihre Email zum Widerspruch','primary','Aktenzeichen TEST-1. Bitte begleichen Sie die offene Forderung.','2026-10-29');
+ insert.run('foreign','otherbox','marketing@example.test','Halloween Email Templates','primary','Foreign tenant contents','2026-10-29');
+ assert.deepEqual(await app.getSortingExamples(f.env,'box',{sender:'marketing@example.test',subject:'Halloween Email Templates'}),[]);
+ assert.deepEqual(await app.getSortingExamples(f.env,'box',{sender:'news@example.test',subject:'Product update'}),[],'one common word is not relevant');
+ let request;f.env.AI.run=async(_model,input)=>{request=input;return {answers:answers('promotions')};};
+ const result=await app.classifyIncomingMail(f.env,{...f.input,sender:'marketing@example.test',subject:'Halloween Email Templates'});
+ assert.equal(result.learningExamples,0);assert.deepEqual(request.state.userCorrections,[]);assert.equal(result.category,'promotions');
+ insert.run('relevant','box','templates@example.test','Free Halloween Email Templates','promotions','Try free templates.','2026-10-28');
+ const related=await app.getSortingExamples(f.env,'box',{sender:'marketing@example.test',subject:'Halloween Email Templates'});
+ assert.equal(related.length,1);assert.equal(related[0].category,'promotions');
+ assert.equal((await app.getSortingExamples(f.env,'box',{sender:'security@example.test',subject:'New login detected'}))[0].category,'primary','same-sender corrections remain available');
+});
+
+test('editorial and forum digests use combined list/content evidence without swallowing personal notices',()=>{
+ const headers={'List-Id':'digest.example.test'};
+ const news={sender:'editor@example.test',subject:'Microsoft Surges, Google Dips',text:"Good morning. Let's get into the headlines. Staff Writer, Newsletters. "+'Market news. '.repeat(700),headers};
+ assert.equal(app.resolveRoutineMail(news)?.category,'promotions','an offscreen unsubscribe footer is not required for an editorial signature');
+ assert.equal(app.resolveRoutineMail({...news,headers:{}}),null,'a personal quote without list delivery is insufficient');
+ const forum={sender:'community@example.test',subject:'Aktuell im Forum',text:'Beiträge der letzten Wochen. Mehr lesen und diskutieren.',headers};
+ assert.equal(app.resolveRoutineMail(forum)?.category,'social');
+ assert.equal(app.resolveRoutineMail({...forum,headers:{}}),null);
+ for(const subject of ['Re: Aktuell im Forum','Nachricht von Anna','Ihre Rechnung','Security advisory']){
+  const text=subject==='Security advisory'?'CVE-2026-12345 Severity: High':forum.text;
+  assert.equal(app.resolveRoutineMail({...forum,subject,text}),null,subject+' remains protected');
+ }
 });
