@@ -4,6 +4,7 @@ import { normalizeMessageId, parseMessageIdList } from "@/lib/email/threading";
 import { normalizeAttachmentContent } from "@/lib/email/attachments";
 import { buildReadableSnippet } from "@/lib/email/snippet";
 import type { AttachmentContent } from "@/lib/email/attachment-types";
+import { serializeMessageHeaderMetadata } from "./unsubscribe";
 
 export type ParsedEmail = {
 	subject: string | null;
@@ -19,6 +20,8 @@ export type ParsedEmail = {
 	bccAddr: string | null;
 	/** Full Reply-To header, comma-joined. */
 	replyTo: string | null;
+	/** Available after raw MIME parsing; absent when reconstructing legacy content for training. */
+	headerMetadata?: string;
 	inReplyTo: string | null;
 	references: string[];
 	date: Date | null;
@@ -38,6 +41,7 @@ export async function parseRawMime(raw: ArrayBuffer): Promise<ParsedEmail> {
 		ccAddr: formatPostalAddressList(email.cc, null),
 		bccAddr: formatPostalAddressList(email.bcc, null),
 		replyTo: formatPostalAddressList(email.replyTo, null),
+		headerMetadata: serializeMessageHeaderMetadata(raw, formatPostalAddressList(email.replyTo, null)),
 		inReplyTo: normalizeMessageId(email.inReplyTo),
 		references: parseMessageIdList(email.references),
 		date: date && !Number.isNaN(date.getTime()) ? date : null,

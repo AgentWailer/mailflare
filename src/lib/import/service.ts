@@ -100,6 +100,7 @@ export async function importMessageToMailbox(
 		toAddr,
 		ccAddr: parsed.ccAddr,
 		replyTo: parsed.replyTo,
+		headerMetadata: parsed.headerMetadata,
 		bccAddr: parsed.bccAddr,
 		subject: parsed.subject,
 		snippet: buildSnippet(parsed.text, parsed.html),

@@ -379,6 +379,13 @@
       "when": 1793218595156,
       "tag": "0083_message_reply_to",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1793574615703,
+      "tag": "0084_message_header_metadata",
+      "breakpoints": true
     }
   ]
 }

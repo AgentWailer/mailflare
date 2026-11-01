@@ -62,8 +62,24 @@ export function extractUnsubscribeUrlFromRaw(raw: ArrayBuffer): UnsubscribeUrl {
 		?? null;
 }
 
+/** Immutable MIME metadata: persist once at ingestion, including known absence. */
+export function serializeMessageHeaderMetadata(raw: ArrayBuffer, replyTo: string | null): string {
+	return JSON.stringify({ version: 1, unsubscribeUrl: extractUnsubscribeUrlFromRaw(raw), replyTo });
+}
+
+function storedHeaderMetadata(value?: string | null): { unsubscribeUrl: UnsubscribeUrl; replyTo: string | null } | null {
+	try {
+		const parsed = JSON.parse(value ?? "null");
+		if (parsed?.version !== 1 || !(parsed.replyTo === null || typeof parsed.replyTo === "string") ||
+			!(parsed.unsubscribeUrl === null || typeof parsed.unsubscribeUrl === "string" && isAllowedUnsubscribeUrl(parsed.unsubscribeUrl))) return null;
+		return { unsubscribeUrl: parsed.unsubscribeUrl, replyTo: parsed.replyTo };
+	} catch { return null; }
+}
+
 /** One bounded header read supplies both old messages' Reply-To and List-Unsubscribe. */
-export async function getMessageHeaderMetadata(env: CloudflareEnv, rawR2Key: string | null): Promise<{ unsubscribeUrl: UnsubscribeUrl; replyTo: string | null }> {
+export async function getMessageHeaderMetadata(env: CloudflareEnv, rawR2Key: string | null, stored?: string | null): Promise<{ unsubscribeUrl: UnsubscribeUrl; replyTo: string | null }> {
+ const cached = storedHeaderMetadata(stored);
+ if (cached) return cached;
  const empty = { unsubscribeUrl: null, replyTo: null };
  if (!rawR2Key) return empty;
  const raw = await env.BUCKET.get(rawR2Key, { range: { offset: 0, length: maxHeaderBytes } });

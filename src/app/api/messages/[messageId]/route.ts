@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: MessageRouteParams) {
 	timing.mark("auth");
 
 	const { messageId } = await params;
-	const data = await getMessageWithBodyForUser(env, user, messageId, timing.mark);
+	const data = await getMessageWithBodyForUser(env, user, messageId, timing.mark, timing.measure);
 	if (!data) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}

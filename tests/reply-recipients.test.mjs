@@ -81,3 +81,20 @@ test("legacy Reply-To and unsubscribe share a bounded header read", async () => 
  assert.equal(reads, 1); assert.equal(meta.unsubscribeUrl, 'https://example.test/unsubscribe');
  assert.deepEqual(getReplyRecipients(inbound({replyTo:meta.replyTo}),own,'reply').to,['Support <support@example.test>','other@example.test']);
 });
+
+test('parsed headers retain Reply-To and unsubscribe without an R2 read, including absent headers',async()=>{
+ for(const headers of ['Reply-To: Team <support@example.test>\r\nList-Unsubscribe: <javascript:bad>, <https://example.test/unsubscribe>\r\n','']){
+  const raw=new TextEncoder().encode('From: sender@example.test\r\nTo: owner@example.test\r\n'+headers+'\r\nBody').buffer;
+  const parsed=await parseRawMime(raw);
+  const metadata=await getMessageHeaderMetadata({BUCKET:{get:()=>{throw Error('R2 must not be read');}}},'private',parsed.headerMetadata);
+  assert.equal(metadata.unsubscribeUrl,headers?'https://example.test/unsubscribe':null);
+  assert.equal(metadata.replyTo,parsed.replyTo);
+ }
+});
+
+test('unknown, malformed or unsafe stored headers fall back to the bounded legacy reader',async()=>{
+ for(const stored of ['{','{}','null',JSON.stringify({version:2,replyTo:null,unsubscribeUrl:null}),JSON.stringify({version:1,replyTo:null,unsubscribeUrl:'javascript:alert(1)'})]){
+  let reads=0;const metadata=await getMessageHeaderMetadata({BUCKET:{get:async()=>{reads++;return null;}}},'private',stored);
+  assert.equal(reads,1);assert.deepEqual(metadata,{unsubscribeUrl:null,replyTo:null});
+ }
+});

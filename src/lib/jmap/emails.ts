@@ -41,6 +41,7 @@ type MessageRow = typeof messages.$inferSelect;
 /** The columns a draft row is made of, shared by `Email/set` create and `Email/import`. */
 type DraftRow = {
 	replyTo?: string | null;
+	headerMetadata?: string | null;
 	mailboxId: string;
 	fromAddr: string;
 	toAddr: string;
@@ -71,6 +72,7 @@ async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 		toAddr: row.toAddr,
 		ccAddr: row.ccAddr,
 		replyTo: row.replyTo ?? null,
+		headerMetadata: row.headerMetadata ?? null,
 		bccAddr: row.bccAddr,
 		subject: row.subject,
 		snippet: buildSnippet(row.textBody, row.htmlBody),
@@ -703,6 +705,7 @@ async function importEmail(
 		toAddr: parsed.toAddr ?? "",
 		ccAddr: parsed.ccAddr,
 		replyTo: parsed.replyTo,
+		headerMetadata: parsed.headerMetadata,
 		bccAddr: parsed.bccAddr,
 		subject: parsed.subject,
 		textBody: parsed.text,

@@ -188,6 +188,7 @@ export async function processInboundMessage(
 			toAddr,
 			ccAddr: parsed.ccAddr,
 			replyTo: parsed.replyTo,
+			headerMetadata: parsed.headerMetadata,
 			subject: parsed.subject,
 			snippet,
 			textBody: parsed.text,
@@ -299,7 +300,7 @@ export async function getMessageWithBody(env: CloudflareEnv, userId: string, mes
 	if (!message || message.userId !== userId) return null;
 	const contactNames = await getMessageContactNames(env, userId, message.fromAddr, message.toAddr);
 	const attachments = await listMessageAttachments(env, messageId);
-	const { unsubscribeUrl, replyTo } = await getMessageHeaderMetadata(env, message.rawR2Key);
+	const { unsubscribeUrl, replyTo } = await getMessageHeaderMetadata(env, message.rawR2Key, message.headerMetadata);
 	message.replyTo ??= replyTo;
 	const [scheduledJob] = message.direction === "outbound" && message.status === "queued"
 		? await db
@@ -316,7 +317,8 @@ export async function getMessageWithBody(env: CloudflareEnv, userId: string, mes
 	};
 }
 
-export async function getMessageWithBodyForUser(env: CloudflareEnv, user: SessionUser, messageId: string, mark?: (stage: string) => void) {
+export async function getMessageWithBodyForUser(env: CloudflareEnv, user: SessionUser, messageId: string, mark?: (stage: string) => void,
+	measure?: <T>(name: string, task: Promise<T>) => Promise<T>) {
 	const db = getDb(env);
 	const [message] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 	mark?.("lookup");
@@ -324,10 +326,11 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
 	mark?.("access");
 	if (!access?.canRead) return null;
+	const timed = measure ?? (<T>(_name: string, task: Promise<T>) => task);
 	const [contactNames, attachments, headerMetadata] = await Promise.all([
-		getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr),
-		listMessageAttachments(env, messageId),
-		getMessageHeaderMetadata(env, message.rawR2Key),
+		timed("contacts", getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr)),
+		timed("attachments", listMessageAttachments(env, messageId)),
+		timed("headers", getMessageHeaderMetadata(env, message.rawR2Key, message.headerMetadata)),
 	]);
 	const { unsubscribeUrl, replyTo } = headerMetadata;
 	message.replyTo ??= replyTo;
@@ -338,14 +341,14 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 /** Serialize each body once; raw storage pointers stay on the server. */
 function messageDetailPayload(message: typeof messages.$inferSelect, contactNames: Awaited<ReturnType<typeof getMessageContactNames>>) {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Omit the internal storage pointer instead of exposing it in the public payload.
-	const { textBody, htmlBody, rawR2Key: _raw, ...metadata } = message;
+	const { textBody, htmlBody, rawR2Key: _raw, headerMetadata: _headers, ...metadata } = message;
 	return { message: { ...metadata, ...contactNames }, body: { textBody, htmlBody } };
 }
 
 export async function getMessageMetadataForUser(env: CloudflareEnv, user: SessionUser, messageId: string) {
 	const db = getDb(env);
 	const [message] = await db
-		.select({ mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key })
+		.select({ mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key, headerMetadata: messages.headerMetadata })
 		.from(messages)
 		.where(eq(messages.id, messageId))
 		.limit(1);
@@ -354,7 +357,7 @@ export async function getMessageMetadataForUser(env: CloudflareEnv, user: Sessio
 	if (!access?.canRead) return null;
 	const [attachments, headerMetadata] = await Promise.all([
 		listMessageAttachments(env, messageId),
-		getMessageHeaderMetadata(env, message.rawR2Key),
+		getMessageHeaderMetadata(env, message.rawR2Key, message.headerMetadata),
 	]);
 	return { attachments, ...headerMetadata };
 }

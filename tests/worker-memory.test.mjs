@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 const dir=mkdtempSync(join(process.cwd(),'node_modules','worker-memory-test-'));after(()=>rmSync(dir,{recursive:true,force:true}));
-await build({stdin:{contents:`export {SqliteDatabase} from './server/runtime/sqlite-database';export {applyMigrations} from './server/runtime/migrate';export {getMessageThreadForUser,ThreadBodyLimitError} from './src/lib/email/thread-view';export {getMessageWithBodyForUser} from './src/lib/email/inbound';export {copyMessageAttachments,storeMessageAttachments,validateAttachments} from './src/lib/email/attachments';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'cloudflare:workers':'./server/runtime/cloudflare-workers.ts'},logLevel:'silent'});
+await build({stdin:{contents:`export {SqliteDatabase} from './server/runtime/sqlite-database';export {applyMigrations} from './server/runtime/migrate';export {getMessageThreadForUser,ThreadBodyLimitError} from './src/lib/email/thread-view';export {getMessageWithBodyForUser,getMessageMetadataForUser,processInboundMessage} from './src/lib/email/inbound';export {copyMessageAttachments,storeMessageAttachments,validateAttachments} from './src/lib/email/attachments';`,resolveDir:process.cwd()},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',alias:{'cloudflare:workers':'./server/runtime/cloudflare-workers.ts'},logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')));
 async function fixture(t){
  const DB=new app.SqliteDatabase(':memory:');t.after(()=>DB.db.close());await app.applyMigrations(DB,join(process.cwd(),'drizzle/migrations'));
@@ -54,4 +54,26 @@ test('detail enrichment starts storage reads while independent contact metadata 
  const stages=[],pending=app.getMessageWithBodyForUser(f.env,f.user,'mail',stage=>stages.push(stage));
  await new Promise(resolve=>setImmediate(resolve));assert.equal(storageReads,1,'unsubscribe storage lookup must not wait for contacts');assert.deepEqual(stages,['lookup','access']);release();const data=await pending;assert.equal(data.body.textBody,'Private text');assert.deepEqual(stages,['lookup','access','metadata']);
  storageReads=0;assert.equal(await app.getMessageWithBodyForUser(f.env,{id:'other',role:'user'},'mail'),null);assert.equal(storageReads,0,'denied users never trigger private enrichment');
+});
+
+test('new message details and metadata remain available when original storage is stalled',async t=>{
+ const f=await fixture(t);f.add('mail');
+ const stored=JSON.stringify({version:1,replyTo:'reply@example.test',unsubscribeUrl:'https://example.test/unsubscribe'});
+ f.DB.db.prepare('UPDATE messages SET header_metadata=? WHERE id=?').run(stored,'mail');
+ let reads=0;f.env.BUCKET.get=()=>{reads++;throw Error('Original storage unavailable');};
+ const detail=await app.getMessageWithBodyForUser(f.env,f.user,'mail');
+ assert.equal(detail.body.textBody,'Private text');assert.equal(detail.message.replyTo,'reply@example.test');assert.equal(detail.unsubscribeUrl,'https://example.test/unsubscribe');assert(!('headerMetadata' in detail.message));assert.equal(reads,0);
+ const meta=await app.getMessageMetadataForUser(f.env,f.user,'mail');assert.equal(meta.replyTo,'reply@example.test');assert.equal(reads,0);
+ const thread=await app.getMessageThreadForUser(f.env,f.user,'mail');assert(!JSON.stringify(thread).includes('headerMetadata'));
+ assert.equal(await app.getMessageWithBodyForUser(f.env,{id:'other',role:'user'},'mail'),null);
+});
+
+test('real inbound parsing persists headers before a first uncached reader request',async t=>{
+ const f=await fixture(t);
+ const raw=new TextEncoder().encode('From: sender@example.test\r\nTo: owner@example.test\r\nSubject: Hello\r\nReply-To: support@example.test\r\nList-Unsubscribe: <https://example.test/unsubscribe>\r\nContent-Type: text/plain\r\n\r\nA new message.').buffer;
+ f.env.BUCKET.get=async()=>({arrayBuffer:async()=>raw});
+ await app.processInboundMessage(f.env,{from:'sender@example.test',to:'owner@example.test',rawR2Key:'new-message.eml',headers:{}});
+ const row=f.DB.db.prepare("SELECT id,header_metadata FROM messages WHERE raw_r2_key='new-message.eml'").get();assert(row);assert.equal(JSON.parse(row.header_metadata).replyTo,'support@example.test');
+ f.env.BUCKET.get=async()=>{throw Error('No secondary original fetch allowed');};
+ const detail=await app.getMessageWithBodyForUser(f.env,f.user,row.id);assert.equal(detail.message.replyTo,'support@example.test');assert.equal(detail.unsubscribeUrl,'https://example.test/unsubscribe');assert.match(detail.body.textBody,/A new message/);
 });

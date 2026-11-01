@@ -254,6 +254,8 @@ export const messages = sqliteTable(
 		bccAddr: text("bcc_addr"),
 		/** Full Reply-To header, comma-joined. Replies go here instead of `fromAddr` when set. */
 		replyTo: text("reply_to"),
+		/** Parsed immutable MIME headers; null denotes legacy messages needing R2. */
+		headerMetadata: text("header_metadata"),
 		subject: text("subject"),
 		snippet: text("snippet"),
 		textBody: text("text_body"),

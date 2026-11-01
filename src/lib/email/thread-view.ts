@@ -28,7 +28,7 @@ export async function getMessageThreadForUser(env: CloudflareEnv, user: SessionU
 	if (!access?.canRead) return null;
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Exclude bodies and internal storage pointers from the SQL projection.
-	const { htmlBody: _html, textBody: _text, rawR2Key: _raw, ...headers } = getTableColumns(messages);
+	const { htmlBody: _html, textBody: _text, rawR2Key: _raw, headerMetadata: _headers, ...headers } = getTableColumns(messages);
 	const rows = message.threadId
 		? await db
 				.select(headers)
