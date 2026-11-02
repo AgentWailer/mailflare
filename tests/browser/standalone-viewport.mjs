@@ -135,6 +135,89 @@ async function exerciseControls(page,insets){
  await assertLayout(page,insets,'after compose');
 }
 
+async function assertInstallation(page,cdp,documentHtml,dark,manifestRequests){
+ // Use the browser's real manifest loader: a normal fetch() would send same-origin
+ // cookies even when the <link rel=manifest> request incorrectly omits them.
+ const loaded=await cdp.send('Page.getAppManifest');
+ assert(manifestRequests.some(request=>request.credentialed),'the browser manifest request must carry the synthetic Access cookie');
+ assert(manifestRequests.every(request=>request.credentialed),'installation must never fetch protected manifest metadata anonymously');
+ assert(loaded.data,'Access-protected manifest must parse instead of receiving the simulated sign-in HTML');
+ const manifest=JSON.parse(loaded.data);
+ assert.equal(manifest.id,'/inbox','retain the existing default installation identity');
+ assert.equal(manifest.start_url,'/inbox');
+ assert.equal(manifest.scope,'/','every mailbox category belongs to one installed application');
+ assert.equal(manifest.display,'standalone');
+ for(const path of ['/inbox','/invoices','/promotions','/social','/orders']){
+  const target=new URL(path,origin),scope=new URL(manifest.scope,origin);
+  assert(target.origin===scope.origin&&target.pathname.startsWith(scope.pathname),`${path} stays in manifest scope`);
+ }
+ const metadata=await page.evaluate(html=>{
+  const read=doc=>{
+   const values=name=>[...doc.querySelectorAll(`meta[name="${name}"]`)].map(meta=>meta.content);
+   return {
+    links:[...doc.querySelectorAll('link[rel=manifest]')].map(link=>({href:link.getAttribute('href'),credentials:link.getAttribute('crossorigin')})),
+    statusBars:values('apple-mobile-web-app-status-bar-style'),
+    themeColors:values('theme-color'),
+    appleCapable:values('apple-mobile-web-app-capable'),
+   };
+  };
+  return {server:read(new DOMParser().parseFromString(html,'text/html')),client:read(document)};
+ },documentHtml);
+ for(const [phase,value] of Object.entries(metadata)){
+  assert.deepEqual(value.links,[{href:'/manifest.webmanifest',credentials:'use-credentials'}],`${phase} supplies exactly one credentialed manifest link`);
+  assert.deepEqual(value.appleCapable,['yes'],`${phase} supplies the Apple standalone capability exactly once`);
+  assert.deepEqual(value.statusBars,[dark?'black':'default'],`${phase} supplies exactly one status bar style, opaque in dark mode`);
+  assert.deepEqual(value.themeColors,[dark?'#202124':'#f6f8fc'],`${phase} supplies exactly one resolved theme color`);
+ }
+ return {credentialed:true,scope:manifest.scope,id:manifest.id,statusBar:metadata.client.statusBars[0]};
+}
+
+async function exerciseTheme(page,insets,dark){
+ const toggle=page.locator('.mail-mobile-header button[aria-pressed]');
+ if(!await toggle.isVisible())return {tested:false};
+ const before=await assertLayout(page,insets,'before theme toggle');
+ for(const nextDark of [!dark,dark]){
+  await toggle.click();
+  await page.waitForFunction(expected=>document.documentElement.classList.contains('dark')===expected&&document.querySelector('.mail-mobile-header button[aria-pressed]')?.getAttribute('aria-pressed')===String(expected),nextDark);
+  assert.deepEqual(await page.locator('meta[name="apple-mobile-web-app-status-bar-style"]').evaluateAll(items=>items.map(meta=>meta.content)),[nextDark?'black':'default'],'theme toggle updates exactly one opaque status-bar tag');
+  assert.deepEqual(await page.locator('meta[name="theme-color"]').evaluateAll(items=>items.map(meta=>meta.content)),[nextDark?'#202124':'#f6f8fc'],'theme toggle updates exactly one theme-color tag');
+  const storedTheme=(await page.context().cookies()).find(cookie=>cookie.name==='mailflare-theme-color')?.value;
+  assert.equal(storedTheme,nextDark?'dark':'light','next app launch receives the selected chrome color');
+  assertStable(before,await assertLayout(page,insets,'after theme toggle'),'theme toggle');
+ }
+ return {tested:true,restored:true};
+}
+
+async function exerciseCategories(page,insets,dark){
+ const before=await assertLayout(page,insets,'before category navigation');
+ const identity=await page.evaluate(()=>window.__viewportDocumentIdentity=crypto.randomUUID());
+ const navigationRequests=[];
+ const record=request=>{if(request.isNavigationRequest()&&request.frame()===page.mainFrame())navigationRequests.push(new URL(request.url()).pathname);};
+ page.on('request',record);
+ async function current(path){
+  await page.waitForURL(url=>url.pathname===path);
+  await page.locator(`[data-category-tab][href="${path}"][aria-current="page"]`).waitFor();
+  await page.locator('[data-message-row="viewport-0"]').waitFor();
+  assert.equal(await page.evaluate(()=>window.__viewportDocumentIdentity),identity,'category changes keep the current document');
+  assert.equal(page.context().pages().length,1,'categories never create a browser window');
+  const links=await page.locator('link[rel=manifest]').evaluateAll(items=>items.map(link=>({href:link.getAttribute('href'),credentials:link.getAttribute('crossorigin')})));
+  assert.deepEqual(links,[{href:'/manifest.webmanifest',credentials:'use-credentials'}],'category navigation retains the credentialed manifest');
+  assert.deepEqual(await page.locator('meta[name="apple-mobile-web-app-status-bar-style"]').evaluateAll(items=>items.map(meta=>meta.content)),[dark?'black':'default'],'category navigation retains exactly one status bar style');
+  assert.deepEqual(await page.locator('meta[name="theme-color"]').evaluateAll(items=>items.map(meta=>meta.content)),[dark?'#202124':'#f6f8fc'],'category navigation retains exactly one resolved theme color');
+  assertStable(before,await assertLayout(page,insets,`category ${path}`),`category ${path}`);
+ }
+ try{
+  for(const path of ['/invoices','/promotions','/social','/orders','/inbox']){
+   await page.locator(`[data-category-tab][href="${path}"]`).click();
+   await current(path);
+  }
+  await page.goBack();await current('/orders');
+  await page.goForward();await current('/inbox');
+  assert.deepEqual(navigationRequests,[],'category/back/forward navigation does not load a new document');
+ }finally{page.off('request',record);}
+ return {categories:5,backForward:true,newDocuments:navigationRequests.length};
+}
+
 let preview,browser,browserVersion,logs='';
 const results=[],failures=[];
 try{
@@ -161,11 +244,18 @@ try{
   const label=`${config.name}-${config.dark?'dark':'light'}`;
   const page=await browser.newPage({viewport:{width:config.width,height:config.height},hasTouch:config.touch,locale:'de-DE'});
   page.setDefaultTimeout(12000);
-  const errors=[],mutations=[];
+  const errors=[],mutations=[],manifestRequests=[];
   page.on('pageerror',error=>errors.push(error.message));
   try{
    await page.addInitScript(dark=>{localStorage.setItem('mailflare-theme',dark?'dark':'light');localStorage.setItem('mailflare-two-column-reading','off');},config.dark);
-   await page.context().addCookies([{name:'mailflare-locale',value:'de',url:origin}]);
+   await page.context().addCookies([{name:'mailflare-locale',value:'de',url:origin},{name:'mailflare-theme-color',value:config.dark?'dark':'light',url:origin},{name:'CF_Authorization',value:'synthetic-access-fixture',url:origin}]);
+   await page.route('**/manifest.webmanifest*',async route=>{
+    const cookie=(await route.request().allHeaders()).cookie||'';
+    const credentialed=cookie.split(';').some(item=>item.trim()==='CF_Authorization=synthetic-access-fixture');
+    manifestRequests.push({credentialed});
+    if(!credentialed){await route.fulfill({status:401,contentType:'text/html',body:'<!doctype html><title>Fixture access sign-in required</title>'});return;}
+    await route.continue();
+   });
    await page.route('**/api/**',async route=>{
     const request=route.request();
     if(!['GET','HEAD'].includes(request.method()))mutations.push({path:new URL(request.url()).pathname,method:request.method()});
@@ -174,12 +264,16 @@ try{
    const cdp=await page.context().newCDPSession(page);
    const insets={top:config.top,bottom:config.bottom,left:0,right:0};
    await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets});
-   await page.goto(origin+'/inbox',{waitUntil:'domcontentloaded'});
+   const documentResponse=await page.goto(origin+'/inbox',{waitUntil:'domcontentloaded'});
+   const documentHtml=await documentResponse.text();
    await page.locator('[data-message-row="viewport-0"]').waitFor();
    await page.waitForTimeout(550);
    assert.equal(await page.locator('html').evaluate(el=>el.classList.contains('dark')),config.dark,'requested theme is active');
+   const installation=await assertInstallation(page,cdp,documentHtml,config.dark,manifestRequests);
    const scroll=await exerciseScroll(page,cdp,insets,config.touch);
    await exerciseControls(page,insets);
+   const themeSwitch=await exerciseTheme(page,insets,config.dark);
+   const categories=await exerciseCategories(page,insets,config.dark);
    await page.screenshot({path:join(output,`${label}.png`)});
    let rotated;
    if(config.rotate){
@@ -194,9 +288,9 @@ try{
    }
    assert.deepEqual(errors,[],'no browser runtime errors');
    assert(!mutations.some(item=>/\/send(?:\/|$)/.test(item.path)),'suite must not submit mail');
-   const result={label,config,scroll,rotated,controls:true,errors};
+   const result={label,config,installation,themeSwitch,categories,scroll,rotated,controls:true,errors};
    results.push(result);
-   console.log(JSON.stringify({label,passed:true,initialHeaderY:scroll.before.header.y,scrolledHeaderY:scroll.scrolled.header.y,rootScroll:scroll.after.rootScroll,listScroll:scroll.scrolled.listScroll,rotated:!!rotated}));
+   console.log(JSON.stringify({label,passed:true,installation,themeSwitch,categories,initialHeaderY:scroll.before.header.y,scrolledHeaderY:scroll.scrolled.header.y,rootScroll:scroll.after.rootScroll,listScroll:scroll.scrolled.listScroll,rotated:!!rotated}));
   }catch(error){
    failures.push({label,message:error.message});
    console.error(`${label}: ${error.message}`);

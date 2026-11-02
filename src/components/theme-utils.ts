@@ -4,6 +4,7 @@ export const THEME_STORAGE_KEY = "mailflare-theme";
 export const THEME_CHANGED_EVENT = "mailflare:theme-changed";
 
 // Safari uses these document colors for its browser chrome and standalone app.
+// Use opaque status chrome: translucency lets iPadOS composite/blur the app header.
 // iOS may apply the Apple status-bar style only when the app starts again.
 function syncThemeChrome(dark: boolean): void {
 	document.documentElement.style.colorScheme = dark ? "dark" : "light";
@@ -12,7 +13,7 @@ function syncThemeChrome(dark: boolean): void {
 	try { document.cookie = `mailflare-theme-color=${dark ? "dark" : "light"}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`; } catch { /* Private browsing can reject cookies. */ }
 	for (const [name, content] of [
 		["theme-color", dark ? "#202124" : "#f6f8fc"],
-		["apple-mobile-web-app-status-bar-style", dark ? "black-translucent" : "default"],
+		["apple-mobile-web-app-status-bar-style", dark ? "black" : "default"],
 	]) {
 		const existing = [...document.querySelectorAll<HTMLMetaElement>(`meta[name="${name}"]`)];
 		if (!existing.length) {

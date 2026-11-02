@@ -6,7 +6,15 @@ try{
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Preview exited');await pause(200);}assert(ready);
  const chunk=readdirSync('dist/client/_next/static/chunks').find(n=>n.startsWith('framework-')&&n.endsWith('.js')),report=[];
  for(const [path,pattern]of [[`/_next/static/chunks/${chunk}`,/max-age=31536000.*immutable/],['/sw.js',/no-cache/],['/locales/de.json',/max-age=0.*must-revalidate/],['/manifest.webmanifest',/no-cache/],['/inbox',/(?=.*\bprivate\b)(?=.*\bno-store\b)/],['/api/auth/me',/(?=.*\bprivate\b)(?=.*\bno-store\b)/]]){
-  const response=await fetch(origin+path),cacheControl=response.headers.get('cache-control'),etag=response.headers.get('etag');await response.body?.cancel();assert.match(cacheControl??'',pattern,path);
+  const response=await fetch(origin+path),cacheControl=response.headers.get('cache-control'),etag=response.headers.get('etag');
+  if(path==='/manifest.webmanifest'){
+   assert.equal(response.status,200,'installation metadata must be JSON, not a fallback or login page');
+   assert.match(response.headers.get('content-type')??'',/^application\/manifest\+json\b/);
+   const manifest=await response.json();
+   assert.equal(manifest.id,'/inbox','existing application identity stays stable');
+   assert.equal(manifest.start_url,'/inbox');assert.equal(manifest.scope,'/');assert.equal(manifest.display,'standalone');
+  }else await response.body?.cancel();
+  assert.match(cacheControl??'',pattern,path);
   let repeatStatus;if(etag){const repeat=await fetch(origin+path,{headers:{'If-None-Match':etag}});repeatStatus=repeat.status;await repeat.body?.cancel();if(path.startsWith('/_next/static/')||path==='/locales/de.json')assert.equal(repeatStatus,304,path+' revalidates');}
   report.push({path,status:response.status,cacheControl,etag:!!etag,repeatStatus});
  }

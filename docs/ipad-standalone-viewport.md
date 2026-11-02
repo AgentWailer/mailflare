@@ -23,8 +23,9 @@ der Bildschirmbreite und damit auch nach Drehung des iPads. Andere Seiten ohne
 Mail-Oberfläche behalten ihr normales Dokument-Scrollverhalten.
 
 Es gibt keine zusätzlichen Touch-Listener, kein erzwungenes Zurückscrollen per
-JavaScript, keine deaktivierte Vergrößerung und keine Änderung an der dunklen
-iOS-Statusleistenfarbe.
+JavaScript und keine deaktivierte Vergrößerung. Die anschließende Untersuchung
+der nativen Browserleiste und Statusleisten-Unschärfe ist unter
+[iOS-Installation und Navigation](ios-pwa-installation.md) dokumentiert.
 
 ## Reproduzierbare Prüfung
 
