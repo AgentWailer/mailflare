@@ -47,7 +47,7 @@ Benötigt werden Python 3.10+, `cryptography`, die AWS CLI, die private Schlüss
 
 ```bash
 python3 -m venv .recovery-venv
-.recovery-venv/bin/pip install cryptography
+.recovery-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r scripts/requirements-recovery.txt
 
 .recovery-venv/bin/python scripts/recover-rescue.py \
   --account-id DEINE_CLOUDFLARE_ACCOUNT_ID \
@@ -66,6 +66,19 @@ Die Ausgabe enthält:
 - `VERIFIED`: wird erst nach erfolgreicher Inhalts-, Fremdschlüssel- und Datenbankprüfung angelegt.
 
 Die Ausgabe enthält entschlüsselte Daten und gehört auf einen geschützten Rechner beziehungsweise Datenträger. Ein bestehendes Ausgabeverzeichnis mit Inhalt wird nicht überschrieben. Die laufende Cloudflare-Installation bleibt bei diesem Schritt unverändert.
+
+### Automatischer Wiederherstellungstest
+
+`npm test` und damit auch `npm run check:quality` bereiten eine eigene Python-Umgebung unter `node_modules/.mailflare-recovery-python` vor. Darin werden die exakt gepinnten, anhand von SHA-256 geprüften Wheels aus `scripts/requirements-recovery.txt` installiert. Globale Python-Pakete werden weder verwendet noch verändert. Voraussetzungen für einen frischen Build sind Python 3.10+ mit `venv`/`pip` und Zugriff auf PyPI; die AWS CLI und Cloudflare-Zugangsdaten sind für diesen lokalen Test nicht erforderlich.
+
+Für den gezielten Test:
+
+```bash
+npm run test:python:setup
+node --test tests/rescue-backup.test.mjs
+```
+
+Der Test entschlüsselt einen real erzeugten verschlüsselten Rettungsstand mit dem Python-Werkzeug und prüft Datenbank, Originaldateien und den anschließenden Import. Fehlende Abhängigkeiten brechen den Build ab; der Test wird nicht übersprungen. Bei Änderungen der Python-Version oder einer beschädigten virtuellen Umgebung nur `node_modules/.mailflare-recovery-python` entfernen und die Einrichtung erneut ausführen. Warme Builds verwenden die bereits installierten Versionen weiter.
 
 ## In neue Cloudflare-Ressourcen importieren
 

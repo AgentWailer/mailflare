@@ -81,6 +81,35 @@ Native Clients und dedizierte MCP-Schlüssel behalten ihr serverseitiges Protoko
   `npm run build` enthält deshalb selbst die statische Qualitätsfreigabe.
 - Registry meldet weiterhin moderate Einträge im Entwicklungs-Lintwerkzeug;
   konkrete Einordnung und Wiedervorlage in [security-dependencies.md](security-dependencies.md).
+- Der Bundler meldet weiterhin Hinweise zur gültigen CSS-Highlight-Syntax und
+  zu fehlenden Sourcemaps in zwei Framework-Plugins. Diese Hinweise sind nicht
+  unterdrückt; der gebaute Worker und die betroffenen Browserabläufe werden
+  zusätzlich ausgeführt.
+
+## Zusätzliche Befunde aus den externen Prüfläufen
+
+- Cloudflare führte alle 791 Tests aus; der verschlüsselte Restore-Rundlauf
+  scheiterte am fehlenden Python-Paket `cryptography`. `npm test` richtet nun eine
+  isolierte Python-Umgebung ein und installiert die festgelegten, per SHA-256
+  geprüften Wheels aus `scripts/requirements-recovery.txt`. Voraussetzung sind
+  Python 3.10+ mit venv/pip und beim ersten Lauf Zugriff auf PyPI. Systempakete
+  werden nicht verändert. Der Wiederherstellungstest bleibt Bestandteil der
+  Freigabe.
+- Der GitHub-Browserlauf deckte eine echte PDF-Kompatibilitätslücke auf: PDF.js
+  6.4.299 verwendet im Standardbuild `Map.getOrInsertComputed`, das Chromium 143
+  und ältere iPhone-Browser noch nicht besitzen. Mit gezielt entfernten Methoden
+  in Browser und PDF-Worker ist der Fehler reproduziert; die zusammengehörigen
+  offiziellen Legacy-Builds rendern dieselbe dreiseitige Datei einschließlich
+  geprüfter Randpixel. Renderer und Worker bleiben auf derselben Paketversion
+  und werden erst beim Öffnen eines PDFs geladen.
+  Die fertige App besteht den Anhangstest bei 320, 390, 844 und 1440 px;
+  bei 320 px sind die neueren Methoden in beiden Ausführungskontexten absichtlich
+  entfernt. Zoom, vollständige Seiten, Download, Bilder und Fehlerwiederholung
+  werden ebenfalls geprüft. Auch der vollständige Build ist mit allen
+  791 gewöhnlichen Tests erneut erfolgreich.
+- Die Browser-CI verwendet Ubuntu 24.04 passend zum installierten Playwright
+  1.57. Ohne expliziten lokalen Browserpfad wählen alle Tests dessen mitgelieferten
+  Chromium. Fehlerauszüge und Browserprotokolle werden als CI-Nachweise erhalten.
 
 ## Verifizierte Ergebnisse
 

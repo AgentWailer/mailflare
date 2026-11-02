@@ -1,7 +1,7 @@
 // Actual production router, PDF renderer, worker and fonts; synthetic private mail/PDF APIs.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,rmSync,writeFileSync,mkdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:net';
@@ -41,6 +41,21 @@ try{
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const viewport of [{width:320,height:700},{width:390,height:844},{width:844,height:390},{width:1440,height:900}].filter(v=>!process.env.VIEWPORT_WIDTH||v.width===Number(process.env.VIEWPORT_WIDTH))){
   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[],requests=[];let detailCalls=0,preload=false,pdfFailure=false,walletOpens=0,imageFailure=false;
+  const emulatePre145Map=viewport.width===320;
+  const pdfResponses=[],failedRequests=[],consoleErrors=[];let compatibilityWorkers=0;
+  const relevantPdfPath=value=>{const url=new URL(value);return /pdf[.-]|\/pdfjs-|\/attachments\/pdf-file/.test(url.pathname)?url.pathname:null;};
+  page.on('response',response=>{const path=relevantPdfPath(response.url());if(path)pdfResponses.push({path,status:response.status(),type:response.headers()['content-type']});});
+  page.on('requestfailed',request=>{const path=relevantPdfPath(request.url());if(path)failedRequests.push({path,error:request.failure()?.errorText});});
+  page.on('console',message=>{if(message.type()==='error'||message.type()==='warning')consoleErrors.push(message.text().slice(0,500));});
+  if(emulatePre145Map){
+   // PDF.js's current standard build requires these APIs; the compatibility
+   // build must work without them in both the UI realm and its separate worker.
+   await page.addInitScript(()=>{for(const prototype of [Map.prototype,WeakMap.prototype]){delete prototype.getOrInsert;delete prototype.getOrInsertComputed;}});
+   await page.route(/\/pdf\.worker[^/]*\.mjs(?:\?.*)?$/,async route=>{
+    const response=await route.fetch();assert(response.ok());compatibilityWorkers++;
+    await route.fulfill({response,body:'for (const p of [Map.prototype, WeakMap.prototype]) { delete p.getOrInsert; delete p.getOrInsertComputed; }\n'+await response.text()});
+   });
+  }
   attachment.type=viewport.width===320?'application/octet-stream':viewport.width===390?'Application/PDF; name="receipt.pdf"':viewport.width===844?'application/x-pdf':'application/pdf';
   const imageBytes=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=100;canvas.height=80;const ctx=canvas.getContext('2d');ctx.fillStyle='blue';ctx.fillRect(0,0,100,80);return Object.fromEntries(['png','jpeg','webp'].map(ext=>[ext,canvas.toDataURL('image/'+ext).split(',')[1]]));});
   imageBytes.gif='R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -63,8 +78,19 @@ try{
   // server tests verify actual pass MIME, cookies, grants and private headers.
   const walletLink=page.getByRole('link').filter({hasText:'Flight.pkpass'});assert.equal(walletOpens,0,'passes are not downloaded speculatively');assert.equal(await walletLink.getAttribute('download'),null);
   const popupPromise=page.waitForEvent('popup');await walletLink.click();const popup=await popupPromise;await popup.waitForLoadState();assert.equal(new URL(popup.url()).pathname,'/api/messages/receipt/attachments/wallet-file');assert.equal(new URL(popup.url()).search,'?open=1');assert.equal(new URL(popup.url()).origin,origin);await popup.close();assert.equal(walletOpens,1);assert.equal(await page.locator('[data-attachment-viewer]').count(),0,'Wallet is handed off directly instead of showing an unsupported preview');
+  if(emulatePre145Map)assert.deepEqual(await page.evaluate(()=>[typeof Map.prototype.getOrInsertComputed,typeof WeakMap.prototype.getOrInsertComputed]),['undefined','undefined'],'the app must not pre-polyfill the missing APIs before the lazy PDF engine is loaded');
   await page.getByRole('button').filter({hasText:filename}).click();const dialog=page.locator('[data-attachment-viewer]');await dialog.waitFor();
-  const first=page.locator('[data-pdf-page="1"][data-pdf-rendered="true"]');await first.waitFor({timeout:20000});
+  const first=page.locator('[data-pdf-page="1"][data-pdf-rendered="true"]');
+  try { await first.waitFor({timeout:20000}); }
+  catch(error){
+   const diagnostics={viewport,browserVersion:browser.version(),emulatePre145Map,compatibilityWorkers,
+    capabilities:await page.evaluate(()=>({mapUpsert:typeof Map.prototype.getOrInsertComputed,weakMapUpsert:typeof WeakMap.prototype.getOrInsertComputed,promiseWithResolvers:typeof Promise.withResolvers,offscreenCanvas:typeof OffscreenCanvas})),
+    viewer:await dialog.evaluate(element=>({alerts:[...element.querySelectorAll('[role="alert"]')].map(el=>el.textContent),status:[...element.querySelectorAll('[role="status"]')].map(el=>el.textContent),pages:[...element.querySelectorAll('[data-pdf-page]')].map(el=>({page:el.dataset.pdfPage,rendered:el.dataset.pdfRendered,busy:el.getAttribute('aria-busy'),width:el.clientWidth,height:el.clientHeight}))})),
+    errors:errors.slice(-10),console:consoleErrors.slice(-10),pdfResponses:pdfResponses.slice(-15),failedRequests:failedRequests.slice(-10)};
+   mkdirSync('artifacts/quality',{recursive:true});writeFileSync(`artifacts/quality/pdf-failure-${viewport.width}.json`,JSON.stringify(diagnostics,null,2));
+   await page.screenshot({path:`/tmp/mailflare-pdf-failure-${viewport.width}.png`});console.error('PDF preview diagnostic: '+JSON.stringify(diagnostics));throw error;
+  }
+  if(emulatePre145Map)assert(compatibilityWorkers>0,'compatibility regression must also remove upsert APIs from the PDF worker realm');
   const bounds=await dialog.boundingBox();assert(bounds);if(viewport.width<1024){assert(Math.abs(bounds.x)<1&&Math.abs(bounds.y)<1);assert(Math.abs(bounds.width-viewport.width)<1&&Math.abs(bounds.height-viewport.height)<1,'mobile preview fills the viewport');}
   assert.equal(await dialog.locator('iframe').count(),0,'iOS native embedded PDF clipping is avoided');
   assert.equal(await dialog.locator('[data-pdf-page]').count(),3,'every page is represented, including rotated and landscape pages');
@@ -95,6 +121,6 @@ try{
    await page.screenshot({path:`/tmp/upstream-reply-${viewport.width}-failure.png`});
    console.error(JSON.stringify({viewport,buttons:await page.getByRole('button',{name:/^Reply(?: \(r\))?$/}).evaluateAll(buttons=>buttons.map(b=>({html:b.outerHTML,rect:b.getBoundingClientRect().toJSON()}))),errors}));throw error;
   }
-  assert.deepEqual(errors,[]);assert(!requests.some(url=>!url.startsWith(origin)),'PDFs and rendering resources stay on the application origin');console.log(JSON.stringify({viewport,transientReaderFailureRecovered:true,replyToRecipient:true,fullscreen:viewport.width<1024,allPages:true,bothEdgesRendered:true,zoom:true,download:true,walletHandoff:true,pdfMime:attachment.type,images:true,imageRetry:viewport.width===390}));await page.close();
+  assert.deepEqual(errors,[]);assert(!requests.some(url=>!url.startsWith(origin)),'PDFs and rendering resources stay on the application origin');console.log(JSON.stringify({viewport,transientReaderFailureRecovered:true,replyToRecipient:true,fullscreen:viewport.width<1024,allPages:true,bothEdgesRendered:true,zoom:true,download:true,walletHandoff:true,pdfMime:attachment.type,pre145MapCompatibility:emulatePre145Map,images:true,imageRetry:viewport.width===390}));await page.close();
  }
 }finally{await browser?.close();if(preview){preview.kill('SIGTERM');await new Promise(resolve=>{if(preview.exitCode!==null)return resolve();preview.once('exit',resolve);setTimeout(()=>{preview.kill('SIGKILL');resolve();},5000).unref();});}writeFileSync('/tmp/mailflare-pdf-browser-preview.log',serverLog);rmSync(temporary,{recursive:true,force:true});}

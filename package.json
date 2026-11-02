@@ -32,6 +32,8 @@
     "perf:headers": "node scripts/verify-cache-headers.mjs",
     "test:upstream-fixes": "node --test tests/domain-routing-permissions.test.mjs tests/inline-content-type.test.mjs tests/scheduled-send-race.test.mjs tests/import-contact-failure.test.mjs tests/reply-recipients.test.mjs tests/jmap-batch-limit.test.mjs tests/wallet-attachments.test.mjs tests/backups-stream.test.mjs",
     "typecheck": "tsc --noEmit --incremental false",
+    "test:python:setup": "node scripts/prepare-recovery-python.mjs",
+    "pretest": "npm run test:python:setup",
     "test": "node --test --test-concurrency=2 tests/*.test.mjs",
     "check:quality": "npm run build",
     "test:smoke": "node tests/browser/visual-polish.mjs && node tests/browser/attachment-preview.mjs && node tests/browser/compose-window.mjs && node tests/browser/label-actions.mjs && node tests/browser/message-star-feedback.mjs && node tests/browser/draft-recovery.mjs && node tests/browser/queue-health-card.mjs && node tests/browser/login-entry.mjs && node tests/browser/cookie-session.mjs",

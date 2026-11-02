@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, ScanLine } from "lucide-react";
-import type { PDFDocumentProxy, PDFDocumentLoadingTask, RenderTask } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFDocumentLoadingTask, RenderTask } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { authFetch } from "@/lib/auth/client";
 import { useLanguage } from "@/components/language-provider";
 
@@ -62,9 +62,10 @@ export default function PdfAttachmentPreview({ url }: { url: string }) {
 		const controller = new AbortController();
 		let cancelled = false, loading: PDFDocumentLoadingTask | undefined;
 		void (async () => {
-			// Both the renderer and its worker are fetched only when a PDF is opened.
+			// The matching legacy builds support browsers without recent Map upsert APIs
+			// (Chrome <145, Safari <26.2). Both still load only when a PDF is opened.
 			const [engine, worker, response] = await Promise.all([
-				import("pdfjs-dist"), import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+				import("pdfjs-dist/legacy/build/pdf.mjs"), import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
 				authFetch(url, { signal: controller.signal, cache: "no-store" }),
 			]);
 			if (cancelled) { await response.body?.cancel(); return; }
