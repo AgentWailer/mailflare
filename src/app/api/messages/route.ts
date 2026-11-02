@@ -1,7 +1,7 @@
 import { requestTiming } from "@/lib/server-timing";
 import { getListAttachmentCounts } from "@/lib/messages/list-attachments";
 import { getMessageLabels, getConversationLabels } from "@/lib/mail-sorting/labels";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { eq, desc, and, count, isNotNull, inArray, notInArray, sql, sum } from "drizzle-orm";
 import { messageListFilterConditions } from "@/lib/messages/list-filter";
 import type { SQL } from "drizzle-orm";
@@ -14,8 +14,9 @@ import { getFirstEmailAddressEntry, normalizeEmailAddress } from "@/lib/email/ad
 import { hasMailboxPermission, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
 import { getRequestTimeZone } from "@/lib/time/utils";
-import { getMessageListColumns, loadConversationPage } from "./utils";
+import { getMessageListColumns, loadConversationPage, loadConversationRows } from "./utils";
 import { repairVisiblePreviews } from "@/lib/messages/preview-repair";
+import { cleanSnippetText, needsSnippetRepair } from "@/lib/email/snippet";
 import type { ListMessage } from "./types";
 
 export async function GET(request: Request) {
@@ -72,11 +73,11 @@ export async function GET(request: Request) {
 	// conversation row acts on the whole conversation within this folder.
 	const threadMessageIds = new Map<string, string[]>();
 	if (groupByThread) {
-		const page = await loadConversationPage({ db, where, offset, limit });
+		const metadataOnlyScan = accessibleMailboxIds.length > 0 && url.searchParams.get("starred") === "true"
+			&& !url.searchParams.get("q") && !url.searchParams.get("title");
+		const page = await loadConversationPage({ db, where, offset, limit, metadataOnlyScan });
 		total = page.total;
-		rows = page.ids.length
-			? await db.select(messageListColumns).from(messages).where(and(where, inArray(messages.id, page.ids)))
-			: [];
+		rows = await loadConversationRows({ db, where, ids: page.ids });
 		const rowById = new Map(rows.map((row) => [row.id, row]));
 		rows = page.ids.map((id) => rowById.get(id)).filter((row): row is ListMessage => !!row);
 	} else {
@@ -118,9 +119,8 @@ export async function GET(request: Request) {
 	const labelsPromise = groupByThread
 		? getConversationLabels(db, keys, where).then(labels => labels.map(({ threadKey, ...label }) => ({ messageId: threadKey, ...label })))
 		: getMessageLabels(db, rows.map(row => row.id));
-	const [members, countRows, jobs, contactEntries, labels, repairedPreviews, attachmentCounts] = await Promise.all([
+	const [members, countRows, jobs, contactEntries, labels, attachmentCounts] = await Promise.all([
 		timing.measure("members", membersPromise), timing.measure("threadCounts", threadCountsPromise), timing.measure("jobs", jobsPromise), timing.measure("contacts", contactsPromise), timing.measure("labels", labelsPromise),
-		timing.measure("previewRepair", repairVisiblePreviews(db, rows).catch(() => new Map<string, string>())),
 		timing.measure("attachments", getListAttachmentCounts(db, rows, groupByThread, where)),
 	]);
 	timing.mark("metadata");
@@ -157,7 +157,7 @@ export async function GET(request: Request) {
 			fromContactHasAvatar: avatarMap?.get(normalizeEmailAddress(message.fromAddr)) ?? false,
 			toContactHasAvatar: avatarMap?.get(normalizeEmailAddress(getFirstEmailAddressEntry(message.toAddr))) ?? false,
 			labels: labelsByKey.get(groupByThread ? message.threadId ?? message.id : message.id) ?? [],
-			snippet: repairedPreviews.get(message.id) ?? message.snippet,
+			snippet: needsSnippetRepair(message.snippet) ? cleanSnippetText(message.snippet) : message.snippet,
 			...(scheduledAtByMessageId.has(message.id) ? { scheduledAt: scheduledAtByMessageId.get(message.id) } : {}),
 			fromContactName:
 				(message.direction === "outbound" ? accountName : null) ??
@@ -172,5 +172,11 @@ export async function GET(request: Request) {
 		};
 	});
 
+	// Legacy preview repair reads bodies and writes derived snippets. Keep that
+	// maintenance off the response path; new mail already has a readable preview.
+	// Only the authorized visible page is considered, and repair remains bounded.
+	if (rows.some(row => needsSnippetRepair(row.snippet))) {
+		after(async () => { await repairVisiblePreviews(db, rows).catch(() => undefined); });
+	}
 	return NextResponse.json({ messages: enrichedRows, total, limit, offset, grouped: groupByThread }, { headers: timing.headers() });
 }

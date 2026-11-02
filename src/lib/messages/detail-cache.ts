@@ -63,6 +63,11 @@ export function clearMessageDetailCache() {
 	detailSizes.clear(); detailBytes = 0;
 }
 
+/** Include retries: speculative work must yield until reading has completed. */
+export function hasPendingMessageDetails(): boolean {
+	return detailRequests.size > 0;
+}
+
 export function getCachedMessageDetail(messageId: string): CachedMessageDetail | undefined {
 	const cached = detailCache.get(messageId);
 	if (cached) { detailCache.delete(messageId); detailCache.set(messageId, cached); }

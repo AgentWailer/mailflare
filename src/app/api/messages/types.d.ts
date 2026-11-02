@@ -11,6 +11,7 @@ export type ConversationPageInput = {
 	where: SQL | undefined;
 	offset: number;
 	limit: number;
+	metadataOnlyScan?: boolean;
 };
 
 export type ConversationPage = {

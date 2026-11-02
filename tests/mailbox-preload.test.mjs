@@ -9,11 +9,11 @@ const dom=new JSDOM('',{url:'https://mailflare.test/inbox',pretendToBeVisual:tru
 for(const key of ['window','document','localStorage','Event','CustomEvent','navigator'])Object.defineProperty(globalThis,key,{configurable:true,value:dom.window[key]});
 const directory=mkdtempSync(join(process.cwd(),'node_modules','mailbox-preload-test-'));
 after(()=>{dom.window.close();rmSync(directory,{recursive:true,force:true});});
-await build({stdin:{contents:`export {startMailboxPreload} from './src/components/messages/mailbox-preload';export {getMailboxPageParams,preloadMailboxPage} from './src/components/components-nav-utils';export {fetchMessageList,fetchMessageCounts,getCachedMessageList,clearMessageClientState,clearMessageListCache} from './src/hooks/utils';export {clearMailboxFoldersCache} from './src/components/messages/use-mailbox-folders';export {setClientSessionToken} from './src/lib/auth/client';`,resolveDir:process.cwd()},outfile:join(directory,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',logLevel:'silent'});
+await build({stdin:{contents:`export {startMailboxPreload} from './src/components/messages/mailbox-preload';export {getMailboxPageParams,preloadMailboxPage} from './src/components/components-nav-utils';export {fetchMessageList,fetchMessageCounts,getCachedMessageList,clearMessageClientState,clearMessageListCache} from './src/hooks/utils';export {clearMailboxFoldersCache} from './src/components/messages/use-mailbox-folders';export {setClientSessionToken} from './src/lib/auth/client';export {fetchCachedMessageDetail,clearMessageDetailCache} from './src/lib/messages/detail-cache';`,resolveDir:process.cwd()},outfile:join(directory,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',logLevel:'silent'});
 const app=await import(pathToFileURL(join(directory,'app.mjs')).href);
 const result=id=>Response.json({messages:[{id}],total:1,limit:25,offset:0});
 async function fixture(t,fetcher){
- localStorage.clear();app.clearMessageClientState();app.clearMailboxFoldersCache();
+ localStorage.clear();app.clearMessageClientState();app.clearMailboxFoldersCache();app.clearMessageDetailCache();
  let clock=1000,id=0,visible='visible',online=true;const timers=new Map(),routes=[],calls=[];
  const connection=new window.EventTarget();connection.saveData=false;
  Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>visible});Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>online});Object.defineProperty(navigator,'connection',{configurable:true,value:connection});
@@ -84,4 +84,27 @@ test('reader code warms once after the visible list and before folder work, with
 test('reader preparation respects data saving and navigation cleanup',async t=>{
  const f=await fixture(t);let warmed=0,release;f.connection.saveData=true;const stop=f.start({preloadReader:()=>{warmed++;return new Promise(resolve=>release=resolve);}});
  await f.advance(3000);assert.equal(warmed,0);f.connection.saveData=false;f.connection.dispatchEvent(new Event('change'));await f.advance(1000);assert.equal(warmed,1);stop();release();await f.flush();await f.advance(5000);assert.equal(f.calls.length,0);
+});
+
+
+test('an uncached selected message owns the network before speculative folders, including retry delays', async t=>{
+ let release;const f=await fixture(t,url=>url==='/api/messages/selected'
+   ? new Promise(resolve=>release=resolve)
+   : Promise.resolve(url.includes('/api/folders')?Response.json({folders:[]}):result('warm')));
+ const selected=app.fetchCachedMessageDetail('selected');f.start();
+ await f.advance(7000);
+ assert.equal(f.calls.length,1,'seven seconds of pending reading must not launch folder preload requests');
+ assert.equal(f.routes.length,0);
+ release(Response.json({message:{id:'selected'},body:{textBody:'Hello'}}));await selected;
+ await f.advance(300);assert.equal(f.routes[0],'/all','warming resumes once the selected message finishes');
+});
+
+test('a message selected during a folder preload prevents the next speculative request', async t=>{
+ let finishFolder,finishDetail;const f=await fixture(t,url=>url==='/api/messages/selected'
+   ? new Promise(resolve=>finishDetail=resolve)
+   : new Promise(resolve=>finishFolder=resolve));
+ f.start();await f.advance(1000);assert.equal(f.calls.length,1);
+ const selected=app.fetchCachedMessageDetail('selected');finishFolder(result('first-folder'));
+ await f.advance(7000);assert.equal(f.calls.length,2,'allow the existing request to finish but launch no more background work');
+ finishDetail(Response.json({message:{id:'selected'},body:{textBody:'Hello'}}));await selected;
 });

@@ -2,6 +2,7 @@ import { AUTH_SESSION_CHANGED_EVENT, getClientSessionToken } from "@/lib/auth/cl
 import { fetchMessageList, getCachedMessageList, getMessageClientGeneration, hasPendingMessageRequests } from "@/hooks/utils";
 import { getMailboxPageParams } from "@/components/components-nav-utils";
 import { fetchMailboxFolders } from "./use-mailbox-folders";
+import { hasPendingMessageDetails } from "@/lib/messages/detail-cache";
 
 const FOLDERS = ["all", "invoices", "promotions", "social", "orders", "inbox", "starred", "archived", "sent", "drafts", "snoozed", "scheduled", "spam", "trash"];
 type Connection = EventTarget & { saveData?: boolean; effectiveType?: string };
@@ -34,7 +35,7 @@ export function startMailboxPreload({ mailboxId, href, grouped, prefetchRoute, p
 	}
 	async function step() {
 		if (!allowed()) return;
-		if (Date.now() < quietUntil || hasPendingMessageRequests()) { schedule(); return; }
+		if (Date.now() < quietUntil || hasPendingMessageRequests() || hasPendingMessageDetails()) { schedule(); return; }
 		if (!readerLoaded) {
 			readerLoaded = running = true;
 			try { await preloadReader?.(); }
