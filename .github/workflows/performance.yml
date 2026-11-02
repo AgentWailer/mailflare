@@ -53,6 +53,7 @@ jobs:
             artifacts/performance/
             artifacts/quality/
             /tmp/mailflare-visual/*.png
+            /tmp/mailflare-standalone-viewport/*
             /tmp/mailflare-star-feedback/*.png
             /tmp/mailflare-queue-health/*.png
             /tmp/mailflare-compose-*.png

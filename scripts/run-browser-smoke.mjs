@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 
 export const browserSmokeSuites = [
   'visual-polish',
+  'standalone-viewport',
   'attachment-preview',
   'compose-window',
   'label-actions',
@@ -75,7 +76,7 @@ export async function runBrowserSmoke({
   }
   const failures = results.filter(result => !result.passed);
   writeFileSync(join(outputDirectory, 'browser-smoke-summary.json'), JSON.stringify(results, null, 2) + '\n');
-  // Nine failures still fit within the workflow's final 45-line/5,000-character
+  // Ten failures still fit within the workflow's final 45-line/5,000-character
   // public annotation. Complete, untruncated output stays in the suite log files.
   write(`\nBrowser smoke: ${results.length - failures.length}/${results.length} suites passed.\n`);
   for (const failure of failures) {
