@@ -50,7 +50,23 @@ await renameDialog.getByRole('textbox',{name:de['navigation.folderName'],exact:t
   await open('work');await page.getByRole('menuitem',{name:de['labels.changeColor'],exact:true}).click();const colorDialog=page.getByRole('dialog');await colorDialog.getByRole('heading',{name:de['labels.colorTitle'],exact:true}).waitFor();
   const red=colorDialog.getByRole('radio',{name:de['color.red'],exact:true});await red.locator('..').click();assert(await red.isChecked());failRename=true;await colorDialog.getByRole('button',{name:de['labels.renameSave'],exact:true}).click();await colorDialog.getByRole('alert').waitFor();assert.equal(labels.find(x=>x.id==='work').color,'#3b82f6');failRename=false;await colorDialog.getByRole('button',{name:de['labels.renameSave'],exact:true}).click();await colorDialog.waitFor({state:'hidden'});assert.equal(labels.find(x=>x.id==='work').name,'Projekte');assert.equal(labels.find(x=>x.id==='work').color,'#dc2626');assert.deepEqual(colors,[{mailboxId:'box',color:'#dc2626'}]);
   await open('work');await page.getByRole('menuitem',{name:de['labels.changeColor'],exact:true}).click();assert(await colorDialog.getByRole('radio',{name:de['color.red'],exact:true}).isChecked());await colorDialog.getByRole('radio',{name:de['color.green'],exact:true}).locator('..').click();await colorDialog.getByRole('button',{name:de['common.cancel'],exact:true}).click();await colorDialog.waitFor({state:'hidden'});assert.equal(colors.length,1);
-  const trigger=await open('work');let menu=await checkMenu();assert.equal(await menu.getByRole('menuitem',{name:de['labels.moveUp']}).getAttribute('aria-disabled'),'true');await page.keyboard.press('Escape');assert(await trigger.evaluate(el=>el===document.activeElement));
+  const trigger=await open('work');let menu=await checkMenu();assert.equal(await menu.getByRole('menuitem',{name:de['labels.moveUp']}).getAttribute('aria-disabled'),'true');
+  // Radix FocusScope restores focus in a zero-delay unmount timer, after Escape
+  // has returned. Hold that timer in one case so a fast local browser cannot
+  // accidentally turn the end-state check back into a synchronous assertion.
+  if(size.width===320)await page.evaluate(()=>{
+   const nativeSetTimeout=window.setTimeout;let held=true;window.__labelFocusTimers=[];
+   window.setTimeout=(callback,delay,...args)=>{
+    if((delay??0)!==0||typeof callback!=='function')return nativeSetTimeout(callback,delay,...args);
+    return nativeSetTimeout(()=>{if(held)window.__labelFocusTimers.push(()=>callback(...args));else callback(...args);},0);
+   };
+   window.__releaseLabelFocusTimers=()=>{held=false;window.setTimeout=nativeSetTimeout;for(const callback of window.__labelFocusTimers)nativeSetTimeout(callback,0);};
+  });
+  await page.keyboard.press('Escape');await menu.waitFor({state:'detached'});
+  if(size.width===320){await page.waitForFunction(()=>window.__labelFocusTimers.length>0,null,{timeout:1000});assert.equal(await trigger.evaluate(el=>el===document.activeElement),false,'held unmount timer reproduces the pre-restoration focus state');await page.evaluate(()=>window.__releaseLabelFocusTimers());}
+  // Keep the exact keyboard contract; only wait for its documented async phase.
+  await page.waitForFunction(el=>el===document.activeElement,await trigger.elementHandle(),{timeout:1000});
+  assert(await trigger.evaluate(el=>el===document.activeElement));
   await open('work');menu=await checkMenu();await menu.getByRole('menuitem',{name:de['labels.moveDown']}).click();await expectOrder(['family','work','long']);
   assert.deepEqual(JSON.parse(await page.evaluate(()=>localStorage.getItem('mailflare:nav:layout:folders:box'))),{folders:['family','work','long']});
   await page.waitForFunction(()=>window.__queryClient.isMutating({mutationKey:['label-order','box']})===0);await page.reload();await rows.first().waitFor();await page.waitForFunction(()=>document.querySelector('[data-reorder-list="folders"]')?.dataset.reorderId==='family');await expectOrder(['family','work','long']);
@@ -67,6 +83,6 @@ await renameDialog.getByRole('textbox',{name:de['navigation.folderName'],exact:t
    await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:h.x+h.width/2,y:h.y+h.height/2,id:1}]});await page.waitForTimeout(420);await page.locator('[data-reorder-ghost]').waitFor();const viewport=await scroller.boundingBox();const y=Math.min(size.height,viewport.y+viewport.height)-10;
    await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:h.x+h.width/2,y,id:1}]});await page.waitForTimeout(900);const after=await scroller.evaluate(el=>el.scrollTop);assert(after>before+150,'long label lists auto-scroll during a touch drag');await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await session.detach();await page.locator('[data-reorder-ghost]').waitFor({state:'detached'});assert((await order()).indexOf('item-0')>3);assert.equal(await rows.count(),35);
   }
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({viewport:size,reorderAndPersistence:true,nativeTouchDrag:mobile,nativeRowHold:mobile,autoScroll:size.width===390,mouseDrag:!mobile,dragCancellation:true,menuReorder:true,singleLineLabels:true,noHandles:true,renameAndRetry:true,recolorAndRetry:true,recolorCancel:true,deleteConfirmationAndRetry:true,mailPreservedByApiTests:true,cacheRefresh:true,readonly:true}));await page.close();
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({viewport:size,reorderAndPersistence:true,nativeTouchDrag:mobile,nativeRowHold:mobile,autoScroll:size.width===390,mouseDrag:!mobile,dragCancellation:true,menuReorder:true,focusRestored:true,delayedFocusRestore:size.width===320,singleLineLabels:true,noHandles:true,renameAndRetry:true,recolorAndRetry:true,recolorCancel:true,deleteConfirmationAndRetry:true,mailPreservedByApiTests:true,cacheRefresh:true,readonly:true}));await page.close();
  }
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});}
