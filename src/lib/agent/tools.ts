@@ -8,7 +8,7 @@ import { buildReplyReferences, formatMessageIdHeader, parseMessageIdList } from 
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { buildSearchConditions } from "@/lib/search/conditions";
 import { newId } from "@/lib/ids";
-import { deleteMessageWithObjects } from "@/lib/email/message-cleanup";
+import { discardAgentDraft } from "./draft-mutation";
 import { listMessageAttachments } from "@/lib/email/attachments";
 import { htmlToReadableText } from "@/lib/email/reply-content-utils";
 import { updateMessageStatusForUser } from "@/lib/user";
@@ -192,7 +192,7 @@ export async function runEmailTool(context: AgentToolContext, name: EmailToolNam
 		const [metadata] = await db.select().from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, row.id)).limit(1);
 		if (row.status !== "draft" || !metadata || metadata.revision !== input.expectedRevision || metadata.humanEditedAt) throw new Error("Draft changed or cannot be discarded");
 		if (context.origin === "chat") return { action: name, status: "pending_approval", draftId: row.id, expectedRevision: input.expectedRevision, emails: [publicMessage(row)] };
-		await deleteMessageWithObjects(context.env, db, row.id, row.rawR2Key);
+		await discardAgentDraft(context.env, row.id, metadata.revision, row.rawR2Key);
 		return { draftId: row.id, status: "discarded" };
 	}
 	throw new Error("Unknown tool");

@@ -1,5 +1,6 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {build} from 'esbuild';
@@ -9,7 +10,7 @@ const write=(name,content)=>writeFileSync(join(dir,name),content);
 write('navigation.ts',`import {useSyncExternalStore} from 'react';const subscribe=fn=>{window.addEventListener('fixture:navigate',fn);return ()=>window.removeEventListener('fixture:navigate',fn)};export const usePathname=()=>useSyncExternalStore(subscribe,()=>location.pathname);const router={replace:href=>{history.replaceState({},'',href);window.dispatchEvent(new Event('fixture:navigate'))},refresh:()=>{}};export const useRouter=()=>router;`);
 write('link.tsx',`export default function Link({children,...props}){return <a {...props}>{children}</a>}`);
 write('entry.tsx',`import {createRoot} from 'react-dom/client';import {LoginClient} from '../../src/app/(auth)/login/login-client';import {AuthGuard} from '../../src/components/auth/auth-guard';import {LanguageProvider} from '../../src/components/language-provider';import {ForkSource} from '../../src/components/fork-source';import {ProgressiveAvatarImage} from '../../src/components/progressive-avatar-image';import {usePathname} from 'next/navigation';import messages from '../../public/locales/de.json';function App(){const path=usePathname();return <LanguageProvider initialLocale="de" initialMessages={messages}>{path==='/inbox'?<main><h1>Test-Posteingang</h1><ProgressiveAvatarImage priority src="/api/profile/avatar" alt="Profilbild" /></main>:<><AuthGuard mode="public" allowAuthenticated={new URLSearchParams(location.search).get('add')==='1'}><LoginClient adding={new URLSearchParams(location.search).get('add')==='1'}/></AuthGuard><ForkSource/></>}</LanguageProvider>};createRoot(document.getElementById('root')).render(<App/>);`);
-const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(name=>(name.startsWith('index.')||name.startsWith('index-'))&&name.endsWith('.css'))));
+const css=readProductionCss();
 let server,browser;
 try{
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'next/link':join(dir,'link.tsx'),'next/navigation':join(dir,'navigation.ts')},define:{'process.env.NODE_ENV':'"production"','process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY':'undefined'},logLevel:'silent'});
@@ -20,13 +21,13 @@ try{
  const de=JSON.parse(readFileSync(join(root,'public/locales/de.json'),'utf8'));
  for(const mode of ['ordinary','mfa','saved','add','retry']){
   const page=await browser.newPage({viewport:mode==='ordinary'?{width:1440,height:900}:{width:320,height:700}}),errors=[],avatars=[];page.on('pageerror',error=>errors.push(error.message));let submissions=0,verified=false;
-  if(mode==='saved'||mode==='add')await page.addInitScript(()=>localStorage.setItem('mailflare-session-token','fixture-session'));
+  if(mode==='saved'||mode==='add'){await page.context().addCookies([{name:'ep_session',value:'fixture-session',url:origin,httpOnly:true,sameSite:'Lax'}]);await page.addInitScript(()=>localStorage.setItem('mailflare-session-token','fixture-session'));}
   await page.route('**/api/**',route=>{
    const req=route.request(),path=new URL(req.url()).pathname;
    if(path==='/api/profile/avatar'){avatars.push(path);return route.fulfill({contentType:'image/png',body:assets['/icon-96.png']});}
-   if(path==='/api/auth/me')return route.fulfill({status:req.headers().authorization?200:401,contentType:'application/json',body:JSON.stringify(req.headers().authorization?{user:{id:'owner',role:'user'}}:{error:'Unauthorized'})});
-   if(path==='/api/auth/login'){submissions++;if(mode==='retry'&&submissions===1)return route.fulfill({status:401,contentType:'application/json',body:'{"error":"Test failure"}'});if(mode==='mfa')return route.fulfill({contentType:'application/json',body:'{"mfaRequired":true,"challengeToken":"fixture-challenge"}'});return route.fulfill({contentType:'application/json',body:'{"ok":true,"token":"fixture-new-session","redirect":"/inbox"}'});}
-   if(path==='/api/auth/mfa/verify'){verified=true;return route.fulfill({contentType:'application/json',body:'{"ok":true,"token":"fixture-mfa-session","redirect":"/inbox"}'});}return route.fulfill({contentType:'application/json',body:'{}'});
+   if(path==='/api/auth/me'){assert.equal(req.headers().authorization,undefined);const signedIn=req.headers().cookie?.includes('ep_session=');return route.fulfill({status:signedIn?200:401,contentType:'application/json',body:JSON.stringify(signedIn?{user:{id:'owner',role:'user'}}:{error:'Unauthorized'})});}
+   if(path==='/api/auth/login'){submissions++;if(mode==='retry'&&submissions===1)return route.fulfill({status:401,contentType:'application/json',body:'{"error":"Test failure"}'});if(mode==='mfa')return route.fulfill({contentType:'application/json',body:'{"mfaRequired":true,"challengeToken":"fixture-challenge"}'});return route.fulfill({contentType:'application/json',headers:{'Set-Cookie':'ep_session=fixture-new-session; Path=/; HttpOnly; SameSite=Lax'},body:'{"ok":true,"token":"fixture-new-session","redirect":"/inbox"}'});}
+   if(path==='/api/auth/mfa/verify'){verified=true;return route.fulfill({contentType:'application/json',headers:{'Set-Cookie':'ep_session=fixture-mfa-session; Path=/; HttpOnly; SameSite=Lax'},body:'{"ok":true,"token":"fixture-mfa-session","redirect":"/inbox"}'});}return route.fulfill({contentType:'application/json',body:'{}'});
   });
   await page.goto(origin+(mode==='add'?'/login?add=1':'/'));
   if(mode!=='saved'){

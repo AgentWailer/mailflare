@@ -7,6 +7,7 @@ import type { AssistantAvailabilityResponse } from "./assistant-availability-typ
 
 export function useAssistantAvailability() {
 	const [enabled, setEnabled] = useState<boolean | null>(null);
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the browser availability cache after hydration before remote revalidation.
 	useLayoutEffect(() => setEnabled(readInitialAssistantAvailability()), []);
 
 	useEffect(() => {

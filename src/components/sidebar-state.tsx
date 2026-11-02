@@ -24,19 +24,23 @@ export function SidebarProvider({ children, expandedWidth = 260, mobileOverlay =
 	const overlay = mobileOverlay && mobile;
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize navigation/viewport and browser preference state after hydration or route changes.
 		setMobileOpen(false);
 	}, [pathname, mobile]);
 
 	// Collapse on first load and after every navigation on phones, so the overlay never sticks open.
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize navigation/viewport and browser preference state after hydration or route changes.
 		if (mobile) setMinimal(true);
 	}, [pathname, mobile]);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize navigation/viewport and browser preference state after hydration or route changes.
 		if (!mobile) setMinimal(readInitialSidebarMinimal());
 	}, [mobile]);
 
 	useLayoutEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize navigation/viewport and browser preference state after hydration or route changes.
 		setMinimal(readInitialSidebarMinimal());
 		setWidth(readInitialColumnWidth("sidebar", expandedWidth, 200, 480));
 		const frame = requestAnimationFrame(() => setWidthReady(true));
@@ -73,7 +77,7 @@ export function SidebarProvider({ children, expandedWidth = 260, mobileOverlay =
 				}
 			})
 			.catch(() => undefined);
-	}, []);
+	}, [expandedWidth]);
 
 	function toggle() {
 		if (overlay) {

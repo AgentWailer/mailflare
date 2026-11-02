@@ -1,14 +1,15 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 // Actual API key settings and production CSS, with synthetic login/key/grant APIs.
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-import {mkdtempSync,writeFileSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
 const dir=mkdtempSync(join(process.cwd(),'node_modules','mcp-oauth-browser-')),de=JSON.parse(readFileSync('public/locales/de.json','utf8'));let browser;
 writeFileSync(join(dir,'mailboxes.ts'),`export const useSelectedMailbox=()=>({mailboxes:[{id:'box',localPart:'owner',hostname:'example.test',permission:'full_access'}],selectedMailbox:{id:'box',localPart:'owner',hostname:'example.test',permission:'full_access'}});`);
 try{
  await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {LanguageProvider} from './src/components/language-provider';import {ApiKeysSettings} from './src/components/settings/api-keys-settings';import de from './public/locales/de.json';createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale="de" initialMessages={de}><main className="p-4"><ApiKeysSettings/></main></LanguageProvider></QueryClientProvider>);`,resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.js'),bundle:true,platform:'browser',format:'esm',tsconfig:'tsconfig.json',alias:{'@/components/mailbox-provider':join(dir,'mailboxes.ts')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
- const cssDir='dist/client/_next/static/css',css=readFileSync(join(cssDir,readdirSync(cssDir).find(name=>name.startsWith('index.')&&name.endsWith('.css'))));
+ const css=readProductionCss();
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const viewport of [{width:320,height:700},{width:390,height:844},{width:820,height:1180},{width:1440,height:900}]){
   const page=await browser.newPage({viewport}),errors=[],changes=[];page.on('pageerror',error=>errors.push(error.message));

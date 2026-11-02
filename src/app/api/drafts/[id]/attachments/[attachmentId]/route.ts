@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { agentDraftMetadata, messages } from "@/db/schema";
+import { agentDraftMetadata, messageAttachments, messages } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { deleteMessageAttachment } from "@/lib/email/attachments";
+import { commitAgentDraftMutation, DRAFT_CHANGED_ERROR } from "@/lib/agent/draft-mutation";
 import { userOwnsDraft } from "../../../utils";
 
 type DraftAttachmentRouteParams = {
@@ -23,10 +24,18 @@ export async function DELETE(request: Request, { params }: DraftAttachmentRouteP
 		return NextResponse.json({ error: "Draft not found" }, { status: 404 });
 	}
 
-	const removed = await deleteMessageAttachment(env, id, attachmentId);
-	if (!removed) {
+	const [agent] = await db.select({ revision: agentDraftMetadata.revision }).from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, id)).limit(1);
+	if (agent) {
+		const [file] = await db.select().from(messageAttachments).where(and(eq(messageAttachments.messageId, id), eq(messageAttachments.id, attachmentId))).limit(1);
+		if (!file) return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
+		try { await commitAgentDraftMutation(env, { draftId: id, revision: agent.revision, removeIds: [attachmentId], human: true }); }
+		catch (error) {
+			if (error instanceof Error && error.message === DRAFT_CHANGED_ERROR) return NextResponse.json({ error: error.message, code: "draft_changed" }, { status: 409 });
+			throw error;
+		}
+		await Promise.allSettled([env.BUCKET.delete(file.r2Key)]);
+	} else if (!await deleteMessageAttachment(env, id, attachmentId)) {
 		return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
 	}
-	await db.update(agentDraftMetadata).set({ revision: sql`${agentDraftMetadata.revision} + 1`, humanEditedAt: new Date() }).where(eq(agentDraftMetadata.draftId, id));
 	return NextResponse.json({ ok: true });
 }

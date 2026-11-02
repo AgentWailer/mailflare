@@ -11,6 +11,7 @@ export function McpAgentInstructions(props: McpAgentInstructionsProps) {
 	const { t } = useLanguage();
 	const [origin, setOrigin] = useState("");
 	const [copied, setCopied] = useState(false);
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- The public origin is browser-specific and must not change server-rendered initial markup.
 	useEffect(() => setOrigin(window.location.origin), []);
 	const prompt = buildMcpAgentPrompt(origin, props);
 

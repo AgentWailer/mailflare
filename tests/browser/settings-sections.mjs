@@ -1,6 +1,7 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 const { chromium } = await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE || 'playwright');
@@ -17,7 +18,7 @@ const user = {id:'user',role:'admin',name:'Steffen',email:'owner@example.test',r
 const responseFor = path => path==='/api/auth/me'?{user}:path==='/api/folders'?{folders:[{id:'paperless',name:'Paperless',color:'#2563eb'}]}:path==='/api/settings/paperless'?{available:true,connection:{id:'connection',baseUrl:'https://dms.example.test',enabled:false,hasToken:true,hasAccessCredentials:true,labelId:'paperless',processedLabelId:null},labels:[{id:'paperless',name:'Paperless',parentId:null}],jobs:[],counts:[]}:path==='/api/import/gmail'?{configured:false,missing:[],connections:[],jobs:[]}:path==='/api/settings/mfa'?{enabled:false,recoveryCodesLeft:0}:path==='/api/api-keys'?{apiKeys:[]}:path.includes('/api/mailboxes/')?{mailbox:{id:'box',signature:'',autoReplyEnabled:false,autoReplySubject:'',autoReplyBody:''}}:{jobs:[],rules:[],hiddenLabelIds:[],messages:[]};
 try {
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'@':join(root,'src'),'next/link':join(dir,'link.tsx'),'next/navigation':join(dir,'navigation.ts'),'@/lib/i18n/server':join(dir,'server.ts'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'@/components/page-loading':join(dir,'loading.ts')},define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'fixture-context',setup(b){b.onResolve({filter:/(?:^|\/)mailbox-provider$/},()=>({path:join(dir,'mailbox.ts')}));}}],logLevel:'silent'});
- const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(f=>f.startsWith('index.')&&f.endsWith('.css'))));
+ const css=readProductionCss();
  server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(200,{'Content-Type':path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(path==='/fixture.js'?readFileSync(join(dir,'fixture.js')):path==='/fixture.css'?css:'<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0;background:#f5f7fc"><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>');});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const base=`http://127.0.0.1:${server.address().port}`;

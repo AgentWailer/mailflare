@@ -1,6 +1,7 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 // Real conversation cards, reader and reply action with private synthetic APIs.
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {join} from 'node:path';
 import {build} from 'esbuild';
@@ -17,7 +18,7 @@ write('entry.tsx',`import React,{useState} from 'react';import {createRoot} from
 let browser,server;
 try{
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'@':join(root,'src'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'@/components/compose/compose-context':join(dir,'compose.ts'),'@/components/contacts/contact-avatar':join(dir,'avatar.tsx'),'next/navigation':join(dir,'navigation.ts')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
- const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(x=>x.startsWith('index.')&&x.endsWith('.css'))));const files={'/':Buffer.from('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/style.css':css,'/fixture.js':readFileSync(join(dir,'fixture.js'))};
+ const css=readProductionCss();const files={'/':Buffer.from('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/style.css':css,'/fixture.js':readFileSync(join(dir,'fixture.js'))};
  server=createServer((req,res)=>{const path=new URL(req.url,'http://x').pathname;res.writeHead(files[path]?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(files[path]||'not found');});await new Promise(r=>server.listen(0,'127.0.0.1',r));
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const config of [{width:320,height:700,touch:true},{width:390,height:844,touch:true},{width:1440,height:900},{width:1440,height:900,dark:true}]){

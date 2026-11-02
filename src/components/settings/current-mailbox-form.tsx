@@ -6,7 +6,7 @@ import { Save } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,7 @@ export function CurrentMailboxForm() {
 
 	useEffect(() => {
 		const nextName = selectedMailbox?.displayName ?? "";
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Reset editable and saved values when the selected mailbox or server value changes.
 		setDisplayName(nextName);
 		setSavedDisplayName(nextName);
 		setStatus(null);

@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 		Array.from(new Set(parseAccountTokens(jar.get(ACCOUNTS_COOKIE)?.value).concat(active ?? []))),
 	);
 	const response = NextResponse.json({
-		accounts: accounts.map(({ token, avatarKey, ...account }) => ({ ...account, active: token === active })),
+		accounts: accounts.map(({ token, userId, email, name, hasAvatar }) => ({ userId, email, name, hasAvatar, active: token === active })),
 	});
 	response.headers.set("Cache-Control", "no-store");
 	return response;

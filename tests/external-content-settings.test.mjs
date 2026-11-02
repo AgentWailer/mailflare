@@ -62,6 +62,6 @@ test('backups before and after migration restore; legacy backups default to allo
  const parsed=JSON.parse(new TextDecoder().decode(updated));assert.equal(parsed.tables.users.find(x=>x.id==='owner').allow_external_content,0);
  old.DB.db.exec("UPDATE users SET allow_external_content=1 WHERE id='owner'");await app.restoreDatabaseRecords(old.DB,updated.buffer);
  assert.equal(old.DB.db.prepare("SELECT allow_external_content value FROM users WHERE id='owner'").get().value,0);
- const f=await fixture(t,true);await app.restoreDatabaseRecords(f.DB,updated.buffer);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM users').get().n,2);
+ const f=await fixture(t,true);await assert.rejects(app.restoreDatabaseRecords(f.DB,updated.buffer),/Apply pending database migrations/);assert.equal(f.DB.db.prepare('SELECT count(*) n FROM users').get().n,2);
  assert(readFileSync('src/lib/migrations/bundle.json','utf8').includes('0065_external_content_preference.sql'));
 });

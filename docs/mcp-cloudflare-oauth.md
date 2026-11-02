@@ -26,7 +26,7 @@ or Access service-token secret is entered in ChatGPT.
    Neither value is a user token. Both must match the application protecting MCP.
    For a self-hosted Node deployment behind Access, configure the same server
    environment variables and the public `APP_URL`.
-4. Apply migration `0082_mcp_oauth_grants.sql` before deploying the new code.
+4. Follow the [release migration checklist](operations.md#release-an-existing-installation) and apply required pending additive migrations before deploying dependent code. `0082_mcp_oauth_grants.sql` introduced OAuth grants; it is not a substitute for later required migrations in the selected release.
 
 Cloudflare documents Managed OAuth for self-hosted applications here:
 https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/managed-oauth/

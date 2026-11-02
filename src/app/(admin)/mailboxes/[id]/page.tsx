@@ -52,6 +52,7 @@ export default function MailboxSettingsPage() {
 
   useEffect(() => {
     if (mailbox.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Populate the edit form from the newly fetched mailbox, not the previous route.
       setDisplayName(mailbox.data.displayName ?? "");
       setUseAllDomains(mailbox.data.useAllDomains);
       setAliasDomainId((current) => current || mailbox.data.domainId);

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ExternalLink, ImagePlus, LockKeyhole, Palette } from "lucide-react";
+import { ImagePlus, LockKeyhole, Palette } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { useBranding } from "@/components/branding-provider";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export default function BrandingPage() {
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the editable field when the asynchronously loaded branding changes.
 		setAppName(branding.appName);
 	}, [branding.appName]);
 
@@ -90,7 +91,8 @@ export default function BrandingPage() {
 							<Label>{t("branding.appIcon")}</Label>
 							<Input ref={inputRef} type="file" accept={BRANDING_ICON_ACCEPT} className="hidden" onChange={(event) => pickIcon(event.target.files?.[0] ?? null)} />
 							<button type="button" onClick={() => inputRef.current?.click()} className="flex items-center gap-4 rounded-2xl border border-dashed border-neutral-300 p-4 text-left hover:bg-neutral-50">
-								<img src={preview ?? branding.iconUrl} alt={t("branding.iconPreview")} className="h-16 w-16 rounded-2xl object-cover" />
+								{/* eslint-disable-next-line @next/next/no-img-element -- Blob previews and the existing small branding asset are displayed directly without an optimizer round trip. */}
+								<img width={64} height={64} src={preview ?? branding.iconUrl} alt={t("branding.iconPreview")} className="h-16 w-16 rounded-2xl object-cover" />
 								<span className="text-sm text-neutral-600"><ImagePlus className="mb-1 h-5 w-5" />{t("branding.chooseImage")}<br /><span className="text-xs text-neutral-400">{t("branding.maxSize")}</span></span>
 							</button>
 						</div>

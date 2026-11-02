@@ -21,7 +21,9 @@ export function MessageAttachmentCard({
 
 	const content = <>
 			{visual.thumbnail === "image" && (
+				// eslint-disable-next-line @next/next/no-img-element -- The attachment endpoint requires the browser session cookie and must not enter a shared image cache.
 				<img
+					width={56} height={56} decoding="async"
 					src={previewUrl}
 					alt=""
 					loading="lazy"

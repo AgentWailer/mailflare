@@ -1,6 +1,6 @@
 # Deployment and configuration
 
-This guide covers Cloudflare deployment, runtime configuration, database backups, and application updates.
+This guide covers new Cloudflare installations and binding configuration for the `AgentWailer/mailflare` fork. For an existing installation, use the [current operating guide](operations.md), especially the migration-before-code release procedure and recovery into empty resources. Do not follow upstream replacement workflows for this fork.
 
 ## Overview
 
@@ -33,13 +33,13 @@ Paste only the token secret into the `CF_TOKEN` field in step 2. Do not include 
 
 ## Step 2: Deploy mailflare
 
-1. Click **Deploy to Cloudflare** and sign in to Cloudflare if prompted.
+1. For a new installation, click **Deploy to Cloudflare**, verify the repository is `AgentWailer/mailflare`, and sign in to Cloudflare if prompted.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/AgentWailer/mailflare)
 
 2. Choose the Cloudflare account that owns the domain you want to use.
 3. Set the app name to exactly `mailflare`. Do not rename it. 
-4. Add `CF_TOKEN` when Cloudflare asks for the app's runtime variables or secrets. This is different from the CF_TOKEN that Cloudflare uses to deploy the app.
+4. Add the runtime `CF_TOKEN` when Cloudflare asks for the app's secrets. It is separate from the deployment credential (`CLOUDFLARE_API_TOKEN` in Wrangler); never copy a deployment administrator token into a client or chat.
 5. Start the deployment and wait for Cloudflare to finish provisioning and deploying the Worker.
 
 
@@ -77,26 +77,32 @@ Your inbox should be ready to send and receive emails
 
 ## Manual deployment
 
-Install dependencies, configure the Cloudflare bindings in `wrangler.jsonc`, and run:
+For a new installation, install locked dependencies and configure the complete bindings in `wrangler.jsonc`, including the private live/rescue buckets and queue dead-letter target. Validate before an authorized manual deployment:
 
 ```bash
-npm install
+npm ci
+npm run check:quality
+npm run test:smoke
 npm run deploy:local
 ```
 
+For an existing Git-connected installation, publish the reviewed commit through that existing pipeline after the [release checks and migrations](operations.md#release-an-existing-installation). Do not create replacement production resources or use `/setup` on a populated database.
+
 The local deploy command builds with vinext and uploads the complete Worker with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to that build. It does not modify D1. The complete Worker is required because `worker.ts` also handles inbound email, queues, scheduled backups, and the real-time Durable Object.
 
-For manual recovery, pending migrations can still be applied with:
+For an existing installation, inspect pending migrations and apply any required additive migration **before** publishing code that selects its new columns. After verifying the account, database binding and available recovery point, use:
 
 ```bash
+npx wrangler d1 migrations list DB --remote
 npm run db:migrate:remote
+npx wrangler d1 migrations list DB --remote
 ```
 
 Remote migrations require the target account's `database_id` in your local `wrangler.jsonc`. Do not commit an account-specific database ID to a reusable repository.
 
 ## Object storage (R2, Backblaze B2 or AWS S3)
 
-Raw mail, attachments, Drive files, avatars, branding icons, JMAP uploads and backups all live in one bucket. By default that is the `BUCKET` R2 binding in `wrangler.jsonc`. To use Backblaze B2 instead, set four Worker variables (as secrets, or in `.dev.vars` locally):
+Raw mail, attachments, Drive files, avatars, branding icons and JMAP uploads use the `BUCKET` binding. Legacy record exports used that bucket too. The current encrypted rescue copy is deliberately separate, using the private R2 `RESCUE_BUCKET` binding; the live-provider substitution described below does not replace that rescue destination. By default live objects use R2. To use Backblaze B2 instead, set four Worker variables (as secrets, or in `.dev.vars` locally):
 
 | Variable | Example | Purpose |
 | --- | --- | --- |
@@ -121,21 +127,41 @@ When all four B2 variables (or the S3 ones) are present that storage replaces R2
 - **Lifecycle.** Set the bucket's lifecycle rule to keep only the last version and to delete unfinished large files after a few days, as R2 would abort incomplete multipart uploads.
 - **Test it** with `POST /api/v1/storage` (admin key with the `storage` scope), or the `manage_storage` MCP tool with `action: "test"`; it writes, reads and deletes a small object.
 
-## Database backups
+## Backup and recovery
 
-Mailflare exports its D1 records as JSON and stores the backup files in the configured storage bucket (R2, or Backblaze B2 when configured). A cron trigger in `wrangler.jsonc` runs daily at 02:00 UTC and applies the schedule selected under **Admin → Backups**. Manual backups run the same record export directly from the admin API.
+Use [D1 Time Travel and the encrypted rescue copy](rescue-backup.md). Time Travel
+covers database history; it does not recover deleted R2 objects. The rescue copy
+includes the database and referenced files in a separate private R2 bucket.
+Keep the downloaded private recovery key and its password outside the Worker.
 
-Deploy the complete Worker with `npm run deploy` whenever the cron trigger is added or changed.
+The `0 2 * * *` cron checks the configured backup schedule; it does not imply a
+new full backup every day. The current rescue policy maintains one verified
+recovery point, reuses unchanged object blocks and retains the previous point
+until a replacement has been verified. Configure the actual interval under
+**Administration → Backups**. The five-minute cron resumes interrupted work.
 
-After upgrading an existing installation and confirming the cron trigger is active, the old Workflow can be removed with `npx wrangler workflows delete mailflare-database-backup`. Deleting it also removes its historical Workflow instances; backup files in storage and rows in Mailflare's backup history are unaffected.
+Recover and verify locally, import into **new empty D1/R2 resources**, verify the
+result, then switch bindings. Keep the existing resources until verification is
+complete. The old JSON upload/restore procedure is not the Cloudflare recovery
+path. Historical record-export details remain in [database-backups.md](database-backups.md),
+marked as legacy. Deployment configuration and secrets require their own secure
+inventory; the data backup does not recreate them.
 
 ## Email assistant and MCP
 
-The assistant uses the Workers AI `AI` binding and a separate `mailflare-agent` queue. Provision the queue in the Cloudflare account before deploying a configuration that declares it, and apply migration `0032_add_agentic_mail.sql` before opening the new UI on an existing database. The five-minute cron recovers pending auto-draft work; the 02:00 UTC cron still runs backups.
+The assistant uses the Workers AI `AI` binding and a separate `mailflare-agent` queue. Provision the queue in the Cloudflare account before deploying a configuration that declares it. Review and apply all required pending additive migrations before dependent code; `0032_add_agentic_mail.sql` introduced the original agent tables, but it is not the latest complete schema. The five-minute cron recovers pending auto-draft work; the 02:00 UTC cron still runs backups.
 
 In the inbox, open **Assistant → Settings** for a mailbox, select its reviewer, and enable the assistant. Auto-drafting is a separate opt-in. It skips spam, automated mail, and mailboxes with out-of-office replies enabled. Generated replies appear as ordinary drafts assigned to the reviewer. The reviewer must open the draft and confirm the exact content before delivery.
 
-The assistant panel no longer exposes MCP key management. External MCP clients can still connect to `https://<your-mailflare-origin>/mcp` with a mailbox-scoped Bearer key created through the authenticated `/api/agent/mcp-keys` endpoint. Keys can be listed and revoked through that endpoint; a new key is shown only once. The server uses Streamable HTTP and accepts clients that can set a Bearer header. Its `request_send` tool returns a Mailflare review URL; the MCP key cannot confirm or deliver messages directly. MCP does not require Workers AI for read and draft tools.
+Manage MCP keys and OAuth grants under **Settings → API keys**. For ChatGPT,
+use [Cloudflare Managed OAuth](mcp-cloudflare-oauth.md): Access runs the OAuth
+server and Mailflare verifies the identity assertion plus an explicit account
+and permission grant. No fixed Mailflare key or Access service-token secret is
+pasted into ChatGPT. Compatible local clients can still use a scoped Bearer key.
+
+The Streamable HTTP endpoint is `/mcp`. Read/draft tools do not require Workers
+AI. `request_send` returns a Mailflare review URL; the user confirms delivery in
+Mailflare. Calendar writes use their separate scopes and save immediately.
 
 ## Updating Mailflare
 
@@ -143,13 +169,24 @@ This AgentWailer fork disables the original automatic updater. That updater repl
 
 Merge upstream changes into `AgentWailer/mailflare`, review them, run the fork tests and build, and deploy the fork through your Cloudflare Git integration or Wrangler. Do not install or dispatch the original `deploy-update.yml` replacement workflow. See [Fork operation and deployment](fork.md).
 
-Deployment and database migration are separate. After Cloudflare deploys a repository push or an admin-triggered update, open or refresh **Admin settings**. The application update card shows any pending database migrations. Select **Update database** to apply them through the Worker's D1 binding. The same runner initializes a new database during setup.
+Deployment and migration are separate operations with an explicit release
+order. Inspect the candidate commit's migration files and schema consumers.
+Apply and verify backward-compatible additive migrations **before** deploying
+code that immediately references their new columns. For example, releases using
+`reply_to` and `header_metadata` require migrations 0083 and 0084 respectively.
+Do not assume an inaccessible new Admin page can repair an incompatible schema.
 
-If the Cloudflare dashboard has a custom deploy command containing `wrangler d1 migrations apply DB --remote`, remove that part and use `npm run deploy`.
+The Admin migration action is useful when the running code can operate with the
+current schema. It is not a universal deploy-first migration strategy. Do not
+remove a migration step from an existing pipeline without replacing it with an
+explicitly ordered and verified release step. Destructive or non-compatible
+changes require a separate staged migration and recovery plan.
 
-Each migration and its `d1_migrations` history entry run in one D1 batch. If a migration fails, its changes are rolled back, the failed filename is shown, and it can be retried after the problem is corrected. Wrangler remains available as a manual recovery tool.
-
-New application releases must remain compatible with the previous schema until an administrator applies their migrations. Prefer additive changes, keep old columns during the transition, and avoid making authentication or the admin settings page depend immediately on a newly added column. Plan a maintenance window for an incompatible schema change.
+Each migration and its history entry run in one D1 batch. A failed migration can
+be retried after its cause is corrected. Preserve applied migration files and
+history. Roll back application code while retaining compatible additive columns;
+never restore the entire live database merely to undo a UI/code release. See the
+[release and rollback checklist](operations.md#release-an-existing-installation).
 
 When adding a schema change, create a new uniquely named SQL file in `drizzle/migrations` and do not edit an applied migration. Build and development commands generate the Worker migration bundle from those files. `npm run db:bundle` can generate it explicitly.
 

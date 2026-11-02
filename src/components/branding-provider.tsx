@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { BrandingContextValue } from "./branding-provider-types";
 import { DEFAULT_BRANDING, fetchBranding } from "./branding-provider-utils";
 
@@ -9,19 +9,22 @@ const BrandingContext = createContext<BrandingContextValue | null>(null);
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
 	const [branding, setBranding] = useState(DEFAULT_BRANDING);
 	const [iconVersion, setIconVersion] = useState(0);
+	const previousName = useRef(DEFAULT_BRANDING.appName);
 
-	async function refreshBranding() {
+	const refreshBranding = useCallback(async () => {
 		const nextBranding = await fetchBranding();
 		setBranding(nextBranding);
 		setIconVersion(Date.now());
-		if (document.title === "Mailflare" || document.title === branding.appName) {
+		if (document.title === "Mailflare" || document.title === previousName.current) {
 			document.title = nextBranding.appName;
 		}
-	}
+		previousName.current = nextBranding.appName;
+	}, []);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Load remote branding once after mount; preserve the SSR defaults until then.
 		void refreshBranding();
-	}, []);
+	}, [refreshBranding]);
 
 	return (
 		<BrandingContext.Provider value={{

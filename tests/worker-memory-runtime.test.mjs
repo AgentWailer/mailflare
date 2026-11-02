@@ -14,7 +14,9 @@ await build({stdin:{contents:`
   const url=new URL(request.url);
   if(request.method==='GET'){const object=await env.BUCKET.get('copy');return new Response(object.body);}
   if(url.pathname==='/raw'){const bytes=await readArrayBufferBody(request,2048);return Response.json({size:bytes.byteLength});}
-  const form=await readFormDataBody(request,url.pathname==='/small'?2048:30*1024*1024),file=form.get('file');
+  // Exercise the streaming limit as well as the Content-Length preflight in the real Workers parser.
+  if(url.pathname==='/small-stream'){const headers=new Headers(request.headers);headers.delete('content-length');request=new Request(request,{headers});}
+  const form=await readFormDataBody(request,url.pathname.startsWith('/small')?2048:30*1024*1024),file=form.get('file');
   await env.BUCKET.put('upload',file,{httpMetadata:{contentType:file.type}});
   const object=await env.BUCKET.get('upload');await env.BUCKET.put('copy',object.body);
   const head=await env.BUCKET.head('copy');return Response.json({name:file.name,size:head.size,type:head.httpMetadata.contentType,subject:form.get('subject')});
@@ -30,6 +32,13 @@ test('native Workers parser and R2 accept a 24 MiB File without an extra JS Arra
 });
 test('native multipart wraps no overflow as a generic parse error, and raw intake is bounded too',async()=>{
  const form=new FormData();form.set('file',new File([new Uint8Array(4096)],'too-large.pdf'));
- const multipart=await fetch(new URL('/small',await mf.ready),{method:'POST',body:form});const failure=await multipart.json();assert.equal(multipart.status,413,JSON.stringify(failure));assert.equal(failure.error,'RequestBodyTooLargeError');
- const raw=await fetch(new URL('/raw',await mf.ready),{method:'POST',body:new Uint8Array(4096)});assert.equal(raw.status,413);
+ // Buffer only this tiny rejection fixture. Node/Undici's multipart writer may still be
+ // streaming its closing boundary when workerd cancels an oversized request, causing EPIPE
+ // before Node exposes the valid 413 response. The 24 MiB upload above remains streamed.
+ const encoded=new Response(form),body=await encoded.arrayBuffer();
+ for(const path of ['/small','/small-stream']){
+  const multipart=await fetch(new URL(path,await mf.ready),{method:'POST',headers:{'Content-Type':encoded.headers.get('Content-Type')},body});
+  const failure=await multipart.json();assert.equal(multipart.status,413,JSON.stringify(failure));assert.equal(failure.error,'RequestBodyTooLargeError');
+ }
+ const raw=await fetch(new URL('/raw',await mf.ready),{method:'POST',body:new Uint8Array(4096)});assert.equal(raw.status,413);assert.equal((await raw.json()).error,'RequestBodyTooLargeError');
 });

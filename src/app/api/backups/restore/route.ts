@@ -11,6 +11,15 @@ export async function POST(request: Request) {
 	try {
 		const user = await requireUser(env, request);
 		assertPrimaryAdmin(user);
+		// Never replace a live D1 database through a browser upload. Rescue recovery
+		// validates a new, empty target before an operator switches bindings.
+		if (env.MAILFLARE_RUNTIME !== "node") {
+			return NextResponse.json({
+				error: "Restore to new empty resources using the rescue recovery guide.",
+				code: "rescue_restore_required",
+				recoveryGuide: "https://github.com/AgentWailer/mailflare/blob/main/docs/rescue-backup.md",
+			}, { status: 410 });
+		}
 		const form = await readFormDataBody(request, 20 * 1024 * 1024);
 		const file = form.get("backup");
 		if (!(file instanceof File)) return NextResponse.json({ error: "Choose a backup file" }, { status: 400 });

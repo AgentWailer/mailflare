@@ -23,6 +23,7 @@ export function BookingEditor({ form, open, editingId, username, hosts, canManag
 	const [moreOpen, setMoreOpen] = useState(false);
 	const [hostQuery, setHostQuery] = useState("");
 	const [hostError, setHostError] = useState("");
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Opening a different booking editor resets transient dialog controls.
 	useEffect(() => { if (open) { setActiveSection(null); setNameEditing(false); setMoreOpen(false); setHostQuery(""); setHostError(""); } }, [editingId, open]);
 	const sectionClass = "border-b border-neutral-200 px-5 py-5";
 	const headingClass = "flex w-full items-center justify-between gap-3 text-left text-base font-semibold text-neutral-900";

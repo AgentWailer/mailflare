@@ -4,7 +4,7 @@ import "./style.scss"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, FileText, ListChecks, LoaderCircle, Maximize2, Minimize2, Pause, PauseCircle, PenLine, Plus, Send, Settings2, Sparkles, Square, Trash2, X } from "lucide-react";
+import { ArrowLeft, FileText, ListChecks, LoaderCircle, Maximize2, Minimize2, Pause, PenLine, Plus, Send, Settings2, Sparkles, Trash2, X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { authFetch } from "@/lib/auth/client";
 import { getUserTimeZone } from "@/lib/time/utils";
@@ -116,6 +116,7 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 		runningRef.current = false;
 		queueGenerationRef.current += 1;
 		queuedMessagesRef.current = [];
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Cancel old stream state and load the conversation belonging to the current mailbox/panel.
 		setQueuedMessages([]);
 		setBusy(false);
 		if (!open || !mailboxId) return;
@@ -142,7 +143,7 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 			if (!cancelled && selectedConversationRef.current === savedId) setLoadingConversation(false);
 		});
 		return () => { cancelled = true; abort.current?.abort(); };
-	}, [mailboxId, open, refresh]);
+	}, [mailboxId, open, refresh, t]);
 
 	useEffect(() => {
 		const closeMenu = (event: PointerEvent) => {
@@ -243,6 +244,7 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 		const generation = queueGenerationRef.current;
 		const userMessageId = crypto.randomUUID();
 		const assistantMessageId = crypto.randomUUID();
+		// eslint-disable-next-line react-hooks/purity -- send() runs only from an event/queued effect, never during render.
 		const startedAt = Date.now();
 		let accepted = false;
 		let streamErrored = false;

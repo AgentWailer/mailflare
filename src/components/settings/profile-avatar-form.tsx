@@ -45,6 +45,7 @@ export function ProfileAvatarForm({
 
 	useEffect(() => {
 		if (mailboxId) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize the selected remote avatar after account/mailbox changes.
 			setHasAvatar(initialHasAvatar);
 			setAvatarUrl(`/api/mailboxes/${mailboxId}/avatar`);
 			return;

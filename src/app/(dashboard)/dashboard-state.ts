@@ -12,6 +12,7 @@ export function useDashboardState() {
 
 	useLayoutEffect(() => {
 		const saved = readInitialAssistantPanelState();
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Restore browser-only preferences after hydration, before the first painted panel.
 		setAssistantOpen(saved.open);
 		setAssistantFullSize(saved.fullSize);
 		setPanelRestored(true);

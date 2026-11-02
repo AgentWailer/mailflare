@@ -14,6 +14,7 @@ export function DriveTypeFilter({ value: applied, onChange }: { value: DriveCate
 	// Local copy so quick successive clicks build on each other while the URL update is still in flight.
 	const [value, setValue] = useState(applied);
 	const appliedKey = applied.join(",");
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile optimistic filter edits with committed browser back/forward navigation.
 	useEffect(() => { setValue(appliedKey ? (appliedKey.split(",") as DriveCategory[]) : []); }, [appliedKey]);
 	const update = (next: DriveCategory[]) => { setValue(next); onChange(next); };
 	const labels: Record<DriveCategory, string> = { photos: t("drive.photos"), videos: t("drive.videos"), documents: t("drive.documents"), others: t("drive.others") };

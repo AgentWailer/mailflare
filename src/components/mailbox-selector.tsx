@@ -4,7 +4,7 @@ import { fetchSessionSnapshot } from "@/lib/auth/session-client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Check, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound } from "lucide-react";
+import { CalendarDays, Check, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, Sparkles, UserPlus, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -51,6 +51,7 @@ function AccountAvatar({
 	const [imageFailed, setImageFailed] = useState(false);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Retry the image when the remote mailbox avatar identity changes.
 		setImageFailed(false);
 	}, [avatarUrl, hasAvatar]);
 
@@ -124,6 +125,8 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 	const pathname = usePathname();
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
+	const [logoutPending, setLogoutPending] = useState(false);
+	const [logoutFailed, setLogoutFailed] = useState(false);
 	const [user, setUser] = useState<MailboxSelectorUser | null>(initialUser ?? null);
 	const [hasAvatar, setHasAvatar] = useState(!!initialUser?.hasAvatar);
 	const [avatarUrl, setAvatarUrl] = useState("/api/profile/avatar");
@@ -238,10 +241,15 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 	const adminActive = isAdminPath(pathname);
 
 	async function logout() {
-		const switched = await logoutClientSession();
-		setOpen(false);
-		router.replace(switched ? "/inbox" : "/login");
-		router.refresh();
+		setLogoutPending(true);
+		setLogoutFailed(false);
+		try {
+			const switched = await logoutClientSession();
+			setOpen(false);
+			router.replace(switched ? "/inbox" : "/login");
+			router.refresh();
+		} catch { setLogoutFailed(true); }
+		finally { setLogoutPending(false); }
 	}
 
 	async function switchAccount(userId: string) {
@@ -421,11 +429,13 @@ export function MailboxSelector({ initialUser, onToggleAssistant, assistantOpen 
 						<button
 							type="button"
 							onClick={logout}
+							disabled={logoutPending}
 							className="flex w-full items-center gap-3 border-t border-neutral-100 px-5 py-4 text-left text-sm font-medium text-neutral-800 hover:bg-[#f2f6fc]"
 						>
 							<LogOut size={18} className="text-neutral-600" />
 							{t("account.signOut")}
 						</button>
+						{logoutFailed && <p role="alert" className="px-5 pb-4 text-sm text-red-600">{t("auth.logoutFailed")}</p>}
 					</div>
 				</div>
 			)}

@@ -408,7 +408,7 @@ export const outboundJobs = sqliteTable("outbound_jobs", {
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
 	messageId: text("message_id").references(() => messages.id, { onDelete: "set null" }),
-	status: text("status", { enum: ["queued", "sending", "sent", "failed"] }).notNull().default("queued"),
+	status: text("status", { enum: ["queued", "sending", "sent", "failed", "unknown"] }).notNull().default("queued"),
 	payload: text("payload").notNull(),
 	error: text("error"),
 	scheduledAt: integer("scheduled_at", { mode: "timestamp" }),

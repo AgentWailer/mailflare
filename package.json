@@ -4,16 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "npm run db:bundle && vite dev --port 3000",
-    "build": "npm run db:bundle && vite build",
+    "build": "npm run check:static && vite build && node scripts/verify-dark-palette.mjs && npm run perf:headers",
     "build:next": "npm run db:bundle && MAILFLARE_RUNTIME=node next build",
     "start": "vite preview --port 3000",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "test:visual": "node tests/browser/visual-polish.mjs",
     "test:performance": "node --test tests/mail-startup-performance.test.mjs tests/session-startup.test.mjs tests/message-bulk-jobs.test.mjs tests/mail-list-refresh.test.mjs tests/cache-policy.test.mjs tests/menu-performance.test.mjs tests/persistent-reading-pane.test.mjs tests/background-query-performance.test.mjs tests/mailbox-preload.test.mjs tests/account-switch.test.mjs tests/wallet-attachments.test.mjs tests/message-density.test.mjs && node tests/browser/cold-start.mjs && node tests/browser/category-tabs.mjs && node tests/browser/mailbox-preload.mjs && node tests/browser/navigation-performance.mjs && node tests/browser/attachment-preview.mjs && node tests/browser/mail-display-settings.mjs && node tests/browser/email-responsive.mjs && node tests/browser/draft-recovery.mjs",
-    "deploy": "npm run build && npm run deploy:worker",
-    "deploy:worker": "wrangler deploy",
+    "deploy": "npm run deploy:worker",
+    "deploy:worker": "npm run check:quality && wrangler deploy",
     "deploy:local": "npm run deploy",
-    "upload": "npm run build && wrangler versions upload",
+    "upload": "npm run check:quality && wrangler versions upload",
     "preview": "npm run build && vite preview --port 3000",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
     "push:keys": "node scripts/generate-vapid-keys.mjs",
@@ -30,7 +30,12 @@
     "perf:navigation": "node scripts/benchmark-navigation.mjs",
     "test:performance:ci": "node --test tests/message-page-access-path.test.mjs tests/message-preview-background.test.mjs tests/conversation-page.test.mjs tests/cache-policy.test.mjs tests/time-format-performance.test.mjs tests/message-bulk-jobs.test.mjs tests/message-read-sync.test.mjs tests/account-switch.test.mjs tests/mail-startup-performance.test.mjs tests/mailbox-preload.test.mjs tests/worker-memory.test.mjs tests/email-html.test.mjs tests/draft-idempotency.test.mjs tests/folder-read-all-client.test.mjs && npm run perf:headers && PERF_CHECK=1 PERF_RUNS=3 npm run perf:bench",
     "perf:headers": "node scripts/verify-cache-headers.mjs",
-    "test:upstream-fixes": "node --test tests/domain-routing-permissions.test.mjs tests/inline-content-type.test.mjs tests/scheduled-send-race.test.mjs tests/import-contact-failure.test.mjs tests/reply-recipients.test.mjs tests/jmap-batch-limit.test.mjs tests/wallet-attachments.test.mjs tests/backups-stream.test.mjs"
+    "test:upstream-fixes": "node --test tests/domain-routing-permissions.test.mjs tests/inline-content-type.test.mjs tests/scheduled-send-race.test.mjs tests/import-contact-failure.test.mjs tests/reply-recipients.test.mjs tests/jmap-batch-limit.test.mjs tests/wallet-attachments.test.mjs tests/backups-stream.test.mjs",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --test --test-concurrency=2 tests/*.test.mjs",
+    "check:quality": "npm run build",
+    "test:smoke": "node tests/browser/visual-polish.mjs && node tests/browser/attachment-preview.mjs && node tests/browser/compose-window.mjs && node tests/browser/label-actions.mjs && node tests/browser/message-star-feedback.mjs && node tests/browser/draft-recovery.mjs && node tests/browser/queue-health-card.mjs && node tests/browser/login-entry.mjs && node tests/browser/cookie-session.mjs",
+    "check:static": "npm run db:bundle && npm run typecheck && npm run lint && npm test"
   },
   "cloudflare": {
     "bindings": {
@@ -67,7 +72,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.55",
     "@ai-sdk/react": "^4.0.116",
-    "@modelcontextprotocol/server": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
@@ -85,13 +90,13 @@
     "clsx": "^2.1.1",
     "css-tree": "^3.2.1",
     "dayjs": "^1.11.20",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.16.0",
     "mimetext": "^3.0.28",
     "nanoid": "^5.1.16",
-    "next": "16.3.8",
-    "nodemailer": "^10.0.9",
+    "next": "16.4.4",
+    "nodemailer": "^10.3.1",
     "parse-srcset": "^1.0.2",
     "parse5": "^8.0.1",
     "pdfjs-dist": "6.4.299",
@@ -104,14 +109,14 @@
     "react-server-dom-webpack": "^19.2.6",
     "remark-gfm": "^4.0.1",
     "sass": "^1.105.0",
-    "smtp-server": "^3.19.12",
+    "smtp-server": "^3.21.3",
     "tailwind-merge": "^3.6.0",
     "vinext": "1.0.0-beta.13",
     "workers-ai-provider": "^4.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.61.0",
+    "@cloudflare/vite-plugin": "^1.67.0",
     "@cloudflare/workers-types": "^5.20260828.1",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
@@ -129,20 +134,19 @@
     "drizzle-kit": "^0.31.10",
     "esbuild": "^0.28.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.4",
     "jsdom": "^30.1.2",
     "playwright": "1.57.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5.7.4",
-    "vite": "^8.0.0",
-    "wrangler": "^4.127.1"
+    "vite": "^8.3.5",
+    "wrangler": "^4.156.1"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.4"
     },
-    "undici@>=7 <8": "7.29.1",
     "source-map-js": "1.2.2",
     "sharp@0.35.4": "0.35.5",
     "fflate@^0.7.0": "0.7.5"

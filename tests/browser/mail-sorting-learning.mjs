@@ -1,6 +1,7 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 // Run after npm run build; supports the same browser tooling variables as message-action-menus.mjs.
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {join} from 'node:path';
 import {build} from 'esbuild';
@@ -22,7 +23,7 @@ createRoot(document.getElementById('root')!).render(<QueryClientProvider client=
 let server,browser;
 try{
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:join(root,'tsconfig.json'),alias:{'@':join(root,'src'),'@/components/compose/compose-context':join(dir,'compose.ts'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'@/components/sidebar-state':join(dir,'sidebar.ts'),'@/components/sidebar-header':join(dir,'chrome.tsx'),'@/components/mail-search/mail-search-context':join(dir,'search.ts'),'@/components/messages/use-conversation-view':join(dir,'conversation.ts'),'@/components/sidebar-footer':join(dir,'chrome.tsx'),'next/link':join(dir,'link.tsx'),'next/navigation':join(dir,'navigation.ts')},define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'fixture-contexts',setup(b){b.onResolve({filter:/(?:^|\/)(compose-context|mailbox-provider|sidebar-state|sidebar-header|sidebar-footer)$/},args=>({path:join(dir,{'compose-context':'compose.ts','mailbox-provider':'mailbox.ts','sidebar-state':'sidebar.ts','sidebar-header':'chrome.tsx','sidebar-footer':'chrome.tsx'}[args.path.split('/').at(-1)])}));}}],logLevel:'silent'});
- const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(x=>x.startsWith('index.')&&x.endsWith('.css'))));
+ const css=readProductionCss();
  const assets={'/':Buffer.from('<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/fixture.css':css};
  server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(assets[path]?200:404,{'Content-Type':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(assets[path]||'Not found');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
  browser=await chromium.launch({headless:true,...(process.env.MAILFLARE_CHROMIUM_EXECUTABLE?{executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE}:{}),args:['--no-sandbox']});

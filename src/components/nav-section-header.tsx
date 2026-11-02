@@ -9,6 +9,7 @@ import { readStorage, writeStorage } from "./reorderable-list-utils";
 /** Open/closed state of a menu section, remembered in localStorage. Starts open. */
 export function useSectionOpen(storageKey: string): [boolean, () => void] {
 	const [open, setOpen] = useState(true);
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Read browser-only section preferences after hydration and when account scope changes.
 	useEffect(() => { setOpen(readStorage(storageKey, true)); }, [storageKey]);
 	function toggle() {
 		writeStorage(storageKey, !open);

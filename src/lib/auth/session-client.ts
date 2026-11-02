@@ -1,6 +1,6 @@
 "use client";
 
-import { AUTH_SESSION_CHANGED_EVENT, authFetch, getClientSessionToken } from "./client";
+import { AUTH_SESSION_CHANGED_EVENT, authFetch, ensureClientSessionScope, getClientSessionToken } from "./client";
 import type { CurrentUser } from "@/hooks/use-current-user";
 
 export type SessionSnapshot = {
@@ -32,14 +32,11 @@ export function fetchSessionSnapshot(force = false): Promise<SessionSnapshot> {
 	if (!force && cached?.token === token && Date.now() - cached.at < 5_000) return Promise.resolve(cached.value);
 	const requestGeneration = generation;
 	const promise = (async () => {
-		const authenticated = await authFetch("/api/auth/me", { cache: "no-store", redirectOnUnauthorized: false, signal: AbortSignal.timeout(5_000) });
-		// A stale browser token must not hide a valid HttpOnly cookie session.
-		const response = authenticated.status === 401 && token
-			? await fetch("/api/auth/me", { cache: "no-store", signal: AbortSignal.timeout(5_000) })
-			: authenticated;
+		const response = await authFetch("/api/auth/me", { cache: "no-store", redirectOnUnauthorized: false, signal: AbortSignal.timeout(5_000) });
 		const value = { status: response.status, data: response.ok ? await response.json() as SessionSnapshot["data"] : null };
 		if (requestGeneration === generation && token === getClientSessionToken()) {
-			cached = response.ok ? { token, at: Date.now(), value } : null;
+			const scope = response.ok && value.data?.user ? ensureClientSessionScope() : token;
+			cached = response.ok ? { token: scope, at: Date.now(), value } : null;
 		}
 		return value;
 	})().finally(() => { if (pending?.promise === promise) pending = null; });

@@ -54,6 +54,7 @@ export default function AdminAgentPage() {
 	const selectedModelIds = parseAgentModelIds(form.model);
 	useEffect(() => {
 		if (!loaded) return;
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Changing the remote model endpoint invalidates its previous results and starts a new request.
 		setModels([]);
 		setModelSource(null);
 		setModelError(null);
@@ -64,7 +65,7 @@ export default function AdminAgentPage() {
 		const controller = new AbortController();
 		const timer = window.setTimeout(() => {
 			setModelsLoading(true);
-			void loadAgentModels(form, controller.signal).then((data) => {
+			void loadAgentModels({ provider: form.provider, preset: form.preset, baseUrl: form.baseUrl, apiKey: form.apiKey }, controller.signal).then((data) => {
 				setModels(data.models);
 				setModelSource(data.source);
 				const published = Object.fromEntries(data.models.flatMap((item) => item.rates ? [[item.id, item.rates]] : []));

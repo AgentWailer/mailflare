@@ -1,5 +1,6 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {join} from 'node:path';
 import {build} from 'esbuild';
@@ -9,7 +10,7 @@ writeFileSync(join(dir,'entry.tsx'),`import React from 'react';import {createRoo
 const de=JSON.parse(readFileSync('public/locales/de.json','utf8'));let browser,server;
 try{
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'@':join(root,'src')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
- const cssDir=join(root,'dist/client/_next/static/css');const assets={'/':Buffer.from('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/style.css':readFileSync(join(cssDir,readdirSync(cssDir).find(x=>x.startsWith('index.')&&x.endsWith('.css'))))};
+ const assets={'/':Buffer.from('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>'),'/fixture.js':readFileSync(join(dir,'fixture.js')),'/style.css':readProductionCss()};
  server=createServer((req,res)=>{const asset=assets[new URL(req.url,'http://localhost').pathname];res.writeHead(asset?200:404,{'Content-Type':req.url.endsWith('.js')?'application/javascript':req.url.endsWith('.css')?'text/css':'text/html'});res.end(asset||'Not found');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const viewport of [{width:320,height:700},{width:390,height:844},{width:844,height:390},{width:1440,height:900}]){

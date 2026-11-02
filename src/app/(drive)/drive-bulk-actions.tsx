@@ -25,11 +25,11 @@ export async function bulk(body: Record<string, unknown>, fallback: string): Pro
 	}
 }
 
-export async function attachmentAction(action: "trash" | "restore" | "delete", ids: string[], fallback: string): Promise<number | null> {
+export async function attachmentAction(action: "trash" | "restore" | "delete", ids: string[], fallback: string, draftChangedMessage = fallback): Promise<number | null> {
 	try {
 		const response = await authFetch("/api/drive/attachments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ids }) });
-		const data = await response.json().catch(() => ({})) as { count?: number; error?: string };
-		if (!response.ok) throw new Error(data.error);
+		const data = await response.json().catch(() => ({})) as { count?: number; error?: string; code?: string };
+		if (!response.ok) throw new Error(data.code === "draft_changed" ? draftChangedMessage : data.error);
 		return data.count ?? 0;
 	} catch (error) {
 		toast.error(error instanceof Error && error.message ? error.message : fallback);
@@ -91,7 +91,7 @@ export function DriveBulkActions({ selected, trashView, onDone }: { selected: Dr
 			total += done;
 		}
 		if (attachmentIds.length) {
-			const done = await attachmentAction(action, attachmentIds, t("drive.actionFailed"));
+			const done = await attachmentAction(action, attachmentIds, t("drive.actionFailed"), t("compose.error.draftChanged"));
 			if (done === null) return null;
 			total += done;
 		}

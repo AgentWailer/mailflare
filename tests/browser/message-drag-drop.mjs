@@ -1,6 +1,7 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-import {mkdtempSync,writeFileSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
@@ -20,7 +21,7 @@ write('entry.tsx',`import {usePathname} from 'next/navigation';import {createRoo
 let server,browser;
 try{
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'@':join(root,'src'),'next/link':join(dir,'link.tsx'),'next/navigation':join(dir,'navigation.ts'),'@/components/compose/compose-context':join(dir,'compose.ts'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'@/components/mail-search/mail-search-context':join(dir,'search.ts'),'@/components/sidebar-state':join(dir,'sidebar.ts'),'@/components/sidebar-chrome':join(dir,'chrome.tsx'),'@/components/page-loading':join(dir,'loading.ts'),'@/hooks/use-messages':join(dir,'messages.ts'),'@/hooks/use-message-counts':join(dir,'counts.ts')},define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'fixture-contexts',setup(b){b.onResolve({filter:/(?:^|\/)(compose-context|mailbox-provider|sidebar-state|sidebar-header|sidebar-footer)$/},args=>({path:join(dir,{'compose-context':'compose.ts','mailbox-provider':'mailbox.ts','sidebar-state':'sidebar.ts','sidebar-header':'chrome.tsx','sidebar-footer':'chrome.tsx'}[args.path.split('/').at(-1)])}));}}],logLevel:'silent'});
- const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(f=>f.startsWith('index.')&&f.endsWith('.css'))));
+ const css=readProductionCss();
  server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname;res.writeHead(200,{'Content-Type':path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html'});res.end(path==='/fixture.js'?readFileSync(join(dir,'fixture.js')):path==='/fixture.css'?css:'<!doctype html><html lang="de"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0"><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  // Opening a message must enable the same toolbar as an explicit selection.

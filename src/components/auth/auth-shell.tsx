@@ -19,6 +19,7 @@ export function AuthShell({
   const [iconFailed, setIconFailed] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- The asynchronous branding provider can replace the logo after hydration.
     setIconUrl(branding.iconUrl);
     setIconFailed(false);
   }, [branding.iconUrl]);
@@ -36,7 +37,9 @@ export function AuthShell({
               {iconFailed ? (
                 <Icon className="h-8 w-8 text-blue-600" />
               ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- Load the small login branding icon directly, including its native onError fallback.
                 <img
+                  width={32} height={32}
                   src={iconUrl}
                   onError={() => {
                     if (iconUrl !== "/icon-96.png") setIconUrl("/icon-96.png");

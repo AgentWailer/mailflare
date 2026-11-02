@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { DragEvent, MouseEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,11 +31,15 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
     null,
   );
 
-  useEffect(() => {
+  const completeNavigation = useEffectEvent(() => {
     if (navigationProgress === null) return;
     setNavigationProgress(100);
     const timer = window.setTimeout(() => setNavigationProgress(null), 220);
     return () => window.clearTimeout(timer);
+  });
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Finish progress on a committed route change, without retriggering on progress updates.
+    return completeNavigation();
   }, [pathname]);
 
   if (!link.href) {

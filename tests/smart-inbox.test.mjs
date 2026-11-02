@@ -19,6 +19,7 @@ writeFileSync(
 	join(dir, "headers.mjs"),
 	"export async function cookies(){return {get:()=>undefined};}",
 );
+writeFileSync(join(dir, "server.mjs"), "export const NextResponse=Response; export const after=task=>(globalThis.__smartAfter ??= []).push(task);");
 await build({
 	stdin: {
 		contents: `
@@ -64,7 +65,7 @@ await build({
 	tsconfig: "tsconfig.json",
 	alias: {
 		"next/headers": join(dir, "headers.mjs"),
-		"next/server": "next/server.js",
+		"next/server": join(dir, "server.mjs"),
 		"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
 	},
 	logLevel: "silent",
@@ -1191,6 +1192,9 @@ test('ungrouped pages batch count and rows without losing exact pagination or la
 test('poor legacy previews are repaired from bounded visible bodies once without exposing mail bodies or touching foreign mail',async t=>{
  const f=await fixture(t);
  f.DB.db.exec("UPDATE messages SET snippet='https://tracking.test/click?id=123',text_body='Please use an email client supporting HTML email, or click this link to view the email online: https://tracking.test/click',html_body='<p>Ihre Rechnung über 49,90 Euro ist verfügbar.</p>' WHERE id='primary';UPDATE messages SET snippet='https://foreign.test/private' WHERE id='foreign'");
+ globalThis.__smartAfter=[];
+ const initial=await (await app.list(f.request('/api/messages?mailboxId=box&direction=inbound'))).json();assert.equal('htmlBody' in initial.messages[0],false);
+ await Promise.all(globalThis.__smartAfter.splice(0).map(task=>task()));
  const result=await (await app.list(f.request('/api/messages?mailboxId=box&direction=inbound'))).json();const row=result.messages.find(x=>x.id==='primary');
  assert.equal(row.snippet,'Ihre Rechnung über 49,90 Euro ist verfügbar.');assert.equal('textBody' in row,false);assert.equal('htmlBody' in row,false);
  assert.equal(f.DB.db.prepare("SELECT snippet FROM messages WHERE id='primary'").get().snippet,row.snippet);assert.equal(f.DB.db.prepare("SELECT snippet FROM messages WHERE id='foreign'").get().snippet,'https://foreign.test/private');

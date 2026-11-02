@@ -1,4 +1,4 @@
-name: Performance budgets
+name: Quality and performance
 on:
   push:
     branches: [main]
@@ -9,7 +9,7 @@ permissions:
 jobs:
   performance:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       CLOUDFLARE_REMOTE_BINDINGS: 'false'
       WRANGLER_SEND_METRICS: 'false'
@@ -23,12 +23,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:upstream-fixes
-      - run: npm run build
+      - run: npm run check:quality
+      - run: npm run test:smoke
       - run: npm run test:performance:ci
       - run: PERF_OUTPUT=artifacts/performance/navigation.json npm run perf:navigation
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: performance-measurements
-          path: artifacts/performance/
+          name: quality-and-performance
+          path: |
+            artifacts/performance/
+            /tmp/mailflare-visual/*.png
+            /tmp/mailflare-star-feedback/*.png
+            /tmp/mailflare-queue-health/*.png
+            /tmp/mailflare-compose-*.png
+            /tmp/mailflare-refine-*.png
+            /tmp/mailflare-pdf-*.png
+            /tmp/mailflare-label-delete-mobile.png

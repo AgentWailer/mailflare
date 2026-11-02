@@ -30,6 +30,8 @@ export type MessageListRowProps = {
 	currentAccountName?: string;
 	onSelectedChange: (messageId: string, selected: boolean) => void;
 	onMessageAction: (messageId: string, action: RowMessageAction) => Promise<void>;
+	onStarFailure: (failure: { messageId: string; subject: string; retry: () => Promise<void> }) => void;
+	onStarSaved: (messageId: string) => void;
 	dragMessageIds: string[];
 	canDrag?: boolean;
 };

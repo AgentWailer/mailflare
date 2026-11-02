@@ -20,7 +20,10 @@ export const STANDARD_KEY_SCOPES: { value: ApiKeyScope; labelKey: TranslationKey
 ];
 
 async function responseData(response: Response): Promise<{ error?: unknown; key?: string; apiKeys?: ManagedApiKey[] }> {
-	return response.json().catch(() => ({}));
+	const data: unknown = await response.json().catch(() => ({}));
+	if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+	const value = data as { error?: unknown; key?: unknown; apiKeys?: unknown };
+	return { error: value.error, key: typeof value.key === "string" ? value.key : undefined, apiKeys: Array.isArray(value.apiKeys) ? value.apiKeys as ManagedApiKey[] : undefined };
 }
 
 export function keyPermissions(key: ManagedApiKey): string[] {

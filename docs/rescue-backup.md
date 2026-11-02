@@ -1,5 +1,7 @@
 # Ein verschlüsselter Rettungsstand
 
+Aktueller Wiederherstellungsweg für die Cloudflare-Installation; Einstieg und Release-Reihenfolge stehen in [operations.md](operations.md). Der frühere JSON-Upload zum Überschreiben der laufenden Datenbank ist auf Cloudflare deaktiviert. Die Wiederherstellung erfolgt wie unten beschrieben in neue leere Ressourcen.
+
 Mailflare verwendet zwei Schutzmechanismen:
 
 - **D1 Time Travel** läuft bei Cloudflare automatisch und ohne zusätzliche Backup-Gebühren. Es bietet 30 Tage Datenbankverlauf im Paid-, 7 Tage im Free-Tarif. Es stellt keine gelöschten R2-Dateien wieder her.

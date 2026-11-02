@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { HelpCircle, Search } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ComposeProvider } from "@/components/compose/compose-context";

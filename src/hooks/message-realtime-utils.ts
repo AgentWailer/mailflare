@@ -73,6 +73,7 @@ export async function showBrowserNewMessageNotification(event: NewMessageEvent):
 		});
 		notification.onclick = () => {
 			window.focus();
+			// eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Native notification callbacks outlive React routing; a full navigation also recovers suspended tabs.
 			window.location.assign(`/inbox/${event.messageId}`);
 			notification.close();
 		};

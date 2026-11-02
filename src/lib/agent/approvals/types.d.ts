@@ -11,5 +11,5 @@ export type AgentSendSnapshot = {
 	threadId: string | null;
 	mailboxId: string;
 	scheduledAt: string | null;
-	attachments: { id: string; filename: string; size: number; digest: string }[];
+	attachments: { id: string; filename: string; size: number; digest: string; type?: string; disposition?: "attachment" | "inline"; contentId?: string | null }[];
 };

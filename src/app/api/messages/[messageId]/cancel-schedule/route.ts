@@ -34,7 +34,7 @@ export async function POST(
 		return NextResponse.json({ error: "You cannot cancel sends from this mailbox" }, { status: 403 });
 	}
 
-	if (message.direction !== "outbound" || message.status !== "queued" || !(await getScheduledTime(db, message.id))) {
+	if (message.direction !== "outbound" || !["queued", "failed"].includes(message.status) || !(await getScheduledTime(db, message.id))) {
 		return NextResponse.json({ error: "This message is not scheduled" }, { status: 409 });
 	}
 	if (!(await cancelScheduledSend(db, message.id))) {

@@ -13,11 +13,13 @@ export function SidebarHeader({ href, label }: SidebarHeaderProps) {
 	const branding = useBranding();
 	const { minimal, mobile, toggle } = useSidebar();
 	const toggleButton = <button type="button" onClick={toggle} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-200" aria-label={mobile ? t("navigation.close") : minimal ? t("navigation.expandMenu") : t("navigation.collapseMenu")}>
+		{/* eslint-disable-next-line @next/next/no-img-element -- The small branding icon already has explicit dimensions and direct asset caching. */}
 		{mobile ? <X size={20} /> : minimal ? <img src={branding.iconUrl} height={32} width={32} alt="" /> : <TextAlignJustify size={18} />}
 	</button>;
 	return (
 		<div className={`mb-3 flex h-10 items-center ${minimal ? "" : "gap-2 px-1"}`}>
 			{minimal ? <Tooltip label={t("navigation.expandMenu")} placement="right">{toggleButton}</Tooltip> : toggleButton}
+			{/* eslint-disable-next-line @next/next/no-img-element -- The small branding icon already has explicit dimensions and direct asset caching. */}
 			{!minimal && <Link prefetch={false} href={href} className="flex min-w-0 items-center gap-3"><img src={branding.iconUrl} height={32} width={32} alt="" /><span className="truncate text-lg font-semibold text-neutral-800">{label ?? branding.appName}</span></Link>}
 		</div>
 	);

@@ -78,13 +78,13 @@ export async function dropDrive(target: DriveDropTarget, t: Translator): Promise
 	const fallback = t("drive.actionFailed");
 	let count: number | null = 0;
 	if (target.kind === "attachments") {
-		count = await attachmentAction("restore", items.map((item) => item.id), fallback);
+		count = await attachmentAction("restore", items.map((item) => item.id), fallback, t("compose.error.draftChanged"));
 		if (count) toast.success(t("drive.bulkRestored", { count }));
 	} else if (target.kind === "trash") {
 		const live = items.filter((item) => !item.trashed);
 		const attachments = live.filter((item) => item.attachment).map((item) => item.id);
 		const driveIds = live.filter((item) => !item.attachment).map((item) => item.id);
-		for (const done of [attachments.length ? await attachmentAction("trash", attachments, fallback) : 0, driveIds.length ? await bulk({ action: "trash", ids: driveIds }, fallback) : 0]) {
+		for (const done of [attachments.length ? await attachmentAction("trash", attachments, fallback, t("compose.error.draftChanged")) : 0, driveIds.length ? await bulk({ action: "trash", ids: driveIds }, fallback) : 0]) {
 			count = count === null || done === null ? null : count + done;
 		}
 		if (count) toast.success(t("drive.bulkTrashed", { count }));

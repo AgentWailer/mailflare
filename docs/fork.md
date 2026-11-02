@@ -1,6 +1,6 @@
 # AgentWailer Mailflare fork
 
-Modified 10 October 2026; distributed under AGPL-3.0-or-later. Original copyright and license notices remain in LICENSE.
+Fork policy introduced 10 October 2026; distributed under AGPL-3.0-or-later. Original copyright and license notices remain in LICENSE. For the current release/recovery procedure, use [operations.md](operations.md); this page explains the fork policy and its original introduction.
 
 ## Feature policy
 
@@ -14,10 +14,10 @@ The first-run account is the primary admin. Deploying this fork does not change 
 
 1. Commit and publish the reviewed fork changes in `AgentWailer/mailflare`. The source link displayed throughout the application must give users access to the corresponding modified source. Keep LICENSE and the modification notice; keep the source link accessible when changing branding. If you move the fork, update `src/lib/fork.ts`.
 2. Use the existing Cloudflare Worker and its current D1, R2, queues, bindings and secrets. Confirm that the deploy configuration targets the running installation; do not create a replacement database or initialize a new admin account. Preserve the existing Worker configuration and a current data backup.
-3. Run `npm ci`, `npm run build`, then deploy the reviewed branch through the existing Cloudflare Git integration, or run `npm run deploy` with authorized Wrangler authentication. The repository's Worker name is `mailflare`; check it against the existing installation before deploying. This change adds no schema migration and requires no remote D1 command.
+3. Follow the [current release checklist](operations.md#release-an-existing-installation): locked install, quality gate, browser smoke checks, migration compatibility review, and required additive migrations before dependent code. Publish through the existing Git/Cloudflare integration. The repository's Worker name is `mailflare`; check it against the installation. The original October 10 feature-policy change needed no migration; that historical fact does not apply to later releases.
 4. Sign in with the existing owner account. Check the enabled-features page at `/licenses`, account management, branding, sharing and forwarding. Verify a non-admin account still cannot administer the installation, and shared-mailbox users receive only delegated permissions.
 
-No deployment or remote account change was performed as part of the local fork implementation.
+The original feature-policy implementation did not itself deploy or change remote accounts. Subsequent releases have their own validation and deployment records.
 
 ## Updates
 

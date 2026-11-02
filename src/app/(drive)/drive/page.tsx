@@ -105,16 +105,21 @@ export default function DrivePage() {
 	// Reload after a change; other cached listings may be stale now, so they are dropped.
 	const refresh = useCallback(() => { clearDriveListings(); return load(); }, [load]);
 
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile route-driven listing, selection and DOM state after navigation or remote updates.
 	useEffect(() => { void load(); }, [load]);
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile route-driven listing, selection and DOM state after navigation or remote updates.
 	useEffect(() => { setSearch(query); }, [query]);
 	useEffect(() => {
 		const onRefresh = () => void refresh();
 		window.addEventListener(DRIVE_REFRESH_EVENT, onRefresh);
 		return () => window.removeEventListener(DRIVE_REFRESH_EVENT, onRefresh);
 	}, [refresh]);
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile route-driven listing, selection and DOM state after navigation or remote updates.
 	useEffect(() => { setSelectedIds(new Set()); }, [requestKey]);
 	// Keep only selected items that are still listed (after a move, trash, upload or reload).
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile route-driven listing, selection and DOM state after navigation or remote updates.
 	useEffect(() => { setSelectedIds((current) => { const present = new Set(items.map((item) => item.id)); const next = new Set([...current].filter((id) => present.has(id))); return next.size === current.size ? current : next; }); }, [items]);
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile route-driven listing, selection and DOM state after navigation or remote updates.
 	useEffect(() => { setHeaderTarget(document.getElementById("drive-header-slot")); }, []);
 
 	const patchUpload = useCallback((id: string, patch: Partial<DriveUploadEntry>) => setUploads((list) => list.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))), []);
@@ -156,8 +161,8 @@ export default function DrivePage() {
 		try {
 			const response = await authFetch(url, init);
 			if (!response.ok) {
-				const data = await response.json().catch(() => ({})) as { error?: string };
-				throw new Error(data.error);
+				const data = await response.json().catch(() => ({})) as { error?: string; code?: string };
+				throw new Error(data.code === "draft_changed" ? t("compose.error.draftChanged") : data.error);
 			}
 			if (successMessage) toast.success(successMessage);
 			await refresh();
@@ -239,7 +244,7 @@ export default function DrivePage() {
 	}
 	const SortIcon = ascending ? ArrowUp : ArrowDown;
 	const headerButton = (key: DriveSortKey, label: string) => (
-		<button type="button" onClick={() => toggleSort(key)} aria-sort={sortKey === key ? (ascending ? "ascending" : "descending") : "none"} className="flex min-w-0 items-center gap-1 font-medium text-neutral-600 hover:text-neutral-900"><span className="truncate">{label}</span>{sortKey === key && <SortIcon size={12} className="shrink-0" />}</button>
+		<span role="columnheader" aria-sort={sortKey === key ? (ascending ? "ascending" : "descending") : "none"}><button type="button" onClick={() => toggleSort(key)} className="flex min-w-0 items-center gap-1 font-medium text-neutral-600 hover:text-neutral-900"><span className="truncate">{label}</span>{sortKey === key && <SortIcon size={12} className="shrink-0" />}</button></span>
 	);
 	const gridStyle = { "--drive-columns": columns.template } as React.CSSProperties;
 
@@ -295,7 +300,7 @@ export default function DrivePage() {
 					</div>
 				</div>
 				{view === "trash" && !folder && <p className="shrink-0 border-b border-neutral-200 bg-neutral-50 px-5 py-2 text-xs text-neutral-600">{t("drive.trashNotice", { days: 30 })}</p>}
-				<div style={gridStyle} className="grid shrink-0 grid-cols-[2rem_minmax(0,1fr)_2.5rem] items-center gap-x-4 border-b border-neutral-200 px-5 py-2 text-sm md:grid-cols-[var(--drive-columns)]">
+				<div role="row" style={gridStyle} className="grid shrink-0 grid-cols-[2rem_minmax(0,1fr)_2.5rem] items-center gap-x-4 border-b border-neutral-200 px-5 py-2 text-sm md:grid-cols-[var(--drive-columns)]">
 					<Checkbox ref={selectAllRef} checked={allSelected} onChange={() => setSelectedIds(allSelected ? new Set() : new Set(selectable.map((item) => item.id)))} disabled={selectable.length === 0} aria-label={t("drive.selectAll")} className="ml-1" />
 					<span className="min-w-0 pl-7">{headerButton("name", t("drive.name"))}</span>
 					<span className="relative hidden min-w-0 md:block">{headerButton("owner", attachmentsView ? t("drive.from") : t("drive.owner"))}<ColumnResizeHandle column="owner" width={columns.widths.owner} onResize={columns.resize} label={t("drive.owner")} /></span>

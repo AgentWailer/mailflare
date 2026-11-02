@@ -28,10 +28,10 @@ const mailbox=id=>({id,domainId:'domain',localPart:id,hostname:'example.test',ty
 
 test('switching a browser account refreshes mailbox, identity and local UI without reloading',async t=>{
  localStorage.clear();app.clearCurrentUserCache();app.setClientSessionToken('old');
- let mounts=0,unmounts=0;const calls=[];
- t.mock.method(globalThis,'fetch',async(url,init)=>{const token=new Headers(init?.headers).get('Authorization');calls.push([url,token]);
-  if(url==='/api/auth/switch')return Response.json({token:'new'});
-  const id=token==='Bearer new'?'new':'old';
+ let mounts=0,unmounts=0,cookieAccount='old';const calls=[];
+ t.mock.method(globalThis,'fetch',async(url,init)=>{assert.equal(new Headers(init?.headers).get('Authorization'),null);assert.equal(init.credentials,'same-origin');
+  if(url==='/api/auth/switch'){cookieAccount='new';return Response.json({token:'new'});}
+  const id=cookieAccount;calls.push([url,id]);
   if(url.startsWith('/api/messages/counts'))return Response.json({counts:{folders:{inbox:{total:1,unread:id==='new'?7:3}},customFolders:{},mailboxes:[]}});
   if(url.startsWith('/api/messages?'))return Response.json({messages:[{id:id+'-message',direction:'inbound',read:false}],total:1});
   return Response.json(url==='/api/mailboxes'?{mailboxes:[mailbox(id)]}:{user:{id,name:id}});
@@ -45,17 +45,17 @@ test('switching a browser account refreshes mailbox, identity and local UI witho
  assert.equal(document.querySelector('output').textContent,'new / new / new-message / 7');
  assert.equal(document.querySelector('button').textContent,'empty');
  assert.equal(localStorage.getItem('selected-mailbox-id'),'new');assert.equal(mounts,2);assert.equal(unmounts,1);
- assert(calls.some(([url,token])=>url==='/api/mailboxes'&&token==='Bearer new'));
+ assert(calls.some(([url,id])=>url==='/api/mailboxes'&&id==='new'));assert.equal(localStorage.getItem('mailflare-session-token'),null);
 });
 
 test('late mailbox responses from an old account cannot replace the new selected mailbox',async t=>{
- localStorage.clear();app.setClientSessionToken('slow');const pending=deferred();
- t.mock.method(globalThis,'fetch',async(url,init)=>new Headers(init.headers).get('Authorization')==='Bearer slow'?pending.promise:Response.json({mailboxes:[mailbox('fast')]}));
+ localStorage.clear();app.setClientSessionToken('slow');const pending=deferred();let cookieAccount='slow';
+ t.mock.method(globalThis,'fetch',async()=>cookieAccount==='slow'?pending.promise:Response.json({mailboxes:[mailbox('fast')]}));
  function Screen(){const {selectedMailbox,isLoading}=app.useSelectedMailbox();return React.createElement('output',null,isLoading?'loading':selectedMailbox?.id);}
  document.body.innerHTML='<div id="root"></div>';const root=createRoot(document.getElementById('root'));t.after(async()=>act(async()=>root.unmount()));
  await act(async()=>root.render(React.createElement(app.Providers,null,React.createElement(app.MailboxProvider,null,React.createElement(Screen)))));
  assert.equal(document.querySelector('output').textContent,'loading');
- await act(async()=>app.setClientSessionToken('fast'));assert.equal(document.querySelector('output').textContent,'fast');
+ await act(async()=>{cookieAccount='fast';app.setClientSessionToken('fast');});assert.equal(document.querySelector('output').textContent,'fast');
  await act(async()=>pending.resolve(Response.json({mailboxes:[mailbox('slow')]})));assert.equal(document.querySelector('output').textContent,'fast');
 });
 
@@ -74,21 +74,21 @@ test('stale user and message requests cannot refill cleared caches or erase newe
 
 test('a delayed 401 from a previous session cannot log out the new account',async t=>{
  app.setClientSessionToken('old');const pending=deferred();t.mock.method(globalThis,'fetch',()=>pending.promise);
- const request=app.authFetch('/api/messages');app.setClientSessionToken('new');pending.resolve(new Response(null,{status:401}));
- assert.equal((await request).status,401);assert.equal(app.getClientSessionToken(),'new');
+ const request=app.authFetch('/api/messages');app.setClientSessionToken('new');const nextScope=app.getClientSessionToken();pending.resolve(new Response(null,{status:401}));
+ assert.equal((await request).status,401);assert.equal(app.getClientSessionToken(),nextScope);
 });
 
 
 test('a rejected switch keeps the active account session',async t=>{
- app.setClientSessionToken('active');t.mock.method(globalThis,'fetch',async()=>Response.json({error:'Account session expired'},{status:401}));
- assert.equal(await app.switchBrowserAccount('expired'),'Account session expired');assert.equal(app.getClientSessionToken(),'active');
+ app.setClientSessionToken('active');const scope=app.getClientSessionToken();t.mock.method(globalThis,'fetch',async()=>Response.json({error:'Account session expired'},{status:401}));
+ assert.equal(await app.switchBrowserAccount('expired'),'Account session expired');assert.equal(app.getClientSessionToken(),scope);
 });
 
 
 test('authenticated fetch never sends the session to a different origin',async t=>{
- app.setClientSessionToken('private-session');let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return Response.json({ok:true});});
+ app.setClientSessionToken('private-session');const scope=app.getClientSessionToken();let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return Response.json({ok:true});});
  for(const target of ['https://external.test/collect','//external.test/collect',new URL('https://external.test/'),new Request('https://external.test/')]) await assert.rejects(app.authFetch(target),/Mailflare origin/);
- assert.equal(calls,0);assert.equal(app.getClientSessionToken(),'private-session');await app.authFetch('/api/auth/me');assert.equal(calls,1);
+ assert.equal(calls,0);assert.equal(app.getClientSessionToken(),scope);await app.authFetch('/api/auth/me');assert.equal(calls,1);
 });
 
 

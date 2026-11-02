@@ -41,14 +41,14 @@ test('a delayed response body cannot load another account\'s label preferences',
 });
 
 test('a delayed save after account replacement cannot overwrite the new account cache',async t=>{
- let resolveBody;
+ let resolveBody;let cookieAccount='old';
  t.after(async()=>{await act(async()=>resolveBody?.({hiddenLabelIds:[]}));});
- const client=await fixture(t,async(_url,init)=>init.method==='PATCH'?{status:200,ok:true,json:()=>new Promise(resolve=>resolveBody=resolve)}:Response.json({hiddenLabelIds:init.headers.get('Authorization')==='Bearer new-test-session'?['new-user-label']:[]}));
+ const client=await fixture(t,async(_url,init)=>init.method==='PATCH'?{status:200,ok:true,json:()=>new Promise(resolve=>resolveBody=resolve)}:Response.json({hiddenLabelIds:cookieAccount==='new'?['new-user-label']:[]}));
  await flush();assert.equal(state.isLoading,false);
  let pending;await act(async()=>{pending=state.setVisible({labelId:'old-user-label',visible:false}).then(()=>null,error=>error);});
  assert.equal(typeof resolveBody,'function');
  await act(async()=>{
-  localStorage.setItem('mailflare-session-token','new-test-session');
+  cookieAccount='new';localStorage.setItem('mailflare-session-token','new-test-session');
   client.clear();client.setQueryData(['label-visibility','shared-mailbox'],{hiddenLabelIds:['new-user-label']});
  });
  let error;await act(async()=>{resolveBody({hiddenLabelIds:['old-user-label']});error=await pending;});

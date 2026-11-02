@@ -1,6 +1,7 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 // Real browser crypto and real key-setup component. All credentials here are synthetic fixtures.
 import assert from 'node:assert/strict';
-import {mkdtempSync,rmSync,readFileSync,readdirSync} from 'node:fs';
+import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {execFileSync} from 'node:child_process';
@@ -10,7 +11,7 @@ const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwrig
 const dir=mkdtempSync(join(process.cwd(),'node_modules','recovery-browser-'));let server,browser;
 try{
  const js=await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import{QueryClient,QueryClientProvider}from'@tanstack/react-query';import{LanguageProvider}from'./src/components/language-provider';import BackupsPage from'./src/app/(admin)/backups/page';import en from'./src/lib/i18n/en.json';import de from'./public/locales/de.json';const lang=new URLSearchParams(location.search).get('lang')==='de'?'de':'en';createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale={lang} initialMessages={lang==='de'?de:en}><BackupsPage/></LanguageProvider></QueryClientProvider>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,format:'esm',platform:'browser',jsx:'automatic',tsconfig:'tsconfig.json',define:{'process.env.NODE_ENV':'"production"'}});
- const cssDir=join(process.cwd(),'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(name=>name.startsWith('index.')&&name.endsWith('.css'))));
+ const css=readProductionCss();
  server=createServer((request,response)=>{const path=new URL(request.url,'http://localhost').pathname;response.setHeader('Content-Type',path==='/app.js'?'application/javascript':path==='/app.css'?'text/css':'text/html');response.end(path==='/app.js'?js.outputFiles[0].contents:path==='/app.css'?css:'<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"><div id="root"></div><output id="status"></output><script type="module" src="/app.js"></script>');});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const [width,lang] of [[390,'en'],[320,'de'],[1440,'en']]){

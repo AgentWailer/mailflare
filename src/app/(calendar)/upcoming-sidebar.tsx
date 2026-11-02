@@ -44,6 +44,7 @@ export function UpcomingSidebar({ events, onSelect, drawer = false, refreshKey }
 		return () => { active = false; };
 	}, [events, today, refreshKey]);
 
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Reset incremental presentation when the externally fetched event list changes.
 	useEffect(() => { setVisibleCount(UPCOMING_BATCH_SIZE); }, [shownEvents]);
 
 	useEffect(() => {

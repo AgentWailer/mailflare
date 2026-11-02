@@ -20,6 +20,7 @@ export function MailboxSignatureForm() {
 
 	useEffect(() => {
 		const nextSignature = selectedMailbox?.signature ?? "";
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the editor and saved baseline when a different mailbox/signature is loaded.
 		setSignature(nextSignature);
 		setSavedSignature(nextSignature);
 		setStatus(null);

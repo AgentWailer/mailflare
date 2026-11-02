@@ -26,7 +26,7 @@ export async function loadAgentAdminSettings(): Promise<AgentAdminSettingsRespon
 	return data;
 }
 
-export async function loadAgentModels(form: AgentAdminForm, signal?: AbortSignal): Promise<AgentAdminModelsResponse> {
+export async function loadAgentModels(form: Pick<AgentAdminForm, "provider" | "preset" | "baseUrl" | "apiKey">, signal?: AbortSignal): Promise<AgentAdminModelsResponse> {
 	const response = await authFetch("/api/admin/agent/models", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form), signal });
 	const data = await response.json() as AgentAdminModelsResponse;
 	if (!response.ok) throw new Error(data.error || "Could not load models");

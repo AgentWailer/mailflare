@@ -14,8 +14,9 @@ import { SESSION_COOKIE } from "@/lib/auth/session";
 /**
  * Make another signed-in account the active one. The client names a user id;
  * the token comes from the httpOnly accounts cookie and is re-validated here.
- * The token is returned because the web client mirrors the active session
- * in its bearer header, exactly as it does after a normal login.
+ * The response token is retained for compatible non-browser clients. Browsers
+ * discard it and authenticate with the HttpOnly cookie; their local scope only
+ * partitions caches and is never a Bearer credential.
  */
 export async function POST(request: Request) {
 	if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

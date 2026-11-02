@@ -1,12 +1,13 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { agentDraftMetadata, agentSendApprovals, messageAttachments, messages } from "@/db/schema";
+import { agentDraftMetadata, agentSendApprovals, messages } from "@/db/schema";
 import { getAuthorizedSenderAddress } from "@/lib/email/sender";
 import { loadMessageAttachmentContents } from "@/lib/email/attachments";
 import { sendEmail } from "@/lib/email/send";
 import { newId } from "@/lib/ids";
 import type { SessionUser } from "@/lib/auth/types";
 import type { AgentSendSnapshot } from "./types";
+import type { AttachmentContent } from "@/lib/email/attachment-types";
 
 async function sha256(value: ArrayBuffer | string) {
 	const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
@@ -23,15 +24,14 @@ async function currentDraft(env: CloudflareEnv, user: SessionUser, draftId: stri
 	return { draft, metadata };
 }
 
-async function snapshot(env: CloudflareEnv, draft: typeof messages.$inferSelect, scheduledAt: Date | null): Promise<{ payload: AgentSendSnapshot; hash: string }> {
-	const db = getDb(env);
-	const rows = await db.select().from(messageAttachments).where(eq(messageAttachments.messageId, draft.id));
+async function snapshot(env: CloudflareEnv, draft: typeof messages.$inferSelect, scheduledAt: Date | null): Promise<{ payload: AgentSendSnapshot; hash: string; contents: AttachmentContent[] }> {
+	// Keep the verified bytes. Reloading mutable attachment membership after
+	// approval would allow a concurrent edit to replace the reviewed files.
+	const contents = await loadMessageAttachmentContents(env, draft.id);
 	const attachments: AgentSendSnapshot["attachments"] = [];
-	for (const row of rows) {
-		const object = await env.BUCKET.get(row.r2Key);
-		if (!object) throw new Error("Draft attachment missing");
-		attachments.push({ id: row.id, filename: row.filename, size: row.size, digest: await sha256(await object.arrayBuffer()) });
-	}
+	for (const file of contents) attachments.push({ id: file.storageId!, filename: file.filename,
+		size: file.content.byteLength, digest: await sha256(file.content),
+		type: file.type, disposition: file.disposition ?? "attachment", contentId: file.contentId ?? null });
 	attachments.sort((a, b) => a.id.localeCompare(b.id));
 	const payload: AgentSendSnapshot = {
 		from: draft.fromAddr, to: draft.toAddr, cc: draft.ccAddr, bcc: draft.bccAddr,
@@ -40,7 +40,7 @@ async function snapshot(env: CloudflareEnv, draft: typeof messages.$inferSelect,
 		mailboxId: draft.mailboxId!, scheduledAt: scheduledAt?.toISOString() ?? null, attachments,
 	};
 	if (!payload.to.trim() || !payload.subject.trim() || !(payload.text?.trim() || payload.html?.trim())) throw new Error("Draft is incomplete");
-	return { payload, hash: await sha256(JSON.stringify(payload)) };
+	return { payload, hash: await sha256(JSON.stringify(payload)), contents };
 }
 
 export async function requestAgentSend(env: CloudflareEnv, user: SessionUser, draftId: string, expectedRevision: number, requestKeyId?: string) {
@@ -78,30 +78,55 @@ export async function confirmAgentSend(env: CloudflareEnv, user: SessionUser, ap
 	if (!approval) throw new Error("Approval not found");
 	if (approval.status !== "pending") return { status: approval.status, messageId: approval.messageId };
 	if (approval.expiresAt < new Date()) {
-		await db.update(agentSendApprovals).set({ status: "expired" }).where(eq(agentSendApprovals.id, approvalId));
+		await db.update(agentSendApprovals).set({ status: "expired" }).where(and(eq(agentSendApprovals.id, approvalId), eq(agentSendApprovals.status, "pending")));
 		throw new Error("Approval expired");
 	}
 	const { draft, metadata } = await currentDraft(env, user, approval.draftId);
 	const current = await snapshot(env, draft, metadata.scheduledAt);
 	if (metadata.revision !== approval.revision || current.hash !== approval.payloadHash) throw new Error("Draft changed; review it again");
 	if (metadata.scheduledAt && metadata.scheduledAt.getTime() <= Date.now()) throw new Error("Scheduled time has passed; update the draft before confirming");
-	const claimed = await db.update(agentSendApprovals).set({ status: "claimed", claimedAt: new Date() }).where(and(eq(agentSendApprovals.id, approvalId), eq(agentSendApprovals.status, "pending"))).returning({ id: agentSendApprovals.id });
-	if (!claimed.length) return getAgentSendRequest(env, user, approvalId);
+	const claimed = await db.update(agentSendApprovals).set({ status: "claimed", claimedAt: new Date() }).where(and(
+		eq(agentSendApprovals.id, approvalId), eq(agentSendApprovals.status, "pending"),
+		sql`expires_at > ${Math.floor(Date.now() / 1000)}`,
+		sql`exists (select 1 from agent_draft_metadata adm join messages m on m.id=adm.draft_id
+			where adm.draft_id=${draft.id} and adm.revision=${approval.revision} and m.status='draft')`,
+		sql`not exists (select 1 from agent_send_approvals other where other.draft_id=${draft.id}
+			and other.status in ('claimed','sent','unknown'))`,
+	)).returning({ id: agentSendApprovals.id });
+	if (!claimed.length) {
+		const state = await getAgentSendRequest(env, user, approvalId);
+		if (state.status === "pending") throw new Error("Draft changed or another delivery is in progress; review it again");
+		return state;
+	}
+	let result: Awaited<ReturnType<typeof sendEmail>>;
 	try {
-		const result = await sendEmail(env, {
+		result = await sendEmail(env, {
 			userId: user.id, mailboxId: draft.mailboxId!, from: draft.fromAddr, to: draft.toAddr,
 			cc: draft.ccAddr || undefined, bcc: draft.bccAddr || undefined,
 			subject: draft.subject || "", text: draft.textBody || undefined, html: draft.htmlBody || undefined,
 		inReplyTo: draft.inReplyTo, references: draft.references, threadId: draft.threadId,
-			attachments: await loadMessageAttachmentContents(env, draft.id),
+			attachments: current.contents,
 			scheduledAt: metadata.scheduledAt ?? undefined,
 			publicOrigin,
 		});
-		await db.update(agentSendApprovals).set({ status: "sent", messageId: result.messageId }).where(eq(agentSendApprovals.id, approvalId));
-		await db.update(messages).set({ status: "trash" }).where(and(eq(messages.id, draft.id), eq(messages.status, "draft")));
-		return { status: "sent", messageId: result.messageId, scheduled: !!result.scheduled };
 	} catch (error) {
-		await db.update(agentSendApprovals).set({ status: "unknown" }).where(eq(agentSendApprovals.id, approvalId));
+		await db.update(agentSendApprovals).set({ status: "unknown" })
+			.where(and(eq(agentSendApprovals.id, approvalId), eq(agentSendApprovals.status, "claimed")))
+			.catch(() => console.error("Agent delivery status needs reconciliation"));
 		throw new Error(`Delivery outcome needs review: ${error instanceof Error ? error.message : "provider error"}`);
 	}
+	// Delivery (or durable scheduled acceptance) succeeded. Local status/cleanup
+	// failures must never relabel that known outcome as an uncertain send.
+	let recorded = false;
+	for (let attempt = 0; attempt < 2 && !recorded; attempt++) {
+		try {
+			await db.update(agentSendApprovals).set({ status: "sent", messageId: result.messageId })
+				.where(and(eq(agentSendApprovals.id, approvalId), inArray(agentSendApprovals.status, ["claimed", "sent"])));
+			recorded = true;
+		} catch { /* One bounded retry also handles a lost successful response. */ }
+	}
+	if (!recorded) console.error("Confirmed agent delivery approval needs reconciliation");
+	else await db.update(messages).set({ status: "trash" }).where(and(eq(messages.id, draft.id), eq(messages.status, "draft")))
+		.catch(() => console.error("Confirmed agent delivery draft cleanup deferred"));
+	return { status: "sent", messageId: result.messageId, scheduled: !!result.scheduled };
 }

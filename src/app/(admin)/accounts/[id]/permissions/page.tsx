@@ -73,6 +73,7 @@ export default function AccountPermissionsPage() {
 			clearCurrentUserCache();
 			setTransferOpen(false);
 			// A full reload drops the stale cached session so the navigation reflects the new role.
+			// eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Reset all client authorization state after a privilege transfer.
 			window.location.assign(`/accounts/${transferTarget.id}/permissions`);
 		} catch (error) {
 			setMessage(error instanceof Error ? error.message : t("account.permissions.transferFailed"));

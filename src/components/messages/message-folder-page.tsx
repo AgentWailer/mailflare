@@ -75,6 +75,8 @@ function MessageListRow({
 	currentAccountName,
 	onSelectedChange,
 	onMessageAction,
+	onStarFailure,
+	onStarSaved,
 	dragMessageIds,
 	canDrag = true,
 }: MessageListRowProps) {
@@ -83,14 +85,42 @@ function MessageListRow({
 	const [read, setRead] = useState(message.read);
 	const [threadUnread, setThreadUnread] = useState(message.threadUnread);
 	const [starred, setStarred] = useState(message.starred);
+	const [starPending, setStarPending] = useState(false);
+	const starRequestPending = useRef(false);
+	// These local optimistic values must reconcile with refreshed server state.
+	// eslint-disable-next-line react-hooks/set-state-in-effect
 	useEffect(() => setRead(message.read), [message.read]);
+	// eslint-disable-next-line react-hooks/set-state-in-effect
 	useEffect(() => setThreadUnread(message.threadUnread), [message.threadUnread]);
+	// eslint-disable-next-line react-hooks/set-state-in-effect
 	useEffect(() => setStarred(message.starred), [message.starred]);
+
+	async function saveStar(desired: boolean) {
+		if (starRequestPending.current) return;
+		starRequestPending.current = true;
+		setStarPending(true);
+		try {
+			const result = await toggleMessageStar(message.id, desired);
+			setStarred(result.starred);
+			onStarSaved(message.id);
+		} catch {
+			onStarFailure({ messageId: message.id, subject: message.subject || t("list.noSubject"), retry: () => saveStar(desired) });
+		} finally {
+			starRequestPending.current = false;
+			setStarPending(false);
+		}
+	}
 	const rowMessage = { ...message, read, starred, threadUnread };
 	const unread = isMessageListRowUnread(rowMessage);
 	const draggable = canDrag && message.direction === "inbound" && config.folder !== "drafts" && config.folder !== "scheduled";
 	const party = getMessageParty(rowMessage, config.folder, currentAccountName, t);
 	const preview = getMessagePreview(rowMessage, config.folder, t);
+	const deliveryLabel = config.folder === "scheduled" && message.deliveryStatus && message.deliveryStatus !== "queued"
+		? t(message.deliveryStatus === "unknown" ? "schedule.deliveryUnknown" : message.deliveryStatus === "failed" ? "schedule.deliveryFailed" : "schedule.deliverySending")
+		: null;
+	const deliveryStatus = deliveryLabel ? <span data-delivery-status={message.deliveryStatus} title={deliveryLabel} className={clsx("inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium", message.deliveryStatus === "failed" ? "bg-red-50 text-red-700" : message.deliveryStatus === "unknown" ? "bg-amber-50 text-amber-800" : "bg-blue-50 text-blue-700")}>
+		{message.deliveryStatus === "sending" && <LoaderCircle aria-hidden="true" className="h-3 w-3 shrink-0 animate-spin" />}<span className={compact ? "break-words" : "truncate"}>{deliveryLabel}</span>
+	</span> : null;
 	const href = `${config.hrefPrefix}/${message.id}`;
 	// Stretch the native link across padding and grid gaps; independent controls sit above it.
 	const rowLinkClassName = "after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-blue-500";
@@ -190,8 +220,9 @@ function MessageListRow({
 						<span className="min-w-0 flex-1 truncate">{preview}</span>
 						<MessageLabelChips labels={message.labels} compact />
 					</span>
+					{deliveryStatus && <span className="mt-1 flex min-w-0 pr-10">{deliveryStatus}</span>}
 				</Link>
-				{config.folder !== "drafts" && <button type="button" data-mobile-star aria-label={starred ? t("list.starred") : t("list.notStarred")} aria-pressed={starred} className="absolute bottom-0 right-1 z-10 flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100" onClick={() => { void toggleMessageStar(message.id).then(result => setStarred(result.starred)).catch(() => undefined); }}><Star className={clsx("h-5 w-5", starred ? "fill-amber-400 text-amber-400" : "text-neutral-400")} /></button>}
+				{config.folder !== "drafts" && <button type="button" data-mobile-star aria-label={starPending ? t("list.starSaving") : starred ? t("list.starred") : t("list.notStarred")} aria-pressed={starred} aria-busy={starPending} disabled={starPending} className="absolute bottom-0 right-1 z-10 flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100 disabled:opacity-60" onClick={() => { void saveStar(!starred); }}>{starPending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Star className={clsx("h-5 w-5", starred ? "fill-amber-400 text-amber-400" : "text-neutral-400")} />}</button>}
 			</div>
 		);
 		if (!swipeable) return compactRow;
@@ -230,11 +261,14 @@ function MessageListRow({
 						onClick={(event) => {
 							event.preventDefault();
 							event.stopPropagation();
-							void toggleMessageStar(message.id).then((result) => setStarred(result.starred));
+							void saveStar(!starred);
 						}}
-						aria-label={starred ? t("list.starred") : t("list.notStarred")}
+						disabled={starPending}
+						aria-busy={starPending}
+						aria-pressed={starred}
+						aria-label={starPending ? t("list.starSaving") : starred ? t("list.starred") : t("list.notStarred")}
 					>
-						<Icon className={`h-4 w-4 ${starred ? "fill-amber-400 text-amber-400" : "text-neutral-300"}`} />
+						{starPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Icon className={`h-4 w-4 ${starred ? "fill-amber-400 text-amber-400" : "text-neutral-300"}`} />}
 					</Button>
 				</Tooltip>
 			)}
@@ -250,6 +284,7 @@ function MessageListRow({
 				)}
 			</span>
 			<span className="mail-desktop-summary flex min-w-0 items-center gap-2 text-neutral-700">
+				{deliveryStatus && <span className="flex min-w-0 max-w-[45%] shrink-0">{deliveryStatus}</span>}
 				<MessageLabelChips labels={rowMessage.labels} />
 				<span className="mail-desktop-copy flex min-w-0 flex-1 items-baseline gap-1.5">
 					<span title={rowMessage.subject ?? t("list.noSubject")} className={clsx("mail-desktop-subject min-w-0 max-w-[65%] truncate", unread && "font-semibold text-neutral-900")}>{rowMessage.subject ?? t("list.noSubject")}</span>
@@ -350,6 +385,8 @@ export function MessageFolderPage({
 	const [allSelection, setAllSelection] = useState<(BulkScopeSelection & { key: string }) | null>(null);
 	const [selectionError, setSelectionError] = useState(false);
 	const [emptyingFolder, setEmptyingFolder] = useState(false);
+	const [starFailure, setStarFailure] = useState<{ messageId: string; subject: string; retry: () => Promise<void>; scope: string } | null>(null);
+	const [retryingStar, setRetryingStar] = useState(false);
 	const [internalUnreadOnly, setInternalUnreadOnly] = useState(false);
 	const unreadOnly = selection?.unreadOnly ?? internalUnreadOnly;
 	const setUnreadOnly = selection?.setUnreadOnly ?? setInternalUnreadOnly;
@@ -687,6 +724,11 @@ export function MessageFolderPage({
 			{selectionError && <p role="alert" className="shrink-0 px-4 py-2 text-xs text-red-700">{t("list.allSelectionFailed")}</p>}
 			{error && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("list.loadFailed")}</p>}
 			{archiveFailed && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("error.updateSelected")}</p>}
+			{starFailure?.scope === selectionScope && <div role="alert" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-800">
+				<span className="min-w-0 flex-1 basis-56 break-words">{t("list.starSaveFailed", { subject: starFailure.subject })}</span>
+				<Button type="button" variant="outline" size="sm" disabled={retryingStar} onClick={() => { setRetryingStar(true); void starFailure.retry().finally(() => setRetryingStar(false)); }}>{retryingStar ? t("list.starSaving") : t("message.retry")}</Button>
+				<Button type="button" variant="ghost" size="sm" aria-label={t("navigation.close")} onClick={() => setStarFailure(null)}><X className="h-4 w-4" /></Button>
+			</div>}
 
 			<PullRefreshList enabled={isMobile} busy={isLoading || isRefreshing || pendingBulkAction} onRefresh={refresh} empty={!isLoading && !error && messages.length === 0}>
 				{messages.map((message) => (
@@ -702,6 +744,8 @@ export function MessageFolderPage({
 						currentAccountName={currentAccountName}
 						onSelectedChange={updateSelectedMessage}
 						onMessageAction={runRowMessageAction}
+						onStarFailure={failure => setStarFailure({ ...failure, scope: selectionScope })}
+						onStarSaved={id => setStarFailure(current => current?.messageId === id ? null : current)}
 						dragMessageIds={expandSelectedIds(selectedIds.includes(message.id) ? selectedIds : [message.id])}
 						canDrag={!selectedMailbox?.permission || selectedMailbox.permission === "full_access"}
 					/>

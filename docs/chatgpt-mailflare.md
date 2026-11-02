@@ -1,4 +1,6 @@
-# Send through Mailflare from the ChatGPT app
+# Optional custom GPT Action for sending through Mailflare
+
+For the normal ChatGPT MCP connection, start with [Cloudflare Managed OAuth](mcp-cloudflare-oauth.md). This page describes a separate optional custom GPT Action with a direct-send API key and client-side confirmation; it is not the OAuth/Mailflare review flow.
 
 Use a private custom GPT with a GPT Action that calls Mailflare's existing
 `POST /api/v1/send` endpoint. This sends through Mailflare's configured provider
@@ -57,9 +59,12 @@ explicitly approved recipient and message, then check **Sent** in Mailflare.
 
 ## Existing MCP endpoint
 
-Mailflare also serves Streamable HTTP at `/mcp`. Its current authentication is a
-mailbox-scoped Bearer key for clients that support setting that header; there is
-no OAuth authorization-server implementation. Its `request_send` tool creates a
-review link, and delivery is confirmed in a Mailflare browser session. That flow
-is separate from this GPT Action and does not provide direct sending in the
-ChatGPT app by itself.
+Mailflare serves Streamable HTTP at `/mcp`. ChatGPT can connect using
+[Cloudflare Managed OAuth](mcp-cloudflare-oauth.md): Access provides the OAuth
+server and Mailflare verifies the signed identity plus a separately approved
+account/permission grant. Mailflare does not implement a second OAuth server.
+Compatible clients can also use a dedicated mailbox-scoped Bearer key.
+
+The MCP `request_send` tool creates a review link and delivery is confirmed in a
+Mailflare browser session. That flow is separate from the direct-send GPT Action
+above. Use the MCP flow when review inside Mailflare is required.

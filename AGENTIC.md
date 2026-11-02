@@ -1,6 +1,6 @@
-# Agentic email and MCP implementation plan
+# Historical agentic email and MCP design plan
 
-Status: initial implementation added September 24, 2026. The feature contract and acceptance checklist below describe the intended complete design. The implementation status at the end distinguishes shipped code from remaining work. No build or validation commands were run, per the project's `AGENTS.md` instruction.
+Archived design context from the initial September 24, 2026 implementation. The scope, proposed tables, dependency choices and status statements below describe that stage; they are not the current deployment or completion checklist. For current behavior use [email-assistant-and-mcp.md](docs/email-assistant-and-mcp.md), [Managed OAuth](docs/mcp-cloudflare-oauth.md), and the [operating guide](docs/operations.md). In particular, OAuth is now provided by Cloudflare Access, and unknown queue kinds are rejected explicitly. Read current code and tests before implementing a historical proposal; do not recreate tables or infrastructure merely because this plan lists them.
 
 ## Goal and recommended scope
 
@@ -135,7 +135,7 @@ Expose an MCP **server** for external clients; the built-in assistant calls the 
 - Validate Origin when present, bound inputs/results and request rates, and authenticate every request. If compatibility requires stateful sessions, bind each session to the same user/key and recheck access; a session ID is not authorization.
 - Add a connection screen showing the endpoint, supported client/auth mode, selected mailboxes, scopes, last use, and revocation. Show newly generated secrets only once; generated examples use placeholders after that.
 
-OAuth discovery/authorization for clients without header-based credential setup is a later milestone. Follow the applicable MCP authorization specification rather than passing session cookies or Cloudflare admin tokens to clients.
+At the time of this design, OAuth discovery/authorization was a later milestone. Current installations can use [Cloudflare Managed OAuth](docs/mcp-cloudflare-oauth.md). Follow the applicable MCP authorization specification rather than passing session cookies or Cloudflare admin tokens to clients.
 
 ## Architecture and storage
 
@@ -182,12 +182,12 @@ New code should follow the repository convention: helper functions in separate f
 | `src/lib/agent/jobs/` | Eligibility, durable job claims, generation, reconciliation, budget handling; adjacent types. |
 | `src/lib/agent/approvals/` | Snapshot hashing, revision checks, browser approval, durable delivery commands. |
 | `src/lib/mcp/` | Server registration, transport adapter, dedicated-key authentication, scope enforcement, MCP result formatting. |
-| `src/app/mcp/route.ts` | Thin Next.js entry point for `/mcp`; keep compatible with OpenNext and Node. |
+| `src/app/mcp/route.ts` | Thin route entry point for `/mcp`; the current Cloudflare adapter is Vinext, with a separate Node runtime. |
 | `src/app/api/agent/` | Chat stream, conversations/history, settings, job retry/status, send review/confirmation endpoints. |
 | `src/components/agent/` | Provider, toggle/panel, chat messages, tool cards, draft cards, approval UI, settings and connection details. |
 | Existing dashboard/composer/settings files | Mount UI, provide selected-mail context, open generated drafts, route AI draft sends through review. |
 | Existing draft/read/search/send services | Extract only the functionality needed for reuse; preserve established permissions and manual behavior. |
-| `src/lib/email/inbound.ts`, `worker.ts`, `worker-utils.ts` | Intake/recovery hook and explicit dispatch of AI jobs. Current worker fallback treats unknown queue payloads as outbound: replace that ambiguity before adding a job kind. |
+| `src/lib/email/inbound.ts`, `worker.ts`, `worker-utils.ts` | Intake/recovery hook and explicit dispatch of AI jobs. The initial fallback ambiguity described by this plan has since been removed: the current Worker rejects unknown queue kinds. |
 | `server/runtime/` | Durable-job startup recovery and periodic dispatcher; HTTP model configuration; retain current email transport adapters. |
 | `src/lib/realtime/`, relevant hooks | Draft/job event types and authorized notifications/query invalidation on both runtimes. |
 | Schema/migrations/config/docs | Additive schema, AI queue and provider configuration, MCP scopes/key UI, deployment and self-hosting instructions. |
@@ -248,4 +248,4 @@ The current implementation is **not yet a verified production release**. The fol
 - There is no separate immutable send-command/outbox table. A claimed approval calls the existing delivery service once, and an uncertain provider outcome remains `unknown` for manual reconciliation. This avoids automatic duplicate retries but does not provide transactional exactly-once delivery.
 - The assistant panel has a fixed width. Auto-draft cards can open, request a new draft through chat, or discard the current draft; richer tool progress, mobile accessibility review, and multi-mailbox selection in the MCP key UI remain to be completed. The MCP key API supports explicit scopes and mailbox allowlists; the UI supports scope selection for the current mailbox.
 - Optional sender/folder filters, suspicious-content scanning, intake-completion markers, model usage audit/budget reservation, and restore-time pause/reconciliation are not implemented. Default eligibility is limited to newly received inbox mail and skips known automated/self/spam/error cases.
-- MCP uses scoped Bearer keys for clients that can set headers. OAuth-based client authorization remains a later milestone.
+- Historical status: MCP initially used scoped Bearer keys only. Current OAuth-based clients use [Cloudflare Managed OAuth](docs/mcp-cloudflare-oauth.md); scoped Bearer clients remain supported.

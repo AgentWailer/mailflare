@@ -27,12 +27,12 @@ function toView(domain: ResendDomain | null, zoneManaged: boolean, missingDns: n
 	};
 }
 
-async function requireResendKey(env: CloudflareEnv, _domain?: DomainRow): Promise<string> {
+async function requireResendKey(env: CloudflareEnv): Promise<string> {
 	return getResendApiKey(env);
 }
 
 export async function getResendDomainView(env: CloudflareEnv, domain: DomainRow): Promise<ResendDomainView> {
-	const apiKey = await requireResendKey(env, domain);
+	const apiKey = await requireResendKey(env);
 	return viewFor(env, domain, await findResendDomain(apiKey, domain.hostname));
 }
 
@@ -125,7 +125,7 @@ async function publishRecords(env: CloudflareEnv, domain: DomainRow, records: Re
  * Cloudflare zone (when Mailflare manages it) and asks Resend to verify.
  */
 export async function setupResendDomain(env: CloudflareEnv, domain: DomainRow): Promise<ResendDomainView> {
-	const apiKey = await requireResendKey(env, domain);
+	const apiKey = await requireResendKey(env);
 	const managed = !isManualZone(domain.zoneId);
 	let resend = await findResendDomain(apiKey, domain.hostname);
 	if (!resend) {
@@ -142,7 +142,7 @@ export async function setupResendDomain(env: CloudflareEnv, domain: DomainRow): 
 }
 
 export async function verifyResendDomainView(env: CloudflareEnv, domain: DomainRow): Promise<ResendDomainView> {
-	const apiKey = await requireResendKey(env, domain);
+	const apiKey = await requireResendKey(env);
 	const resend = await findResendDomain(apiKey, domain.hostname);
 	if (!resend) return viewFor(env, domain, null);
 	await verifyResendDomain(apiKey, resend.id);

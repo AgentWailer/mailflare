@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import { ChevronDown, ChevronUp, FileText, Forward, Maximize2, Minimize2, Minus, Paperclip, Reply, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ import { RecipientInput } from "./recipient-input";
 import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleSendMenu } from "./schedule-send-menu";
+import { composeSendError } from "./send-error";
 import { useComposeScrollLock } from "./use-compose-scroll-lock";
 import { useComposeViewport } from "./use-compose-viewport";
 import {
@@ -137,6 +138,7 @@ export function ComposeForm({
 
 	useEffect(() => {
 		if (!senderAddresses.length) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile editable composer state with asynchronously loaded sender identities or draft data.
 			setSelectedFrom("");
 			return;
 		}
@@ -149,10 +151,15 @@ export function ComposeForm({
 		return () => clearTimeout(timer);
 	}, [toast]);
 
+	const reportDraftLoadError = useEffectEvent((error: unknown) => {
+		const message = error instanceof Error ? error.message : t("compose.error.loadDraft");
+		setToast({ type: "error", message });
+	});
 	useEffect(() => {
 		if (!draftIdToLoad) return;
 
 		let cancelled = false;
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile editable composer state with asynchronously loaded sender identities or draft data.
 		setLoadingDraft(true);
 		fetchDraft(draftIdToLoad)
 			.then((draft) => {
@@ -188,8 +195,7 @@ export function ComposeForm({
 			})
 			.catch((err) => {
 				if (cancelled) return;
-				const message = err instanceof Error ? err.message : t("compose.error.loadDraft");
-				setToast({ type: "error", message });
+				reportDraftLoadError(err);
 			})
 			.finally(() => {
 				if (!cancelled) setLoadingDraft(false);
@@ -210,6 +216,7 @@ export function ComposeForm({
 
 	useEffect(() => {
 		if (!loadedDraftFrom || !senderAddresses.includes(loadedDraftFrom)) return;
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile editable composer state with asynchronously loaded sender identities or draft data.
 		setSelectedFrom(loadedDraftFrom);
 	}, [loadedDraftFrom, senderAddresses]);
 
@@ -285,6 +292,9 @@ export function ComposeForm({
 		flushSave.current = save;
 		saveTimer.current = setTimeout(save, 900);
 		return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+		// Recovery reads mailbox choices once; only sender identity/signature and draft content restart autosave.
+		// Do not reset this debounce for mailbox counts/avatar refreshes or for the draft ID returned by its own save.
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- The explicit mailbox fields below define the save snapshot; recovery-only state and save-result state are intentionally non-reactive.
 	}, [bcc, cc, fromAddr, html, loadingDraft, quotedHtml, selectedMailbox?.id, selectedMailbox?.signature, subject, threading, to, draftIdToLoad, deletingDraft]);
 
 	async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -352,10 +362,10 @@ export function ComposeForm({
 					scheduledAt,
 				}),
 			});
-			const data = (await res.json()) as { messageId?: string; scheduled?: boolean; error?: string };
+			const data = (await res.json()) as { messageId?: string; scheduled?: boolean; error?: unknown; code?: string; filename?: string };
 
 			if (!res.ok) {
-				setToast({ type: "error", message: data.error ?? t("compose.error.sendFailed") });
+				setToast({ type: "error", message: composeSendError(data, t) });
 				return;
 			}
 

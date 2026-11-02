@@ -1,3 +1,4 @@
+import { getScheduledDeliveryState } from "@/lib/email/scheduled";
 import { ruleMessageContent } from "@/lib/email/rule-content";
 import { safeErrorCategory } from "@/lib/security/logging";
 import { paperlessOutbox, enqueuePaperlessMessage } from "@/lib/paperless/jobs";
@@ -327,15 +328,16 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 	mark?.("access");
 	if (!access?.canRead) return null;
 	const timed = measure ?? (<T>(_name: string, task: Promise<T>) => task);
-	const [contactNames, attachments, headerMetadata] = await Promise.all([
+	const [contactNames, attachments, headerMetadata, scheduledState] = await Promise.all([
 		timed("contacts", getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr)),
 		timed("attachments", listMessageAttachments(env, messageId)),
 		timed("headers", getMessageHeaderMetadata(env, message.rawR2Key, message.headerMetadata)),
+		timed("delivery", message.direction === "outbound" ? getScheduledDeliveryState(db, messageId) : Promise.resolve({})),
 	]);
 	const { unsubscribeUrl, replyTo } = headerMetadata;
 	message.replyTo ??= replyTo;
 	mark?.("metadata");
-	return { ...messageDetailPayload(message, contactNames), attachments, unsubscribeUrl };
+	return { ...messageDetailPayload(message, contactNames), attachments, unsubscribeUrl, ...scheduledState };
 }
 
 /** Serialize each body once; raw storage pointers stay on the server. */

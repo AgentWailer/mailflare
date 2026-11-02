@@ -10,6 +10,7 @@ export function useMessageContentScroll(messageId: string, loading: boolean) {
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep the visual scroll state aligned with resetting the actual DOM scroll position.
     setScrolled(false);
   }, [messageId]);
 

@@ -64,7 +64,7 @@ export function ContactDetailsTrigger({
 		return () => {
 			cancelled = true;
 		};
-	}, [address, mailboxId, name, open]);
+	}, [address, mailboxId, name, open, t]);
 
 	async function saveContact() {
 		if (!mailboxId || !displayName.trim()) return;

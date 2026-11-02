@@ -14,6 +14,7 @@ export function DrivePreviewBody({ src, downloadHref, contentType, name }: { src
 			</div>
 		);
 	}
+	// eslint-disable-next-line @next/next/no-img-element -- Full-size private previews must retain their authenticated URL and original dimensions.
 	if (contentType.startsWith("image/")) return <img src={src} alt={name} className="mx-auto max-h-full max-w-full object-contain" />;
 	if (contentType.startsWith("video/")) return <video src={src} controls className="mx-auto max-h-full max-w-full" />;
 	if (contentType.startsWith("audio/")) return <div className="flex h-full items-center justify-center"><audio src={src} controls /></div>;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
 import { preloadMessageDetail } from "@/lib/messages/detail-cache";
@@ -18,11 +18,15 @@ export function useMessageNavigation(href: string, message: Message): MessageNav
 	const [progress, setProgress] = useState<number | null>(null);
 	const warmReader = () => { if (!href.startsWith("/drafts/")) void preloadMessageReader().catch(() => {}); };
 
-	useEffect(() => {
+	const completeNavigation = useEffectEvent(() => {
 		if (progress === null) return;
 		setProgress(100);
 		const timer = window.setTimeout(() => setProgress(null), 220);
 		return () => window.clearTimeout(timer);
+	});
+	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Finish progress on a committed route change, without retriggering on progress updates.
+		return completeNavigation();
 	}, [pathname]);
 
 	function onNavigate(event: MouseEvent<HTMLAnchorElement>, markRead = false) {

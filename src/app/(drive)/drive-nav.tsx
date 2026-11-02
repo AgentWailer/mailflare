@@ -67,6 +67,7 @@ export function DriveNav({ onNavigate }: { onNavigate?: () => void }) {
 	}, []);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize browser storage or remote folder state after the navigation section opens.
 		try { setFoldersOpen(localStorage.getItem(FOLDERS_OPEN_KEY) === "1"); } catch { /* storage unavailable */ }
 	}, []);
 
@@ -79,6 +80,7 @@ export function DriveNav({ onNavigate }: { onNavigate?: () => void }) {
 
 	useEffect(() => {
 		if (!foldersOpen) return;
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize browser storage or remote folder state after the navigation section opens.
 		void loadFolders();
 		window.addEventListener(DRIVE_FOLDERS_EVENT, loadFolders);
 		return () => window.removeEventListener(DRIVE_FOLDERS_EVENT, loadFolders);

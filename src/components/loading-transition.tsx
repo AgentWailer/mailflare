@@ -72,7 +72,9 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 					}`}
 				>
 					<div className="flex w-64 flex-col items-center gap-6">
+						{/* eslint-disable-next-line @next/next/no-img-element -- Show the startup icon immediately from the asset cache without an optimizer round trip. */}
 						<img
+							width={80} height={80}
 							src={iconUrl}
 						onError={() => setFailedIcon(branding.iconUrl)}
 							alt={`${branding.appName} icon`}

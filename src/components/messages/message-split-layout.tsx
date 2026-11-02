@@ -69,6 +69,7 @@ export function MessageSplitLayout({
 	const renderedListHeight = (containerHeight || 700) * listRatio;
 
 	useLayoutEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Restore user-scoped browser preferences after hydration without an SSR mismatch.
 		setListWidth(readInitialColumnWidth("message-list", 360, 250, 1200));
 		setListRatio(readInitialColumnWidth("message-list-ratio", .5, .05, .95));
 		setManualListVisible(readInitialMessageListVisible());
@@ -79,6 +80,7 @@ export function MessageSplitLayout({
 	useEffect(() => {
 		if (!userId) return;
 		const savedWidth = readColumnWidth(userId, "message-list", readInitialColumnWidth("message-list", 360, 250, 1200), 250, 1200);
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Restore user-scoped browser preferences after hydration without an SSR mismatch.
 		setListWidth(savedWidth);
 		saveColumnWidth(userId, "message-list", savedWidth);
 		setListRatio(readColumnWidth(userId, "message-list-ratio", readInitialColumnWidth("message-list-ratio", .5, .05, .95), .05, .95));

@@ -65,10 +65,11 @@ test('label and financial archive scopes match the actual paginated list',async 
  assert.equal(f.DB.db.prepare("SELECT read FROM messages WHERE id='order'").get().read,0);
 });
 
-test('search, unread filter and starred scope do not reach other matches or other categories',async t=>{
+test('search spans categories without touching unrelated mail; starred scope stays explicit',async t=>{
  const f=await fixture(t);f.add('wanted',{subject:'Invoice work'});f.add('other-subject',{subject:'Other'});f.add('ad',{subject:'Invoice work',category:'promotions'});
- assert.deepEqual((await f.chunk({folder:'inbox',mailboxId:'box',q:'subject:Invoice',read:'unread'})).messageIds,['wanted']);
- f.DB.db.exec("UPDATE messages SET starred=1 WHERE id='ad'");assert.deepEqual((await f.chunk({folder:'starred',mailboxId:'box'})).messageIds,['ad']);
+ assert.deepEqual(new Set((await f.chunk({folder:'inbox',mailboxId:'box',q:'subject:Invoice',read:'unread'})).messageIds),new Set(['wanted','ad']));
+ f.add('starred-unread',{category:'promotions'});
+ f.DB.db.exec("UPDATE messages SET starred=1 WHERE id IN ('ad','starred-unread')");assert.deepEqual((await f.chunk({folder:'starred',mailboxId:'box'})).messageIds,['starred-unread']);
  assert.equal(f.DB.db.prepare("SELECT read FROM messages WHERE id='other-subject'").get().read,0);
 });
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
 	AUTH_SESSION_CHANGED_EVENT,
+	AUTH_SESSION_SCOPE_READY_EVENT,
 	getClientSessionToken,
 } from "@/lib/auth/client";
 import type {
@@ -200,6 +201,7 @@ export function useMessagePolling(): MessageRealtimeState {
 			channel.postMessage({ type: "status_request" } satisfies RealtimeChannelMessage);
 		}
 		window.addEventListener(AUTH_SESSION_CHANGED_EVENT, restartForSessionChange);
+		window.addEventListener(AUTH_SESSION_SCOPE_READY_EVENT, restartForSessionChange);
 		window.addEventListener("storage", onStorageChange);
 		window.addEventListener("mailflare:messages-changed", onLocalMessagesChanged);
 		window.addEventListener("mailflare:message-counts-changed", onLocalMessagesChanged);
@@ -211,6 +213,7 @@ export function useMessagePolling(): MessageRealtimeState {
 		return () => {
 			stopped = true;
 			window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, restartForSessionChange);
+			window.removeEventListener(AUTH_SESSION_SCOPE_READY_EVENT, restartForSessionChange);
 			window.removeEventListener("storage", onStorageChange);
 			window.removeEventListener("mailflare:messages-changed", onLocalMessagesChanged);
 			window.removeEventListener("mailflare:message-counts-changed", onLocalMessagesChanged);

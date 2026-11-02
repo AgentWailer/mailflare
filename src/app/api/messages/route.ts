@@ -1,3 +1,4 @@
+import { publicDeliveryError } from "@/lib/email/scheduled";
 import { requestTiming } from "@/lib/server-timing";
 import { getListAttachmentCounts } from "@/lib/messages/list-attachments";
 import { getMessageLabels, getConversationLabels } from "@/lib/mail-sorting/labels";
@@ -108,8 +109,8 @@ export async function GET(request: Request) {
 			.from(messages).where(and(scope, inArray(messages.threadId, threadIds), isNotNull(messages.threadId), notInArray(messages.status, ["draft", "trash"]))).groupBy(messages.threadId)
 		: Promise.resolve([]);
 	const jobsPromise = scheduled === "true" && rows.length
-		? db.select({ messageId: outboundJobs.messageId, scheduledAt: outboundJobs.scheduledAt }).from(outboundJobs)
-			.where(and(inArray(outboundJobs.messageId, rows.map(row => row.id)), eq(outboundJobs.status, "queued"), isNotNull(outboundJobs.scheduledAt)))
+		? db.select({ messageId: outboundJobs.messageId, scheduledAt: outboundJobs.scheduledAt, deliveryStatus: outboundJobs.status, deliveryError: outboundJobs.error }).from(outboundJobs)
+			.where(and(inArray(outboundJobs.messageId, rows.map(row => row.id)), inArray(outboundJobs.status, ["queued", "sending", "failed", "unknown"]), isNotNull(outboundJobs.scheduledAt)))
 		: Promise.resolve([]);
 	const contactsPromise = Promise.all(Array.from(new Set(rows.map(message => message.userId))).map(async userId => {
 		const addresses = rows.filter(message => message.userId === userId).flatMap(message => [message.fromAddr, getFirstEmailAddressEntry(message.toAddr)]);
@@ -130,8 +131,8 @@ export async function GET(request: Request) {
 	}
 	const threadCounts = new Map<string, { total: number; unread: number }>();
 	for (const row of countRows) if (row.threadId) threadCounts.set(row.threadId, { total: row.total, unread: Number(row.unread ?? 0) });
-	const scheduledAtByMessageId = new Map<string, string>();
-	for (const job of jobs) if (job.messageId && job.scheduledAt) scheduledAtByMessageId.set(job.messageId, job.scheduledAt.toISOString());
+	const scheduledByMessageId = new Map<string, { scheduledAt: string; deliveryStatus: string; deliveryError: string | null }>();
+	for (const job of jobs) if (job.messageId && job.scheduledAt) scheduledByMessageId.set(job.messageId, { scheduledAt: job.scheduledAt.toISOString(), deliveryStatus: job.deliveryStatus, deliveryError: publicDeliveryError(job.deliveryError) });
 	const contactMapsByUserId = new Map(contactEntries);
 	const mailboxNameMap = new Map(
 		accessibleMailboxes.map((mailbox) => [
@@ -147,7 +148,9 @@ export async function GET(request: Request) {
 		assigned.push(label);
 		labelsByKey.set(messageId, assigned);
 	}
-	const enrichedRows = rows.map(({ rawR2Key: _rawR2Key, ...message }) => {
+	const enrichedRows = rows.map(({ rawR2Key, ...message }) => {
+		// Kept only for bounded server-side preview repair; never expose storage keys.
+		void rawR2Key;
 		const contactMap = contactMapsByUserId.get(message.userId)?.names;
 		const avatarMap = contactMapsByUserId.get(message.userId)?.avatars;
 		const accountName = message.mailboxId ? mailboxNameMap.get(message.mailboxId) : null;
@@ -158,7 +161,7 @@ export async function GET(request: Request) {
 			toContactHasAvatar: avatarMap?.get(normalizeEmailAddress(getFirstEmailAddressEntry(message.toAddr))) ?? false,
 			labels: labelsByKey.get(groupByThread ? message.threadId ?? message.id : message.id) ?? [],
 			snippet: needsSnippetRepair(message.snippet) ? cleanSnippetText(message.snippet) : message.snippet,
-			...(scheduledAtByMessageId.has(message.id) ? { scheduledAt: scheduledAtByMessageId.get(message.id) } : {}),
+			...scheduledByMessageId.get(message.id),
 			fromContactName:
 				(message.direction === "outbound" ? accountName : null) ??
 				contactMap?.get(normalizeEmailAddress(message.fromAddr)) ??

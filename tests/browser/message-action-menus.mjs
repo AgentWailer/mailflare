@@ -1,8 +1,9 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 // Run after `npm run build`. Point MAILFLARE_PLAYWRIGHT_MODULE and optionally
 // MAILFLARE_CHROMIUM_EXECUTABLE to the installed browser tooling when needed.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {join} from 'node:path';
 import {build} from 'esbuild';
@@ -31,8 +32,7 @@ write('entry.tsx',`
  if(new URLSearchParams(location.search).has('dark'))document.documentElement.classList.add('dark');
  createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><LanguageProvider initialLocale="de" initialMessages={de}><header style={{height:64,display:'flex',justifyContent:'flex-end',paddingRight:56}}><MailboxSelector initialUser={{id:'owner',name:'Owner',email:'owner@example.test',role:'user',hasAvatar:false}}/></header><main className="bg-white text-neutral-700" style={{minHeight:'180vh',padding:'100px 24px 24px'}}><section data-testid="header-actions" style={{overflow:'hidden',maxWidth:'100%'}}><MessageActions messageId="msg" mailboxId="box" senderAddress={message.fromAddr} direction="inbound" status={message.status} read={true} message={message} messageMeta={message} ownAddress="owner@example.test" ownAddresses={['owner@example.test']} bodyText="Hello"/></section><p style={{height:'55vh'}}>Message content</p><section data-testid="thread-actions" style={{display:'flex',justifyContent:'flex-end',overflow:'hidden'}}><ThreadMessageActions message={{...message,id:'thread-message',fromAddr:'Reply sender <reply@example.test>'}} mailboxId="box" ownAddress="owner@example.test" ownAddresses={['owner@example.test']}/></section></main></LanguageProvider></QueryClientProvider>);
 `);
-const cssDir=join(root,'dist/client/_next/static/css');
-const css=readFileSync(join(cssDir,readdirSync(cssDir).find(name=>name.startsWith('index.')&&name.endsWith('.css'))));
+const css=readProductionCss();
 let server,browser;
 try {
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:join(root,'tsconfig.json'),alias:{'@':join(root,'src'),'@/components/compose/compose-context':join(dir,'compose.ts'),'@/components/shortcuts':join(dir,'shortcuts.ts'),'@/components/mailbox-provider':join(dir,'mailbox.ts'),'next/link':join(dir,'link.tsx'),'next/navigation':join(dir,'navigation.ts')},define:{'process.env.NODE_ENV':'"production"'},plugins:baselineRef?[{name:'baseline',setup(b){b.onLoad({filter:/\/(message-actions|thread-message-actions|mailbox-selector)\.tsx$/},args=>({contents:execFileSync('git',['show',baselineRef+':'+args.path.slice(root.length+1)],{encoding:'utf8'}),loader:'tsx'}));}}]:[]});

@@ -8,8 +8,22 @@ import type {
 	AuthSessionResponse,
 } from "./client-types";
 
-const SESSION_STORAGE_KEY = "mailflare-session-token";
+// Browser authentication lives only in the HttpOnly cookie. This random, nonsecret
+// marker partitions client caches; it is never accepted as an API credential.
+const SESSION_STORAGE_KEY = "mailflare-session-scope";
+const LEGACY_TOKEN_STORAGE_KEY = "mailflare-session-token";
 export const AUTH_SESSION_CHANGED_EVENT = "mailflare:auth-session-changed";
+export const AUTH_SESSION_SCOPE_READY_EVENT = "mailflare:auth-session-scope-ready";
+let memoryScope: string | null = null;
+
+function writeSessionScope(scope: string | null): void {
+	memoryScope = scope;
+	try {
+		localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+		if (scope) localStorage.setItem(SESSION_STORAGE_KEY, scope);
+		else localStorage.removeItem(SESSION_STORAGE_KEY);
+	} catch { /* The cookie remains usable when browser storage is disabled. */ }
+}
 
 function dispatchAuthSessionChanged(authenticated: boolean): void {
 	try {
@@ -24,33 +38,62 @@ function dispatchAuthSessionChanged(authenticated: boolean): void {
 	);
 }
 
+/** Legacy name retained for cache consumers. Returns a nonsecret scope, never a token. */
 export function getClientSessionToken(): string | null {
 	if (typeof window === "undefined") return null;
-	return localStorage.getItem(SESSION_STORAGE_KEY);
+	try {
+		// A separate key keeps older tabs from sending the marker as a Bearer token.
+		if (localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY)) {
+			writeSessionScope(`scope:${crypto.randomUUID()}`);
+		} else memoryScope = localStorage.getItem(SESSION_STORAGE_KEY);
+	} catch { /* Fall back to this tab's nonsecret scope. */ }
+	return memoryScope;
 }
 
-export function setClientSessionToken(token: string): void {
-	const previousToken = localStorage.getItem(SESSION_STORAGE_KEY);
-	localStorage.setItem(SESSION_STORAGE_KEY, token);
-	if (previousToken !== token) clearUserTimeZonePreference();
-	if (previousToken !== token) dispatchAuthSessionChanged(true);
+/** Login APIs still return tokens for native clients; browsers deliberately discard them. */
+export function setClientSessionToken(_token: string): void {
+	if (!_token) return;
+	writeSessionScope(`scope:${crypto.randomUUID()}`);
+	clearUserTimeZonePreference();
+	dispatchAuthSessionChanged(true);
+}
+
+/** Called only after /auth/me validates a cookie-only returning session. */
+export function ensureClientSessionScope(): string {
+	const existing = getClientSessionToken();
+	if (existing) return existing;
+	const scope = `scope:${crypto.randomUUID()}`;
+	writeSessionScope(scope);
+	// Wake realtime polling without invalidating the session request that created it.
+	window.dispatchEvent(new Event(AUTH_SESSION_SCOPE_READY_EVENT));
+	return scope;
 }
 
 export function clearClientSessionToken(): void {
-	localStorage.removeItem(SESSION_STORAGE_KEY);
+	writeSessionScope(null);
 	clearUserTimeZonePreference();
 	dispatchAuthSessionChanged(false);
 }
 
+if (typeof window !== "undefined") {
+	window.addEventListener("storage", (event) => {
+		if (event.key !== SESSION_STORAGE_KEY && event.key !== null) return;
+		const previousScope = memoryScope;
+		const nextScope = getClientSessionToken();
+		if (event.key === null ? previousScope === nextScope : event.oldValue === event.newValue) return;
+		clearUserTimeZonePreference();
+		dispatchAuthSessionChanged(!!nextScope);
+	});
+}
+
 export function getAuthHeaders(headers?: HeadersInit): Headers {
 	const nextHeaders = new Headers(headers);
+	// Never expose persisted/session Bearer credentials through browser requests.
+	nextHeaders.delete("Authorization");
 	if (typeof window !== "undefined" && !nextHeaders.has("X-Time-Zone")) {
 		nextHeaders.set("X-Time-Zone", getUserTimeZone());
 	}
-	const token = getClientSessionToken();
-	if (token && !nextHeaders.has("Authorization")) {
-		nextHeaders.set("Authorization", `Bearer ${token}`);
-	}
+	getClientSessionToken(); // Also scrub credentials left by older app versions.
 	return nextHeaders;
 }
 
@@ -64,12 +107,15 @@ export async function authFetch(input: RequestInfo | URL, init: AuthFetchOptions
 	const sessionToken = getClientSessionToken();
 	const response = await fetch(input, {
 		...requestInit,
-		headers: getAuthHeaders(headers),
+		credentials: "same-origin",
+		headers: getAuthHeaders(headers ?? (input instanceof Request ? input.headers : undefined)),
 	});
 
 	if (response.status === 401 && redirectOnUnauthorized && typeof window !== "undefined"
 		&& sessionToken === getClientSessionToken()) {
 		clearClientSessionToken();
+		// Drop all authenticated in-memory state, including caches outside React.
+		// eslint-disable-next-line @next/next/no-location-assign-relative-destination
 		window.location.assign("/login");
 	}
 

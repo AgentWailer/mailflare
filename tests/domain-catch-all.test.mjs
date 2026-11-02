@@ -120,6 +120,7 @@ test("all four catch-alls, aliases and the former exact test address deliver to 
 
 test("admin can create and edit cross-domain delivery only within the same domain ownership", async (t) => {
 	const f = await fixture(t);
+	f.DB.db.exec("UPDATE users SET can_manage_domains=1 WHERE id='admin'");
 	const choices = await app.listRules(f.request("/api/routing-rules/domain?domainId=aperturo"));
 	assert.equal(choices.status,200);
 	const data = await choices.json();

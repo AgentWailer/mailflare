@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides repository implementation guidance. For current deployment, migration order, recovery and OAuth procedures, start with [docs/operations.md](docs/operations.md). Follow AGENTS.md and the user's authorized scope; dated design notes do not override them.
 
 ## Commands
 
@@ -8,35 +8,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev                    # Vite + vinext in local workerd
 npm run lint                   # eslint (next/core-web-vitals + next/typescript)
 npm run build                  # vinext build, including the complete Worker
+npm run check:quality          # migrations bundle + types + lint + full ordinary tests + build
+npm run test:smoke             # sequential browser journeys using synthetic data
 
 npm run db:generate            # drizzle-kit generate from src/db/schema/index.ts
 npm run db:migrate:local       # wrangler d1 migrations apply DB --local
 npm run db:migrate:remote      # --remote (needs a concrete database_id in wrangler.jsonc)
 npm run db:seed                # POST /api/seed against localhost:3000
 
-npm run deploy                 # vinext build + wrangler deploy
-npm run deploy                 # build and deploy; migrate later from Admin settings
+npm run deploy                 # quality-gated manual deployment; migration prerequisites first
 npm run preview                # build and preview the vinext Worker locally
 npm run cf-typegen             # regenerate cloudflare-env.d.ts from wrangler.jsonc
 ```
 
-There is no test script in `package.json`; the checks under `tests/` are `node:test` files run with `node --test tests/*.test.mjs` (pass the glob — on Node 24 a bare `tests/` is read as a module path). They must not need Workers bindings, so anything that reaches D1 or R2 belongs in a script under `scripts/` run against `npm run dev` instead.
+Run the ordinary suites with `node --test --test-concurrency=2 tests/*.test.mjs`
+or use `npm run check:quality`. Tests can exercise D1-compatible local SQLite and
+mock/local R2 bindings with the actual migrations. They must not require or
+mutate production resources. Browser suites use the built application with
+synthetic API fixtures; run them sequentially because previews share runtime
+resources. Keep realistic permission, interruption, retry and data-volume cases.
+Avoid tests that only match source-code constants instead of observable behavior.
 
-`next.config.ts` sets `typescript.ignoreBuildErrors: true` and `tsconfig.json` sets `noImplicitAny: false`, so the build will not catch type errors. Run `npx tsc --noEmit` if you want real type checking.
+A successful Vite/Next build is not a substitute for TypeScript validation.
+`check:quality` includes `tsc --noEmit --incremental false` and lint. Preserve
+that boundary rather than suppressing diagnostics to obtain a green build.
 
-`npm run deploy` builds with vinext and uploads with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to it, preserving the custom `worker.ts` entrypoint.
+`npm run deploy` runs the quality gate before uploading with Wrangler. For this Git-connected installation, use the existing reviewed Git/Cloudflare release path and verify its configured checks. Apply required backward-compatible additive migrations before code that references their columns; do not rely on a deploy-first Admin migration when the reader would already fail. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to it, preserving the custom `worker.ts` entrypoint.
 
 ## Architecture
 
-Next.js App Router APIs running on Cloudflare Workers via vinext. Drizzle ORM over D1, R2 for raw MIME, attachments, and record backups, Queues for async mail processing, a Durable Object for realtime, and a cron trigger for scheduled backups.
+Next-compatible App Router APIs run on Cloudflare Workers via Vite/Vinext. Drizzle ORM uses D1; private R2 holds live raw MIME and attachments, while the separate `RESCUE_BUCKET` holds the encrypted rescue copy. Queues process asynchronous mail/jobs, a Durable Object provides realtime, and cron recovers jobs and checks the configured backup schedule. Node/Docker remains a separate runtime.
 
 ### worker.ts is the entrypoint
 
 `worker.ts` wraps `vinext/server/fetch-handler` and adds handlers Next.js cannot express:
 
 - **`fetch`** — intercepts `/api/realtime` for the WebSocket upgrade (authenticates the session cookie, then routes to `env.REALTIME.getByName(user.id)`), delegating everything else to vinext.
-- **`email`** — the Cloudflare Email Routing handler. Resolves domain routing rules first (`resolveIncomingMail` in `src/lib/email/incoming.ts`) because `message.setReject()` and `message.forward()` only exist here, then applies optional account-level forwarding (loop-guarded by the `MAILFLARE_FORWARDED_HEADER`), writes raw MIME to R2, and enqueues to `INBOUND_QUEUE`. It never parses mail inline.
-- **`queue`** — a single consumer for both queues; `isInboundQueueMessage` and `isWebhookRetryMessage` in `worker-utils.ts` discriminate inbound mail, webhook retries, and outbound payloads. Failures `retry({ delaySeconds: 10 })`.
+- **`email`** — the Cloudflare Email Routing handler. Resolves domain routing rules first (`resolveIncomingMail` in `src/lib/email/incoming.ts`) because `message.setReject()` and `message.forward()` only exist here, then applies optional account-level forwarding (loop-guarded by the `MAILFLARE_FORWARDED_HEADER`), writes raw MIME to R2, and enqueues to `INBOUND_QUEUE`. Full ingestion and persistence run in the queue; the live handler also enforces the inbound raw/attachment size policy before enqueueing.
+- **`queue`** — a shared handler for the configured inbound, outbound and agent queues; payload guards and explicit `kind` checks dispatch mail, webhook retries, backups, imports, sorting, Paperless, bulk and AI work. Unknown kinds are rejected, never treated as outgoing mail. Failures use bounded queue retries and the configured dead-letter destination; do not blindly replay uncertain deliveries.
 
 It also re-exports `RealtimeHub`, which must remain exported from the Worker entrypoint.
 
@@ -79,11 +88,11 @@ Domain and mailbox management call the Cloudflare API at runtime (`src/lib/cloud
 
 Consequence: `CF_EMAIL_WORKER_NAME`, the deployed Worker `name`, and `services[].service` for `WORKER_SELF_REFERENCE` in `wrangler.jsonc` must all agree. Cloudflare service bindings need a literal name and cannot reference the top-level `name`.
 
-Auth is `CF_TOKEN` (preferred) or the legacy `CF_EMAIL` + `CF_API_KEY` pair.
+Runtime authentication to the Cloudflare management API is `CF_TOKEN` (preferred) or the legacy `CF_EMAIL` + `CF_API_KEY` pair. These are server-side provider credentials, not user sessions or MCP credentials.
 
 ### Schema and the dual-migration gotcha
 
-Schema lives in one file: `src/db/schema/index.ts` (21 tables). Migrations are generated into `drizzle/migrations/`. Note that `drizzle-kit generate` currently prompts interactively about a snapshot rename conflict, so recent migrations were hand-written to match the generated style.
+Schema lives in `src/db/schema/index.ts`; do not hardcode a historical table count in tooling. Migrations are generated into `drizzle/migrations/`. Note that `drizzle-kit generate` currently prompts interactively about a snapshot rename conflict, so recent migrations were hand-written to match the generated style.
 
 `npm run db:bundle` packages the SQL files for the Worker. `/api/setup/prepare` and the admin migration endpoint use the shared runner in `src/lib/migrations/service.ts`; migration files remain the only schema history to maintain. Build, deploy, preview, and development scripts generate the bundle before loading application code.
 
@@ -91,13 +100,13 @@ The setup path only ever initializes an empty database — it refuses to touch o
 
 ### Object storage is `env.BUCKET`, from R2, Backblaze B2 or AWS S3
 
-Every blob (raw MIME, attachments, Drive, avatars, branding icon, JMAP uploads, backups) goes through `env.BUCKET` with the R2 API. `withStorage` (`src/lib/storage/index.ts`) swaps `BUCKET` for `B2Bucket` (`b2-bucket.ts`, S3 API signed with the shared SigV4 client; it serves AWS S3 too) when `getObjectStorageConfig` finds all of `B2_*` (Backblaze, wins) or `S3_BUCKET`/`S3_REGION`/credentials (AWS S3, credentials falling back to `AWS_*`); otherwise the R2 binding (or the Node file bucket) is untouched. It is applied in `getEnv()`, at the top of each `worker.ts` handler (which receive the raw env) and in the Node runtime env. `B2Bucket` implements only what the app calls (`get` with range, `head`, `put`, `delete`, multipart); if new code needs another R2 method, add it there. Do not read `cloudflare:workers` env directly for storage. `GET/POST /api/v1/storage` and the `manage_storage` MCP tool (admin scope `storage`) report and test it.
+Live blobs (raw MIME, attachments, Drive, avatars, branding icon and JMAP uploads) go through `env.BUCKET` with the R2 API. Legacy record exports also use it. The current encrypted rescue copy uses the independent private R2 `RESCUE_BUCKET`; do not redirect it through the live B2/S3 substitution. `withStorage` (`src/lib/storage/index.ts`) swaps `BUCKET` for `B2Bucket` (`b2-bucket.ts`, S3 API signed with the shared SigV4 client; it serves AWS S3 too) when `getObjectStorageConfig` finds all of `B2_*` (Backblaze, wins) or `S3_BUCKET`/`S3_REGION`/credentials (AWS S3, credentials falling back to `AWS_*`); otherwise the R2 binding (or the Node file bucket) is untouched. It is applied in `getEnv()`, at the top of each `worker.ts` handler (which receive the raw env) and in the Node runtime env. `B2Bucket` implements only what the app calls (`get` with range, `head`, `put`, `delete`, multipart); if new code needs another R2 method, add it there. Do not read `cloudflare:workers` env directly for storage. `GET/POST /api/v1/storage` and the `manage_storage` MCP tool (admin scope `storage`) report and test it.
 
 ### Two runtimes, one code path
 
 The Node build aliases `cloudflare:workers` to `server/runtime/cloudflare-workers.ts`, allowing the shared helper to use its existing `getNodeEnv()` fallback. That alias only applies when `MAILFLARE_RUNTIME=node`; vinext uses the native Workers module. Next outputs to `.next-node` so its generated types do not collide with vinext's `.next/types`.
 
-The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.ts`). On Workers that is the native `cloudflare:workers` env. In the self-hosted runtime, `server/index.ts` builds an object with the same shape (`server/runtime/env.ts`: a D1-compatible wrapper over better-sqlite3, an R2-compatible file bucket, `EMAIL` over nodemailer or the Cloudflare Sending REST API, in-process queues, a WebSocket hub standing in for the Durable Object, a fixed-window rate limiter) and publishes it as `globalThis.__mailflareNodeEnv` before Next starts; `getNodeEnv()` in `src/lib/runtime.ts` returns it. Application code must not care which one it got. The few places that must differ check `isNodeRuntime(env)`: setup requirement checks, the self-update button, and domain provisioning, which without Cloudflare credentials records the zone as `"manual"` (`src/lib/domains/provision.ts`) so every Cloudflare call is a no-op and the DNS page lists records to set by hand. Inbound mail off Workers goes through `intakeIncomingMail` (`src/lib/email/intake.ts`) from either the SMTP listener (`server/runtime/smtp.ts`) or the signed `/api/inbound` webhook the relay Worker in `deploy/cloudflare-email-relay` calls. `npm run build:node` builds Next in Node mode and bundles the server with esbuild to `dist/server.mjs`; the Dockerfile runs that. Migrations are applied from `drizzle/migrations` at start (`server/runtime/migrate.ts`), so the bootstrap schema in `src/lib/setup/migration.ts` is not used there.
+The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.ts`). On Workers that is the native `cloudflare:workers` env. In the self-hosted runtime, `server/index.ts` builds an object with the same shape (`server/runtime/env.ts`: a D1-compatible wrapper over better-sqlite3, an R2-compatible file bucket, `EMAIL` over nodemailer or the Cloudflare Sending REST API, in-process queues, a WebSocket hub standing in for the Durable Object, a fixed-window rate limiter) and publishes it as `globalThis.__mailflareNodeEnv` before Next starts; `getNodeEnv()` in `src/lib/runtime.ts` returns it. Application code must not care which one it got. The few places that must differ check `isNodeRuntime(env)`: setup requirement checks, the self-update button, and domain provisioning, which without Cloudflare credentials records the zone as `"manual"` (`src/lib/domains/provision.ts`) so every Cloudflare call is a no-op and the DNS page lists records to set by hand. Inbound mail off Workers goes through `intakeIncomingMail` (`src/lib/email/intake.ts`) from either the SMTP listener (`server/runtime/smtp.ts`) or the signed `/api/inbound` webhook the relay Worker in `deploy/cloudflare-email-relay` calls. `npm run build:node` builds Next in Node mode and bundles the server with esbuild to `dist/server.mjs`; the Dockerfile runs that. Migrations are applied from `drizzle/migrations` at start (`server/runtime/migrate.ts`), so the first-run empty-database setup wrapper in `src/lib/setup/migration.ts` is not the Node startup path.
 
 ### JMAP lives in `src/lib/jmap/`
 
@@ -113,7 +122,7 @@ The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.t
 
 ### Search is an FTS5 index kept by triggers
 
-`messages_fts` (migration 0030) is an external-content FTS5 table over `messages`; three triggers in the same migration keep it in sync on insert, update and delete, so no application code touches the index. `buildSearchConditions` in `src/lib/search/conditions.ts` turns the Gmail-style grammar (`src/lib/search/query-utils.ts`) into a `rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)` predicate plus plain column filters. Two consequences: the bootstrap SQL in `src/lib/setup/migration.ts` is split with `splitSqlStatements`, which keeps trigger bodies whole; and the backup coverage check skips `messages_fts%`, since the shadow tables are derived and repopulate on restore. `wrangler d1 export` does not work on databases with virtual tables; the app's own JSON backup is unaffected.
+`messages_fts` (migration 0030) is an external-content FTS5 table over `messages`; three triggers in the same migration keep it in sync on insert, update and delete, so no application code touches the index. `buildSearchConditions` in `src/lib/search/conditions.ts` turns the Gmail-style grammar (`src/lib/search/query-utils.ts`) into a `rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)` predicate plus plain column filters. Migration SQL splitting must keep trigger bodies whole. The backup coverage check skips `messages_fts%`, since the shadow tables are derived and repopulate on restore. Do not treat `wrangler d1 export` as the complete recovery path for a database with virtual tables: use the verified encrypted rescue workflow and empty-target restore described in `docs/rescue-backup.md`.
 
 ### Access control
 

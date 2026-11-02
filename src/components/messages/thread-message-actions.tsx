@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, useEffect, useState, lazy, Suspense } from "react";
+import { createElement, useEffect, useState, useRef, lazy, Suspense } from "react";
 import { Ban, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Reply, ReplyAll, Star } from "lucide-react";
 import { useCompose } from "@/components/compose/compose-context";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -44,6 +44,7 @@ export function ThreadMessageActions({
 	const filterMailbox = selectedMailbox?.id === mailboxId ? selectedMailbox : mailboxes.find(box => box.id === mailboxId);
 	const canCreateFilter = message.direction === "inbound" && !!mailboxId && filterMailbox?.permission === "full_access";
 	const [pending, setPending] = useState(false);
+	const starRequestPending = useRef(false);
 	const [error, setError] = useState<string | null>(null);
 	const canReplyAll = hasAdditionalRecipients(message, ownAddresses);
 	const moveActions = getMoveMessageActions(message.status, message.direction);
@@ -51,20 +52,27 @@ export function ThreadMessageActions({
 		? getOwnAddressForMessage(message, ownAddresses)
 		: ownAddress;
 
+	// Reconcile the local successful action with refreshed server state.
+	// eslint-disable-next-line react-hooks/set-state-in-effect
 	useEffect(() => setStarred(message.starred), [message.starred]);
 	useEffect(() => {
+		// A reader layout change must close an already-open menu that is no longer rendered.
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		if (starOnly) setMoreOpen(false);
 	}, [starOnly]);
 
 	async function onToggleStar() {
+		if (starRequestPending.current) return;
+		starRequestPending.current = true;
 		setPending(true);
 		setError(null);
 		try {
-			const result = await toggleMessageStar(message.id);
+			const result = await toggleMessageStar(message.id, !starred);
 			setStarred(result.starred);
-		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : t("message.error.star"));
+		} catch {
+			setError(t("message.error.star"));
 		} finally {
+			starRequestPending.current = false;
 			setPending(false);
 		}
 	}
@@ -143,7 +151,7 @@ export function ThreadMessageActions({
 
 	return (
 		<div className="flex items-center gap-0.5">
-			{error && <span className="mr-1 max-w-32 truncate text-xs text-red-600" title={error}>{error}</span>}
+			{error && <span role="alert" className="mr-1 max-w-48 text-xs text-red-600">{error}</span>}
 			<Tooltip label={starred ? t("message.removeStar") : t("message.star")}>
 				<Button
 					type="button"
@@ -152,6 +160,7 @@ export function ThreadMessageActions({
 					className="h-8 w-8 px-0"
 					aria-label={starred ? t("message.removeStar") : t("message.star")}
 					aria-pressed={starred}
+					aria-busy={pending}
 					disabled={pending}
 					onClick={() => void onToggleStar()}
 				>

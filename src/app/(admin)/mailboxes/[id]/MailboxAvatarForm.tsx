@@ -29,6 +29,7 @@ export default function MailboxAvatarForm({
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize the server-provided avatar identity after mailbox navigation or save.
 		setHasAvatar(initialHasAvatar);
 		setAvatarUrl(`/api/mailboxes/${mailboxId}/avatar`);
 	}, [initialHasAvatar, mailboxId]);

@@ -31,6 +31,7 @@ export function DriveShareDialog({ item, onClose, onChanged }: { item: DriveItem
 	}, [id, t]);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Do not display the previous document permissions while requesting the newly selected document.
 		setShares([]); setLinkToken(null); setEmail("");
 		void load();
 	}, [load]);

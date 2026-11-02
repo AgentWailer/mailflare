@@ -2,6 +2,8 @@ import { getEnv } from "@/lib/cloudflare";
 import { getMcpAuthentication } from "@/lib/mcp/auth";
 import { createMailflareMcpHandler } from "@/lib/mcp/server";
 import { allowAgentRequest } from "@/lib/agent/rate-limit";
+import { boundedMcpRequest, McpJsonShapeError } from "@/lib/mcp/request-limits";
+import { RequestBodyTooLargeError } from "@/lib/http/errors";
 
 async function handle(request: Request) {
 	const url = new URL(request.url);
@@ -13,6 +15,15 @@ async function handle(request: Request) {
 	if (!principal && reason === "grant_required") return Response.json({error:"Enable or review your ChatGPT OAuth permissions in Mailflare Settings → API keys",settingsUrl:new URL("/settings/api-keys",env.APP_URL || url.origin).toString()},{status:403,headers:{"Cache-Control":"private, no-store"}});
 	if (!principal) return new Response("Unauthorized", { status: 401, headers: { "WWW-Authenticate": "Bearer", "Cache-Control": "private, no-store" } });
 	if (!await allowAgentRequest(env, `mcp:${principal.keyId}`)) return new Response("Rate limit exceeded", { status: 429 });
+	try { request = await boundedMcpRequest(request); }
+	catch (error) {
+		const tooLarge = error instanceof RequestBodyTooLargeError;
+		if (tooLarge || error instanceof McpJsonShapeError || error instanceof SyntaxError || error instanceof TypeError) {
+			return Response.json({ jsonrpc: "2.0", id: null, error: { code: tooLarge ? -32600 : -32700, message: tooLarge ? "Request body is too large" : "Invalid or overly complex JSON request" } },
+				{ status: tooLarge ? 413 : 400, headers: { "Cache-Control": "private, no-store" } });
+		}
+		throw error;
+	}
 	const handler = createMailflareMcpHandler(env, principal, url.origin, request.headers.get("Authorization") ?? "");
 	try {
 		const response = await handler.fetch(request);

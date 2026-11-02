@@ -20,6 +20,7 @@ export function MessageSourceDialog({ messageId, open, onOpenChange }: MessageSo
 	useEffect(() => {
 		if (!open) return;
 		const controller = new AbortController();
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Reset stale source/error state before fetching the newly opened message source.
 		setSource(null);
 		setError(null);
 		setCopied(false);
@@ -36,7 +37,7 @@ export function MessageSourceDialog({ messageId, open, onOpenChange }: MessageSo
 				if (!controller.signal.aborted) setLoading(false);
 			});
 		return () => controller.abort();
-	}, [messageId, open]);
+	}, [messageId, open, t]);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

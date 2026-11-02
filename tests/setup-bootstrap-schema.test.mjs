@@ -1,77 +1,34 @@
-import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import test from "node:test";
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import test, { after } from 'node:test';
+import { build } from 'esbuild';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const src = readFileSync(join(root, "src/lib/setup/migration.ts"), "utf8");
+const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','bootstrap-schema-'));
+after(()=>rmSync(dir,{recursive:true,force:true}));
+await build({stdin:{contents:`export {SqliteDatabase} from './server/runtime/sqlite-database'; export {migrateCleanDatabase} from './src/lib/setup/migration'; export {getMigrationStatus} from './src/lib/migrations/service'; export {createDb} from './src/db'; export {mailboxes,licenseSettings} from './src/db/schema';`,resolveDir:root},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',tsconfig:'tsconfig.json',logLevel:'silent'});
+const app=await import(pathToFileURL(join(dir,'app.mjs')));
 
-function migrationNames() {
-	const match = src.match(/const MIGRATION_NAMES = \[([\s\S]*?)\];/);
-	assert.ok(match, "MIGRATION_NAMES array not found");
-	return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
-}
-
-function initialSchemaSql() {
-	const match = src.match(/const INITIAL_SCHEMA_SQL = `([\s\S]*?)`;/);
-	assert.ok(match, "INITIAL_SCHEMA_SQL not found");
-	return match[1];
-}
-
-test("bootstrap records migrations represented in the current schema so later deploys do not re-apply them", () => {
-	const names = migrationNames();
-	for (const name of [
-		"0013_add_license_settings.sql",
-		"0021_add_mailbox_signature.sql",
-		"0022_add_mailbox_auto_reply.sql",
-		"0027_add_domain_sending_intent.sql",
-		"0029_add_spam_protection.sql",
-	]) {
-		assert.ok(names.includes(name), `MIGRATION_NAMES is missing ${name}`);
-	}
+test('fresh bootstrap applies each bundled migration once and safely resumes without reapplying schema',async t=>{
+ const DB=new app.SqliteDatabase(':memory:');t.after(()=>DB.db.close());
+ assert.equal(await app.migrateCleanDatabase(DB),true);
+ const names=DB.db.prepare('SELECT name FROM d1_migrations ORDER BY name').all().map(row=>row.name);
+ assert.deepEqual(names,readdirSync(join(root,'drizzle/migrations')).filter(name=>name.endsWith('.sql')).sort());
+ assert.deepEqual(await app.getMigrationStatus(DB),{ready:true,pending:[],unknown:[]});
+ assert.equal(await app.migrateCleanDatabase(DB),false);
+ assert.equal(DB.db.prepare('SELECT count(*) n FROM d1_migrations').get().n,names.length);
+ DB.db.exec("INSERT INTO users(id,email,password_hash,name,created_at) VALUES('owner','owner@example.test','hash','Owner',1); INSERT INTO domains(id,user_id,hostname,zone_id,created_at) VALUES('domain','owner','example.test','zone',1)");
+ const db=app.createDb(DB);
+ await db.insert(app.mailboxes).values({id:'box',userId:'owner',domainId:'domain',localPart:'owner',signature:'Signature',autoReplyEnabled:true,autoReplySubject:'Away',autoReplyBody:'Back soon'});
+ assert.equal(DB.db.prepare("SELECT signature FROM mailboxes WHERE id='box'").get().signature,'Signature');
+ assert(DB.db.prepare("PRAGMA table_info(messages)").all().some(column=>column.name==='header_metadata'));
+ assert(DB.db.prepare("SELECT name FROM sqlite_master WHERE name='license_settings'").get());
 });
 
-test("fresh bootstrap schema accepts the current Drizzle mailbox and license inserts", () => {
-	const sql = initialSchemaSql();
-	const mailboxCreate = sql.match(/CREATE TABLE IF NOT EXISTS mailboxes \(([\s\S]*?)\);/);
-	assert.ok(mailboxCreate, "mailboxes CREATE TABLE not found");
-	assert.match(mailboxCreate[1], /\bsignature\b/);
-	assert.match(mailboxCreate[1], /\bauto_reply_enabled\b/);
-	assert.match(mailboxCreate[1], /\bauto_reply_subject\b/);
-	assert.match(mailboxCreate[1], /\bauto_reply_body\b/);
-	assert.match(sql, /CREATE TABLE IF NOT EXISTS license_settings \(/);
-	assert.match(sql, /CREATE TABLE IF NOT EXISTS auto_reply_deliveries \(/);
-	assert.match(sql, /\bspam_protection_enabled\b/);
-	assert.match(sql, /CREATE TABLE IF NOT EXISTS spam_token_stats \(/);
-	assert.match(sql, /CREATE TABLE IF NOT EXISTS spam_reputation \(/);
-	assert.match(sql, /CREATE TABLE IF NOT EXISTS spam_feedback \(/);
-	const domainCreate = sql.match(/CREATE TABLE IF NOT EXISTS domains \(([\s\S]*?)\);/);
-	assert.ok(domainCreate, "domains CREATE TABLE not found");
-	assert.match(domainCreate[1], /\bsending_requested\b/);
-
-	const py = `
-import sqlite3, sys
-sql = sys.stdin.read()
-db = sqlite3.connect(":memory:")
-for stmt in sql.split(";"):
-    s = stmt.strip()
-    if s:
-        db.execute(s)
-db.execute("INSERT INTO users (id,email,password_hash,name,created_at) VALUES ('u','a@b.c','x','n',1)")
-db.execute("INSERT INTO domains (id,user_id,hostname,zone_id,created_at) VALUES ('d','u','ex.com','z',1)")
-db.execute("""
-INSERT INTO mailboxes (
-  id, user_id, domain_id, local_part, display_name,
-  signature, auto_reply_enabled, auto_reply_subject, auto_reply_body, created_at
-) VALUES ('m','u','d','admin','admin','sig',0,'Out of office','',1)
-""")
-db.execute("INSERT INTO license_settings (id, instance_id, updated_at) VALUES ('default','inst',1)")
-db.execute("INSERT INTO auto_reply_deliveries (id, mailbox_id, recipient, sent_at) VALUES ('ar','m','x@y.z',1)")
-print("ok")
-`;
-	const result = spawnSync("python3", ["-c", py], { input: sql, encoding: "utf8" });
-	assert.equal(result.status, 0, result.stderr + result.stdout);
-	assert.match(result.stdout, /^ok$/m);
+test('bootstrap rejects unknown migration history before changing an existing database',async t=>{
+ const DB=new app.SqliteDatabase(':memory:');t.after(()=>DB.db.close());await app.migrateCleanDatabase(DB);
+ DB.db.exec("INSERT INTO d1_migrations(name) VALUES('future-release.sql')");
+ await assert.rejects(app.migrateCleanDatabase(DB),/not part of this Mailflare release/);
+ assert.deepEqual((await app.getMigrationStatus(DB)).unknown,['future-release.sql']);
 });

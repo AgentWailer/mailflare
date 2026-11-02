@@ -11,7 +11,7 @@ export function ProgressiveAvatarImage({ src, alt, className, onError, priority 
 	const [failedFor, setFailedFor] = useState<string | null>(null);
 	const imageRef = useRef<HTMLImageElement>(null);
 	const onErrorRef = useRef(onError);
-	onErrorRef.current = onError;
+	useEffect(() => { onErrorRef.current = onError; }, [onError]);
 	const showFull = priority || previewFailedFor === src || fullReadyFor === src;
 
 	useEffect(() => {

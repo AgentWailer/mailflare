@@ -1,6 +1,7 @@
+import { readProductionCss } from './helpers/production-css.mjs';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-import {mkdtempSync,writeFileSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
@@ -8,7 +9,7 @@ const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','audit-browser
 writeFileSync(join(dir,'link.tsx'),'export default function Link({children,...props}){return <a {...props}>{children}</a>}');
 writeFileSync(join(dir,'entry.tsx'),`import {createRoot} from 'react-dom/client';import {LanguageProvider} from '../../src/components/language-provider';import {MailContentAudit} from '../../src/components/settings/mail-content-audit';import messages from '../../public/locales/de.json';createRoot(document.getElementById('root')).render(<LanguageProvider initialLocale="de" initialMessages={messages}><main style={{maxWidth:900,margin:'auto',padding:16}}><MailContentAudit mailboxId="box"/></main></LanguageProvider>);`);
 const de=JSON.parse(readFileSync(join(root,'public/locales/de.json'),'utf8'));
-const cssDir=join(root,'dist/client/_next/static/css'),css=readFileSync(join(cssDir,readdirSync(cssDir).find(f=>f.startsWith('index.')&&f.endsWith('.css'))));
+const css=readProductionCss();
 let server,browser;
 try{
  await build({entryPoints:[join(dir,'entry.tsx')],outfile:join(dir,'fixture.js'),bundle:true,format:'esm',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'next/link':join(dir,'link.tsx')},define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});

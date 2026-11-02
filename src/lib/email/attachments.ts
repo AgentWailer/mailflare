@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messageAttachments, messages } from "@/db/schema";
 import { newId } from "@/lib/ids";
@@ -68,7 +68,7 @@ export async function storeMessageAttachments(
 	env: CloudflareEnv,
 	messageId: string,
 	attachments: AttachmentStorageInput[],
-	options?: { validate?: boolean },
+	options?: { validate?: boolean; persist?: boolean },
 ): Promise<StoredAttachment[]> {
 	if (options?.validate !== false) validateAttachments(attachments);
 	const db = getDb(env);
@@ -96,7 +96,7 @@ export async function storeMessageAttachments(
 				contentId: attachment.contentId ?? null,
 				r2Key,
 			});
-			await db.insert(messageAttachments).values({
+			if (options?.persist !== false) await db.insert(messageAttachments).values({
 				id,
 				messageId,
 				filename,
@@ -108,11 +108,32 @@ export async function storeMessageAttachments(
 			});
 		}
 	} catch (error) {
-		await Promise.all(stored.map((attachment) => env.BUCKET.delete(attachment.r2Key)));
+		await cleanupStoredAttachments(env, stored);
 		throw error;
 	}
 
 	return stored;
+}
+
+/** Remove only files created by an interrupted copy/upload, never source objects. */
+export async function cleanupStoredAttachments(env: CloudflareEnv, stored: StoredAttachment[]) {
+	if (!stored.length) return;
+	await getDb(env).delete(messageAttachments).where(inArray(messageAttachments.id, stored.map(file => file.id)));
+	await Promise.allSettled(stored.map(file => env.BUCKET.delete(file.r2Key)));
+}
+
+/** A lost batch response may hide a committed edit. Never remove published files. */
+export async function cleanupUnpublishedAttachments(env: CloudflareEnv, stored: StoredAttachment[]) {
+	if (!stored.length) return;
+	let published: { id: string }[];
+	try { published = await getDb(env).select({ id: messageAttachments.id }).from(messageAttachments).where(inArray(messageAttachments.id, stored.map(file => file.id))); }
+	catch { return; } // Retaining an orphan is safer than deleting a possibly committed file.
+	const ids = new Set(published.map(file => file.id));
+	await Promise.allSettled(stored.filter(file => !ids.has(file.id)).map(file => env.BUCKET.delete(file.r2Key)));
+}
+
+export class MissingAttachmentError extends Error {
+	constructor(readonly filename: string) { super(`Attachment unavailable: ${filename}. Retry or attach the file again before sending.`); this.name = "MissingAttachmentError"; }
 }
 
 /**
@@ -127,37 +148,27 @@ export async function copyMessageAttachments(
 ): Promise<AttachmentMetadata[]> {
 	const db = getDb(env);
 	const rows = await db.select().from(messageAttachments).where(and(eq(messageAttachments.messageId, fromMessageId), isNull(messageAttachments.trashedAt)));
-	const copied: AttachmentMetadata[] = [];
-	for (const row of rows) {
-		const object = await env.BUCKET.get(row.r2Key);
-		if (!object) continue;
-		const id = newId("att");
-		const r2Key = `attachments/${toMessageId}/${id}/${row.filename}`;
-		await env.BUCKET.put(r2Key, object.body, {
-			httpMetadata: { contentType: row.contentType },
-			customMetadata: { filename: row.filename, messageId: toMessageId },
-		});
-		await db.insert(messageAttachments).values({
-			id,
-			messageId: toMessageId,
-			filename: row.filename,
-			contentType: row.contentType,
-			size: row.size,
-			disposition: row.disposition,
-			contentId: row.contentId,
-			r2Key,
-		});
-		copied.push({
-			id,
-			messageId: toMessageId,
-			filename: row.filename,
-			type: row.contentType,
-			size: row.size,
-			disposition: row.disposition as "attachment" | "inline",
-			contentId: row.contentId,
-		});
+	const copied: StoredAttachment[] = [];
+	try {
+		for (const row of rows) {
+			const object = await env.BUCKET.get(row.r2Key);
+			if (!object) throw new MissingAttachmentError(row.filename);
+			const id = newId("att");
+			const r2Key = `attachments/${toMessageId}/${id}/${row.filename}`;
+			await env.BUCKET.put(r2Key, object.body, {
+				httpMetadata: { contentType: row.contentType },
+				customMetadata: { filename: row.filename, messageId: toMessageId },
+			});
+			copied.push({ id, messageId: toMessageId, filename: row.filename, type: row.contentType,
+				size: row.size, disposition: row.disposition as "attachment" | "inline", contentId: row.contentId, r2Key });
+			await db.insert(messageAttachments).values({ id, messageId: toMessageId, filename: row.filename,
+				contentType: row.contentType, size: row.size, disposition: row.disposition, contentId: row.contentId, r2Key });
+		}
+	} catch (error) {
+		await cleanupStoredAttachments(env, copied);
+		throw error;
 	}
-	return copied;
+	return copied.map(file => ({ id: file.id, messageId: file.messageId, filename: file.filename, type: file.type, size: file.size, disposition: file.disposition, contentId: file.contentId }));
 }
 
 /** Attachments with their bytes, for handing a draft's files to the send path. */
@@ -167,15 +178,21 @@ export async function loadMessageAttachmentContents(
 ): Promise<AttachmentContent[]> {
 	const db = getDb(env);
 	const rows = await db.select().from(messageAttachments).where(and(eq(messageAttachments.messageId, messageId), isNull(messageAttachments.trashedAt)));
+	if (rows.length > MAX_ATTACHMENT_COUNT || rows.reduce((total, row) => total + row.size, 0) > MAX_TOTAL_ATTACHMENT_SIZE) throw new Error("Attachments exceed the supported send size or count limit");
 	const result: AttachmentContent[] = [];
+	let bytes = 0;
 	for (const row of rows) {
 		const object = await env.BUCKET.get(row.r2Key);
-		if (!object) continue;
+		if (!object) throw new MissingAttachmentError(row.filename);
+		if (object.size > MAX_ATTACHMENT_SIZE || bytes + object.size > MAX_TOTAL_ATTACHMENT_SIZE) throw new Error("Attachments exceed the supported send size limit");
+		const content = await object.arrayBuffer();
+		bytes += content.byteLength;
+		if (bytes > MAX_TOTAL_ATTACHMENT_SIZE || content.byteLength > MAX_ATTACHMENT_SIZE) throw new Error("Attachments exceed the supported send size limit");
 		result.push({
 			storageId: row.id,
 			filename: row.filename,
 			type: row.contentType,
-			content: await object.arrayBuffer(),
+			content,
 			disposition: row.disposition as "attachment" | "inline",
 			contentId: row.contentId,
 		});

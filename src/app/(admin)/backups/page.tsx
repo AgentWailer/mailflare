@@ -100,6 +100,8 @@ export default function BackupsPage() {
   const download = useMutation({ mutationFn: downloadBackup });
   const restore = useMutation({
     mutationFn: restoreBackup,
+    // A restore replaces sessions; discard every authenticated client cache.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     onSuccess: () => window.location.assign("/login"),
   });
   const error =

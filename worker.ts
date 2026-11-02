@@ -1,3 +1,4 @@
+import { recordFinalQueueFailure } from "./src/lib/queues/failures";
 import { processDatabaseBackup, recoverDatabaseBackups } from "./src/lib/backups/runner";
 import { safeErrorCategory } from "./src/lib/security/logging";
 import { processPaperlessJob, recoverPaperlessJobs } from "./src/lib/paperless/jobs";
@@ -10,7 +11,7 @@ import {
 	storeRawToR2,
 	type InboundQueueMessage,
 } from "./src/lib/email/inbound";
-import { processOutboundQueue, type OutboundQueueMessage } from "./src/lib/email/send";
+import { processOutboundQueue, recoverOutboundJobs, type OutboundQueueMessage } from "./src/lib/email/send";
 import { isInboundQueueMessage, isWebhookRetryMessage } from "./worker-utils";
 import { processWebhookRetry, type WebhookRetryMessage } from "./src/lib/email/webhooks";
 import { resolveIncomingMail, forwardMessage } from "./src/lib/email/incoming";
@@ -60,7 +61,7 @@ export default {
 		return applyAppCachePolicy(request, await vinextHandler.fetch(request, env, ctx));
 	},
 
-	async email(message: ForwardableEmailMessage, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
+	async email(message: ForwardableEmailMessage, rawEnv: CloudflareEnv) {
 		const env = withStorage(rawEnv);
 		try {
 			if (message.rawSize > 25 * 1024 * 1024) {
@@ -145,10 +146,10 @@ export default {
 				msg.ack();
 			} catch (err) {
 				console.error("Queue processing failed", {
-					rawR2Key: isInboundQueueMessage(msg.body) ? msg.body.rawR2Key : undefined,
 					attempts: msg.attempts,
 					error: safeErrorCategory(err),
 				});
+				await recordFinalQueueFailure(env, msg.body, msg.attempts, err);
 				msg.retry({ delaySeconds: 10 });
 			}
 		}
@@ -158,6 +159,7 @@ export default {
 		const env = withStorage(rawEnv);
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runAgentMaintenance(env));
+		ctx.waitUntil(recoverOutboundJobs(env));
 		ctx.waitUntil(recoverMboxJobs(env));
 		ctx.waitUntil(recoverGmailSentSync(env));
 		ctx.waitUntil(recoverDatabaseBackups(env));

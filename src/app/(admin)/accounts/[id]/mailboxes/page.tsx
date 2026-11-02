@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -28,7 +28,7 @@ export default function AccountMailboxesPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     const [nextAccount, nextMailboxes, nextDomains] = await Promise.all([
       fetchManagedAccount(id),
       fetchManagedMailboxes(id),
@@ -38,15 +38,16 @@ export default function AccountMailboxesPage() {
     setMailboxes(nextMailboxes);
     setDomains(nextDomains);
     setDomainId((current) => current || nextDomains[0]?.id || "");
-  }
+  }, [id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the account-scoped asynchronous load and its pending state on route changes.
     void load().catch((error) =>
       setMessage(
         error instanceof Error ? error.message : t("account.mailboxes.loadFailed"),
       ),
     );
-  }, [id, t]);
+  }, [load, t]);
 
   async function addMailbox(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

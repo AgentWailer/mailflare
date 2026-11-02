@@ -20,7 +20,7 @@ export function SpamFilterSettings() {
 			})
 			.catch((nextError) => setError(nextError instanceof Error ? nextError.message : t("settings.spam.loadFailed")))
 			.finally(() => setLoading(false));
-	}, []);
+	}, [t]);
 
 	async function updateEnabled(nextEnabled: boolean) {
 		const previous = enabled;

@@ -50,10 +50,15 @@ export async function unsnoozeMessage(messageId: string) {
 	window.dispatchEvent(new Event("mailflare:messages-changed"));
 }
 
-export async function toggleMessageStar(messageId: string) {
-	const response = await authFetch(`/api/messages/${messageId}/star`, { method: "POST" });
+export async function toggleMessageStar(messageId: string, starred?: boolean) {
+	// Explicit desired state makes a retry safe even if the previous response was lost.
+	const response = await authFetch(`/api/messages/${messageId}/star`, {
+		method: "POST",
+		...(starred === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ starred }) }),
+	});
 	if (!response.ok) throw new Error("Unable to update message star");
 	const result = (await response.json()) as { starred: boolean };
+	if (typeof result.starred !== "boolean") throw new Error("Invalid message star response");
 	window.dispatchEvent(new Event("mailflare:message-counts-changed"));
 	return result;
 }

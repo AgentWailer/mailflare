@@ -24,6 +24,7 @@ export function AppearanceSettings({ compact = false, visual = false }: { compac
 	const [preference, setPreference] = useState<ThemePreference>("system");
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize the initial browser theme preference before subscribing to external theme events.
 		setPreference(readThemePreference());
 		const sync = () => setPreference(readThemePreference());
 		window.addEventListener(THEME_CHANGED_EVENT, sync);

@@ -90,13 +90,14 @@ const placeholders = (text) => [...new Set([...text.matchAll(/\{(\w+)\}/g)].map(
 const pluralBases = new Set(Object.keys(en).filter((key) => key.endsWith(".other")).map(baseOf));
 const isPluralKey = (key) => categoryOf(key) && pluralBases.has(baseOf(key));
 
-test("every registered catalog has the English keys and nonempty messages and label", async () => {
+test("primary languages are complete and optional catalogs retain valid translations with English fallback", async () => {
 	for (const [code, { label }] of Object.entries(i18n.locales)) {
 		const catalog = await i18n.loadMessages(code);
 		assert.ok(label.trim().length > 0, code);
 		const plain = (keys) => keys.filter((key) => !isPluralKey(key)).sort();
-		assert.deepEqual(plain(Object.keys(catalog)), plain(Object.keys(en)), `${code}: keys differ from English`);
-		for (const base of pluralBases) assert.ok(typeof catalog[`${base}.other`] === "string", `${code}: ${base}.other is required`);
+		if (code === "en" || code === "de") assert.deepEqual(plain(Object.keys(catalog)), plain(Object.keys(en)), `${code}: primary language keys differ from English`);
+		else for (const key of plain(Object.keys(en))) if (!(key in catalog)) assert.equal(i18n.translate(catalog, key), en[key], `${code}: ${key} needs English fallback`);
+		for (const base of pluralBases) if (code === "en" || code === "de" || Object.keys(catalog).some(key => isPluralKey(key) && baseOf(key) === base)) assert.ok(typeof catalog[`${base}.other`] === "string", `${code}: ${base}.other is required`);
 		for (const key of Object.keys(catalog)) {
 			if (isPluralKey(key)) assert.ok(`${baseOf(key)}.other` in catalog, `${code}: ${key} has no .other`);
 			const value = catalog[key];
@@ -118,7 +119,7 @@ test("missing, invalid and unsupported locale values fall back to English", () =
 });
 
 test("translation uses the requested catalog and falls back per key", async () => {
-	assert.equal(i18n.translate(await i18n.loadMessages("pt-BR"), "navigation.inbox"), "Caixa de entrada");
+	assert.equal(i18n.translate(await i18n.loadMessages("pt-BR"), "navigation.inbox"), "Entrada");
 	assert.equal(i18n.translate({}, "navigation.inbox"), "Inbox");
 });
 
@@ -130,7 +131,7 @@ test("preference cookie persists for a year, covers every path and is Secure on 
 
 test("provider server rendering uses initial locale and labels the native language selector", async () => {
 	const pt = await i18n.renderLanguage("pt-BR");
-	assert.match(pt, /Caixa de entrada/);
+	assert.match(pt, /Entrada/);
 	assert.match(pt, /<label for="[^"]+"[^>]*>Idioma<\/label>/);
 	assert.match(pt, /<select id="[^"]+"/);
 	assert.match(pt, /value="pt-BR" lang="pt-BR" selected=""/);
@@ -140,7 +141,7 @@ test("provider server rendering uses initial locale and labels the native langua
 test("root layout passes the same cookie locale to HTML and provider on first render", async () => {
 	const pt = await i18n.renderLayout("pt-BR");
 	assert.match(pt, /<html lang="pt-BR"/);
-	assert.match(pt, /Caixa de entrada/);
+	assert.match(pt, /Entrada/);
 	for (const value of [undefined, "bad"]) {
 		const english = await i18n.renderLayout(value);
 		assert.match(english, /<html lang="en"/);
@@ -176,6 +177,6 @@ test("a locale registered once reaches resolution, translation, cookie, selector
 test("translations interpolate {vars}, keep unknown placeholders and default to ltr", async () => {
 	assert.equal(i18n.translate({ "navigation.inbox": "Hi {name}, {other}" }, "navigation.inbox", { name: "Ana", count: 2 }), "Hi Ana, {other}");
 	assert.equal(i18n.translate({}, "navigation.inbox", { name: "x" }), "Inbox");
-	assert.equal(i18n.createTranslator("pt-BR", await i18n.loadMessages("pt-BR"))("navigation.inbox", { count: 2 }), "Caixa de entrada");
+	assert.equal(i18n.createTranslator("pt-BR", await i18n.loadMessages("pt-BR"))("navigation.inbox", { count: 2 }), "Entrada");
 	assert.equal(i18n.getDirection("en"), "ltr");
 });

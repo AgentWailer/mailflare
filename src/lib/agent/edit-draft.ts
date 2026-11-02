@@ -1,15 +1,16 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { agentDraftMetadata, messageAttachments, messages } from "@/db/schema";
 import { buildSnippet } from "@/lib/email/parse";
 import { getAuthorizedSenderAddress } from "@/lib/email/sender";
 import { getEmailAddress, splitEmailAddressList } from "@/lib/email/address";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
-import { deleteMessageAttachment, getAttachmentForUser, MAX_ATTACHMENT_COUNT, MAX_TOTAL_ATTACHMENT_SIZE, storeMessageAttachments } from "@/lib/email/attachments";
+import { cleanupUnpublishedAttachments, getAttachmentForUser, MAX_ATTACHMENT_COUNT, MAX_TOTAL_ATTACHMENT_SIZE, storeMessageAttachments } from "@/lib/email/attachments";
 import type { AttachmentContent } from "@/lib/email/attachment-types";
 import type { AgentDraftEditInput, AgentToolContext } from "./types";
 import { formatAgentDraftBody } from "./draft-format";
 import { parseAgentScheduledAt } from "./schedule";
+import { commitAgentDraftMutation } from "./draft-mutation";
 
 function recipientHeader(value: string, label: string, required: boolean): string {
 	const entries = splitEmailAddressList(value);
@@ -39,23 +40,35 @@ export async function editAgentDraft(context: AgentToolContext, input: AgentDraf
 	const removeIds = new Set(input.removeAttachmentIds ?? []);
 	if ([...removeIds].some((id) => !existing.some((attachment) => attachment.id === id))) throw new Error("Attachment to remove was not found on this draft");
 	const remaining = existing.filter((attachment) => !removeIds.has(attachment.id));
+	if (remaining.length + (input.addAttachments?.length ?? 0) > MAX_ATTACHMENT_COUNT) throw new Error("Draft attachments exceed the allowed count or total size");
+	let attachmentBytes = remaining.reduce((total, file) => total + file.size, 0);
 	const additions: AttachmentContent[] = [];
 	for (const attachment of input.addAttachments ?? []) {
 		const [source] = await db.select({ id: messages.id, userId: messages.userId, status: messages.status }).from(messages).where(and(eq(messages.id, attachment.sourceEmailId), eq(messages.mailboxId, context.mailboxId))).limit(1);
 		if (!source || (source.status === "draft" && source.userId !== context.user.id)) throw new Error("Attachment source email not found in the selected mailbox");
 		const found = await getAttachmentForUser(context.env, context.user, source.id, attachment.attachmentId);
 		if (!found || found.attachment.disposition !== "attachment") throw new Error("Attachment not found on the source email");
-		additions.push({ filename: found.attachment.filename, type: found.attachment.contentType, content: await found.object.arrayBuffer() });
+		if (attachmentBytes + found.attachment.size > MAX_TOTAL_ATTACHMENT_SIZE || attachmentBytes + found.object.size > MAX_TOTAL_ATTACHMENT_SIZE) throw new Error("Draft attachments exceed the allowed count or total size");
+		const content = await found.object.arrayBuffer();
+		attachmentBytes += content.byteLength;
+		if (attachmentBytes > MAX_TOTAL_ATTACHMENT_SIZE) throw new Error("Draft attachments exceed the allowed count or total size");
+		additions.push({ filename: found.attachment.filename, type: found.attachment.contentType, content });
 	}
 	if (remaining.length + additions.length > MAX_ATTACHMENT_COUNT || remaining.reduce((total, attachment) => total + attachment.size, 0) + additions.reduce((total, attachment) => total + attachment.content.byteLength, 0) > MAX_TOTAL_ATTACHMENT_SIZE) throw new Error("Draft attachments exceed the allowed count or total size");
-	const [updated] = await db.update(agentDraftMetadata).set({ revision: sql`${agentDraftMetadata.revision} + 1`, ...(scheduledAt !== undefined ? { scheduledAt } : {}) }).where(and(eq(agentDraftMetadata.draftId, draft.id), eq(agentDraftMetadata.revision, input.expectedRevision))).returning({ revision: agentDraftMetadata.revision, scheduledAt: agentDraftMetadata.scheduledAt });
-	if (!updated) throw new Error("Draft changed; read it again before editing");
-	if (additions.length) await storeMessageAttachments(context.env, draft.id, additions);
-	for (const attachmentId of removeIds) await deleteMessageAttachment(context.env, draft.id, attachmentId);
-	await db.update(messages).set({
-		fromAddr, toAddr, ccAddr, bccAddr,
-		subject: input.subject === undefined ? draft.subject : input.subject,
-		...(formattedBody ? { textBody: formattedBody.text, htmlBody: formattedBody.html, snippet: buildSnippet(formattedBody.text, null) } : {}),
-	}).where(eq(messages.id, draft.id));
-	return { draftId: draft.id, revision: updated.revision, status: "draft_updated", scheduledAt: updated.scheduledAt?.toISOString() ?? null, composerUrl: `/drafts/${encodeURIComponent(draft.id)}`, attachmentCount: remaining.length + additions.length };
+	const stored = await storeMessageAttachments(context.env, draft.id, additions, { persist: false });
+	let revision: number;
+	try {
+		revision = await commitAgentDraftMutation(context.env, { draftId: draft.id, revision: input.expectedRevision,
+			added: stored, removeIds: [...removeIds], scheduledAt,
+			patch: { fromAddr, toAddr, ccAddr, bccAddr,
+				subject: input.subject === undefined ? draft.subject : input.subject,
+				...(formattedBody ? { textBody: formattedBody.text, htmlBody: formattedBody.html, snippet: buildSnippet(formattedBody.text, null) } : {}),
+			},
+		});
+	} catch (error) {
+		await cleanupUnpublishedAttachments(context.env, stored);
+		throw error;
+	}
+	await Promise.allSettled(existing.filter(file => removeIds.has(file.id)).map(file => context.env.BUCKET.delete(file.r2Key)));
+	return { draftId: draft.id, revision, status: "draft_updated", scheduledAt: (scheduledAt === undefined ? metadata.scheduledAt : scheduledAt)?.toISOString() ?? null, composerUrl: `/drafts/${encodeURIComponent(draft.id)}`, attachmentCount: remaining.length + additions.length };
 }

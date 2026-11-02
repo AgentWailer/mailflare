@@ -18,12 +18,9 @@ import type {
 } from "./types";
 import {
   ArchiveIcon,
-  Inbox,
   InboxIcon,
   ShieldAlertIcon,
-  ShieldIcon,
   Trash2Icon,
-  TrashIcon,
 } from "lucide-react";
 
 export function getMessageBackHref(
@@ -121,7 +118,6 @@ export function getMoveMessageActions(
 
 export function getMessageActionRedirect(
   action: BulkMessageAction,
-  direction: "inbound" | "outbound",
 ) {
   if (action === "trash") return "/trash";
   if (action === "spam") return "/spam";

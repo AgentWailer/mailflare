@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import toast, { Toaster } from "react-hot-toast";
-import { AlignLeft, CalendarPlus2, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, MoreVertical, Palette, Plus, Repeat2, Trash2, UsersRound, X } from "lucide-react";
+import { AlignLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, MoreVertical, Palette, Plus, Repeat2, Trash2, UsersRound, X } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { mobilePrimaryActionClass } from "@/components/page-header-utils";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,7 @@ export default function CalendarPage() {
     : null, [dragPreview, previewEvent]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize browser DOM or asynchronous calendar request state after commit.
     setHeaderTarget(document.getElementById("calendar-header-slot"));
   }, []);
 
@@ -124,13 +125,14 @@ export default function CalendarPage() {
 
   useEffect(() => {
     let active = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize browser DOM or asynchronous calendar request state after commit.
     setLoading(true);
     const start = new Date(Math.min(today.getTime(), weekStart.getTime(), startOfDay(visibleDate).getTime()));
     const end = new Date(Math.max(addDays(today, 90).getTime(), addDays(weekStart, 7).getTime(), addDays(visibleDate, 1).getTime()));
     void authFetch(`/api/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`)
       .then((response) => {
         if (!response.ok) throw new Error(t("calendar.loadFailed"));
-        return response.json();
+        return response.json() as Promise<{ events?: CalendarEvent[] }>;
       })
       .then((data) => { if (active) setEvents(expandCalendarEvents(data.events ?? [], start, end)); })
       .catch(() => { if (active) toast.error(t("calendar.loadFailed")); })
@@ -147,7 +149,7 @@ export default function CalendarPage() {
     editEvent(event);
     // Drop the param so picking the same event again re-opens it.
     router.replace("/calendar");
-  }, [events, eventFromUrl]);
+  }, [events, eventFromUrl, router]);
 
   function openNewEvent(day = visibleDate, startAt?: Date) {
     const start = startAt ? new Date(startAt) : defaultCalendarStart(day);
@@ -183,8 +185,8 @@ export default function CalendarPage() {
         savedEnd = next.endsAt;
       }
       const repeatAnchorDay = editing?.repeat === "monthly" && startsAt.slice(0, 10) === formatLocalDateTime(new Date(editing.startsAt)).slice(0, 10)
-        ? editing.repeatAnchorDay ?? calendarAnchorDay(editing, new Date(editing.seriesStartsAt ?? editing.startsAt))
-        : calendarAnchorDay(editing, editedStart);
+        ? editing.repeatAnchorDay ?? calendarAnchorDay(new Date(editing.seriesStartsAt ?? editing.startsAt))
+        : calendarAnchorDay(editedStart);
       const response = await authFetch(editing ? `/api/calendar/events/${editing.id}` : "/api/calendar/events", {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -202,7 +204,7 @@ export default function CalendarPage() {
         setEventsVersion((version) => version + 1);
         setClosingEventEditor(true);
       } else {
-        const result = await response.json();
+        const result = await response.json() as { error?: string };
         toast.error(result.error ?? t("calendar.saveFailed"));
       }
     } catch {
@@ -223,7 +225,7 @@ export default function CalendarPage() {
         setEventsVersion((version) => version + 1);
         setClosingEventEditor(true);
       } else {
-        const result = await response.json();
+        const result = await response.json() as { error?: string };
         toast.error(result.error ?? t("calendar.deleteFailed"));
       }
     } catch {
@@ -287,8 +289,8 @@ export default function CalendarPage() {
           repeatDays: parseCalendarRepeatDays(event.repeatDays),
           timeZone: getUserTimeZone(),
           repeatAnchorDay: event.repeat === "monthly" && dateKey(startsAt) === dateKey(new Date(event.startsAt))
-            ? event.repeatAnchorDay ?? calendarAnchorDay(event, new Date(event.seriesStartsAt ?? event.startsAt))
-            : calendarAnchorDay(event, startsAt),
+            ? event.repeatAnchorDay ?? calendarAnchorDay(new Date(event.seriesStartsAt ?? event.startsAt))
+            : calendarAnchorDay(startsAt),
           effectiveFrom: effectiveFrom?.toISOString(),
           moveOccurrenceToPast: movingToPast,
           startsAt: savedStart.toISOString(),

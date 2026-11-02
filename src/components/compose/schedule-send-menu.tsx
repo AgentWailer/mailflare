@@ -18,12 +18,13 @@ import { getUserTimeZone } from "@/lib/time/utils";
 export function ScheduleSendMenu({ disabled, value, onChange, mailboxId, from, onApplyTemplate }: ScheduleSendMenuProps) {
 	const { t } = useLanguage();
 	const [newTemplateOpen, setNewTemplateOpen] = useState(false);
-	const options = getScheduleSendOptions();
-	const minimum = new Date(Date.now() + 5 * 60 * 1000);
+	const [openedAt, setOpenedAt] = useState(() => new Date());
+	const options = getScheduleSendOptions(openedAt);
+	const minimum = new Date(openedAt.getTime() + 5 * 60 * 1000);
 
 	return (
 		<>
-		<DropdownMenu.Root>
+		<DropdownMenu.Root onOpenChange={open => { if (open) setOpenedAt(new Date()); }}>
 			<DropdownMenu.Trigger
 				type="button"
 				disabled={disabled}

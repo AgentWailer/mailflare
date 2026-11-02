@@ -17,7 +17,7 @@ async function getDefaultIcon(env: CloudflareEnv): Promise<Response> {
 	});
 }
 
-export async function GET(request: Request) {
+export async function GET() {
 	const env = await getEnvAsync();
 	if (!(await getLicenseEntitlements(env)).canCustomizeBranding) return getDefaultIcon(env);
 	try {

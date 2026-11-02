@@ -24,7 +24,6 @@ function response(url){
  if(path==='/api/branding')return {appName:'Mailflare',hasCustomIcon:false};
  return {folders:[],messages:[],jobs:[],job:null,hiddenLabelIds:[],ok:true};
 }
-async function until(check){for(let i=0;i<300;i++){if(check())return;await pause(50);}assert(check(),'background warm-up completes');}
 try{
  preview=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(port)],{cwd:process.cwd(),env:{...process.env,XDG_CONFIG_HOME:temporary,CLOUDFLARE_REMOTE_BINDINGS:'false'},stdio:['ignore','pipe','pipe']});for(const stream of [preview.stdout,preview.stderr])stream.on('data',data=>serverLog+=data.toString());
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Preview exited');await pause(200);}assert(ready);

@@ -21,6 +21,7 @@ export function SectionNavSheet({ label, title, children, className }: SectionNa
 	const hidden = mobile && !open;
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Close the modal navigation after committed route or viewport changes.
 		setOpen(false);
 	}, [pathname, mobile]);
 

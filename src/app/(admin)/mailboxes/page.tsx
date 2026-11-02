@@ -48,6 +48,7 @@ export default function MailboxesPage() {
 
 	useEffect(() => {
 		if (!createOpen) return;
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- Initialize a newly opened form after the current account request completes.
 		setDisplayName((currentName) => currentName || account.data?.user?.name?.trim() || "");
 		setOwnerUserId((currentId) => currentId || account.data?.user?.id || "");
 	}, [account.data?.user?.id, account.data?.user?.name, createOpen]);

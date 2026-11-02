@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test,{after} from 'node:test';
 import {build} from 'esbuild';
-import {mkdtempSync,rmSync,writeFileSync,readFileSync} from 'node:fs';
+import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const dir=mkdtempSync(join(process.cwd(),'node_modules','paperless-test-'));after(()=>rmSync(dir,{recursive:true,force:true}));

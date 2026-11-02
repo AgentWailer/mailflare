@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +32,7 @@ export function MailboxAutoReplyForm() {
       subject: selectedMailbox?.autoReplySubject ?? "Out of office",
       body: selectedMailbox?.autoReplyBody ?? "",
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Populate the editable form when the externally selected mailbox changes.
     setSettings(nextSettings);
     setSavedSettings(nextSettings);
     setStatus(null);

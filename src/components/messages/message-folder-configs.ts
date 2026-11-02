@@ -1,5 +1,5 @@
 import { ReceiptText, Package } from "lucide-react";
-import { Megaphone, Users, Archive, Clock, CalendarClock, Mails, MailOpen, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
+import { Megaphone, Users, Archive, Clock, CalendarClock, Mails, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
 import type { MessageFolderConfig } from "./types";
 
 export const inboxFolderConfig: MessageFolderConfig = {

@@ -20,6 +20,7 @@ export function useDriveColumns() {
 	useEffect(() => {
 		try {
 			const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Partial<Record<DriveColumn, number>> | null;
+			// eslint-disable-next-line react-hooks/set-state-in-effect -- Restore browser-only column preferences without changing the server-rendered markup.
 			if (saved) setWidths((current) => ({ owner: clamp(saved.owner ?? current.owner), updatedAt: clamp(saved.updatedAt ?? current.updatedAt), size: clamp(saved.size ?? current.size) }));
 		} catch { /* storage unavailable: keep defaults */ }
 	}, []);

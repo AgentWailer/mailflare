@@ -9,7 +9,6 @@ const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "
  * optional here and are filled in as empty on restore.
  */
 const REQUIRED_BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "mailbox_access", "contacts", "folders", "api_keys", "messages", "message_attachments", "outbound_jobs", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "license_settings"];
-const INSERT_BATCH_SIZE = 50;
 
 export function getBackupTableOrder(): readonly DatabaseBackupTable[] { return BACKUP_TABLES; }
 
@@ -86,45 +85,81 @@ export async function exportDatabaseRecords(db: D1Database, excludedGroups: Back
 	return new TextEncoder().encode(JSON.stringify(document));
 }
 
+/** Legacy JSON imports are bounded and atomic. Cloudflare's HTTP route uses rescue recovery instead. */
 export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffer): Promise<void> {
+	if (content.byteLength > 32 * 1024 * 1024) throw new Error("Use the streaming recovery tools for large backups.");
 	const document = parseDatabaseBackup(content);
 	if (document.includedTables && !BACKUP_TABLE_GROUPS.every((group) => group.tables.some((table) => document.includedTables?.includes(table)))) throw new Error("This backup contains selected table groups only. Restore requires a backup that includes every table group.");
 	mergeLegacyMessageBodies(document);
 	fillMissingBackupTables(document);
 	validateDatabaseBackup(document);
-	const sharedLinksTable = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'shared_attachment_links'").first<{ name: string }>();
-	if (!sharedLinksTable && document.tables.shared_attachment_links?.length) throw new Error("Apply pending database migrations before restoring shared attachment links.");
-	const bookingTable = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'booking_events'").first<{ name: string }>();
-	if (!bookingTable && document.tables.booking_events?.length) throw new Error("Apply pending database migrations before restoring booking events.");
-	const availableTables = new Set((await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all<{name:string}>()).results.map(row=>row.name));
- for(const table of BACKUP_TABLES) if(!availableTables.has(table) && document.tables[table]?.length) throw new Error(`Apply pending database migrations before restoring ${table}.`);
- const restoreTables = BACKUP_TABLES.filter(table=>availableTables.has(table));
- const feedbackColumns = availableTables.has("mail_sorting_feedback") ? new Set((await db.prepare("PRAGMA table_info(mail_sorting_feedback)").all<{name:string}>()).results.map(row=>row.name)) : new Set<string>();
- if (document.tables.mail_sorting_feedback?.some(row => "excerpt" in row || "source" in row) && (!feedbackColumns.has("excerpt") || !feedbackColumns.has("source"))) throw new Error("Apply pending database migrations before restoring content learning examples.");
- const messageColumns = new Set((await db.prepare("PRAGMA table_info(messages)").all<{name:string}>()).results.map(row=>row.name));
-	const folderColumns = new Set((await db.prepare("PRAGMA table_info(folders)").all<{ name: string }>()).results.map((column) => column.name));
+	const availableTables = new Set((await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all<{ name: string }>()).results.map(row => row.name));
+	for (const table of BACKUP_TABLES) if (!availableTables.has(table) && document.tables[table]?.length) throw new Error(`Apply pending database migrations before restoring ${table}.`);
+	const restoreTables = BACKUP_TABLES.filter(table => availableTables.has(table));
+	const schemas = new Map<DatabaseBackupTable, RestoreColumn[]>();
+	for (const table of restoreTables) schemas.set(table, (await db.prepare(`PRAGMA table_info(${table})`).all<RestoreColumn>()).results);
+	const folderColumns = new Set(schemas.get("folders")?.map(column => column.name));
 	if (!folderColumns.has("parent_id") && document.tables.folders?.some(row => row.parent_id)) throw new Error("Apply pending database migrations before restoring nested labels.");
-	const backupColumns = new Set((await db.prepare("PRAGMA table_info(backups)").all<{ name: string }>()).results.map(column => column.name));
-	const userColumns = new Set((await db.prepare("PRAGMA table_info(users)").all<{ name: string }>()).results.map((column) => column.name));
-	const bookingColumns = bookingTable ? new Set((await db.prepare("PRAGMA table_info(booking_events)").all<{ name: string }>()).results.map((column) => column.name)) : null;
-	for (const table of [...restoreTables].reverse()) await db.prepare(`DELETE FROM ${table}`).run();
+	const feedbackColumns = new Set(schemas.get("mail_sorting_feedback")?.map(column => column.name));
+	if (document.tables.mail_sorting_feedback?.some(row => "excerpt" in row || "source" in row) && (!feedbackColumns.has("excerpt") || !feedbackColumns.has("source"))) throw new Error("Apply pending database migrations before restoring content learning examples.");
+
+	// Validate every row against the destination before constructing any destructive work.
+	// Restoring an older document into a migrated schema remains supported; silently
+	// dropping fields from a newer backup into an older schema does not.
 	for (const table of restoreTables) {
-		if(table === "message_labels") await db.prepare("DELETE FROM message_labels").run();
-		const rows = document.tables[table] ?? [];
-		for (let index = 0; index < rows.length; index += INSERT_BATCH_SIZE) {
-			const columns = table === "folders" ? folderColumns : table === "users" ? userColumns : table === "backups" ? backupColumns : table === "messages" ? messageColumns : table === "routing_rules" ? new Set((await db.prepare("PRAGMA table_info(routing_rules)").all<{name:string}>()).results.map(row=>row.name)) : table === "booking_events" ? bookingColumns : null;
-			const statements = rows.slice(index, index + INSERT_BATCH_SIZE).map((row) => createInsertStatement(db, table, table === "backups" ? { ...row, checkpoint: null, lease_token: null, lease_until: 0, status: ["queued", "running"].includes(String(row.status)) ? "failed" : row.status, error: ["queued", "running"].includes(String(row.status)) ? "Restored backup requires a new export" : row.error } : (table === "gmail_import_jobs" || table === "mbox_import_jobs" || table === "mbox_sorting_jobs") ? { ...row, lease_token: null, lease_until: 0, status: ((table === "mbox_import_jobs" || table === "mbox_sorting_jobs") && ["pending", "running", "waiting"].includes(String(row.status))) || row.status === "running" ? "paused" : row.status } : table === "mcp_oauth_grants" ? { ...row, enabled: 0 } : table === "gmail_sent_sync" ? { ...row, enabled: 0, lease_token: null, lease_until: 0, error: "restore_requires_review" } : table === "paperless_connections" ? { ...row, enabled: 0 } : table === "paperless_jobs" ? { ...row, lease_token: null, lease_until: 0, status: ["completed","cancelled"].includes(String(row.status)) ? row.status : "paused", error: ["completed","cancelled"].includes(String(row.status)) ? row.error : "restore_requires_review" } : table === "mail_content_audit_jobs" ? { ...row, lease_token: null, lease_until: 0, status: ["pending","running","waiting","paused","failed"].includes(String(row.status)) ? "paused" : row.status, error: ["pending","running","waiting","paused","failed"].includes(String(row.status)) ? "restore_requires_restart" : row.error } : table === "message_bulk_jobs" ? { ...row, lease_token: null, lease_until: 0, pending_chunk: null, status: ["pending","running","waiting","failed","paused"].includes(String(row.status)) ? "paused" : row.status, error: ["pending","running","waiting","failed","paused"].includes(String(row.status)) ? "Restored selection requires a new background action" : row.error } : table === "folders" && folderColumns.has("parent_id") ? { ...row, parent_id: null } : row, columns));
-			if (statements.length > 0) await db.batch(statements);
-		}
-		// Restore all labels before their self-references, regardless of backup row order.
-		if (table === "folders" && folderColumns.has("parent_id")) {
-			const nested = rows.filter(row => row.parent_id);
-			for (let index = 0; index < nested.length; index += INSERT_BATCH_SIZE) {
-				await db.batch(nested.slice(index, index + INSERT_BATCH_SIZE).map(row => db.prepare("UPDATE folders SET parent_id = ? WHERE id = ?").bind(row.parent_id, row.id)));
+		const schema = schemas.get(table)!;
+		const columns = new Set(schema.map(column => column.name));
+		for (const row of document.tables[table] ?? []) {
+			for (const key of Object.keys(row)) if (!columns.has(key)) throw new Error(`Apply pending database migrations before restoring ${table}.${key}.`);
+			for (const column of schema) {
+				if ((column.notnull || column.pk) && (row[column.name] === null || row[column.name] === undefined && column.dflt_value === null)) throw new Error(`Backup contains an invalid ${table}.${column.name} value`);
 			}
 		}
 	}
-	if(availableTables.has("message_labels")) await db.prepare("INSERT OR IGNORE INTO message_labels(message_id,folder_id) SELECT id,folder_id FROM messages WHERE folder_id IS NOT NULL").run();
+
+	// One bounded transaction is essential: CHECK/FK/unique failures or an interrupted
+	// local restore must roll back *all* deletes and inserts, not just the latest chunk.
+	// This function is not the multi-gigabyte Cloudflare rescue path.
+	const statements: D1PreparedStatement[] = [];
+	const add = (statement: D1PreparedStatement) => {
+		if (statements.length >= 10_000) throw new Error("Use the streaming recovery tools for large backups.");
+		statements.push(statement);
+	};
+	for (const table of [...restoreTables].reverse()) add(db.prepare(`DELETE FROM ${table}`));
+	for (const table of restoreTables) {
+		// Message insert triggers can recreate label rows before their table is restored.
+		if (table === "message_labels") add(db.prepare("DELETE FROM message_labels"));
+		const rows = document.tables[table] ?? [];
+		const columns = new Set(schemas.get(table)!.map(column => column.name));
+		for (const row of rows) {
+			const paused = pausedRestoreRecord(table, row, folderColumns.has("parent_id"));
+			// Operational defaults introduced by newer code need not exist in an older
+			// local schema. Original backup fields were already checked above.
+			const restored = Object.fromEntries(Object.entries(paused).filter(([key]) => columns.has(key)).map(([key, value]) => [key, value ?? null]));
+			add(createInsertStatement(db, table, restored));
+		}
+		if (table === "folders" && folderColumns.has("parent_id")) {
+			for (const row of rows.filter(row => row.parent_id)) add(db.prepare("UPDATE folders SET parent_id = ? WHERE id = ?").bind(row.parent_id, row.id));
+		}
+	}
+	if (availableTables.has("message_labels")) add(db.prepare("INSERT OR IGNORE INTO message_labels(message_id,folder_id) SELECT id,folder_id FROM messages WHERE folder_id IS NOT NULL"));
+	await db.batch(statements);
+}
+
+type RestoreColumn = { name: string; notnull: number; pk: number; dflt_value: string | null };
+
+/** Restored integrations must not resume irreversible external work automatically. */
+function pausedRestoreRecord(table: DatabaseBackupTable, row: DatabaseRecord, nestedLabels: boolean): DatabaseRecord {
+	if (table === "backups") return { ...row, checkpoint: null, lease_token: null, lease_until: 0, status: ["queued", "running"].includes(String(row.status)) ? "failed" : row.status, error: ["queued", "running"].includes(String(row.status)) ? "Restored backup requires a new export" : row.error };
+	if (table === "gmail_import_jobs" || table === "mbox_import_jobs" || table === "mbox_sorting_jobs") return { ...row, lease_token: null, lease_until: 0, status: ((table === "mbox_import_jobs" || table === "mbox_sorting_jobs") && ["pending", "running", "waiting"].includes(String(row.status))) || row.status === "running" ? "paused" : row.status };
+	if (table === "mcp_oauth_grants") return { ...row, enabled: 0 };
+	if (table === "gmail_sent_sync") return { ...row, enabled: 0, lease_token: null, lease_until: 0, error: "restore_requires_review" };
+	if (table === "paperless_connections") return { ...row, enabled: 0 };
+	if (table === "paperless_jobs") return { ...row, lease_token: null, lease_until: 0, status: ["completed", "cancelled"].includes(String(row.status)) ? row.status : "paused", error: ["completed", "cancelled"].includes(String(row.status)) ? row.error : "restore_requires_review" };
+	if (table === "mail_content_audit_jobs") return { ...row, lease_token: null, lease_until: 0, status: ["pending", "running", "waiting", "paused", "failed"].includes(String(row.status)) ? "paused" : row.status, error: ["pending", "running", "waiting", "paused", "failed"].includes(String(row.status)) ? "restore_requires_restart" : row.error };
+	if (table === "message_bulk_jobs") return { ...row, lease_token: null, lease_until: 0, pending_chunk: null, status: ["pending", "running", "waiting", "failed", "paused"].includes(String(row.status)) ? "paused" : row.status, error: ["pending", "running", "waiting", "failed", "paused"].includes(String(row.status)) ? "Restored selection requires a new background action" : row.error };
+	if (table === "folders" && nestedLabels) return { ...row, parent_id: null };
+	return row;
 }
 
 function parseDatabaseBackup(content: ArrayBuffer): DatabaseBackupDocument {
@@ -148,8 +183,8 @@ function isDatabaseBackupDocument(value: unknown): value is DatabaseBackupDocume
 	});
 }
 
-function createInsertStatement(db: D1Database, table: DatabaseBackupTable, row: DatabaseRecord, availableColumns: Set<string> | null = null) {
-	const columns = Object.keys(row).filter((column) => !availableColumns || availableColumns.has(column));
+function createInsertStatement(db: D1Database, table: DatabaseBackupTable, row: DatabaseRecord) {
+	const columns = Object.keys(row);
 	if (columns.length === 0) throw new Error(`Backup contains an invalid ${table} record`);
 	const placeholders = columns.map(() => "?").join(", ");
 	const identifiers = columns.map((column) => `\`${column.replaceAll("`", "``")}\``).join(", ");
@@ -169,7 +204,7 @@ function fillMissingBackupTables(document: DatabaseBackupDocument): void {
 function validateDatabaseBackup(document: DatabaseBackupDocument): void {
 	for (const table of BACKUP_TABLES) {
 		for (const row of document.tables[table] ?? []) {
-			if (!row || typeof row !== "object" || Array.isArray(row)) {
+			if (!row || typeof row !== "object" || Array.isArray(row) || Object.values(row).some(value => value !== null && typeof value !== "string" && !(typeof value === "number" && Number.isFinite(value)))) {
 				throw new Error(`Backup contains an invalid ${table} record`);
 			}
 		}

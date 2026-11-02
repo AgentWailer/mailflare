@@ -52,12 +52,12 @@ function recurringStart(first: Date, repeat: CalendarRepeat, index: number, time
   return dateFromZonedFields(fields, timeZone);
 }
 
-export function calendarTimeZone(_event?: CalendarEvent | null): string {
+export function calendarTimeZone(): string {
   return getUserTimeZone();
 }
 
-export function calendarAnchorDay(event: CalendarEvent | null, value: Date): number {
-  return zonedDateFields(value, calendarTimeZone(event)).getUTCDate();
+export function calendarAnchorDay(value: Date): number {
+  return zonedDateFields(value, calendarTimeZone()).getUTCDate();
 }
 
 function recurrenceStartIndex(first: Date, repeat: CalendarRepeat, after: Date, timeZone: string): number {
@@ -79,7 +79,7 @@ export function expandCalendarEvents(events: CalendarEvent[], rangeStart: Date, 
     const until = event.repeatUntil ? new Date(event.repeatUntil).getTime() : Infinity;
     const repeatDays = parseCalendarRepeatDays(event.repeatDays);
     const excluded = new Set(parseExcludedOccurrences(event.excludedOccurrences));
-    const timeZone = calendarTimeZone(event);
+    const timeZone = calendarTimeZone();
     const firstIndex = recurrenceStartIndex(first, event.repeat, new Date(rangeStart.getTime() - duration), timeZone);
     for (let index = firstIndex; index < firstIndex + 20_000; index++) {
       const startsAt = recurringStart(first, event.repeat, index, timeZone, event.repeatAnchorDay);
@@ -97,7 +97,7 @@ export function nextCalendarOccurrence(event: CalendarEvent, after: Date): Date 
   const until = event.repeatUntil ? new Date(event.repeatUntil).getTime() : Infinity;
   const repeatDays = parseCalendarRepeatDays(event.repeatDays);
   const excluded = new Set(parseExcludedOccurrences(event.excludedOccurrences));
-  const timeZone = calendarTimeZone(event);
+  const timeZone = calendarTimeZone();
   const firstIndex = recurrenceStartIndex(first, event.repeat, after, timeZone);
   for (let index = firstIndex; index < firstIndex + 20_000; index++) {
     const startsAt = recurringStart(first, event.repeat, index, timeZone, event.repeatAnchorDay);
@@ -109,7 +109,7 @@ export function nextCalendarOccurrence(event: CalendarEvent, after: Date): Date 
 }
 
 export function rescheduleCalendarOccurrence(event: CalendarEvent, startsAt: Date, endsAt: Date, effectiveFrom: Date): CalendarEventTimes | null {
-  const timeZone = calendarTimeZone(event);
+  const timeZone = calendarTimeZone();
   const shift = zonedDateFields(startsAt, timeZone).getTime() - zonedDateFields(new Date(event.startsAt), timeZone).getTime();
   const threshold = dateFromZonedFields(new Date(zonedDateFields(effectiveFrom, timeZone).getTime() - shift), timeZone);
   let next = nextCalendarOccurrence(event, threshold);

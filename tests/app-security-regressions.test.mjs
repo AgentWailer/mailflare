@@ -13,6 +13,7 @@ await build({ stdin: { contents: `
  export { SqliteDatabase } from './server/runtime/sqlite-database.ts';
  export { applyMigrations } from './server/runtime/migrate.ts';
  export { createSession } from './src/lib/auth/session.ts';
+ export { getSecurityHeaders } from './src/lib/security/headers.ts';
  export { GET as listMailboxes, POST as createMailbox } from './src/app/api/mailboxes/route.ts';
  export { GET as listFolders, POST as createFolder } from './src/app/api/folders/route.ts';
  export { GET as getContact, PATCH as updateContact } from './src/app/api/contacts/route.ts';
@@ -26,6 +27,14 @@ await build({ stdin: { contents: `
  export { GET as attachment } from './src/app/api/messages/[messageId]/attachments/[attachmentId]/route.ts';
 `, resolveDir: root, sourcefile: 'security-entry.ts' }, outfile: join(directory, 'entry.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', tsconfig: join(root, 'tsconfig.json'), alias: { 'next/headers': join(directory, 'headers.mjs'), 'next/server': 'next/server.js', 'cloudflare:workers': './server/runtime/cloudflare-workers.ts' }, logLevel: 'silent' });
 const app = await import(pathToFileURL(join(directory, 'entry.mjs')).href);
+
+test('app policy permits PDF WebAssembly without permitting JavaScript eval', () => {
+ const headers = new Headers(app.getSecurityHeaders().map(({key,value}) => [key,value]));
+ const script = headers.get('Content-Security-Policy').split(';').find(part => part.trim().startsWith('script-src ')).trim().split(/\s+/);
+ assert(!script.includes("'unsafe-eval'"));
+ assert(script.includes("'wasm-unsafe-eval'"));
+ assert.equal(headers.get('X-Content-Type-Options'), 'nosniff');
+});
 
 async function fixture(t) {
  const database = new app.SqliteDatabase(':memory:');

@@ -4,9 +4,26 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 import { readdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import type { OutputOptions } from "rolldown";
 
 const pdfPackage = createRequire(import.meta.url).resolve("pdfjs-dist/package.json");
+
+function workerSidecarOutput(output: OutputOptions = {}, assetsDir = "_next/static"): OutputOptions {
+	const fallback = output.chunkFileNames;
+	const workerModule = resolve("worker.ts").replaceAll("\\", "/");
+	return {
+		...output,
+		chunkFileNames(chunk) {
+			// Vinext beta.13 emits these sidecars at the server root and imports
+			// them as ./ filenames. Rolldown may extract our Worker into a shared
+			// worker-entry chunk; keep that chunk beside its manifests, as Vinext
+			// already does for its router-stage chunks. Other chunks keep their path.
+			if (chunk.name === "worker-entry" || chunk.moduleIds.some(id => id.split("?", 1)[0].replaceAll("\\", "/") === workerModule)) return "[name]-[hash].js";
+			return typeof fallback === "function" ? fallback(chunk) : fallback ?? `${assetsDir}/[name]-[hash].js`;
+		},
+	};
+}
 
 export default defineConfig({
 	resolve: {
@@ -15,6 +32,16 @@ export default defineConfig({
 	},
 	server: { allowedHosts: ["mailflare.local", "mail.dev"] },
 	plugins: [
+		{
+			name: "worker-sidecar-path-compatibility",
+			configEnvironment(name, config) {
+				if (name !== "rsc") return;
+				const output = config.build?.rolldownOptions?.output;
+				return { build: { rolldownOptions: { output: Array.isArray(output)
+					? output.map(item => workerSidecarOutput(item, config.build?.assetsDir))
+					: workerSidecarOutput(output, config.build?.assetsDir) } } };
+			},
+		},
 		{
 			name: "client-ui-chunks",
 			configEnvironment(name) {
@@ -42,6 +69,8 @@ export default defineConfig({
 		vinext({ images: { optimizer: imagesOptimizer() } }),
 		cloudflare({
 			remoteBindings: process.env.CLOUDFLARE_REMOTE_BINDINGS === "true",
+			// Isolated local integration tests must never reuse a developer's D1/R2 state.
+			persistState: process.env.MAILFLARE_LOCAL_STATE_PATH ? { path: process.env.MAILFLARE_LOCAL_STATE_PATH } : true,
 			viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
 		}),
 	],

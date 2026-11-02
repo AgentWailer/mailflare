@@ -2,12 +2,12 @@
 
 # Mailflare
 
-> **AgentWailer fork, modified 10 October 2026 (AGPL-3.0-or-later).** All bundled features are available without a purchased key, including unlimited accounts and shared inboxes. Authentication and account/mailbox permissions remain enforced. Updates are merged into this fork rather than replacing it with upstream. See [Fork operation and deployment](docs/fork.md).
+> **AgentWailer fork (AGPL-3.0-or-later).** All bundled features are available without a purchased key, including unlimited accounts and shared inboxes. Authentication and account/mailbox permissions remain enforced. Updates are merged into this fork rather than replacing it with upstream. See the [current operating guide](docs/operations.md) for installation, releases, recovery and ChatGPT OAuth. The original fork policy is documented in [Fork operation](docs/fork.md).
 
 
 Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare. Supports **Resend**, or **AWS SES**
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/AgentWailer/mailflare)
 
 ## Screenshots
 
@@ -38,17 +38,17 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 - **Admin**: Manage users, permissions, API keys, webhooks, audit logs, and backups.
 - **AI assistant**: Search your mail, draft replies, and manage calendar events with AI.
 - **MCP access**: Connect AI clients over MCP, with separate permissions for each key.
-- **Languages**: Use the interface in 33 languages: English, Português (Brasil), Português (Portugal), Español, Français, Deutsch, Italiano, Nederlands, Polski, Українська, Русский, Türkçe, 中文（简体）, 日本語, 한국어, Bahasa Indonesia, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, Kiswahili, Hausa, plus العربية, اردو and فارسی (right-to-left).
+- **Languages**: English and German are the primary maintained catalogs. The selector offers 33 languages; other catalogs can fall back to English for newer features: English, Português (Brasil), Português (Portugal), Español, Français, Deutsch, Italiano, Nederlands, Polski, Українська, Русский, Türkçe, 中文（简体）, 日本語, 한국어, Bahasa Indonesia, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, Kiswahili, Hausa, plus العربية, اردو and فارسی (right-to-left).
 
 ## How it works
 
 Mailflare runs in your Cloudflare account. By default, Cloudflare Email Routing delivers incoming mail to the app, and Cloudflare's email service sends outgoing mail. Each domain can also receive or send through Resend or Amazon SES. Cloudflare still manages the DNS.
 
-Your mail stays in your own D1 database, and attachments stay in your own R2, Backblaze B2 or AWS S3 bucket, whichever provider you use. See [Sending and receiving providers](docs/providers.md).
+The Cloudflare runtime uses Vite/Vinext, Workers Static Assets, D1 for messages and metadata, and a private R2 bucket for raw mail and attachments. A separate private R2 bucket stores the encrypted rescue copy. Backblaze B2 or AWS S3 are optional alternatives for live object storage; changing providers does not move existing objects. See [Sending and receiving providers](docs/providers.md).
 
 ## Cost
 
-**You can set up Mailflare, receive mail, and send mail for free.** Receiving with Cloudflare Email Routing is free. For sending, use the free tier of Resend or Amazon SES. Cloudflare's own email sending needs a paid Worker plan.
+**Costs depend on mailbox size, traffic and enabled services.** Cloudflare Email Routing is free to receive mail, and sending providers offer limited free tiers. Workers, D1, R2, Queues, AI and optional services have their own limits and charges; a large personal archive is not guaranteed to fit a free plan. Cloudflare's own email sending needs a paid Worker plan. The figures below are orientation only; verify the linked provider pricing before choosing a plan.
 
 | Send with | Free tier | After that |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ You choose the provider per domain and can switch anytime (see [Sending and rece
 
 ## Deploy
 
-1. **Deploy the app.** Click **Deploy to Cloudflare**. Keep the app name `mailflare`. Other Worker names will break the app.
+1. **Deploy this fork for a new installation.** Click **Deploy to Cloudflare** and verify the source is `AgentWailer/mailflare`. Keep the default Worker name `mailflare`; service bindings and mail routing must agree with it. For an existing installation, use the [release procedure](docs/operations.md#release-an-existing-installation), preserving its resources and secrets.
 2. **Finish setup.** Open the deployed app and follow `/setup` to check the install and create your admin account.
 3. **Connect a domain.** Add a domain from the same Cloudflare account and choose which service receives its mail. Mailflare sets up Email Routing, or guides you through Resend or Amazon SES. Then create your first mailbox. Add Resend or AWS credentials on the domain page when you need them.
 
@@ -85,19 +85,24 @@ Paste the prompt below into an agent with terminal access. Give it your Cloudfla
 - **Runtime token** (stored as the Worker secret `CF_TOKEN`): use the domain permissions above. Add **Email Sending Edit** to send mail. It must cover the zones you will connect in Mailflare.
 
 ```text
-Install Mailflare from https://github.com/hieunc229/mailflare in my Cloudflare account.
+Install the AgentWailer Mailflare fork from https://github.com/AgentWailer/mailflare
+in my Cloudflare account. Do not replace it with the original upstream repository.
 Ask me for my Cloudflare account ID, a scoped deployment API token, and a separate
 runtime CF_TOKEN through a secret input. Never print, commit, or place either token
 in a command argument or a tracked file. Use the deployment token only for Wrangler
 authentication (CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID).
 
-Read README.md, docs/deployment.md, and wrangler.jsonc first. Keep the Worker name
+Read README.md, docs/operations.md, docs/deployment.md, and wrangler.jsonc first. Keep the Worker name
 exactly mailflare. In the selected account, create or reuse the D1 database
-mailflare, R2 bucket mailflare-raw, and Queues mailflare-inbound,
-mailflare-outbound, and mailflare-agent. Set the D1 database_id in the local
+mailflare, private R2 buckets mailflare-raw and mailflare-rescue, and Queues
+mailflare-inbound, mailflare-outbound, mailflare-agent, and mailflare-failed. Set the D1 database_id in the local
 Wrangler config without committing that account-specific ID. Install dependencies,
-run npm run deploy, and set the runtime CF_TOKEN as a Worker secret. Do not run
-remote D1 migrations manually; the /setup flow initializes the database.
+run the documented quality checks, and set the runtime CF_TOKEN as a Worker
+secret. For a new empty database, deploy the complete Worker and let /setup
+initialize it. For an existing installation, stop treating this as a fresh install:
+review and apply required additive migrations before incompatible code is
+published, then release through its existing Git/Cloudflare pipeline. Never
+initialize or replace an existing database to clear a migration warning.
 
 Give me the deployed URL and any remaining Cloudflare account actions. I will
 open /setup, create the first admin account, and connect my domain there.
@@ -132,7 +137,9 @@ Add your Cloudflare credentials to `.dev.vars`, then open [http://localhost:3000
 
 The Cloudflare app uses vinext and the Cloudflare Vite plugin, with local D1, R2, Queues, and Durable Objects. Remote bindings are off by default. To use Workers AI locally, log in with Wrangler, set `CLOUDFLARE_ACCOUNT_ID`, and run `CLOUDFLARE_REMOTE_BINDINGS=true npm run dev`.
 
-- `npm run build`: build the full Worker.
+- `npm run check:quality`: migration bundle, type checking, lint, full ordinary tests and Worker build.
+- `npm run test:smoke`: browser smoke journeys against the build, using synthetic data.
+- `npm run build`: build the full Worker; this alone is not a release-quality check.
 - `npm run start`: preview that build locally.
 - `npm run deploy`: build and deploy.
 
@@ -146,7 +153,10 @@ To add a language, create `public/locales/<code>.json` with the same keys as `sr
 
 ## Documentation
 
+- [Current operating guide: releases, recovery, OAuth and maintenance](docs/operations.md)
 - [Deployment and configuration](docs/deployment.md)
+- [Encrypted rescue backup and recovery](docs/rescue-backup.md)
+- [Connect ChatGPT through Cloudflare Managed OAuth](docs/mcp-cloudflare-oauth.md)
 - [Sending and receiving providers (Cloudflare, Resend, Amazon SES)](docs/providers.md)
 - [API and integrations](docs/api.md), including the [calendar and booking APIs](docs/api.md#calendar-and-booking)
 - [Email assistant and MCP](docs/email-assistant-and-mcp.md)

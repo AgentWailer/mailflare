@@ -59,6 +59,7 @@ function AttachmentPreviewBody({ attachment, messageId }: { attachment: NonNulla
 	return (
 		<div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-neutral-100">
 			{!mediaError && previewKind === "image" && (
+				// eslint-disable-next-line @next/next/no-img-element -- The authenticated original attachment must remain full resolution and private.
 				<img
 					key={`${previewUrl}:${attempt}`}
 					onError={() => setMediaError(true)}

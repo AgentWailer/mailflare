@@ -5,6 +5,7 @@ import { BadgeDollarSign, Bot, Globe2, KeyRound, Mail, Palette, Users } from "lu
 import { useLanguage } from "@/components/language-provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { AdminUpdateCard } from "@/components/admin-update-card";
+import { AdminQueueHealthCard } from "@/components/admin-queue-health-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -98,6 +99,7 @@ export default function AdminSettingsPage() {
 					{t("admin.description")}
 				</p>
 			</div>
+			{user?.isPrimaryAdmin && <AdminQueueHealthCard />}
 			<div className="grid lg:grid-cols-2 gap-4">
 				{sections.filter(canSee).map((section) => {
 					const Icon = section.icon;

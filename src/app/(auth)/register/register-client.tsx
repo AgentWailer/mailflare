@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CheckCircle2, LoaderCircle, MailPlus, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,9 @@ export function RegisterClient() {
   const [loading, setLoading] = useState(false);
   const [turnstileReset, setTurnstileReset] = useState(0);
 
+  const prepareOnMount = useEffectEvent(() => { void runPreparation(); });
   useEffect(() => {
-    void runPreparation();
+    prepareOnMount();
   }, []);
 
   const accountDomain = setupDomain ?? primaryDomain;
@@ -57,6 +58,7 @@ export function RegisterClient() {
     if (step !== 3 || !accountDomain) return;
 
     let active = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset DNS-check feedback when starting the asynchronous check for another domain.
     setMxChecking(true);
     setMxRecordsExist(null);
     setReplaceMxRecords(false);
