@@ -110,10 +110,24 @@ Native Clients und dedizierte MCP-Schlüssel behalten ihr serverseitiges Protoko
 - Die Browser-CI verwendet Ubuntu 24.04 passend zum installierten Playwright
   1.57. Ohne expliziten lokalen Browserpfad wählen alle Tests dessen mitgelieferten
   Chromium. Fehlerauszüge und Browserprotokolle werden als CI-Nachweise erhalten.
+- Ein weiterer externer Lauf zeigte bei 320 px und breiterer Systemschrift einen
+  seitlichen Überlauf der Verfassen-Leiste. Der Fehler ist mit DejaVu Sans lokal
+  nachgestellt (320 px verfügbar, 321 px Scrollbreite). Kleinere Zwischenräume
+  auf schmalen Geräten und ein Umbruch bei tatsächlichem Platzmangel erhalten
+  alle Aktionen und ihre 44-px-Tippflächen. Der zusätzliche Browserfall prüft auch
+  die längere Versandprüfungs-Beschriftung sowie die eingeblendete Tastatur.
+  Die Formatpalette ist an die tatsächliche Toolbar-Höhe gebunden und verdeckt
+  auch nach einem Umbruch keine Aktion. Alle acht Verfassen-Varianten und 31
+  zugehörige Editor-/Versandfehler-Regressionen bestehen.
+- Der Browser-Runner führt alle neun Suiten nacheinander aus und sammelt ihre
+  Ergebnisse. Ein Fehler beendet die Gesamtprüfung weiterhin erfolglos, verhindert
+  aber nicht mehr die Prüfung der übrigen Abläufe. Vollständige Protokolle und
+  eine Zusammenfassung liegen unter `artifacts/quality`; zwei Regressionstests
+  prüfen Fortsetzung, sequenzielle Ausführung, Protokolle und Gesamtergebnis.
 
 ## Verifizierte Ergebnisse
 
-- Vollständige gewöhnliche Suite: **791 Tests bestanden**, keine Fehler oder
+- Vollständige gewöhnliche Suite: **793 Tests bestanden**, keine Fehler oder
   übersprungenen Tests (vorher 722 von 734 bestanden).
 - TypeScript ohne Fehler; ESLint ohne Fehler oder Warnungen (vorher 15 Typfehler,
   58 Lintfehler und 72 Warnungen).
@@ -128,7 +142,7 @@ Native Clients und dedizierte MCP-Schlüssel behalten ihr serverseitiges Protoko
   Anhänge, Verfassen/AI, Labels, Sternfehler, Entwurfswiederherstellung,
   Hintergrundstatus, Loginvarianten und echte Cookie-Sitzung. Desktop, kleine
   Mobilansichten und Dark Mode wurden zusätzlich anhand der Screenshots geprüft.
-- Haupt-Stylesheet von 143.629 auf **137.001 Bytes** reduziert: Test-Fixtures
+- Haupt-Stylesheet von 143.629 auf **137.046 Bytes** reduziert: Test-Fixtures
   erzeugen keine produktiven Utilities mehr; 148 nirgends verwendete Farbvariablen
   entfernt. Alle 85 verwendeten Farbwerte unverändert. Eine zusätzliche
   Buildprüfung schützt die Farbdeckung auch für verzögert geladene Stylesheets.
@@ -136,10 +150,11 @@ Native Clients und dedizierte MCP-Schlüssel behalten ihr serverseitiges Protoko
   unkomprimierten Browser-Test.
 - Kontrollierter Browser-Performancetest bestanden: je drei kalte und warme
   Durchläufe bei 390/1440 px, 100 ms Netzlatenz und vierfach gedrosselter CPU.
-  CSS-Transfer kalt 137.295 Bytes; vorhandene Budgets für JavaScript, Requests,
+  Vorhandene Budgets für CSS, JavaScript, Requests,
   Layoutstabilität und erstes Öffnen einer Mail ebenfalls eingehalten.
-  Gemessener Reader-p75: mobil kalt 1,15 s/warm 0,48 s, Desktop kalt 0,86 s/warm
-  0,63 s. Synthetische 100-ms-APIs und unkomprimierte lokale Auslieferung: kein
+  Gemessener Reader-p75 nach der PDF-Kompatibilitätskorrektur: mobil kalt
+  0,72 s/warm 0,47 s, Desktop kalt 0,84 s/warm 0,67 s. Synthetische 100-ms-APIs
+  und unkomprimierte lokale Auslieferung: kein
   Feld-p75, kein neuer Produktionslatenznachweis und keine garantierte Zeit auf
   einem echten iPhone. Der separate Navigationsbenchmark mit 60.000 synthetischen
   Nachrichten wurde ebenfalls erfolgreich ausgeführt.

@@ -274,7 +274,8 @@ export function RichTextEditor({
    {mailboxId && !refine && <ComposeAiBar inputRef={promptRef} instruction={instruction} onInstructionChange={setInstruction} preferences={preferences} onPreferencesChange={setPreferences} disabled={disabled} onSubmit={() => openRefine(instruction)} onPolish={() => openRefine("", true)} onCaptureSelection={() => { const element = editorRef.current; const target = element ? captureRefineTarget(element, "selection", window.getSelection()) : null; if (target || pendingSelection.current?.snapshot !== element?.innerHTML) pendingSelection.current = target; }} />}
 
    {refine && <RefineControls draftReply={refine.draftReply} replyContext={refine.replyContext} instruction={refine.instruction} preferences={preferences} mailboxId={refine.mailboxId} selection={refine.selection} message={refine.message} onApply={applyRefine} onClose={closeRefine} onPendingChange={setRefinePending}/>}
-   {formattingOpen && <div data-compose-formatting className="absolute inset-x-4 bottom-16 z-20 mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
+   <div className="compose-toolbar relative flex shrink-0 flex-wrap items-center gap-0 bg-white px-2 pb-3 pt-1 md:gap-0.5 md:px-4">
+   {formattingOpen && <div data-compose-formatting className="absolute inset-x-4 bottom-full z-20 mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
 
 				{COMMANDS.map((item) => (
 					<Tooltip key={item.command} label={t(item.labelKey)}>
@@ -308,7 +309,6 @@ export function RichTextEditor({
 				</Tooltip>
     <button type="button" onMouseDown={e=>e.preventDefault()} disabled={disabled || !!refine} onClick={openLink} aria-label={t("editor.insertLink")} className="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 md:hidden"><Link2 className="h-4 w-4"/></button>
    </div>}
-   <div className="compose-toolbar relative flex shrink-0 items-center gap-0.5 bg-white px-3 pb-3 pt-1 md:px-4">
     {toolbarStart}
     <Tooltip label={t("editor.formatting")}><button type="button" aria-label={t("editor.formatting")} aria-expanded={formattingOpen} disabled={disabled || !!refine} onMouseDown={event=>event.preventDefault()} onClick={()=>setFormattingOpen(open=>!open)} className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 md:h-9 md:w-9",formattingOpen&&"bg-neutral-100 text-neutral-900")}><Type aria-hidden="true" className="h-5 w-5"/></button></Tooltip>
     {mailboxId && <Tooltip label={t("refine.title")}><button type="button" aria-label={t("refine.title")} disabled={disabled || !!refine} onPointerDown={()=>{const e=editorRef.current;const target=e?captureRefineTarget(e,"selection",window.getSelection()):null;if(target||pendingSelection.current?.snapshot!==e?.innerHTML)pendingSelection.current=target;}} onMouseDown={event=>event.preventDefault()} onClick={()=>openRefine()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-blue-700 hover:bg-blue-50 disabled:opacity-50 md:h-9 md:w-9"><Sparkles aria-hidden="true" className="h-5 w-5"/></button></Tooltip>}

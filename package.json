@@ -36,7 +36,7 @@
     "pretest": "npm run test:python:setup",
     "test": "node --test --test-concurrency=2 tests/*.test.mjs",
     "check:quality": "npm run build",
-    "test:smoke": "node tests/browser/visual-polish.mjs && node tests/browser/attachment-preview.mjs && node tests/browser/compose-window.mjs && node tests/browser/label-actions.mjs && node tests/browser/message-star-feedback.mjs && node tests/browser/draft-recovery.mjs && node tests/browser/queue-health-card.mjs && node tests/browser/login-entry.mjs && node tests/browser/cookie-session.mjs",
+    "test:smoke": "node scripts/run-browser-smoke.mjs",
     "check:static": "npm run db:bundle && npm run typecheck && npm run lint && npm test"
   },
   "cloudflare": {
