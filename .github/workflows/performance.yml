@@ -8,7 +8,9 @@ permissions:
   contents: read
 jobs:
   performance:
-    runs-on: ubuntu-latest
+    # Playwright 1.57 ships Chromium/native dependency mappings for Ubuntu 24.04,
+    # but none for 26.04. Keep CI reproducible when ubuntu-latest advances.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       CLOUDFLARE_REMOTE_BINDINGS: 'false'
