@@ -26,7 +26,23 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check:quality
-      - run: npm run test:smoke
+      - name: Browser smoke
+        run: |
+          mkdir -p artifacts/quality
+          set -o pipefail
+          if npm run test:smoke 2>&1 | tee artifacts/quality/browser-smoke.log; then
+            exit 0
+          else
+            # All browser fixtures are synthetic. Surface a bounded failure excerpt
+            # in check annotations, which remain visible without full log access.
+            python3 - <<'PY'
+          from pathlib import Path
+          text = '\n'.join(Path('artifacts/quality/browser-smoke.log').read_text().splitlines()[-45:])[-5000:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Browser smoke failed::' + escaped)
+          PY
+            exit 1
+          fi
       - run: npm run test:performance:ci
       - run: PERF_OUTPUT=artifacts/performance/navigation.json npm run perf:navigation
       - uses: actions/upload-artifact@v4
@@ -35,6 +51,7 @@ jobs:
           name: quality-and-performance
           path: |
             artifacts/performance/
+            artifacts/quality/
             /tmp/mailflare-visual/*.png
             /tmp/mailflare-star-feedback/*.png
             /tmp/mailflare-queue-health/*.png
