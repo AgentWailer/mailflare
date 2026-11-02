@@ -10,7 +10,7 @@ const catalog=JSON.parse(readFileSync('public/locales/de.json','utf8'));
 const result=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import {AdminQueueHealthCard} from './src/components/admin-queue-health-card';createRoot(document.getElementById('app')).render(React.createElement(AdminQueueHealthCard));`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',tsconfig:'tsconfig.json',define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'synthetic-context',setup(builder){builder.onResolve({filter:/^@\/(components\/language-provider|lib\/auth\/client)$/},args=>({path:args.path,namespace:'synthetic'}));builder.onLoad({filter:/.*/,namespace:'synthetic'},args=>({contents:args.path.endsWith('language-provider')?`const messages=${JSON.stringify(catalog)};export function useLanguage(){return {locale:'de',t:(key,vars)=>messages[key].replace(/\\{(\\w+)\\}/g,(match,name)=>String(vars?.[name]??match))}}`:`export function authFetch(_path,options){return fetch('https://mailflare.test/api/admin/queue-health',options)}`,loader:'js'}));}}]});
 const css=readProductionCss().toString('utf8');
 const output=process.env.QUEUE_HEALTH_VISUAL_OUTPUT||'/tmp/mailflare-queue-health';mkdirSync(output,{recursive:true});
-const browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE||'/usr/bin/chromium',args:['--no-sandbox']});
+const browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
 try{
  for(const width of [320,390,1280]){
   const page=await browser.newPage({viewport:{width,height:850},locale:'de-DE'});let calls=0,fail=false;

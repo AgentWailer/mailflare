@@ -42,7 +42,7 @@ try{
   if(preview.exitCode!==null)throw Error('Preview exited');await pause(200);
  }
  assert(ready);
- browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE||'/usr/bin/chromium',args:['--no-sandbox']});
+ browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const {width,density,layout='bottom',dark=false} of [
   {width:1440,density:'comfortable'}, {width:1440,density:'compact'},
   {width:1440,density:'comfortable',layout:'right'}, {width:390,density:'comfortable'},

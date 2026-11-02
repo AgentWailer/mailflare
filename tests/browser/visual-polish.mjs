@@ -36,7 +36,7 @@ const messages=Array.from({length:18},(_,i)=>({id:'mail-'+i,mailboxId:'box',dire
 try{
  preview=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(port)],{cwd:process.cwd(),env:{...process.env,XDG_CONFIG_HOME:temporary,CLOUDFLARE_REMOTE_BINDINGS:'false'},stdio:['ignore','pipe','pipe']});for(const stream of [preview.stdout,preview.stderr])stream.on('data',data=>serverLog+=data.toString());
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch(origin+'/inbox',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}if(preview.exitCode!==null)throw Error('Preview exited');await pause(200);}assert(ready);
- browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE||'/usr/bin/chromium',args:['--no-sandbox']});
+ browser=await chromium.launch({headless:true,executablePath:process.env.MAILFLARE_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
  for(const {width,dark=false} of [{width:1440},{width:1024},{width:768},{width:390},{width:320},{width:1440,dark:true},{width:1024,dark:true},{width:390,dark:true}]){
   const page=await browser.newPage({viewport:{width,height:width<768?844:900},hasTouch:width<1024,locale:'de-DE'}),errors=[];page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
   if(dark)await page.addInitScript(()=>localStorage.setItem('mailflare-theme','dark'));
