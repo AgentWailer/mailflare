@@ -21,7 +21,7 @@ import {
 
 const PdfAttachmentPreview = lazy(() => import("./pdf-attachment-preview"));
 
-function AttachmentPreviewBody({ attachment, messageId }: { attachment: NonNullable<MessageAttachmentViewerProps["attachment"]>; messageId: string }) {
+function AttachmentPreviewBody({ attachment, messageId, onClose }: { attachment: NonNullable<MessageAttachmentViewerProps["attachment"]>; messageId: string; onClose: () => void }) {
 	const { t } = useLanguage();
 	const [textContent, setTextContent] = useState("");
 	const [textError, setTextError] = useState("");
@@ -69,7 +69,7 @@ function AttachmentPreviewBody({ attachment, messageId }: { attachment: NonNulla
 				/>
 			)}
 			{previewKind === "pdf" && (
-				<Suspense fallback={<div role="status" className="p-6 text-sm">{t("nav.loadingPage")}</div>}><PdfAttachmentPreview key={previewUrl} url={previewUrl} /></Suspense>
+				<Suspense fallback={<div role="status" className="p-6 text-sm">{t("nav.loadingPage")}</div>}><PdfAttachmentPreview key={previewUrl} url={previewUrl} onClose={onClose} /></Suspense>
 			)}
 			{previewKind === "wallet" && <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
 				<WalletCards className="h-12 w-12 text-neutral-700" aria-hidden="true" />
@@ -126,7 +126,7 @@ export function MessageAttachmentViewer({ attachment, messageId, onOpenChange, o
 					</Button>
 				</DialogHeader>
 
-				<AttachmentPreviewBody key={`${messageId}:${attachment.id}`} attachment={attachment} messageId={messageId} />
+				<AttachmentPreviewBody key={`${messageId}:${attachment.id}`} attachment={attachment} messageId={messageId} onClose={() => onOpenChange(false)} />
 			</DialogContent>
 		</Dialog>
 	);
