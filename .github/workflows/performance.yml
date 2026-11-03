@@ -44,6 +44,12 @@ jobs:
             exit 1
           fi
       - run: npm run test:performance:ci
+      - name: Category navigation latency and races
+        run: |
+          mkdir -p artifacts/performance
+          set -o pipefail
+          node tests/browser/category-tabs.mjs 2>&1 | tee artifacts/performance/category-tabs.log
+          MAILFLARE_CATEGORY_TOUCH=1 MAILFLARE_CATEGORY_CASES=744:bottom,390:bottom node tests/browser/category-tabs.mjs 2>&1 | tee artifacts/performance/category-tabs-touch.log
       - run: PERF_OUTPUT=artifacts/performance/navigation.json npm run perf:navigation
       - uses: actions/upload-artifact@v4
         if: always()

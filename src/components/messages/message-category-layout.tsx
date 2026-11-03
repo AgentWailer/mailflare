@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { inboxFolderConfig, invoicesFolderConfig, promotionsFolderConfig, socialFolderConfig, ordersFolderConfig } from "./message-folder-configs";
 import { MessageSplitLayout } from "./message-split-layout";
+import { clearPendingMailNavigation } from "./pending-mail-navigation";
 
 const categories = [inboxFolderConfig, invoicesFolderConfig, promotionsFolderConfig, socialFolderConfig, ordersFolderConfig];
 
@@ -12,6 +13,7 @@ const categories = [inboxFolderConfig, invoicesFolderConfig, promotionsFolderCon
  */
 export function MessageCategoryLayout({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
+	useLayoutEffect(() => { clearPendingMailNavigation(); }, [pathname]);
 	const config = categories.find(category => pathname === category.hrefPrefix || pathname.startsWith(`${category.hrefPrefix}/`));
 	if (!config) return children;
 	return <MessageSplitLayout config={config} renderOverview>{children}</MessageSplitLayout>;

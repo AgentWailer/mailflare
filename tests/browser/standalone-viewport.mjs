@@ -55,7 +55,33 @@ async function assertLayout(page,insets,stage){
  return m;
 }
 function assertStable(before,after,stage){
- for(const name of ['header','profile','search'])for(const coordinate of ['x','y','width','height'])assert(Math.abs(after[name][coordinate]-before[name][coordinate])<=1,`${stage}: ${name}.${coordinate} shifted`);
+ for(const name of ['header','profile','search'])for(const coordinate of ['x','y','width','height'])assert(Math.abs(after[name][coordinate]-before[name][coordinate])<=1,`${stage}: ${name}.${coordinate} shifted (${before[name][coordinate]} -> ${after[name][coordinate]}); before=${JSON.stringify(before)}; after=${JSON.stringify(after)}`);
+}
+async function waitForResponsiveLayout(page,viewport){
+ // Crossing 767px first updates matchMedia, then SidebarProvider's effects
+ // restore the sidebar width. Its 200ms grid transition can start after resize.
+ // Settle that transition before taking the scroll baseline; never wait away a
+ // header movement caused by the scroll gesture being tested.
+ await page.evaluate(async({width,height})=>{
+  const deadline=performance.now()+4000;
+  let previous='',stableFrames=0,last;
+  while(performance.now()<deadline){
+   await new Promise(resolve=>requestAnimationFrame(resolve));
+   const shell=document.querySelector('.mail-mobile-shell'),sidebar=document.querySelector('aside.mail-sidebar');
+   const responsive=innerWidth===width&&innerHeight===height&&sidebar?.getAttribute('aria-hidden')===String(width<768);
+   const animations=shell?.getAnimations({subtree:true}).filter(animation=>(animation.pending||animation.playState==='running')&&Number.isFinite(animation.effect?.getComputedTiming().endTime))??[];
+   const geometry=['.mail-mobile-shell','aside.mail-sidebar','.mail-mobile-header','[data-app-profile]','[data-mail-search-input]'].map(selector=>{
+    const rect=document.querySelector(selector)?.getBoundingClientRect();
+    return rect?[rect.x,rect.y,rect.width,rect.height]:null;
+   });
+   const current=JSON.stringify(geometry);
+   last={responsive,activeFiniteAnimations:animations.length,geometry};
+   stableFrames=responsive&&!animations.length&&current===previous?stableFrames+1:0;
+   previous=current;
+   if(stableFrames>=3)return;
+  }
+  throw Error(`responsive layout did not settle after rotation: ${JSON.stringify(last)}`);
+ },viewport);
 }
 async function exerciseScroll(page,cdp,insets,touch){
  const before=await assertLayout(page,insets,'before scroll');
@@ -278,12 +304,12 @@ try{
    let rotated;
    if(config.rotate){
     await page.setViewportSize({width:config.height,height:config.width});
-    await page.waitForTimeout(300);
+    await waitForResponsiveLayout(page,{width:config.height,height:config.width});
     rotated=await exerciseScroll(page,cdp,insets,config.touch);
     await exerciseControls(page,insets);
     await page.screenshot({path:join(output,`${label}-rotated.png`)});
     await page.setViewportSize({width:config.width,height:config.height});
-    await page.waitForTimeout(300);
+    await waitForResponsiveLayout(page,{width:config.width,height:config.height});
     await assertLayout(page,insets,'return to portrait');
    }
    assert.deepEqual(errors,[],'no browser runtime errors');
