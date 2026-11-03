@@ -25,11 +25,15 @@ Readers and other destinations retain normal router navigation. Native history
 does not itself cancel an outstanding router request, so the public
 `instrumentation-client.ts` `onRouterTransitionStart` hook records pending
 transitions. A category click during one uses the router to supersede it.
-Ordinary route markers clear after a committed pathname change. Back/Forward
-markers survive that commit: Vinext's same-tree history restoration can change
-the URL without cancelling an older reader RSC. The first subsequent category
-therefore uses one real router request to supersede any outstanding response;
-later direct tab changes again use native history. Cancelling a reader by tapping
+Ordinary route markers clear only when their own destination pathname commits.
+Back/Forward markers survive that commit: Vinext's same-tree history restoration
+can change the URL without cancelling an older reader RSC. A category-target
+`popstate` therefore schedules a public `router.replace()` after the router's
+synchronous history bookkeeping. This supersedes the old request even when the
+user makes no further selection. The captured URL and traversal generation
+prevent the recovery from overriding a newer navigation. Its same-path commit
+retains the guard; the first subsequent category uses one real router request,
+then later direct tab changes again use native history. Cancelling a reader by tapping
 its current category also clears the opening preview. After a same-path
 cancellation the marker remains conservative until the next actual route commit.
 Do not clear the guard just because a link unmounts or the browser URL changes
@@ -60,19 +64,20 @@ device measurement, or a production API benchmark.
 
 | Lab metric | Baseline p50 / p75 / p95 | Changed p50 / p75 / p95 |
 | --- | --- | --- |
-| Cold active category, 24 samples | 550.3 / 553.9 / 563.1 ms | 8.3 / 9.6 / 13.2 ms |
-| Matching cold rows, 24 samples | 550.3 / 553.9 / 563.2 ms | 361.3 / 364.6 / 368.4 ms |
+| Cold active category, 24 samples | 550.3 / 553.9 / 563.1 ms | 8.2 / 9.3 / 10.6 ms |
+| Matching cold rows, 24 samples | 550.3 / 553.9 / 563.2 ms | 360.8 / 365.0 / 366.6 ms |
 
-Cold active-category results ranged from 6.7–13.5 ms after the change versus
+Cold active-category results ranged from 7.0–14.2 ms after the change versus
 544.2–563.4 ms before. The direct cold overview sequence made **zero RSC
-requests**. The harness separately checks the single RSC needed for the first
-category after Back/Forward, then requires **zero RSC or list requests** for
+requests**. The harness separately checks the automatic Back replacement and
+the single RSC needed for the first category after Back/Forward, then requires
+**zero RSC or list requests** for
 subsequent warm tab changes. That deliberate history recovery is excluded from
 the direct-tab latency budget. Cold data still waits for its API response, as it
 should. The experiment demonstrates removal of the route-response dependency,
 not a promise of these timings on every device or network.
 The 18 measured warm continuation selections after that recovery had p50
-16.4 ms and p95 37.4 ms.
+15.6 ms and p95 43.0 ms.
 
 A separate run isolated a slow list API: RSC delay 0 ms, list delay
 1200 ms, 744/390 px viewports, eight cold category samples. Active-category DOM
@@ -95,11 +100,17 @@ shell while its RSC response remains pending; taking an earlier CDP history
 snapshot and pressing Back later races that commit and can invent a wrong
 expected target. A held response alone does not prove that navigation has not
 committed. Late reader responses must still leave the captured target intact.
-The final pending-reader/Back/rapid-category race runs at sixfold CPU slowdown;
+Both pending-reader/Back alone and Back/rapid-category races run at sixfold CPU slowdown;
 ordinary latency measurements run without CPU throttling. A controlled test
 on 2026-11-03 reproduced both the outdated CDP expectation and a genuinely late
-reader overwriting a newer native category after Back. Capturing `popstate`
-fixes the former; preserving the traversal guard fixes the latter.
+reader overwriting a newer native category after Back. CI subsequently exposed
+the same outstanding reader replacing Back's destination even without another
+selection. Capturing `popstate` fixes the test expectation; the public router
+replacement and preserved traversal guard cover the two actual stale-response
+paths.
+Uncached history traversal after leaving the category layout remains outside
+this focused regression suite; the verified race uses the existing same-tree
+category/reader history.
 
 The existing scoped-cache/persistent-pane/preload Node suites also passed
 30 tests, including late category/account responses and stale cache isolation.
@@ -117,8 +128,8 @@ Touch timings start at touch pointer-down. This is Chromium touch emulation,
 not native Safari, iPadOS or a Home Screen installation.
 
 The final build passed separate 744/390 px touch runs with the actual German
-labels. Eight cold activations measured 9.9–14.3 ms from touch pointer-down;
-the six warm continuation activations after history recovery were 16.0–18.6 ms.
+labels. Eight cold activations measured 9.0–14.5 ms from touch pointer-down;
+the six warm continuation activations after history recovery were 16.1–18.9 ms.
 The 390 px strip scrolled with a horizontal
 touch swipe without selecting a different category; at 744 px all tabs fit.
 

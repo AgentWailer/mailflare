@@ -1,10 +1,10 @@
 "use client";
 
-import { useLayoutEffect, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useLayoutEffect, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { inboxFolderConfig, invoicesFolderConfig, promotionsFolderConfig, socialFolderConfig, ordersFolderConfig } from "./message-folder-configs";
 import { MessageSplitLayout } from "./message-split-layout";
-import { clearPendingMailNavigation } from "./pending-mail-navigation";
+import { clearPendingMailNavigation, getPendingMailTraversal, recoverPendingMailTraversal } from "./pending-mail-navigation";
 
 const categories = [inboxFolderConfig, invoicesFolderConfig, promotionsFolderConfig, socialFolderConfig, ordersFolderConfig];
 
@@ -13,7 +13,25 @@ const categories = [inboxFolderConfig, invoicesFolderConfig, promotionsFolderCon
  */
 export function MessageCategoryLayout({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
-	useLayoutEffect(() => { clearPendingMailNavigation(); }, [pathname]);
+	const router = useRouter();
+	useLayoutEffect(() => { clearPendingMailNavigation(pathname); }, [pathname]);
+	useEffect(() => {
+		let active = true;
+		function onTraversal() {
+			const href = window.location.href;
+			// Let the router finish its synchronous history bookkeeping first.
+			queueMicrotask(() => {
+				if (!active || window.location.href !== href) return;
+				const token = getPendingMailTraversal();
+				if (token === null) return;
+				const target = new URL(href);
+				if (!categories.some(category => category.hrefPrefix === target.pathname)) return;
+				recoverPendingMailTraversal(token, () => router.replace(`${target.pathname}${target.search}${target.hash}`, { scroll: false }));
+			});
+		}
+		window.addEventListener("popstate", onTraversal);
+		return () => { active = false; window.removeEventListener("popstate", onTraversal); };
+	}, [router]);
 	const config = categories.find(category => pathname === category.hrefPrefix || pathname.startsWith(`${category.hrefPrefix}/`));
 	if (!config) return children;
 	return <MessageSplitLayout config={config} renderOverview>{children}</MessageSplitLayout>;

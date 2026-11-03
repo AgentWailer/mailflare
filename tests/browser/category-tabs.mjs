@@ -97,10 +97,14 @@ try{
   await selectCategory('invoices');await page.locator('[data-message-row="invoices-0"]').waitFor();await page.locator('[data-message-row="invoices-0"] a').first().click();try{await page.getByText('Content for invoices-0',{exact:true}).waitFor();}catch(error){await page.screenshot({path:'/tmp/mailflare-category-reader-failure.png'});console.error(JSON.stringify({width,layout,url:page.url(),errors,requests:events.filter(event=>event.path.startsWith('/api/messages')),text:await page.locator('body').innerText()}));throw error;}assert.equal(new URL(page.url()).pathname,'/invoices/invoices-0');
   await page.goBack();await page.locator('[data-message-row="invoices-0"]').waitFor();assert.equal(new URL(page.url()).pathname,'/invoices');
   await page.goForward();await page.getByText('Content for invoices-0',{exact:true}).waitFor();assert.equal(new URL(page.url()).pathname,'/invoices/invoices-0');
-  await page.goBack();await page.locator('[data-message-row="invoices-0"]').waitFor();
+  const backRepairStart=events.length;
+  const backRepair=baseline?null:page.waitForRequest(request=>new URL(request.url()).pathname==='/invoices'&&request.headers().rsc==='1');
+  await page.goBack();if(backRepair)await backRepair;await page.locator('[data-message-row="invoices-0"]').waitFor();
+  const historyBackRsc=events.slice(backRepairStart).filter(event=>event.rsc&&event.path==='/invoices').length;
+  if(!baseline)assert.equal(historyBackRsc,1,'Back itself replaces the overview to supersede an outstanding reader');
   const recoveryStart=events.length;
   await selectCategory('promotions');await page.locator('[data-message-row="promotions-0"]').waitFor();
-  const historyRecoveryRsc=events.slice(recoveryStart).filter(event=>event.rsc).length;
+  const historyRecoveryRsc=events.slice(recoveryStart).filter(event=>event.rsc&&event.path==='/promotions').length;
   if(!baseline)assert.equal(historyRecoveryRsc,1,'the first category after traversal supersedes any outstanding router request');
   const warmStart=events.length;
   for(const folder of ['social','orders','inbox']){await selectCategory(folder);await page.locator(`[data-message-row="${folder}-0"]`).waitFor();}
@@ -125,7 +129,7 @@ try{
   const timings=await page.evaluate(()=>window.__categoryTimings);
   assert(timings.every(sample=>!sample.staleRows),'an active category never presents messages from another category');
   if(!baseline)assert(timings.slice(0,5).every(sample=>sample.activeMs<200),'category feedback must not wait for the deliberately delayed RSC or message API');
-  console.log(JSON.stringify({width,layout,locale,input:touch?'touch-pointerdown':'click',touchStrip,rscDelay,listDelay,coldCategoryShellPreserved:true,history:true,singleDocument:true,scopeReset:true,categoryReader:true,coldRsc,historyRecoveryRsc,warmRequests,timings}));
+  console.log(JSON.stringify({width,layout,locale,input:touch?'touch-pointerdown':'click',touchStrip,rscDelay,listDelay,coldCategoryShellPreserved:true,history:true,singleDocument:true,scopeReset:true,categoryReader:true,coldRsc,historyBackRsc,historyRecoveryRsc,warmRequests,timings}));
   if(!baseline){
    // Three cold lists finish in reverse order; only the latest choice may appear.
    listDelays.invoices=700;listDelays.promotions=450;listDelays.social=150;
@@ -153,18 +157,21 @@ try{
      await selectCategory('orders');await page.locator('[data-message-row="orders-0"]').waitFor();
      assert.equal(events.filter(event=>event.rsc).length,requestsBefore,'completed fallback releases the pending guard');
     }
+    const raceSession=await page.context().newCDPSession(page);
+    await raceSession.send('Emulation.setCPUThrottlingRate',{rate:6});
+    console.log(JSON.stringify({phase:'pending-reader-back-without-next-tab',cpuSlowdown:6}));
     await selectCategory('invoices');await page.locator('[data-message-row="invoices-3"]').waitFor();
     const interruptedReader=page.waitForRequest(request=>new URL(request.url()).pathname==='/invoices/invoices-3'&&request.headers().rsc==='1');
     await page.locator('[data-message-row="invoices-3"] a').first().click();await interruptedReader;
     // Vinext may already have committed a cached reader shell while its RSC is
     // pending. Back must restore the actual preceding entry in either case.
+    const readerBackRepair=page.waitForRequest(request=>['/orders','/invoices'].includes(new URL(request.url()).pathname)&&request.headers().rsc==='1');
     const returnedPath=await backTarget(page);
+    assert.equal(new URL((await readerBackRepair).url()).pathname,returnedPath,'Back repairs the actual browser-selected target before any next tab');
     console.log(JSON.stringify({backTarget:returnedPath}));
     await page.waitForURL(url=>url.pathname===returnedPath);await page.locator(`[data-message-row="${returnedPath.slice(1)}-0"]`).waitFor();await pause(1200);
     assert.equal(new URL(page.url()).pathname,returnedPath,'Back cannot be overwritten after the pending reader response arrives');
     await selectCategory('orders');await page.locator('[data-message-row="orders-0"]').waitFor();
-    const raceSession=await page.context().newCDPSession(page);
-    await raceSession.send('Emulation.setCPUThrottlingRate',{rate:6});
     console.log(JSON.stringify({phase:'pending-reader-back-rapid-categories',cpuSlowdown:6}));
     await selectCategory('invoices');await page.locator('[data-message-row="invoices-4"]').waitFor();
     const secondInterruptedReader=page.waitForRequest(request=>new URL(request.url()).pathname==='/invoices/invoices-4'&&request.headers().rsc==='1');
