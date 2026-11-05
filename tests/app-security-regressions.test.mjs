@@ -36,6 +36,27 @@ test('app policy permits PDF WebAssembly without permitting JavaScript eval', ()
  assert.equal(headers.get('X-Content-Type-Options'), 'nosniff');
 });
 
+test('development pages load assets over HTTP on remote preview addresses', t => {
+ const previous = process.env.NODE_ENV;
+ t.after(() => { if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous; });
+ process.env.NODE_ENV = 'development';
+ const headers = new Headers(app.getSecurityHeaders().map(({key,value}) => [key,value]));
+ assert(!headers.get('Content-Security-Policy').split(';').some(part => part.trim() === 'upgrade-insecure-requests'));
+ assert.equal(headers.get('Strict-Transport-Security'), null);
+ assert.equal(headers.get('X-Content-Type-Options'), 'nosniff');
+ assert.equal(headers.get('X-Frame-Options'), 'SAMEORIGIN');
+ assert.match(headers.get('Content-Security-Policy'), /frame-ancestors 'self'/);
+});
+
+test('production pages retain HTTPS upgrade and transport security', t => {
+ const previous = process.env.NODE_ENV;
+ t.after(() => { if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous; });
+ process.env.NODE_ENV = 'production';
+ const headers = new Headers(app.getSecurityHeaders().map(({key,value}) => [key,value]));
+ assert(headers.get('Content-Security-Policy').split(';').some(part => part.trim() === 'upgrade-insecure-requests'));
+ assert.equal(headers.get('Strict-Transport-Security'), 'max-age=31536000; includeSubDomains');
+});
+
 async function fixture(t) {
  const database = new app.SqliteDatabase(':memory:');
  t.after(() => { database.db.close(); delete globalThis.__mailflareNodeEnv; delete globalThis.__securityCookie; });
