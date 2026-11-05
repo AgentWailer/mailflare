@@ -14,6 +14,7 @@ export const browserSmokeSuites = [
   'draft-recovery',
   'queue-health-card',
   'login-entry',
+  'language-selector',
   'cookie-session',
 ].map(name => ({ name, args: [`tests/browser/${name}.mjs`] }));
 
@@ -76,8 +77,8 @@ export async function runBrowserSmoke({
   }
   const failures = results.filter(result => !result.passed);
   writeFileSync(join(outputDirectory, 'browser-smoke-summary.json'), JSON.stringify(results, null, 2) + '\n');
-  // Ten failures still fit within the workflow's final 45-line/5,000-character
-  // public annotation. Complete, untruncated output stays in the suite log files.
+  // Keep failure excerpts short for the workflow's bounded public annotation.
+  // Complete, untruncated output stays in the suite log files.
   write(`\nBrowser smoke: ${results.length - failures.length}/${results.length} suites passed.\n`);
   for (const failure of failures) {
     write(`FAIL ${failure.name} (${failure.signal || `exit ${failure.code}`}): ${failure.logPath}\n${failure.excerpt}\n`);
