@@ -44,6 +44,8 @@ html, body {
 	html { scrollbar-color: #c4c7cc transparent; }
 	html.dark { scrollbar-color: #5f6368 transparent; }
 	time { font-variant-numeric: tabular-nums; }
+	/* The skip link moves focus to the main region; the region itself needs no ring. */
+	#main-content:focus { outline: none; }
 }
 
 @keyframes refine-preview-reveal {

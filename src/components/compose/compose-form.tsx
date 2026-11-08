@@ -36,6 +36,7 @@ import {
 import { headerToRecipients, isValidRecipient, recipientsToHeader } from "./recipient-utils";
 import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } from "./types";
 import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
 type Toast = { type: "success" | "error"; message: string } | null;
 
@@ -152,7 +153,9 @@ export function ComposeForm({
 		return () => clearTimeout(timer);
 	}, [toast]);
 	// A validation error belongs to its field and clears as soon as that field changes.
-	const [fieldError, setFieldError] = useState<{ field: "to" | "body"; message: string } | null>(null);
+	// The full example address does not fit a phone row; phones get the short label.
+	const isPhone = useIsMobile();
+	const [fieldError, setFieldError] = useState<{ field: "to" | "cc" | "bcc" | "body"; message: string } | null>(null);
 	// eslint-disable-next-line react-hooks/set-state-in-effect -- Editing the recipients or the body resolves the error shown for them.
 	useEffect(() => { setFieldError(null); }, [to, cc, bcc, html]);
 
@@ -306,13 +309,15 @@ export function ComposeForm({
 		event.preventDefault();
 		if (refineActive || loading) return;
 		setToast(null);
-		const reject = (field: "to" | "body", message: string) => {
+		const reject = (field: "to" | "cc" | "bcc" | "body", message: string) => {
 			setFieldError({ field, message });
-			document.getElementById(field === "to" ? `${mode}-to` : `${mode}-text`)?.focus();
+			document.getElementById(field === "body" ? `${mode}-text` : `${mode}-${field}`)?.focus();
 		};
 		if (to.length === 0) return reject("to", t("compose.error.noRecipient"));
-		const invalid = [...to, ...cc, ...bcc].find((entry) => !isValidRecipient(entry));
-		if (invalid) return reject("to", t("compose.error.invalidAddress", { address: invalid }));
+		for (const [field, entries] of [["to", to], ["cc", cc], ["bcc", bcc]] as const) {
+			const invalid = entries.find((entry) => !isValidRecipient(entry));
+			if (invalid) return reject(field, t("compose.error.invalidAddress", { address: invalid }));
+		}
 		if (!hasMeaningfulHtml(html) && !quotedHtml) return reject("body", t("compose.error.emptyBody"));
 		setLoading(true);
 		const fullHtml = joinQuotedHtml(html, quotedHtml);
@@ -667,7 +672,7 @@ export function ComposeForm({
 					label={t("compose.to")}
 					value={to}
 					onChange={setTo}
-					placeholder={t("compose.toPlaceholder")}
+					placeholder={t(isPhone ? "compose.toPlaceholderShort" : "compose.toPlaceholder")}
 					errorId={fieldError?.field === "to" ? `${mode}-to-error` : undefined}
 					required
 					disabled={loadingDraft}
@@ -696,6 +701,7 @@ export function ComposeForm({
 						placeholder={t("compose.ccPlaceholder")}
 						disabled={loadingDraft}
 						autoFocus={!loadingDraft && cc.length === 0}
+						errorId={fieldError?.field === "cc" ? `${mode}-cc-error` : undefined}
 					/>
 				)}
 				{showBcc && (
@@ -707,8 +713,10 @@ export function ComposeForm({
 						placeholder={t("compose.bccPlaceholder")}
 						disabled={loadingDraft}
 						autoFocus={!loadingDraft && bcc.length === 0}
+						errorId={fieldError?.field === "bcc" ? `${mode}-bcc-error` : undefined}
 					/>
 				)}
+				{(fieldError?.field === "cc" || fieldError?.field === "bcc") && <p id={`${mode}-${fieldError.field}-error`} role="alert" className="border-b border-neutral-100 px-4 py-1.5 text-sm text-red-700">{fieldError.message}</p>}
 				<div className="border-b border-neutral-100 px-4 py-1">
 					<Label htmlFor={`${mode}-subject`} className="sr-only">{t("compose.subject")}</Label>
 					<Input

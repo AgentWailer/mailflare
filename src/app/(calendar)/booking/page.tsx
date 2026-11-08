@@ -18,6 +18,8 @@ import { BookingListSkeleton } from "./booking-list-skeleton";
 import { visibleBookingEvents } from "./default-events";
 import type { BookingEvent, BookingForm, BookingHost } from "./types";
 import { availabilityLabel, durationLabel, emptyBookingForm, formFromEvent } from "./utils";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 export default function BookingsPage() {
 	const { t } = useLanguage();
@@ -95,7 +97,7 @@ export default function BookingsPage() {
 	}
 
 	async function remove(event: BookingEvent) {
-		if (!window.confirm(t("booking.deleteConfirm", { name: event.name }))) return;
+		if (!(await confirmDialog({ ...questionParts(t("booking.deleteConfirm", { name: event.name })), confirmLabel: t("common.delete"), destructive: true }))) return;
 		try {
 			const response = await authFetch(`/api/booking/${event.id}`, { method: "DELETE" });
 			if (!response.ok) throw new Error();

@@ -36,6 +36,8 @@ import {
   monthGridDates, PAST_EVENT_COLOR_CLASSES, orderedWeekdays, rescheduleCalendarOccurrence, resizeEventTimes, startOfDay, startOfMonth, startOfWeek, WEEKDAY_OPTIONS,
 } from "./utils";
 import clsx from "clsx";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 const eventFieldClass = "h-9 border-transparent bg-transparent px-2 shadow-none hover:bg-white/60 focus:border-blue-600 focus:bg-white focus:shadow-sm";
 
@@ -223,7 +225,7 @@ export default function CalendarPage() {
 
   async function deleteEvent(id: string) {
     const recurring = editing && editing.repeat !== "none";
-    if (!window.confirm(recurring ? t("calendar.deleteFuture") : t("calendar.deleteEvent"))) return;
+    if (!(await confirmDialog({ ...questionParts(recurring ? t("calendar.deleteFuture") : t("calendar.deleteEvent")), confirmLabel: t("common.delete"), destructive: true }))) return;
     setPendingAction(id);
     try {
       const effectiveFrom = recurring ? new Date().toISOString() : undefined;

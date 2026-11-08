@@ -25,6 +25,7 @@ import { CalendarMobileUpcoming } from "./calendar-mobile-upcoming";
 import { useDashboardState } from "../(dashboard)/dashboard-state";
 import { useAssistantAvailability } from "../(dashboard)/use-assistant-availability";
 import { requestAssistantFocus } from "@/components/agent/assistant-focus";
+import { SkipLink } from "@/components/skip-link";
 
 export default function CalendarLayout({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage();
@@ -50,6 +51,7 @@ export default function CalendarLayout({ children }: { children: React.ReactNode
             <MailSearchProvider>
               <ShortcutsProvider>
               <div className="grid h-dvh grid-cols-[minmax(0,1fr)] overflow-hidden bg-[#f6f8fc]">
+                <SkipLink />
                 <SidebarAside className="md:hidden"><CalendarMobileUpcoming /></SidebarAside>
                 <div className="flex min-h-0 min-w-0 flex-col">
                   <header className="flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm max-md:h-auto max-md:flex-wrap max-md:gap-x-2 max-md:gap-y-2 max-md:pb-2 max-md:pr-2 max-md:pt-1">
@@ -69,7 +71,7 @@ export default function CalendarLayout({ children }: { children: React.ReactNode
                   </header>
                   <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                     <AssistantOpenContext.Provider value={assistantVisible}>
-                      <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-[#f6f8fc] overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
+                      <main id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-hidden bg-[#f6f8fc] overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
                         <div key={pathname} className="page-transition-enter h-full min-h-0">{children}</div>
                       </main>
                     </AssistantOpenContext.Provider>

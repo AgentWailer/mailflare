@@ -322,7 +322,12 @@ export default function DrivePage() {
 								<span />
 							</div>
 						))
-						: sorted.length === 0 ? <p className="p-12 text-center text-sm text-neutral-500">{emptyText}</p>
+						: sorted.length === 0 ? <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+							{/* An empty folder teaches the next step: drop files, or upload from here. */}
+							<UploadCloud size={32} aria-hidden="true" className="text-neutral-400" />
+							<p className="max-w-sm text-sm text-neutral-600">{emptyText}</p>
+							{canWrite && !query && <Button type="button" variant="outline" className="gap-2" onClick={() => fileInput.current?.click()}><UploadCloud size={16} aria-hidden="true" />{t("drive.fileUpload")}</Button>}
+						</div>
 						: sorted.map((item) => {
 							const { Icon, className } = driveIconFor(item);
 							// Only the owner's own folders take drops, matching what the move endpoint allows.

@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { LicenseStatus } from "@/lib/licenses/types";
 import type { ActivatableLicensePlan, LicenseAction } from "./types";
 import { formatLicensePlan, loadLicenseStatus, runLicenseAction } from "./utils";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 // children is the pricing grid: the activated card goes above it, the key form below.
 export function LicenseActivation({ children }: { children?: ReactNode }) {
@@ -45,7 +47,7 @@ export function LicenseActivation({ children }: { children?: ReactNode }) {
 			setStatus(t("licenses.enterKey"));
 			return;
 		}
-		if (nextAction === "deactivate" && !window.confirm(t("licenses.deactivateConfirm"))) return;
+		if (nextAction === "deactivate" && !(await confirmDialog({ ...questionParts(t("licenses.deactivateConfirm")), confirmLabel: t("licenses.deactivate"), destructive: true }))) return;
 
 		setAction(nextAction);
 		setStatus(null);

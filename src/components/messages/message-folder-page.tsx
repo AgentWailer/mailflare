@@ -63,6 +63,7 @@ import {
 import clsx from "clsx";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { questionParts } from "@/components/confirm-dialog-utils";
+import { announceMessageAction } from "@/lib/status-announcer";
 
 
 
@@ -507,12 +508,21 @@ export function MessageFolderPage({
 	}
 
 	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	// Mail moved out of the inbox or a category can be put back with one "Rückgängig" in the confirmation.
+	const undoMove = (ids: string[], action: string) => !config.folderId && ["inbox", "invoices", "promotions", "social", "orders"].includes(config.folder) && ["archive", "trash", "spam"].includes(action)
+		? () => runBulkMessageAction(ids, "inbox", true) : undefined;
 	async function runRowMessageAction(messageId: string, action: RowMessageAction) {
-		if (action !== "archive") return runBulkMessageAction(expandSelectedIds([messageId]), action, action !== "read" && action !== "unread");
+		if (action !== "archive") {
+			const ids = expandSelectedIds([messageId]);
+			await runBulkMessageAction(ids, action, action !== "read" && action !== "unread");
+			announceMessageAction(action, undoMove(ids, action));
+			return;
+		}
 		const message = messages.find(row => row.id === messageId);
 		if (!message) return;
 		try {
 			await archiveRow(message);
+			announceMessageAction("archive", undoMove(message.threadMessageIds ?? [message.id], "archive"));
 			setSelectedMessages(current => current.filter(row => row.id !== messageId));
 		} catch {
 			// The optimistic archive restores this row and exposes an inline error.
@@ -583,7 +593,9 @@ export function MessageFolderPage({
 			if (inboxUnreadDelta) dispatchMessageCountsDelta({ mailboxId: selectedMailbox?.id, inboxUnreadDelta });
 		}
 		try {
-			await runBulkMessageAction(expandSelectedIds(actionIds), action, true, folderId);
+			const ids = expandSelectedIds(actionIds);
+			await runBulkMessageAction(ids, action, true, folderId);
+			announceMessageAction(action, undoMove(ids, action));
 			setSelectedMessages([]);
 			if (currentReader.current.prefix === config.hrefPrefix && currentReader.current.id === selectedMessageId && actionIds.includes(selectedMessageId ?? "") && ["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action)) router.replace(config.hrefPrefix);
 		} catch (error) {

@@ -14,7 +14,12 @@ import {
   MailPlus,
   Settings,
   HelpCircle,
+  CalendarDays,
+  CalendarClock,
+  HardDrive,
+  ShieldCheck,
 } from "lucide-react";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useLanguage } from "@/components/language-provider";
 import { useCompose } from "@/components/compose/compose-context";
 import type { ShortcutDefinition, CommandItem } from "./types";
@@ -206,6 +211,7 @@ export function ShortcutsProvider({
   useHotkeys(baseShortcuts, { enabled: shortcutsEnabled && !shortcutsPreferenceLoading });
 
   // Base Command Palette actions
+  const isAdmin = useCurrentUser()?.role === "admin";
   const allCommands = useMemo<CommandItem[]>(() => {
     const builtins: CommandItem[] = [
       {
@@ -281,6 +287,11 @@ export function ShortcutsProvider({
         shortcut: "g x",
         perform: () => router.push("/trash"),
       },
+      // The other apps, so the palette reaches every top-level section (keywords cover both languages).
+      { id: "nav-calendar", title: t("calendar.calendar"), category: "Navigation", icon: CalendarDays, keywords: ["calendar", "kalender", "termine"], perform: () => router.push("/calendar") },
+      { id: "nav-bookings", title: t("calendar.bookings"), category: "Navigation", icon: CalendarClock, keywords: ["booking", "buchung", "termin buchen"], perform: () => router.push("/booking") },
+      { id: "nav-drive", title: t("drive.title"), category: "Navigation", icon: HardDrive, keywords: ["drive", "dateien", "files"], perform: () => router.push("/drive") },
+      ...(isAdmin ? [{ id: "nav-admin", title: t("admin.title"), category: "Settings" as const, icon: ShieldCheck, keywords: ["admin", "administration", "domains", "postfächer"], perform: () => router.push("/admin") }] : []),
       {
         id: "settings-account",
         title: t("palette.accountTitle"),
@@ -301,7 +312,7 @@ export function ShortcutsProvider({
     ];
 
     return [...builtins, ...customCommands];
-  }, [router, openComposer, customCommands, t]);
+  }, [router, openComposer, customCommands, t, isAdmin]);
 
   return (
     <ShortcutsContext.Provider

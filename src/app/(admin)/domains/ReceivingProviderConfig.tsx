@@ -63,7 +63,7 @@ export default function ReceivingProviderConfig({ domainId, provider, onReady }:
 		setError("");
 		setNotice("");
 		try {
-			const done = await runReceivingSetup(domainId, provider);
+			const done = await runReceivingSetup(domainId, provider, t);
 			if (done) setNotice(t("domains.setupFinished"));
 			refresh();
 		} catch (err) {

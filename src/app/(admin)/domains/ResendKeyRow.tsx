@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { postJson } from "./api";
 import { StatusRow } from "./status-row";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 type Props = {
 	configured: boolean | null;
@@ -35,7 +37,7 @@ export default function ResendKeyRow({ configured, onChanged, onError }: Props) 
 		onChanged(true);
 	});
 	const remove = () => run(async () => {
-		if (!window.confirm(t("resend.removeConfirm"))) return;
+		if (!(await confirmDialog({ ...questionParts(t("resend.removeConfirm")), confirmLabel: t("resend.remove"), destructive: true }))) return;
 		await postJson("/api/admin/resend-key", "DELETE", {});
 		onChanged(false);
 	});

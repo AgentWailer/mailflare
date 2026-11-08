@@ -5,16 +5,21 @@ import { useRef } from "react";
 // Where focus should return to, resolved when focus arrives (a menu item is resolved to its menu's
 // trigger while the menu still exists), so a dialog opened after focus already fell to <body> — a menu
 // that unmounted, a control that blurred itself — can still return the visitor there.
-let lastFocused: HTMLElement | null = null;
+// A short history rather than one element: when one dialog hands over to another (the command
+// palette opening the shortcut help), the newest entry has gone and the one before it is the answer.
+const history: HTMLElement[] = [];
 let tracking = false;
 function trackFocus() {
 	if (tracking || typeof document === "undefined") return;
 	tracking = true;
 	document.addEventListener("focusin", (event) => {
 		const target = event.target instanceof HTMLElement ? returnTarget(event.target) : null;
-		if (target) lastFocused = target;
+		if (!target || history.at(-1) === target) return;
+		history.push(target);
+		if (history.length > 10) history.shift();
 	}, true);
 }
+const lastConnected = () => [...history].reverse().find((element) => element.isConnected) ?? null;
 
 /** A menu item disappears with its menu; the menu's trigger is where focus belongs afterwards. */
 function returnTarget(element: HTMLElement | null): HTMLElement | null {
@@ -36,7 +41,7 @@ export function useReturnFocus() {
 	return {
 		onOpenAutoFocus() {
 			const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-			opener.current = returnTarget(active) ?? returnTarget(lastFocused?.isConnected ? lastFocused : null);
+			opener.current = returnTarget(active) ?? lastConnected();
 		},
 		onCloseAutoFocus(event: Event) {
 			const target = opener.current;

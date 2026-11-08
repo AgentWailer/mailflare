@@ -18,6 +18,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { MessageActionsProps, ReplyMode } from "./types";
 import { getPermanentDeleteConfirmText, supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
+import { announceMessageAction } from "@/lib/status-announcer";
 import {
 	blockMessageContact,
 	createForwardDraft,
@@ -77,6 +78,7 @@ export function MessageActions({
 		setError(null);
 		try {
 			await runSingleMessageAction(messageId, action);
+			if (status === "received" && (action === "archive" || action === "trash" || action === "spam")) announceMessageAction(action, () => runSingleMessageAction(messageId, "inbox"));
 			const redirect = getMessageActionRedirect(action);
 			if (redirect) router.push(redirect);
 			router.refresh();
@@ -85,7 +87,7 @@ export function MessageActions({
 		} finally {
 			setPendingAction(null);
 		}
-	}, [messageId, router, t]);
+	}, [messageId, router, status, t]);
 
 	// In Trash and Spam the delete button removes the message for good instead of
 	// being a no-op, after the user confirms.
@@ -381,8 +383,8 @@ export function MessageActions({
 					variant="ghost"
 					size="roundedSM"
 					aria-label={read ? t("common.markUnread") : t("common.markRead")}
-					disabled={disabled}
-					onClick={() => runAction(markAction)}
+					aria-disabled={disabled || undefined}
+					onClick={() => { if (!disabled) void runAction(markAction); }}
 				>
 					{read ? <Mail size={iconSize} /> : <MailOpen size={iconSize} />}
 				</Button>

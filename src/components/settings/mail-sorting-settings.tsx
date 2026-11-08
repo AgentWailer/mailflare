@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { authFetch } from "@/lib/auth/client";
 import { MAIL_CATEGORIES, type MailCategory } from "@/lib/mail-sorting/categories";
 import { MailContentAudit } from "./mail-content-audit";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 type Settings = {
 	mode: "active" | "observe" | "off";
 	dailyLimit: number;
@@ -99,7 +101,7 @@ function MailSortingForm({ mailboxId }: { mailboxId?: string }) {
 		}
 	}
 	async function clearLearning() {
-		if (!mailboxId || !window.confirm(t("smart.clearLearningConfirm"))) return;
+		if (!mailboxId || !(await confirmDialog({ ...questionParts(t("smart.clearLearningConfirm")), confirmLabel: t("smart.clearLearning"), destructive: true }))) return;
 		setPending(true);
 		try {
 			const response = await authFetch("/api/settings/mail-sorting", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId, clearLearning: true }) });

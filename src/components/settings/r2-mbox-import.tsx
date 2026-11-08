@@ -13,6 +13,8 @@ import { notifyLabelsChanged } from "@/components/messages/use-mailbox-folders";
 import type { publicMboxJob } from "@/lib/import/mbox-jobs";
 import type { publicMboxSortingJob } from "@/lib/import/mbox-sorting";
 import { MboxImportIssues } from "./mbox-import-issues";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 type Job = ReturnType<typeof publicMboxJob> & { issues?: { total: number; pending: number }; sorting?: ReturnType<typeof publicMboxSortingJob> | null };
 type Status = { jobs: Job[]; backgroundQueueConfigured: boolean; sortingAvailable?: boolean; error?: string };
@@ -76,7 +78,7 @@ export function R2MboxImport({ embedded = false }: { embedded?: boolean } = {}) 
     <div className="flex flex-wrap gap-2">
      {(job.status === "pending" || job.status === "running") && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void act(job.id, "pause")}>{t("mbox.pause")}</Button>}
      {(job.status === "paused" || job.status === "failed") && <Button type="button" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => void act(job.id, "resume")}>{t("mbox.resume")}</Button>}
-     {job.canSkip && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={() => { if (window.confirm(t("mbox.skipConfirm"))) void act(job.id, "skip"); }}>{t("mbox.skip")}</Button>}
+     {job.canSkip && <Button type="button" variant="outline" className="min-h-11 h-auto max-w-full whitespace-normal text-wrap" disabled={busy || !canManage} onClick={async () => { if (await confirmDialog({ ...questionParts(t("mbox.skipConfirm")), confirmLabel: t("mbox.skip"), destructive: true })) void act(job.id, "skip"); }}>{t("mbox.skip")}</Button>}
     </div>
     {!!job.issues?.total && <MboxImportIssues jobId={job.id} {...job.issues} onReviewed={() => { void query.refetch(); }} />}
     <div className="space-y-2 border-t pt-3" data-mbox-sorting>

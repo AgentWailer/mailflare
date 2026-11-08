@@ -190,7 +190,7 @@ export default function DomainsPage() {
       };
       let { res, json } = await put(false);
       // Cloudflare sending refuses while another service's MX records exist.
-      if (confirmMxReplacement(res, json)) ({ res, json } = await put(true));
+      if (await confirmMxReplacement(res, json, t)) ({ res, json } = await put(true));
       if (!res.ok) throw new Error(json.error ?? t("domains.sendingChangeFailed"));
       if (json.warning) setSendingMessage(json.warning);
       await loadDns(id);
@@ -258,7 +258,7 @@ export default function DomainsPage() {
         };
       };
       let { res, json } = await post(false);
-      if (confirmMxReplacement(res, json)) ({ res, json } = await post(true));
+      if (await confirmMxReplacement(res, json, t)) ({ res, json } = await post(true));
       if (!res.ok) throw new Error(json.error ?? t("domains.dnsSetupFailed"));
       if (json.domain && json.dns) {
         const updatedView = { domain: json.domain, dns: json.dns };
