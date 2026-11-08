@@ -63,6 +63,23 @@ export function clearMessageDetailCache() {
 	detailSizes.clear(); detailBytes = 0;
 }
 
+/**
+ * Forget the cached details of messages whose status or folder just changed (a move, or its undo), so the
+ * reader shows the new state. A request already in flight no longer writes its now-stale result back.
+ */
+export const MESSAGE_DETAILS_INVALIDATED_EVENT = "mailflare:message-details-invalidated";
+
+export function invalidateMessageDetails(messageIds: string[]): void {
+	// Other per-message caches (the reader's label query) listen and drop their entries too.
+	if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(MESSAGE_DETAILS_INVALIDATED_EVENT, { detail: { messageIds } }));
+	for (const messageId of messageIds) {
+		detailBytes -= detailSizes.get(messageId) ?? 0;
+		detailSizes.delete(messageId);
+		detailCache.delete(messageId);
+		detailRequests.delete(messageId);
+	}
+}
+
 /** Include retries: speculative work must yield until reading has completed. */
 export function hasPendingMessageDetails(): boolean {
 	return detailRequests.size > 0;

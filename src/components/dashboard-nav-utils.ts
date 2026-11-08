@@ -3,6 +3,7 @@ import type { MailCategory } from "@/lib/mail-sorting/categories";
 import type { MessageCounts, MessageFolder } from "@/hooks/types";
 import { authFetch } from "@/lib/auth/client";
 import { announceMessageAction, announceStatus } from "@/lib/status-announcer";
+import { invalidateMessageDetails } from "@/lib/messages/detail-cache";
 
 export function getFolderNavCount(folder: MessageFolder, counts: MessageCounts["folders"]): number | undefined {
 	return counts[folder].unread;
@@ -16,6 +17,7 @@ async function moveMessages(payload: { messageIds: string[]; action: BulkMessage
 	});
 
 	if (!response.ok) { announceStatus("status.moveFailed"); throw new Error("Unable to move messages"); }
+	invalidateMessageDetails(payload.messageIds);
 	announceMessageAction(payload.action);
 	window.dispatchEvent(new Event("mailflare:messages-changed"));
 }
@@ -35,6 +37,7 @@ export async function moveMessagesToCategory(messageIds: string[], category: Mai
   body: JSON.stringify({ mailboxId, messageIds, category, skipInbox: false }),
  });
  if (!response.ok) { announceStatus("status.moveFailed"); throw new Error("Unable to categorize messages"); }
+ invalidateMessageDetails(messageIds);
  announceMessageAction("category");
  window.dispatchEvent(new Event("mailflare:messages-changed"));
 }

@@ -12,6 +12,7 @@ import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
 import type { PermanentDeleteFolder } from "@/app/api/messages/bulk/types";
 import type { EmptyFolderResponse } from "@/app/api/messages/empty/types";
 import { announceMessageAction } from "@/lib/status-announcer";
+import { invalidateMessageDetails } from "@/lib/messages/detail-cache";
 
 export function getMessageParty(
 	message: Message,
@@ -96,6 +97,7 @@ export async function runBulkMessageAction(messageIds: string[], action: string,
 
 	if (!response.ok) throw new Error(defaultTranslator("error.updateSelected"));
 	if (action === "read" || action === "unread") markMessagesReadInCaches(messageIds, action === "read");
+	else invalidateMessageDetails(messageIds);
 	announceMessageAction(action);
 	if (notify) window.dispatchEvent(new Event("mailflare:messages-changed"));
 }

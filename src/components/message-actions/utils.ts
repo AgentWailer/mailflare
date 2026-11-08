@@ -7,6 +7,7 @@ import { formatUserDate } from "@/lib/time/utils";
 import { sanitizeEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/email-html-sanitizer";
 import { escapeHtml, htmlToPlainText, textToHtml, wrapQuotedHtml } from "@/components/compose/rich-text-utils";
 import { announceMessageAction } from "@/lib/status-announcer";
+import { invalidateMessageDetails } from "@/lib/messages/detail-cache";
 import type {
   BlockMessageContactInput,
   ForwardDraftInput,
@@ -50,6 +51,7 @@ export async function runSingleMessageAction(
   }
 
   if (action === "read" || action === "unread") markMessagesReadInCaches([messageId], action === "read");
+  else invalidateMessageDetails([messageId]);
   announceMessageAction(action);
   window.dispatchEvent(new Event("mailflare:messages-changed"));
 }
