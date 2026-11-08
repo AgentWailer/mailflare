@@ -508,22 +508,25 @@ export function MessageFolderPage({
 	}
 
 	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
-	// Mail moved out of the primary inbox can be put back with one "Rückgängig". Only there is "move to
-	// inbox" the exact inverse: the API files it as primary, so categories and labels get no undo.
-	const undoMove = (ids: string[], action: string, onRestored?: () => void) => !config.folderId && config.folder === "inbox" && ["archive", "trash", "spam"].includes(action)
-		? () => runBulkMessageAction(ids, "inbox", true).then(() => onRestored?.()) : undefined;
+	// Mail moved out of the inbox can be put back with one "Rückgängig" when "move to inbox" is the exact
+	// inverse: the API files it as primary, so only single primary messages without a label qualify
+	// (a grouped conversation may hold messages from other categories).
+	const undoMove = (rows: Message[], ids: string[], action: string, onRestored?: () => void) =>
+		!config.folderId && config.folder === "inbox" && ["archive", "trash", "spam"].includes(action) && rows.length > 0
+		&& rows.every(row => (row.category ?? "primary") === "primary" && !row.folderId && (row.threadMessageIds?.length ?? 1) === 1)
+			? () => runBulkMessageAction(ids, "inbox", true).then(() => onRestored?.()) : undefined;
 	async function runRowMessageAction(messageId: string, action: RowMessageAction) {
 		if (action !== "archive") {
 			const ids = expandSelectedIds([messageId]);
 			await runBulkMessageAction(ids, action, action !== "read" && action !== "unread");
-			announceMessageAction(action, undoMove(ids, action));
+			announceMessageAction(action, undoMove(messages.filter(row => row.id === messageId), ids, action));
 			return;
 		}
 		const message = messages.find(row => row.id === messageId);
 		if (!message) return;
 		try {
 			await archiveRow(message);
-			announceMessageAction("archive", undoMove(message.threadMessageIds ?? [message.id], "archive", () => restoreRow(message.id)));
+			announceMessageAction("archive", undoMove([message], message.threadMessageIds ?? [message.id], "archive", () => restoreRow(message.id)));
 			setSelectedMessages(current => current.filter(row => row.id !== messageId));
 		} catch {
 			// The optimistic archive restores this row and exposes an inline error.
@@ -596,7 +599,7 @@ export function MessageFolderPage({
 		try {
 			const ids = expandSelectedIds(actionIds);
 			await runBulkMessageAction(ids, action, true, folderId);
-			announceMessageAction(action, undoMove(ids, action));
+			announceMessageAction(action, undoMove(previousMessages.filter(row => actionIds.includes(row.id)), ids, action));
 			setSelectedMessages([]);
 			if (currentReader.current.prefix === config.hrefPrefix && currentReader.current.id === selectedMessageId && actionIds.includes(selectedMessageId ?? "") && ["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action)) router.replace(config.hrefPrefix);
 		} catch (error) {
