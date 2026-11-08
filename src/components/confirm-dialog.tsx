@@ -41,7 +41,7 @@ export function ConfirmDialogHost() {
 	return (
 		<DialogPrimitive.Root open={request !== null} onOpenChange={(open) => { if (!open) settle(false); }}>
 			<DialogPrimitive.Portal>
-				<DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-[160] bg-black/35" />
+				<DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-[160] bg-black/35 dark:bg-black/60" />
 				<DialogPrimitive.Content role="alertdialog" aria-describedby={request?.description ? "confirm-dialog-description" : undefined} onOpenAutoFocus={returnFocus.onOpenAutoFocus} onCloseAutoFocus={returnFocus.onCloseAutoFocus}
 					className="dialog-content fixed left-1/2 top-1/2 z-[170] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-xl outline-none sm:p-6">
 					<DialogPrimitive.Title className="text-base font-semibold leading-6 text-neutral-900">{request?.title}</DialogPrimitive.Title>

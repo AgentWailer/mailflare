@@ -23,6 +23,7 @@ import { useAssistantAvailability } from "./use-assistant-availability";
 import { MessageCategoryLayout } from "@/components/messages/message-category-layout";
 
 import { DeferredMailQuickSettings } from "@/components/settings/deferred-mail-quick-settings";
+import { requestAssistantFocus } from "@/components/agent/assistant-focus";
 
 export default function DashboardLayout({
   children,
@@ -62,7 +63,7 @@ export default function DashboardLayout({
                     <SidebarResizeBoundary />
                   </SidebarAside>
                   <div className="flex min-h-0 min-w-0 flex-col">
-                    <MailHeader assistantEnabled={assistantEnabled} assistantOpen={assistantOpen} onToggleAssistant={() => { setQuickSettingsOpen(false); setAssistantOpen(current => !current); setAssistantFullSize(false); }} quickSettingsOpen={quickSettingsOpen} onToggleQuickSettings={() => { setQuickSettingsOpen(current => !current); setAssistantOpen(false); setAssistantFullSize(false); }} />
+                    <MailHeader assistantEnabled={assistantEnabled} assistantOpen={assistantOpen} onToggleAssistant={() => { setQuickSettingsOpen(false); if (!assistantOpen) requestAssistantFocus(); setAssistantOpen(current => !current); setAssistantFullSize(false); }} quickSettingsOpen={quickSettingsOpen} onToggleQuickSettings={() => { setQuickSettingsOpen(current => !current); setAssistantOpen(false); setAssistantFullSize(false); }} />
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                       <AssistantOpenContext.Provider value={assistantVisible}>
                         <AssistantRequestContext.Provider value={assistantEnabled ? (request) => { setQuickSettingsOpen(false); setAssistantRequest(request); window.dispatchEvent(new CustomEvent("mailflare:assistant-request", { detail: request })); setAssistantOpen(true); setAssistantFullSize(false); } : null}>

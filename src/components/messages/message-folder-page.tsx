@@ -554,7 +554,7 @@ export function MessageFolderPage({
 	async function runSelectedAction(action: BulkMessageAction, folderId?: string) {
 		if (allMatchingSelected && allSelection) {
 			if (action === "delete" && !(await confirmDialog({ ...questionParts(getPermanentDeleteConfirmText(allSelection.total, t)), confirmLabel: t("common.deleteForever"), destructive: true }))) return;
-			if (action === "trash" && !window.confirm(t("list.confirmAllTrash", { count: allSelection.total.toLocaleString(locale), folder: title }))) return;
+			if (action === "trash" && !(await confirmDialog({ title: t("list.confirmAllTrash", { count: allSelection.total.toLocaleString(locale), folder: title }), confirmLabel: t("actions.moveToTrash"), destructive: true }))) return;
 			startBulkScopeTask(currentBulkScope(), allSelection, action, folderId);
 			clearSelection();
 			if (["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action) && selectedMessageId) router.replace(config.hrefPrefix);
@@ -617,7 +617,7 @@ export function MessageFolderPage({
 					</Tooltip>
 					{!hasCategoryTabs && <MessageRefreshButton onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
 					{/* The page's heading for screen readers whenever the toolbar replaces the visible folder title. */}
-					{(actionIds.length > 0 || (!compact && !isMobile)) && <h1 className="sr-only">{title}</h1>}
+					{!selectedMessageId && (actionIds.length > 0 || (!compact && !isMobile)) && <h1 className="sr-only">{title}</h1>}
 					{actionIds.length > 0 || (!compact && !isMobile) ? (
 						<BulkMessageToolbar
 							messageIds={expandSelectedIds(actionIds)}

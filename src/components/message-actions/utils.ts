@@ -6,6 +6,7 @@ import { getLatestEmailContent } from "@/lib/email/reply-content-utils";
 import { formatUserDate } from "@/lib/time/utils";
 import { sanitizeEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/email-html-sanitizer";
 import { escapeHtml, htmlToPlainText, textToHtml, wrapQuotedHtml } from "@/components/compose/rich-text-utils";
+import { announceMessageAction } from "@/lib/status-announcer";
 import type {
   BlockMessageContactInput,
   ForwardDraftInput,
@@ -49,17 +50,12 @@ export async function runSingleMessageAction(
   }
 
   if (action === "read" || action === "unread") markMessagesReadInCaches([messageId], action === "read");
+  announceMessageAction(action);
   window.dispatchEvent(new Event("mailflare:messages-changed"));
 }
 
 export function openUnsubscribeUrl(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
-}
-
-export function confirmTrashWithoutUnsubscribe() {
-  return window.confirm(
-    "This email does not provide an unsubscribe link. It will be moved to Trash, and future emails from this sender will also be moved to Trash.",
-  );
 }
 
 export async function createTrashSenderRule({

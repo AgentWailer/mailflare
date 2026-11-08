@@ -19,7 +19,6 @@ import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { MessageActionsProps, ReplyMode } from "./types";
 import { getPermanentDeleteConfirmText, supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
 import {
-	confirmTrashWithoutUnsubscribe,
 	blockMessageContact,
 	createForwardDraft,
 	createReplyDraft,
@@ -203,7 +202,7 @@ export function MessageActions({
 			return;
 		}
 
-		if (!confirmTrashWithoutUnsubscribe()) return;
+		if (!(await confirmDialog({ title: t("actions.unsubscribeNoLink.title"), description: t("actions.unsubscribeNoLink.description"), confirmLabel: t("actions.unsubscribeNoLink.confirm"), destructive: true }))) return;
 		setPendingAction("unsubscribe");
 		if (!mailboxId) {
 			setError(t("actions.error.trashRule"));

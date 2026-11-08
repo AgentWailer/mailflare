@@ -4,7 +4,7 @@ import React from "react";
 import { X, Keyboard } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { isApplePlatform } from "./platform-utils";
+import { isApplePlatform } from "@/lib/platform-utils";
 import type { TranslationKey } from "@/lib/i18n/types";
 import type { ShortcutDefinition } from "./types";
 

@@ -8,7 +8,7 @@ import { useMailSearch } from "./mail-search-context";
 import { useShortcuts } from "@/components/shortcuts";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { MailSearchDetails } from "./mail-search-details";
-import { isApplePlatform } from "@/components/shortcuts/platform-utils";
+import { isApplePlatform } from "@/lib/platform-utils";
 
 const noSubscription = () => () => {};
 

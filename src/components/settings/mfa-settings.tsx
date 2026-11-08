@@ -25,7 +25,7 @@ export function MfaStatusBadge() {
 		return () => { active = false; window.removeEventListener(MFA_CHANGED_EVENT, load); };
 	}, []);
 	if (enabled === null) return null;
-	return <span className={enabled ? "inline-flex rounded-md bg-green-600/10 px-2 py-0.5 text-xs font-medium text-green-700" : "inline-flex rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600"}>{enabled ? t("mfa.badgeOn") : t("mfa.badgeOff")}</span>;
+	return <span className={enabled ? "inline-flex rounded-md bg-green-600/10 px-2 py-0.5 text-xs font-medium text-green-800" : "inline-flex rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600"}>{enabled ? t("mfa.badgeOn") : t("mfa.badgeOff")}</span>;
 }
 
 /**
