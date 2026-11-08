@@ -10,6 +10,8 @@ import { authFetch, getClientSessionToken } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { GmailSentSync, type SentSyncStatus } from "./gmail-sent-sync";
 import { Select } from "@/components/ui/select";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 type Job = { id: string; mailboxId: string; connectionId: string; status: string; processed: number; imported: number; skipped: number; total: number; error: string | null; canSkip?: boolean };
 type Status = { configured: boolean; missing: string[]; redirectUri: string | null; authorizationFailed: boolean; preferredConnectionId?: string | null; connections: { id: string; email: string }[]; jobs: Job[]; sentSyncs?: SentSyncStatus[] };
@@ -69,10 +71,10 @@ export function GmailImport({ embedded = false }: { embedded?: boolean } = {}) {
 		</div>}
 		<Button variant="outline" onClick={() => void connect()} disabled={!query.data?.configured || busy}>{t("gmail.connect")}</Button>
 		{query.data?.connections.length ? <div className="space-y-3">
-			<label className="block text-sm text-neutral-700">{t("gmail.source")}<Select aria-label={t("gmail.source")} className="mt-1 w-full" value={connection?.id ?? ""} onChange={event => setConnectionId(event.target.value)} disabled={busy}>{query.data.connections.map(item => <option key={item.id} value={item.id}>{item.email}</option>)}</Select></label>
+			<label className="block text-sm text-neutral-700">{t("gmail.source")}<Select aria-label={t("gmail.source")} containerClassName="mt-1 flex w-full" className="min-h-10" value={connection?.id ?? ""} onChange={event => setConnectionId(event.target.value)} disabled={busy}>{query.data.connections.map(item => <option key={item.id} value={item.id}>{item.email}</option>)}</Select></label>
 			<p className="break-all text-sm text-neutral-700">{t("gmail.destination")}: {selectedMailbox ? `${selectedMailbox.localPart}@${selectedMailbox.hostname}` : t("importPage.selectMailboxFirst")}</p>
 			<div className="flex flex-wrap gap-2"><Button onClick={() => void run()} disabled={!canManage || busy || !query.data.configured}>{t("gmail.start")}</Button>
-			<Button variant="outline" disabled={busy} onClick={() => { if (connection && window.confirm(t("gmail.disconnectConfirm"))) { setBusy(true); void request(`/api/import/gmail/connections/${connection.id}`, undefined, "DELETE").then(() => query.refetch()).catch(err => setError(err instanceof Error ? err.message : t("gmail.failed"))).finally(() => setBusy(false)); } }}>{t("gmail.disconnect")}</Button></div>
+			<Button variant="outline" disabled={busy} onClick={async () => { if (connection && (await confirmDialog({ ...questionParts(t("gmail.disconnectConfirm")), confirmLabel: t("gmail.disconnect"), destructive: true }))) { setBusy(true); void request(`/api/import/gmail/connections/${connection.id}`, undefined, "DELETE").then(() => query.refetch()).catch(err => setError(err instanceof Error ? err.message : t("gmail.failed"))).finally(() => setBusy(false)); } }}>{t("gmail.disconnect")}</Button></div>
 		</div> : null}
 		{connection && selectedMailbox && <GmailSentSync connectionId={connection.id} mailboxId={selectedMailbox.id} sync={query.data?.sentSyncs?.find(sync => sync.connectionId === connection.id)} disabled={!canManage || busy || !query.data?.configured} onChanged={() => query.refetch()} />}
 		{busy && activeImport && <Button variant="outline" disabled={pausing} onClick={() => { running.current = false; setPausing(true); }}>{t(pausing ? "gmail.pausing" : "gmail.pause")}</Button>}
@@ -81,7 +83,7 @@ export function GmailImport({ embedded = false }: { embedded?: boolean } = {}) {
 			<p role="status">{job.status === "completed" ? t("gmail.completed") : job.status === "failed" ? t("gmail.interrupted") : t("gmail.progress", { processed: job.processed, total: job.total })}</p>
 			<p>{t("gmail.counts", { imported: job.imported, skipped: job.skipped })}</p>{job.error && <p role="alert" className="break-words text-red-600">{job.error}</p>}
 			{job.status !== "completed" && <Button variant="outline" disabled={busy || !canManage || !query.data?.configured} onClick={() => void run(job)}>{t("gmail.resume")}</Button>}
-			{job.canSkip && <Button variant="outline" className="ml-2" disabled={busy || !canManage} onClick={() => { if (window.confirm(t("gmail.skipConfirm"))) { setBusy(true); void request(`/api/import/gmail/jobs/${job.id}`, { action: "skip" }).then(() => query.refetch()).catch(err => setError(err instanceof Error ? err.message : t("gmail.failed"))).finally(() => setBusy(false)); } }}>{t("gmail.skip")}</Button>}
+			{job.canSkip && <Button variant="outline" className="ml-2" disabled={busy || !canManage} onClick={async () => { if (await confirmDialog({ ...questionParts(t("gmail.skipConfirm")), confirmLabel: t("gmail.skip"), destructive: true })) { setBusy(true); void request(`/api/import/gmail/jobs/${job.id}`, { action: "skip" }).then(() => query.refetch()).catch(err => setError(err instanceof Error ? err.message : t("gmail.failed"))).finally(() => setBusy(false)); } }}>{t("gmail.skip")}</Button>}
 		</div>)}
 		{(error || query.isError || query.data?.authorizationFailed) && <div role="alert" className="text-sm text-red-600"><p>{error ?? t("gmail.failed")}</p><Button variant="outline" className="mt-2" onClick={() => { setError(null); const url = new URL(window.location.href); url.searchParams.delete("gmail"); window.history.replaceState({}, "", url); void query.refetch(); }}>{t("labels.visibility.retry")}</Button></div>}
 		<p className="text-xs text-neutral-500">{t("gmail.note")}</p>

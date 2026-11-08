@@ -1,5 +1,8 @@
 "use client";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
+
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -133,10 +136,10 @@ export default function BackupsPage() {
             type="file"
             accept="application/json,.json"
             className="hidden"
-            onChange={(event) => {
+            onChange={async (event) => {
               const file = event.target.files?.[0];
               event.target.value = "";
-              if (!file || !window.confirm(t("backups.restoreConfirm"))) return;
+              if (!file || !(await confirmDialog({ ...questionParts(t("backups.restoreConfirm")), confirmLabel: t("backups.restore"), destructive: true }))) return;
               if (file.size > 10 * 1024 * 1024) { window.alert(t("backups.restoreGuide")); return; }
               restore.mutate(file);
             }}

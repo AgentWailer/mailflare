@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import type { AwsCapabilityReport, AwsConfigStatus } from "@/lib/aws/aws-types";
 import { ApiError, requestJson } from "./api";
 import { StatusRow } from "./status-row";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 type Props = {
 	/** Which capabilities the caller needs, so only those rows are shown. */
@@ -95,7 +97,7 @@ export default function AwsCredentialsPanel({ need, onChanged }: Props) {
 		onChanged?.(true, data.report);
 	});
 	const remove = () => run("remove", async () => {
-		if (!window.confirm(t("aws.removeConfirm"))) return;
+		if (!(await confirmDialog({ ...questionParts(t("aws.removeConfirm")), confirmLabel: t("resend.remove"), destructive: true }))) return;
 		const data = await requestJson<{ status: AwsConfigStatus }>("/api/admin/aws", "DELETE", {});
 		setStatus(data.status);
 		setReport(null);

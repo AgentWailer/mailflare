@@ -153,14 +153,45 @@ export function defaultCalendarStart(day: Date): Date {
   return dateFromZonedFields(fields, getUserTimeZone());
 }
 
-export function monthGridDates(month: Date): Date[] {
+// Regions whose weeks conventionally start on Sunday, for engines without Intl week data.
+const SUNDAY_FIRST_REGIONS = new Set(["AG", "AS", "BD", "BR", "BS", "BT", "BW", "BZ", "CA", "CO", "DM", "DO", "ET", "GT", "GU", "HK", "HN", "ID", "IL", "IN", "JM", "JP", "KE", "KH", "KR", "LA", "MH", "MM", "MO", "MT", "MX", "MZ", "NI", "NP", "PA", "PE", "PH", "PK", "PR", "PT", "PY", "SA", "SG", "SV", "TH", "TT", "TW", "UM", "US", "VE", "VI", "WS", "YE", "ZA", "ZW"]);
+
+/** First day of the week for a locale: 0 = Sunday … 6 = Saturday. */
+export function firstDayOfWeek(locale = getDisplayLocale(), browserLocale = typeof navigator === "undefined" ? undefined : navigator.language): number {
+  try {
+    let tag = locale ?? browserLocale ?? "en-US";
+    // A language-only display locale ("de", "en") borrows the region of the browser's tag for the same language.
+    if (locale && browserLocale) {
+      const display = new Intl.Locale(locale), browser = new Intl.Locale(browserLocale);
+      if (!display.region && browser.language === display.language) tag = browserLocale;
+    }
+    const intl = new Intl.Locale(tag) as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
+    const firstDay = intl.getWeekInfo?.().firstDay ?? intl.weekInfo?.firstDay;
+    if (firstDay) return firstDay % 7; // Intl numbers Monday 1 … Sunday 7.
+    const region = intl.maximize().region;
+    return !region || SUNDAY_FIRST_REGIONS.has(region) ? 0 : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** Weekday numbers (0 = Sunday) in display order for the current locale. */
+export function orderedWeekdays(firstDay = firstDayOfWeek()): (0 | 1 | 2 | 3 | 4 | 5 | 6)[] {
+  return Array.from({ length: 7 }, (_, index) => ((firstDay + index) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6);
+}
+
+function daysSinceWeekStart(value: Date, firstDay: number): number {
+  return (zonedDateFields(value, getUserTimeZone()).getUTCDay() - firstDay + 7) % 7;
+}
+
+export function monthGridDates(month: Date, firstDay = firstDayOfWeek()): Date[] {
   const first = startOfMonth(month);
-  const gridStart = addDays(first, -zonedDateFields(first, getUserTimeZone()).getUTCDay());
+  const gridStart = addDays(first, -daysSinceWeekStart(first, firstDay));
   return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
 }
 
-export function startOfWeek(value: Date): Date {
-  return addDays(startOfDay(value), -zonedDateFields(value, getUserTimeZone()).getUTCDay());
+export function startOfWeek(value: Date, firstDay = firstDayOfWeek()): Date {
+  return addDays(startOfDay(value), -daysSinceWeekStart(value, firstDay));
 }
 
 export function dateKey(value: Date): string {

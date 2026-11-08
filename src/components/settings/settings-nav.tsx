@@ -10,10 +10,11 @@ import { MobileSettingsNav, settingsNavIcons } from "./mobile-settings-nav";
 export function SettingsNav() {
 	const { t } = useLanguage();
 	const pathname = usePathname();
-	return <aside className="md:w-60 md:shrink-0 md:px-4 md:py-6" aria-label={t("settings.nav.menu")}>
+	return <aside className="lg:w-60 lg:shrink-0 lg:px-4 lg:py-6" aria-label={t("settings.nav.menu")}>
 		<MobileSettingsNav key={pathname} pathname={pathname} />
-		<div data-settings-desktop-nav className="settings-desktop-navigation sticky top-6 hidden space-y-5 md:block">
-			<h1 className="px-3 text-lg font-semibold text-neutral-900">{t("settings.nav.settings")}</h1>
+		<div data-settings-desktop-nav className="settings-desktop-navigation sticky top-6 hidden space-y-5 lg:block">
+			{/* The page title below is the page's only h1; this names the menu. */}
+			<p className="px-3 text-lg font-semibold text-neutral-900">{t("settings.nav.settings")}</p>
 			{settingsNavSections.map(section => <nav key={section.labelKey} aria-label={t(section.labelKey)} className="space-y-1">
 				<h2 className="mb-2 px-3 text-xs font-semibold text-neutral-500">{t(section.labelKey)}</h2>
 				{section.items.map(item => {

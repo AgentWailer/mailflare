@@ -43,7 +43,7 @@ test('one click updates only the selected passage in the actual draft, with imme
  t.after(cleanup);const calls=[];t.mock.method(globalThis,'fetch',async(url,init)=>{calls.push(JSON.parse(init.body));return Response.json({text:'gut formulierter Text'});});
  await mount({locale:'de'});const before=editor().innerHTML,node=editor().firstChild.firstChild;
  const range=document.createRange();range.setStart(node,6);range.setEnd(node,23);window.getSelection().addRange(range);
- await click('Polish');assert.equal(calls.length,1);assert.equal(calls[0].text,'badly worded text');
+ await click('Verbessern');assert.equal(calls.length,1);assert.equal(calls[0].text,'badly worded text');
  assert.equal(editor().textContent,'Hello gut formulierter Text.');assert.equal(draft(),editor().innerHTML);assert.equal(preview(),null);assert.equal(button('Send').disabled,false);assert(!document.body.textContent.includes('Ersetzen'));
  await click('Überarbeitung rückgängig machen');assert.equal(editor().innerHTML,before);assert.equal(draft(),before);
 });

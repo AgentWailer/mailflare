@@ -9,6 +9,8 @@ import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/auth/client";
 import type { DriveItemDto } from "@/lib/drive/types";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 type FolderNode = { id: string; name: string; parentId: string | null };
 type FolderRow = FolderNode & { depth: number; disabled: boolean };
@@ -161,7 +163,7 @@ export function DriveBulkActions({ selected, trashView, onDone }: { selected: Dr
 			{ownsAll && trashView && (
 				<>
 					<Button type="button" variant="ghost" className={buttonClass} disabled={busy} onClick={() => void run(() => act("restore"), (done) => t("drive.bulkRestored", { count: done }))}><RotateCcw size={16} />{t("drive.restore")}</Button>
-					<Button type="button" variant="ghost" className={clsx(buttonClass, "text-red-600")} disabled={busy} onClick={() => { if (window.confirm(t("drive.confirmBulkDelete", { count }))) void run(() => act("delete"), (done) => t("drive.bulkDeleted", { count: done })); }}><X size={16} />{t("drive.deleteForever")}</Button>
+					<Button type="button" variant="ghost" className={clsx(buttonClass, "text-red-600")} disabled={busy} onClick={async () => { if (await confirmDialog({ ...questionParts(t("drive.confirmBulkDelete", { count })), confirmLabel: t("drive.deleteForever"), destructive: true })) void run(() => act("delete"), (done) => t("drive.bulkDeleted", { count: done })); }}><X size={16} />{t("drive.deleteForever")}</Button>
 				</>
 			)}
 		</div>

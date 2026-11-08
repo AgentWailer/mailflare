@@ -165,7 +165,7 @@ export function DriveNav({ onNavigate }: { onNavigate?: () => void }) {
 				{!compact && (
 					<div className="mt-3">
 						<div className="flex items-center gap-1">
-							<button type="button" onClick={toggleFolders} aria-expanded={foldersOpen} aria-label={t("drive.foldersToggle")} className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:bg-neutral-200/60">
+							<button type="button" onClick={toggleFolders} aria-expanded={foldersOpen} aria-label={t("drive.foldersToggle")} className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full px-4 text-xs font-semibold text-neutral-500 hover:bg-neutral-200/60">
 								<ChevronRight size={14} className={clsx("transition-transform", foldersOpen && "rotate-90")} />{t("drive.folders")}
 							</button>
 							<button type="button" onClick={() => { setFolderName(""); setCreating(true); }} aria-label={t("drive.newFolder")} title={t("drive.newFolder")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-800"><Plus size={16} /></button>

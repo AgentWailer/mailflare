@@ -21,6 +21,7 @@ import type { ReviewSnapshot } from "./send-review-types";
 import { approveAgentAction, requestDraftReview } from "./client-actions";
 import type { AgentConversation, AgentConversationsResponse, AgentErrorResponse, AgentEvent, AgentHistoryResponse, AgentJob, AgentJobsResponse, AgentMessage, AgentPanelProps, AgentPanelView, AgentSettings, AgentSettingsResponse, QueuedAgentMessage } from "./types";
 import { activeAgentTool, activeAgentToolLabel, appendAgentReasoning, consumeAgentStream, editQueuedAgentMessage, enqueueAgentMessage, groupAgentMessages, isAgentScrollAtBottom, markAgentDraftSent, normalizeAgentHistory, readAgentConversationId, removeQueuedAgentMessage, resizeAgentInput, saveAgentConversationId, shouldSubmitAgentInput, steerQueuedAgentMessage, uniqueAgentDraftActions } from "./utils";
+import { ASSISTANT_FOCUS_EVENT, consumeAssistantFocus } from "./assistant-focus";
 
 export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request }: AgentPanelProps) {
 	const { t } = useLanguage();
@@ -51,7 +52,25 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 	const runningRef = useRef(false);
 	const queueGenerationRef = useRef(0);
 	const menuRef = useRef<HTMLDetailsElement | null>(null);
+	const closePanel = useRef({ open, onClose });
+	useEffect(() => { closePanel.current = { open, onClose }; }, [open, onClose]);
 	const inputRef = useRef<HTMLTextAreaElement | null>(null);
+	// Opening the panel from its toggle moves keyboard focus into the prompt (see assistant-focus.ts).
+	useEffect(() => {
+		let frame = 0;
+		// The prompt can be briefly disabled while the conversation loads; keep trying for about a second.
+		const tryFocus = (attempts: number) => {
+			const input = inputRef.current;
+			if (input && !input.disabled) { input.focus({ preventScroll: true }); if (document.activeElement === input) return; }
+			if (attempts > 0) { frame = requestAnimationFrame(() => tryFocus(attempts - 1)); return; }
+			// No usable prompt (e.g. no AI provider configured): focus the panel's first control instead.
+			document.querySelector<HTMLElement>("#email-assistant-panel button:not([disabled]), #email-assistant-panel summary")?.focus({ preventScroll: true });
+		};
+		const focusPrompt = () => { if (consumeAssistantFocus()) frame = requestAnimationFrame(() => tryFocus(60)); };
+		focusPrompt();
+		window.addEventListener(ASSISTANT_FOCUS_EVENT, focusPrompt);
+		return () => { cancelAnimationFrame(frame); window.removeEventListener(ASSISTANT_FOCUS_EVENT, focusPrompt); };
+	}, []);
 	const chatScrollRef = useRef<HTMLDivElement | null>(null);
 	const stickToBottomRef = useRef(true);
 	const selectedConversationRef = useRef<string | null>(null);
@@ -150,7 +169,17 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 			if (menuRef.current && !menuRef.current.contains(event.target as Node)) menuRef.current.open = false;
 		};
 		const closeOnEscape = (event: KeyboardEvent) => {
-			if (event.key === "Escape" && menuRef.current?.open) menuRef.current.open = false;
+			if (event.key !== "Escape") return;
+			if (menuRef.current?.open) { menuRef.current.open = false; return; }
+			// Escape closes the panel while focus is inside it or on its toggle, unless a dialog sits on top,
+			// then returns focus to the toggle that opened it.
+			const panel = document.getElementById("email-assistant-panel");
+			const active = document.activeElement;
+			const onToggle = active?.getAttribute("aria-controls") === "email-assistant-panel";
+			if (!closePanel.current.open || !(panel?.contains(active) || onToggle) || document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
+			closePanel.current.onClose();
+			const toggle = Array.from(document.querySelectorAll<HTMLElement>('[aria-controls="email-assistant-panel"]')).find(element => element.offsetParent !== null);
+			toggle?.focus({ preventScroll: true });
 		};
 		document.addEventListener("pointerdown", closeMenu);
 		document.addEventListener("keydown", closeOnEscape);
@@ -386,7 +415,7 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 				{activeTool && <div className="flex items-center gap-2"><LoaderCircle size={14} className="shrink-0 animate-spin" aria-hidden="true" /><span>{activeAgentToolLabel(activeTool.toolName, t)}</span></div>}
 				<div className="flex items-center gap-2"><LoaderCircle size={14} className="shrink-0 animate-spin" aria-hidden="true" /><span>{t("agent.panel.working")}</span></div>
 			</div>}
-			<form className="relative mx-auto w-full max-w-3xl pb-2 px-3" onSubmit={(event) => { event.preventDefault(); submitMessage(input); }}><textarea ref={inputRef} rows={1} className="block w-full resize-none rounded-4xl bg-blue-100/40 px-4 py-3 pr-20 text-sm leading-5 outline-none focus:border-blue-300 disabled:opacity-50" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (!shouldSubmitAgentInput(event)) return; event.preventDefault(); if (input.trim() && settings && providerConfigured && !loadingConversation) event.currentTarget.form?.requestSubmit(); }} placeholder={t("agent.panel.promptPlaceholder")} name="message" disabled={!settings || !providerConfigured || loadingConversation} />
+			<form className="relative mx-auto w-full max-w-3xl pb-2 px-3" onSubmit={(event) => { event.preventDefault(); submitMessage(input); }}><textarea ref={inputRef} rows={1} aria-label={t("agent.panel.promptLabel")} className="block w-full resize-none rounded-4xl bg-blue-100/40 px-4 py-3 pr-20 text-sm leading-5 outline-none focus:border-blue-300 disabled:opacity-50 aria-disabled:opacity-50" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (!shouldSubmitAgentInput(event)) return; event.preventDefault(); if (input.trim() && settings && providerConfigured && !loadingConversation) event.currentTarget.form?.requestSubmit(); }} placeholder={t("agent.panel.promptPlaceholder")} name="message" readOnly={!settings || !providerConfigured || loadingConversation} aria-disabled={(settings !== null && !providerConfigured) || undefined} aria-busy={(!settings || loadingConversation) || undefined} />
 				<div className="absolute bottom-3.5 right-4 flex justify-end gap-2">
 					{busy ? <Button type="button" variant="ghost" size="sm" onClick={() => abort.current?.abort()} className="bg-neutral-500/10 text-neutral-500 rounded-full" aria-label={t("agent.panel.stop")} title={t("agent.panel.stop")}><Pause size={16} /></Button> : <Button type="submit" variant="ghost" size="sm" disabled={!input.trim() || !settings || !providerConfigured || loadingConversation} aria-label={t("agent.panel.send")} title={t("agent.panel.send")}><Send size={18} /></Button>}
 				</div>

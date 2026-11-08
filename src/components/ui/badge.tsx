@@ -2,11 +2,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors",
+  "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium transition-colors",
   {
     variants: {
       variant: {
-        success: "border-transparent bg-green-600/10 text-green-600",
+        success: "border-transparent bg-green-600/10 text-green-800",
         default:
           "border-transparent bg-neutral-900 text-neutral-50",
         secondary:
@@ -25,7 +25,7 @@ export function Badge({
 }: React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof badgeVariants>) {
   return (
     <div
-      className={cn(badgeVariants({ variant }), "text-[9px] uppercase", className)}
+      className={cn(badgeVariants({ variant }), className)}
       {...props}
     />
   );

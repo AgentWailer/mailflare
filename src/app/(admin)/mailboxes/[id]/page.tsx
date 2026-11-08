@@ -32,6 +32,8 @@ import {
   updateMailboxSettings,
 } from "./utils";
 import MailboxAvatarForm from "./MailboxAvatarForm";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 export default function MailboxSettingsPage() {
   const { t } = useLanguage();
@@ -394,13 +396,8 @@ export default function MailboxSettingsPage() {
             type="button"
             variant="destructive"
             disabled={!mailbox.data || removeMailbox.isPending}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  t("mailbox.deleteConfirm", { address }),
-                )
-              )
-                return;
+            onClick={async () => {
+              if (!(await confirmDialog({ ...questionParts(t("mailbox.deleteConfirm", { address })), confirmLabel: t("mailbox.delete"), destructive: true }))) return;
               removeMailbox.mutate();
             }}
           >

@@ -11,6 +11,23 @@ import type { MfaStatusResponse } from "./types";
 import type { MfaDialogStep } from "./mfa-settings-types";
 import { beginMfaEnrollment, confirmMfaEnrollment, disableMfa, loadMfaStatus, regenerateRecoveryCodes } from "./utils";
 
+const MFA_CHANGED_EVENT = "mailflare:mfa-changed";
+
+/** Collapsed-header state for the two-factor section: on or off, without opening it. */
+export function MfaStatusBadge() {
+	const { t } = useLanguage();
+	const [enabled, setEnabled] = useState<boolean | null>(null);
+	useEffect(() => {
+		let active = true;
+		const load = () => { loadMfaStatus().then(status => { if (active) setEnabled(status.enabled); }).catch(() => undefined); };
+		load();
+		window.addEventListener(MFA_CHANGED_EVENT, load);
+		return () => { active = false; window.removeEventListener(MFA_CHANGED_EVENT, load); };
+	}, []);
+	if (enabled === null) return null;
+	return <span className={enabled ? "inline-flex rounded-md bg-green-600/10 px-2 py-0.5 text-xs font-medium text-green-800" : "inline-flex rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600"}>{enabled ? t("mfa.badgeOn") : t("mfa.badgeOff")}</span>;
+}
+
 /**
  * Settings > Account > Security card for TOTP. Enrolment is a three-step
  * dialog (password, scan and confirm, save recovery codes); turning it off
@@ -30,6 +47,7 @@ export function MfaSettings() {
 
 	async function refresh() {
 		setStatus(await loadMfaStatus());
+		window.dispatchEvent(new Event(MFA_CHANGED_EVENT));
 	}
 
 	if (!status) return <p className="text-sm text-neutral-500">{error ?? t("mfa.loading")}</p>;

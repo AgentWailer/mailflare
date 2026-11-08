@@ -24,7 +24,7 @@ export default function CloudflareReceivingConfig({ domainId, routingOk, routing
 		setBusy(true);
 		setError("");
 		try {
-			if (await runReceivingSetup(domainId, "cloudflare")) onChanged?.();
+			if (await runReceivingSetup(domainId, "cloudflare", t)) onChanged?.();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("domains.setupFailed"));
 		} finally { setBusy(false); }

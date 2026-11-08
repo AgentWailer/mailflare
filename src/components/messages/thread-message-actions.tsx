@@ -161,7 +161,7 @@ export function ThreadMessageActions({
 					aria-label={starred ? t("message.removeStar") : t("message.star")}
 					aria-pressed={starred}
 					aria-busy={pending}
-					disabled={pending}
+					aria-disabled={pending || undefined}
 					onClick={() => void onToggleStar()}
 				>
 					<Star className={starred ? "h-4 w-4 fill-amber-400 text-amber-400" : "h-4 w-4"} />

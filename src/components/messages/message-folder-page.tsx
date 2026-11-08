@@ -61,6 +61,9 @@ import {
 	supportsPermanentDelete,
 } from "@/lib/messages/permanent-delete-utils";
 import clsx from "clsx";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
+import { announceMessageAction } from "@/lib/status-announcer";
 
 
 
@@ -399,7 +402,7 @@ export function MessageFolderPage({
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
-	const { messages, total, archiveRow, archiveFailed } = useOptimisticArchive(sourceMessages, sourceTotal,
+	const { messages, total, archiveRow, restoreRow, archiveFailed } = useOptimisticArchive(sourceMessages, sourceTotal,
 		JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped, offset]));
 	const isLoading = mailboxesLoading || messagesLoading;
 	useMailboxPreload({ ready: !isLoading && !isRefreshing && !error && !selectedMessageId && !pendingBulkAction && readAllTask?.status !== "running", mailboxId: selectedMailbox?.id, href: config.hrefPrefix, grouped: conversationView, search: input ?? query });
@@ -505,12 +508,27 @@ export function MessageFolderPage({
 	}
 
 	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	// Mail moved out of the inbox can be put back with one "Rückgängig" when "move to inbox" is the exact
+	// inverse: the API files it as primary, so only single primary messages without a label qualify
+	// (a grouped conversation may hold messages from other categories).
+	const undoMove = (rows: Message[], ids: string[], action: string, onRestored?: () => void) =>
+		!config.folderId && config.folder === "inbox" && ["archive", "trash", "spam"].includes(action) && rows.length > 0
+		&& rows.every(row => (row.category ?? "primary") === "primary" && !row.folderId && (row.threadMessageIds?.length ?? 1) === 1)
+		// Every moved id must be one of the checked rows (a selection can outlive a row's refresh).
+		&& ids.every(id => rows.some(row => row.id === id))
+			? () => runBulkMessageAction(ids, "inbox", true).then(() => onRestored?.()) : undefined;
 	async function runRowMessageAction(messageId: string, action: RowMessageAction) {
-		if (action !== "archive") return runBulkMessageAction(expandSelectedIds([messageId]), action, action !== "read" && action !== "unread");
+		if (action !== "archive") {
+			const ids = expandSelectedIds([messageId]);
+			await runBulkMessageAction(ids, action, action !== "read" && action !== "unread");
+			announceMessageAction(action, undoMove(messages.filter(row => row.id === messageId), ids, action));
+			return;
+		}
 		const message = messages.find(row => row.id === messageId);
 		if (!message) return;
 		try {
 			await archiveRow(message);
+			announceMessageAction("archive", undoMove([message], message.threadMessageIds ?? [message.id], "archive", () => restoreRow(message.id)));
 			setSelectedMessages(current => current.filter(row => row.id !== messageId));
 		} catch {
 			// The optimistic archive restores this row and exposes an inline error.
@@ -518,7 +536,7 @@ export function MessageFolderPage({
 	}
 	async function emptyFolder() {
 		if (!permanentDeleteFolder || !selectedMailbox?.id || readAllTask?.status === "running") return;
-		if (!window.confirm(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
+		if (!(await confirmDialog({ ...questionParts(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t)), confirmLabel: t("list.emptyFolder", { folder: getPermanentDeleteFolderLabel(permanentDeleteFolder, t) }), destructive: true }))) return;
 		setEmptyingFolder(true);
 		try {
 			const scope = { folder: permanentDeleteFolder, mailboxId: selectedMailbox.id, query: "", unreadOnly: false, title };
@@ -551,8 +569,8 @@ export function MessageFolderPage({
 	}
 	async function runSelectedAction(action: BulkMessageAction, folderId?: string) {
 		if (allMatchingSelected && allSelection) {
-			if (action === "delete" && !window.confirm(getPermanentDeleteConfirmText(allSelection.total, t))) return;
-			if (action === "trash" && !window.confirm(t("list.confirmAllTrash", { count: allSelection.total.toLocaleString(locale), folder: title }))) return;
+			if (action === "delete" && !(await confirmDialog({ ...questionParts(getPermanentDeleteConfirmText(allSelection.total, t)), confirmLabel: t("common.deleteForever"), destructive: true }))) return;
+			if (action === "trash" && !(await confirmDialog({ title: t("list.confirmAllTrash", { count: allSelection.total.toLocaleString(locale), folder: title }), confirmLabel: t("actions.moveToTrash"), destructive: true }))) return;
 			startBulkScopeTask(currentBulkScope(), allSelection, action, folderId);
 			clearSelection();
 			if (["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action) && selectedMessageId) router.replace(config.hrefPrefix);
@@ -561,7 +579,7 @@ export function MessageFolderPage({
 		if (actionIds.length === 0) return;
 		if (action === "delete") {
 			const ids = expandSelectedIds(actionIds);
-			if (!window.confirm(getPermanentDeleteConfirmText(ids.length, t))) return;
+			if (!(await confirmDialog({ ...questionParts(getPermanentDeleteConfirmText(ids.length, t)), confirmLabel: t("common.deleteForever"), destructive: true }))) return;
 		}
 
 		setPendingBulkAction(true);
@@ -581,7 +599,9 @@ export function MessageFolderPage({
 			if (inboxUnreadDelta) dispatchMessageCountsDelta({ mailboxId: selectedMailbox?.id, inboxUnreadDelta });
 		}
 		try {
-			await runBulkMessageAction(expandSelectedIds(actionIds), action, true, folderId);
+			const ids = expandSelectedIds(actionIds);
+			await runBulkMessageAction(ids, action, true, folderId);
+			announceMessageAction(action, undoMove(previousMessages.filter(row => actionIds.includes(row.id)), ids, action));
 			setSelectedMessages([]);
 			if (currentReader.current.prefix === config.hrefPrefix && currentReader.current.id === selectedMessageId && actionIds.includes(selectedMessageId ?? "") && ["trash", "archive", "spam", "delete", "inbox", "folder"].includes(action)) router.replace(config.hrefPrefix);
 		} catch (error) {
@@ -614,6 +634,8 @@ export function MessageFolderPage({
 						</label>
 					</Tooltip>
 					{!hasCategoryTabs && <MessageRefreshButton onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
+					{/* The page's heading for screen readers whenever the toolbar replaces the visible folder title. */}
+					{!selectedMessageId && (actionIds.length > 0 || (!compact && !isMobile)) && <h1 className="sr-only">{title}</h1>}
 					{actionIds.length > 0 || (!compact && !isMobile) ? (
 						<BulkMessageToolbar
 							messageIds={expandSelectedIds(actionIds)}

@@ -187,7 +187,10 @@ export default function MessageDetailPage() {
         senderAddress={message.fromAddr}
         direction={message.direction}
         status={message.status}
-        read={message.read}
+        category={message.category}
+        folderId={message.folderId}
+        // Opening an unread message marks it read (MarkAsRead below), so the toggle starts from "read".
+        read={true}
         unsubscribeUrl={data.unsubscribeUrl}
         subject={message.subject}
         bodyText={body?.textBody}
@@ -296,7 +299,7 @@ export default function MessageDetailPage() {
             {htmlBody ? (
               <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />
             ) : (
-              <pre className="whitespace-pre-wrap text-sm text mx-auto">
+              <pre className="max-w-[72ch] whitespace-pre-wrap text-sm">
                 {cloudAttachmentResult.content}
               </pre>
             )}

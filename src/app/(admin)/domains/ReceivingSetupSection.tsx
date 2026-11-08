@@ -7,6 +7,8 @@ import { requestJson } from "./api";
 import ProviderCard from "./ProviderCard";
 import ReceivingProviderConfig from "./ReceivingProviderConfig";
 import type { Domain, ReceivingProvider } from "./types";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 type Option = Exclude<ReceivingProvider, "none">;
 type Present = Record<Option, boolean | null>;
@@ -44,7 +46,7 @@ export default function ReceivingSetupSection({ domain, onChange, busy, message,
 	}, [domain.id, domain.receivingProvider, reload]);
 
 	async function cleanUp(option: Option, title: string) {
-		if (!window.confirm(t("domains.removeReceivingConfirm", { title, host: domain.hostname }))) return;
+		if (!(await confirmDialog({ ...questionParts(t("domains.removeReceivingConfirm", { title, host: domain.hostname })), confirmLabel: t("domains.cleanUp"), destructive: true }))) return;
 		setRemoving(option);
 		setError("");
 		try {

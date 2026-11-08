@@ -29,6 +29,8 @@ import {
 	updateWebhook,
 } from "./utils";
 import { WebhookDeliveries } from "./deliveries";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 export default function WebhooksPage() {
 	const { t } = useLanguage();
@@ -215,8 +217,8 @@ export default function WebhooksPage() {
 									<Button
 										variant="ghost"
 										size="sm"
-										onClick={() => {
-											if (window.confirm(t("webhooks.rotateConfirm"))) rotate.mutate(hook.id);
+										onClick={async () => {
+											if (await confirmDialog({ ...questionParts(t("webhooks.rotateConfirm")), confirmLabel: t("webhooks.rotate"), destructive: true })) rotate.mutate(hook.id);
 										}}
 										disabled={rotate.isPending}
 									>

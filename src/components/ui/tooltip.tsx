@@ -36,14 +36,13 @@ export function Tooltip({ label, children, className, placement = "auto" }: Tool
 		<span
 			ref={triggerRef}
 			className={cn("inline-flex", className)}
-			onFocusCapture={() => setOpen(true)}
+			// Keyboard focus shows the tooltip; focus restored after a mouse-opened dialog does not.
+			onFocusCapture={(event) => { if (event.target instanceof Element && event.target.matches(":focus-visible")) setOpen(true); }}
 			onBlurCapture={() => setOpen(false)}
 			onMouseEnter={() => setOpen(true)}
 			onMouseLeave={() => setOpen(false)}
-			onClickCapture={() => {
-				setOpen(false);
-				if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-			}}
+			// Hide on activation but keep focus on the control, so keyboard users keep their place.
+			onClickCapture={() => setOpen(false)}
 		>
 			{children}
 			{open && typeof document !== "undefined" &&

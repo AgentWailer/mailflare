@@ -26,6 +26,7 @@ export function RecipientInput({
 	required,
 	autoFocus,
 	trailing,
+	errorId,
 }: RecipientInputProps) {
 	const { t } = useLanguage();
 	const [draft, setDraft] = useState("");
@@ -116,8 +117,10 @@ export function RecipientInput({
 					disabled={disabled}
 					// Native `required` would block submit while chips exist; the form checks itself.
 					aria-required={required}
+					aria-invalid={errorId ? true : undefined}
+					aria-describedby={errorId}
 					className={cn(
-						"h-8 flex-1 border-0 bg-transparent p-0 text-base outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed md:h-7 md:text-sm",
+						"h-8 flex-1 border-0 bg-transparent p-0 text-base outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed md:h-7 md:text-sm",
 						// Leave a small focusable area after the chips, without forcing an empty second line.
 						editing ? "min-w-[min(128px,100%)]" : "min-w-0 basis-0",
 					)}

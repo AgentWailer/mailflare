@@ -23,6 +23,8 @@ import { useAssistantAvailability } from "./use-assistant-availability";
 import { MessageCategoryLayout } from "@/components/messages/message-category-layout";
 
 import { DeferredMailQuickSettings } from "@/components/settings/deferred-mail-quick-settings";
+import { requestAssistantFocus } from "@/components/agent/assistant-focus";
+import { SkipLink } from "@/components/skip-link";
 
 export default function DashboardLayout({
   children,
@@ -55,6 +57,7 @@ export default function DashboardLayout({
             <MailSearchProvider>
               <ShortcutsProvider>
                 <div className="mail-mobile-shell grid h-dvh grid-cols-[minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns] md:grid-cols-[var(--sidebar-width)_minmax(0,1fr)]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
+                  <SkipLink />
                   <SidebarAside>
                     <div className="h-full">
                       <DashboardNav />
@@ -62,11 +65,11 @@ export default function DashboardLayout({
                     <SidebarResizeBoundary />
                   </SidebarAside>
                   <div className="flex min-h-0 min-w-0 flex-col">
-                    <MailHeader assistantEnabled={assistantEnabled} assistantOpen={assistantOpen} onToggleAssistant={() => { setQuickSettingsOpen(false); setAssistantOpen(current => !current); setAssistantFullSize(false); }} quickSettingsOpen={quickSettingsOpen} onToggleQuickSettings={() => { setQuickSettingsOpen(current => !current); setAssistantOpen(false); setAssistantFullSize(false); }} />
+                    <MailHeader assistantEnabled={assistantEnabled} assistantOpen={assistantOpen} onToggleAssistant={() => { setQuickSettingsOpen(false); if (!assistantOpen) requestAssistantFocus(); setAssistantOpen(current => !current); setAssistantFullSize(false); }} quickSettingsOpen={quickSettingsOpen} onToggleQuickSettings={() => { setQuickSettingsOpen(current => !current); setAssistantOpen(false); setAssistantFullSize(false); }} />
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                       <AssistantOpenContext.Provider value={assistantVisible}>
                         <AssistantRequestContext.Provider value={assistantEnabled ? (request) => { setQuickSettingsOpen(false); setAssistantRequest(request); window.dispatchEvent(new CustomEvent("mailflare:assistant-request", { detail: request })); setAssistantOpen(true); setAssistantFullSize(false); } : null}>
-                        <main className="mail-mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
+                        <main id="main-content" tabIndex={-1} className="mail-mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto rounded-t-3xl bg-white overscroll-contain scrollbar-gutter-stable" aria-hidden={assistantVisible && panelFullSize} inert={assistantVisible && panelFullSize}>
                           <MessageCategoryLayout>{children}</MessageCategoryLayout>
                         </main>
                         </AssistantRequestContext.Provider>

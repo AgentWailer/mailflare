@@ -190,7 +190,7 @@ export default function DomainsPage() {
       };
       let { res, json } = await put(false);
       // Cloudflare sending refuses while another service's MX records exist.
-      if (confirmMxReplacement(res, json)) ({ res, json } = await put(true));
+      if (await confirmMxReplacement(res, json, t)) ({ res, json } = await put(true));
       if (!res.ok) throw new Error(json.error ?? t("domains.sendingChangeFailed"));
       if (json.warning) setSendingMessage(json.warning);
       await loadDns(id);
@@ -258,7 +258,7 @@ export default function DomainsPage() {
         };
       };
       let { res, json } = await post(false);
-      if (confirmMxReplacement(res, json)) ({ res, json } = await post(true));
+      if (await confirmMxReplacement(res, json, t)) ({ res, json } = await post(true));
       if (!res.ok) throw new Error(json.error ?? t("domains.dnsSetupFailed"));
       if (json.domain && json.dns) {
         const updatedView = { domain: json.domain, dns: json.dns };
@@ -333,8 +333,8 @@ export default function DomainsPage() {
                   placeholder="example.com"
                 />
               </div>
-              <div className="flex items-center justify-between gap-4 rounded-xl bg-neutral-50 px-4 py-3">
-                <div>
+              <div className="flex flex-col gap-3 rounded-xl bg-neutral-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0">
                   <Label htmlFor="receiving-provider">{t("domains.receiveWith")}</Label>
                   <p className="mt-1 text-xs leading-5 text-neutral-500">
                     {receivingProvider === "cloudflare"
@@ -348,7 +348,7 @@ export default function DomainsPage() {
                   id="receiving-provider"
                   value={receivingProvider}
                   onChange={(e) => setReceivingProvider(e.target.value as ReceivingProvider)}
-                  className="h-9 shrink-0 rounded-md border border-neutral-200 bg-white px-3 text-sm"
+                  className="h-10 w-full shrink-0 rounded-md border border-neutral-200 bg-white px-3 text-base sm:h-9 sm:w-auto sm:text-sm"
                 >
                   <option value="cloudflare">{t("domains.cloudflareRouting")}</option>
                   <option value="resend">Resend</option>
@@ -356,8 +356,8 @@ export default function DomainsPage() {
                   <option value="none">{t("domains.notSelected")}</option>
                 </select>
               </div>
-              <div className="flex items-center justify-between gap-4 rounded-xl bg-neutral-50 px-4 py-3">
-                <div>
+              <div className="flex flex-col gap-3 rounded-xl bg-neutral-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0">
                   <Label htmlFor="sending-provider">{t("domains.sendWith")}</Label>
                   <p className="mt-1 text-xs leading-5 text-neutral-500">
                     {domainChecking
@@ -374,7 +374,7 @@ export default function DomainsPage() {
                   id="sending-provider"
                   value={sendingProvider}
                   onChange={(e) => setSendingProvider(e.target.value as SendingProvider)}
-                  className="h-9 shrink-0 rounded-md border border-neutral-200 bg-white px-3 text-sm"
+                  className="h-10 w-full shrink-0 rounded-md border border-neutral-200 bg-white px-3 text-base sm:h-9 sm:w-auto sm:text-sm"
                 >
                   <option value="cloudflare">{t("domains.cloudflareSending")}</option>
                   <option value="resend">Resend</option>

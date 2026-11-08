@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default async function LicensesPage() {
 	const t = await getServerTranslator();
 	return (
+		<div className="space-y-6">
+		<h1 className="text-2xl md:text-3xl font-medium text-neutral-900">{t("licenses.title")}</h1>
 		<Card className="rounded-3xl border-0 bg-white p-6">
 			<CardHeader>
 				<CardTitle>{t("fork.unlocked")}</CardTitle>
@@ -16,5 +18,6 @@ export default async function LicensesPage() {
 				<a href={FORK_SOURCE_URL} target="_blank" rel="noreferrer" className="font-medium text-blue-700 underline">{t("fork.source")}</a>
 			</CardContent>
 		</Card>
+		</div>
 	);
 }

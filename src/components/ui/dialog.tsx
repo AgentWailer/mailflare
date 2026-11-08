@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
+import { useReturnFocus } from "./use-return-focus";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -17,19 +18,24 @@ export function DialogContent({
 	overlayClassName,
 	closeClassName,
 	showCloseButton = true,
+	onOpenAutoFocus,
+	onCloseAutoFocus,
 	...props
 }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { closeLabel?: string; overlayClassName?: string; closeClassName?: string; showCloseButton?: boolean }) {
 	const { t } = useLanguage();
+	const returnFocus = useReturnFocus();
 	// Portaled dialogs must sit above the mobile sidebar and navigation sheet (z-110).
 	return (
 		<DialogPrimitive.Portal>
-			<DialogPrimitive.Overlay className={cn("dialog-overlay fixed inset-0 z-[140] bg-black/35", overlayClassName)} />
+			<DialogPrimitive.Overlay className={cn("dialog-overlay fixed inset-0 z-[140] bg-black/35 dark:bg-black/60", overlayClassName)} />
 			<DialogPrimitive.Content
 				className={cn(
 					"dialog-content fixed left-1/2 top-1/2 z-[150] w-[min(520px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 max-h-[calc(100dvh-32px)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 md:p-6 shadow-xl",
 					className,
 				)}
 				{...props}
+				onOpenAutoFocus={(event) => { returnFocus.onOpenAutoFocus(); onOpenAutoFocus?.(event); }}
+				onCloseAutoFocus={(event) => { onCloseAutoFocus?.(event); if (!event.defaultPrevented) returnFocus.onCloseAutoFocus(event); }}
 			>
 				{children}
 				{showCloseButton && <DialogPrimitive.Close className={cn("absolute right-4 top-4 rounded-full p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900", closeClassName)}>

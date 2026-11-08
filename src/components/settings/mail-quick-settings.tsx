@@ -33,9 +33,15 @@ export default function MailQuickSettings({ open, onClose }: { open: boolean; on
 	useEffect(() => {
 		if (!desktop || !visible) return;
 		heading.current?.focus({ preventScroll: true });
-		const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); onClose(); } };
-		window.addEventListener("keydown", escape);
-		return () => window.removeEventListener("keydown", escape);
+		// Capture phase: the global shortcut handler would otherwise consume Escape first. A dialog on top keeps it.
+		const escape = (event: KeyboardEvent) => {
+			if (event.key !== "Escape" || event.defaultPrevented || document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="listbox"]')) return;
+			event.preventDefault();
+			onClose();
+			document.getElementById("mail-quick-settings-toggle")?.focus({ preventScroll: true });
+		};
+		window.addEventListener("keydown", escape, true);
+		return () => window.removeEventListener("keydown", escape, true);
 	}, [desktop, visible, onClose]);
 	const closeButton = <button type="button" onClick={desktop ? onClose : undefined} aria-label={t("navigation.close")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><X aria-hidden="true" className="h-5 w-5" /></button>;
 	const body = <>

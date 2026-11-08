@@ -90,8 +90,8 @@ export function BulkMessageToolbar({
 				<Button
 					variant="ghost"
 					size="sm"
-					onClick={() => onAction(hasUnreadSelection ? "read" : "unread")}
-					disabled={pending}
+					onClick={() => { if (!pending) onAction(hasUnreadSelection ? "read" : "unread"); }}
+					aria-disabled={pending || undefined}
 					aria-label={hasUnreadSelection ? t("common.markRead") : t("common.markUnread")}
 				>
 					{hasUnreadSelection ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}

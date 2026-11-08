@@ -1,70 +1,35 @@
 "use client";
 
-import React from "react";
+import { Command } from "cmdk";
 import type { CommandItem } from "./types";
 
 interface CommandPaletteItemProps {
   item: CommandItem;
-  isActive: boolean;
   onSelect: () => void;
-  onHover: () => void;
 }
 
-export function CommandPaletteItem({
-  item,
-  isActive,
-  onSelect,
-  onHover,
-}: CommandPaletteItemProps) {
+// cmdk marks the pointer- or keyboard-active option with data-selected and aria-selected.
+export function CommandPaletteItem({ item, onSelect }: CommandPaletteItemProps) {
   const Icon = item.icon;
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      onMouseEnter={onHover}
-      className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${
-        isActive
-          ? "bg-blue-600 text-white"
-          : "text-neutral-800 hover:bg-neutral-100"
-      }`}
+    <Command.Item
+      value={item.id}
+      onSelect={onSelect}
+      className="group flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-left text-neutral-800 transition-colors data-[selected=true]:bg-blue-600 data-[selected=true]:text-white"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        {Icon && (
-          <Icon
-            className={`w-4 h-4 shrink-0 ${
-              isActive
-                ? "text-white"
-                : "text-neutral-500"
-            }`}
-          />
-        )}
+      <div className="flex min-w-0 items-center gap-3">
+        {Icon && <Icon className="h-4 w-4 shrink-0 text-neutral-500 group-data-[selected=true]:text-white" />}
         <div className="truncate">
           <span className="text-sm font-medium">{item.title}</span>
-          {item.subtitle && (
-            <span
-              className={`ml-2 text-xs truncate ${
-                isActive
-                  ? "text-blue-100"
-                  : "text-neutral-400"
-              }`}
-            >
-              {item.subtitle}
-            </span>
-          )}
+          {item.subtitle && <span className="ml-2 truncate text-xs text-neutral-500 group-data-[selected=true]:text-white">{item.subtitle}</span>}
         </div>
       </div>
       {item.shortcut && (
-        <kbd
-          className={`text-xs px-2 py-0.5 rounded-md font-mono font-medium shrink-0 ${
-            isActive
-              ? "bg-blue-700 text-blue-100"
-              : "bg-neutral-100 text-neutral-500 border border-neutral-200"
-          }`}
-        >
+        <kbd className="shrink-0 rounded-md border border-neutral-200 bg-neutral-100 px-2 py-0.5 font-mono text-xs font-medium text-neutral-500 group-data-[selected=true]:border-blue-700 group-data-[selected=true]:bg-blue-700 group-data-[selected=true]:text-blue-100">
           {item.shortcut}
         </kbd>
       )}
-    </button>
+    </Command.Item>
   );
 }

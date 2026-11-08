@@ -20,6 +20,8 @@ import { McpAgentInstructions } from "@/components/settings/mcp-agent-instructio
 import type { ApiKeyScope } from "@/lib/api/scopes";
 import type { ManagedApiKey, McpKeyScope } from "./api-keys-settings-types";
 import { createManagedApiKey, keyPermissions, loadManagedApiKeys, MCP_KEY_SCOPES, revokeManagedApiKey, STANDARD_KEY_SCOPES } from "./api-keys-settings-utils";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 export function ApiKeysSettings({ embedded = false }: { embedded?: boolean } = {}) {
 	const { t } = useLanguage();
@@ -64,7 +66,7 @@ export function ApiKeysSettings({ embedded = false }: { embedded?: boolean } = {
 	}
 
 	async function revoke(key: ManagedApiKey) {
-		if (!window.confirm(t("apiKeys.revokeConfirm", { name: key.name }))) return;
+		if (!(await confirmDialog({ ...questionParts(t("apiKeys.revokeConfirm", { name: key.name })), confirmLabel: t("common.revoke"), destructive: true }))) return;
 		setRevokingId(key.id);
 		setError(null);
 		try {
