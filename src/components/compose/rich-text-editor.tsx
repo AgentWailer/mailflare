@@ -243,7 +243,7 @@ export function RichTextEditor({
 					onKeyDown={event => { if (event.key === "Escape" && refine) { event.preventDefault(); closeRefine(); } else onKeyDown(event); }}
 					className={cn(
 						"email-body max-w-none break-words px-4 py-3 text-base text-neutral-900 outline-none md:text-sm",
-						"min-h-32 empty:before:pointer-events-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]",
+						"min-h-32 empty:before:pointer-events-none empty:before:text-neutral-500 empty:before:content-[attr(data-placeholder)]",
 						disabled && "cursor-not-allowed opacity-60",
 					)}
 				/>

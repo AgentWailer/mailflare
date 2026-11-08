@@ -866,8 +866,6 @@
 	"admin.section.mailboxes": "Створюйте адреси поштових скриньок і керуйте ними.",
 	"admin.section.domains": "Додавайте домени Cloudflare та перевіряйте стан DNS.",
 	"admin.section.branding": "Налаштуйте назву застосунку, значок і фавікон.",
-	"admin.section.licenses": "Порівняйте одноразові ліцензії Pro та Team.",
-	"admin.section.accounts": "Додавайте й керуйте обліковими записами користувачів за допомогою ліцензії Team.",
 	"admin.section.apiKeys": "Керуйте доступом API до доменів, облікових записів і поштових скриньок.",
 	"admin.section.apiKeysTitle": "Ключі API адміністратора",
 	"admin.page.aiUsage": "Використання ШІ",

@@ -856,8 +856,6 @@
 	"admin.section.mailboxes": "Buat dan kelola alamat kotak surat.",
 	"admin.section.domains": "Tambahkan domain Cloudflare dan periksa status DNS.",
 	"admin.section.branding": "Sesuaikan nama aplikasi, ikon, dan favicon.",
-	"admin.section.licenses": "Bandingkan lisensi sekali bayar Pro dan Team.",
-	"admin.section.accounts": "Tambahkan dan kelola akun pengguna dengan lisensi Team.",
 	"admin.section.apiKeys": "Kelola akses API ke domain, akun, dan kotak surat.",
 	"admin.section.apiKeysTitle": "Kunci API admin",
 	"admin.page.aiUsage": "Penggunaan AI",

@@ -51,6 +51,8 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 	const runningRef = useRef(false);
 	const queueGenerationRef = useRef(0);
 	const menuRef = useRef<HTMLDetailsElement | null>(null);
+	const closePanel = useRef({ open, onClose });
+	useEffect(() => { closePanel.current = { open, onClose }; }, [open, onClose]);
 	const inputRef = useRef<HTMLTextAreaElement | null>(null);
 	const chatScrollRef = useRef<HTMLDivElement | null>(null);
 	const stickToBottomRef = useRef(true);
@@ -150,7 +152,12 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize, request 
 			if (menuRef.current && !menuRef.current.contains(event.target as Node)) menuRef.current.open = false;
 		};
 		const closeOnEscape = (event: KeyboardEvent) => {
-			if (event.key === "Escape" && menuRef.current?.open) menuRef.current.open = false;
+			if (event.key !== "Escape") return;
+			if (menuRef.current?.open) { menuRef.current.open = false; return; }
+			// Escape closes the panel itself while focus is inside it, unless a dialog sits on top.
+			const panel = document.getElementById("email-assistant-panel");
+			if (!closePanel.current.open || !panel?.contains(document.activeElement) || document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
+			closePanel.current.onClose();
 		};
 		document.addEventListener("pointerdown", closeMenu);
 		document.addEventListener("keydown", closeOnEscape);

@@ -1,7 +1,7 @@
 import { getServerTranslator } from "@/lib/i18n/server";
 import { SettingsSection, SettingsPageHeader } from "@/components/settings/settings-section";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
-import { MfaSettings } from "@/components/settings/mfa-settings";
+import { MfaSettings, MfaStatusBadge } from "@/components/settings/mfa-settings";
 
 export default async function SettingsPage() {
 	const t = await getServerTranslator();
@@ -10,7 +10,7 @@ export default async function SettingsPage() {
 		<SettingsSection id="password" title={t("settingsPage.security.changePassword")} description={t("settingsPage.security.changePasswordDescription")}>
 			<ChangePasswordForm />
 		</SettingsSection>
-		<SettingsSection id="mfa" title={t("settingsPage.security.mfa")} description={t("settingsPage.security.mfaDescription")}>
+		<SettingsSection id="mfa" title={t("settingsPage.security.mfa")} description={t("settingsPage.security.mfaDescription")} status={<MfaStatusBadge />}>
 			<MfaSettings />
 		</SettingsSection>
 	</div>;

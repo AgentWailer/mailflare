@@ -856,8 +856,6 @@
 	"admin.section.mailboxes": "创建和管理邮箱地址。",
 	"admin.section.domains": "添加 Cloudflare 域名并查看 DNS 状态。",
 	"admin.section.branding": "自定义应用名称、图标和网站图标。",
-	"admin.section.licenses": "比较 Pro 和 Team 一次性许可证。",
-	"admin.section.accounts": "使用 Team 许可证添加和管理用户账户。",
 	"admin.section.apiKeys": "管理对域名、账户和邮箱的 API 访问。",
 	"admin.section.apiKeysTitle": "管理员 API 密钥",
 	"admin.page.aiUsage": "AI 用量",

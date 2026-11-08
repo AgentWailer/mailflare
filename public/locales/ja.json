@@ -856,8 +856,6 @@
 	"admin.section.mailboxes": "メールボックスのアドレスを作成・管理します。",
 	"admin.section.domains": "Cloudflare ドメインを追加し、DNS の状態を確認します。",
 	"admin.section.branding": "アプリ名、アイコン、ファビコンをカスタマイズします。",
-	"admin.section.licenses": "Pro と Team の買い切りライセンスを比較します。",
-	"admin.section.accounts": "Team ライセンスでユーザーアカウントを追加・管理します。",
 	"admin.section.apiKeys": "ドメイン、アカウント、メールボックスへの API アクセスを管理します。",
 	"admin.section.apiKeysTitle": "管理者 API キー",
 	"admin.page.aiUsage": "AI 使用状況",

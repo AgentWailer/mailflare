@@ -5,6 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 import { clearMailboxClientState } from "@/components/mailbox-provider-utils";
 import { BrandingProvider } from "@/components/branding-provider";
 import { NewMessagePopup } from "@/components/new-message-popup";
+import { ConfirmDialogHost } from "@/components/confirm-dialog";
 import { PwaServiceWorker } from "@/components/pwa-service-worker";
 import { AppBadgeSync } from "@/components/app-badge-sync";
 import { ThemeSync } from "@/components/theme-sync";
@@ -53,6 +54,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 		<QueryClientProvider client={client}>
 			<BrandingProvider>
 				<PwaServiceWorker />
+				<ConfirmDialogHost />
 				<AppBadgeSync />
 				<Fragment key={sessionRevision}>
 					{children}

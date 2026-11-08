@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "मेलबॉक्स पते बनाएँ और प्रबंधित करें।",
 	"admin.section.domains": "Cloudflare डोमेन जोड़ें और DNS स्थिति देखें।",
 	"admin.section.branding": "ऐप का नाम, आइकन और फ़ेविकॉन अनुकूलित करें।",
-	"admin.section.licenses": "Pro और Team एकमुश्त लाइसेंस की तुलना करें।",
-	"admin.section.accounts": "Team लाइसेंस के साथ उपयोगकर्ता खाते जोड़ें और प्रबंधित करें।",
 	"admin.section.apiKeys": "डोमेन, खातों और मेलबॉक्स तक API पहुँच प्रबंधित करें।",
 	"admin.section.apiKeysTitle": "एडमिन API कुंजियाँ",
 	"admin.page.aiUsage": "AI उपयोग",

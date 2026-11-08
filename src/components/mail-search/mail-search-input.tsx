@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { HeaderSearch } from "@/components/header-search";
@@ -7,6 +8,9 @@ import { useMailSearch } from "./mail-search-context";
 import { useShortcuts } from "@/components/shortcuts";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { MailSearchDetails } from "./mail-search-details";
+import { isApplePlatform } from "@/components/shortcuts/platform-utils";
+
+const noSubscription = () => () => {};
 
 export function MailSearchInput() {
 	const { t } = useLanguage();
@@ -14,6 +18,8 @@ export function MailSearchInput() {
 	const { openCommandPalette, shortcutsEnabled, shortcutsPreferenceLoading } = useShortcuts();
 	const isMobile = useIsMobile();
 	const showShortcutHints = !isMobile && shortcutsEnabled && !shortcutsPreferenceLoading;
+	// The server renders ⌘K; the browser corrects it to Ctrl K off Apple platforms after hydration.
+	const apple = useSyncExternalStore(noSubscription, isApplePlatform, () => true);
 
 	return (
 		<HeaderSearch
@@ -40,8 +46,11 @@ export function MailSearchInput() {
 					onClick={openCommandPalette}
 					className="hidden sm:flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-neutral-500 bg-white/70 hover:bg-white border border-neutral-200/80 rounded-md shadow-2xs transition-colors"
 					title={t("search.openPalette")}
+					aria-label={t("search.openPalette")}
+					data-command-palette-trigger
+					aria-keyshortcuts={apple ? "Meta+K" : "Control+K"}
 				>
-					<span className="text-[11px] font-mono">⌘K</span>
+					<span aria-hidden="true" className="text-[11px] font-mono">{apple ? "⌘K" : `${t("shortcutsHelp.ctrl")} K`}</span>
 				</button>
 			) : null}<MailSearchDetails query={query} onChange={setQuery} /></>}
 		/>

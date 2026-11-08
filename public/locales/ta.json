@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "அஞ்சல் பெட்டி முகவரிகளை உருவாக்கி நிர்வகிக்கவும்.",
 	"admin.section.domains": "Cloudflare டொமைன்களைச் சேர்த்து DNS நிலையை ஆய்வுசெய்யவும்.",
 	"admin.section.branding": "செயலியின் பெயர், ஐகான் மற்றும் ஃபேவிகானைத் தனிப்பயனாக்கவும்.",
-	"admin.section.licenses": "Pro மற்றும் Team ஒருமுறை உரிமங்களை ஒப்பிடவும்.",
-	"admin.section.accounts": "Team உரிமத்துடன் பயனர் கணக்குகளைச் சேர்த்து நிர்வகிக்கவும்.",
 	"admin.section.apiKeys": "டொமைன்கள், கணக்குகள் மற்றும் அஞ்சல் பெட்டிகளுக்கான API அணுகலை நிர்வகிக்கவும்.",
 	"admin.section.apiKeysTitle": "நிர்வாக API விசைகள்",
 	"admin.page.aiUsage": "AI பயன்பாடு",

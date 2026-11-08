@@ -1,5 +1,8 @@
 "use client";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
+
 import { createElement, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, Ban, BellOff, Clock, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
@@ -89,7 +92,7 @@ export function MessageActions({
 	// being a no-op, after the user confirms.
 	const canDeleteForever = supportsPermanentDelete(status);
 	const deleteForever = useCallback(async () => {
-		if (!window.confirm(getPermanentDeleteConfirmText(1, t))) return;
+		if (!(await confirmDialog({ ...questionParts(getPermanentDeleteConfirmText(1, t)), confirmLabel: t("common.deleteForever"), destructive: true }))) return;
 		setMoreOpen(false);
 		setPendingAction("delete");
 		setError(null);

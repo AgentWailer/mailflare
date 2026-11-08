@@ -3,6 +3,8 @@
 import React from "react";
 import { X, Keyboard } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { isApplePlatform } from "./platform-utils";
 import type { TranslationKey } from "@/lib/i18n/types";
 import type { ShortcutDefinition } from "./types";
 
@@ -38,12 +40,15 @@ export function ShortcutsHelpDialog({
     return acc;
   }, {} as Record<string, ShortcutDefinition[]>);
 
+  const apple = isApplePlatform();
   const formatKey = (shortcut: ShortcutDefinition) => {
     const parts: string[] = [];
     if (shortcut.modifiers) {
+      // "meta" and "ctrl" together mean either key works: show the one this platform uses.
+      const either = shortcut.modifiers.includes("meta") && shortcut.modifiers.includes("ctrl");
       shortcut.modifiers.forEach((m) => {
-        if (m === "ctrl") parts.push(t("shortcutsHelp.ctrl"));
-        if (m === "meta") parts.push("⌘");
+        if (m === "ctrl" && !(either && apple)) parts.push(t("shortcutsHelp.ctrl"));
+        if (m === "meta" && !(either && !apple)) parts.push("⌘");
         if (m === "alt") parts.push("Alt");
         if (m === "shift") parts.push("Shift");
       });
@@ -53,13 +58,8 @@ export function ShortcutsHelpDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/40 backdrop-blur-xs animate-in fade-in duration-100">
-      <div
-        className="fixed inset-0"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div className="relative w-full max-w-2xl bg-white border border-neutral-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 max-h-[85vh]">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent showCloseButton={false} overlayClassName="bg-neutral-900/40" className="flex w-[min(672px,calc(100vw-32px))] max-h-[85vh] flex-col overflow-hidden border border-neutral-200 p-0 md:p-0">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
@@ -67,19 +67,19 @@ export function ShortcutsHelpDialog({
               <Keyboard className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-neutral-900">
+              <DialogTitle className="text-base font-semibold text-neutral-900">
                 {t("shortcutsHelp.title")}
-              </h2>
-              <p className="text-xs text-neutral-400">
+              </DialogTitle>
+              <DialogDescription className="text-xs text-neutral-500">
                 {t("shortcutsHelp.subtitle")}
-              </p>
+              </DialogDescription>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label={t("shortcutsHelp.close")}
-            className="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-lg hover:bg-neutral-100 transition-colors"
+            className="text-neutral-500 hover:text-neutral-700 p-1.5 rounded-lg hover:bg-neutral-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -89,7 +89,7 @@ export function ShortcutsHelpDialog({
         <div className="overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           {Object.entries(grouped).map(([category, items]) => (
             <div key={category} className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 border-b border-neutral-100 pb-1.5">
+              <h3 className="text-xs font-semibold text-neutral-500 border-b border-neutral-100 pb-1.5">
                 {t(`shortcut.category.${category}` as TranslationKey)}
               </h3>
               <div className="space-y-2">
@@ -112,11 +112,11 @@ export function ShortcutsHelpDialog({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-400">
+        <div className="px-6 py-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500">
           <span>{withKey(t("shortcutsHelp.pressToToggle", { key: "{key}" }), "?")}</span>
-          <span>{withKey(t("shortcutsHelp.pressToClose", { key: "{key}" }), "ESC")}</span>
+          <span>{withKey(t("shortcutsHelp.pressToClose", { key: "{key}" }), "Esc")}</span>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

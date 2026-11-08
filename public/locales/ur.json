@@ -860,8 +860,6 @@
 	"admin.section.mailboxes": "میل باکس کے پتے بنائیں اور سنبھالیں۔",
 	"admin.section.domains": "Cloudflare ڈومینز شامل کریں اور DNS کی حالت دیکھیں۔",
 	"admin.section.branding": "ایپ کا نام، آئیکن اور فیویکن حسب ضرورت بنائیں۔",
-	"admin.section.licenses": "Pro اور Team کے یکمشت لائسنسز کا موازنہ کریں۔",
-	"admin.section.accounts": "Team لائسنس کے ساتھ صارف اکاؤنٹس شامل کریں اور سنبھالیں۔",
 	"admin.section.apiKeys": "ڈومینز، اکاؤنٹس اور میل باکسز تک API رسائی سنبھالیں۔",
 	"admin.section.apiKeysTitle": "ایڈمن API کیز",
 	"admin.page.aiUsage": "AI کا استعمال",

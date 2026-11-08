@@ -856,8 +856,6 @@
 	"admin.section.mailboxes": "Tạo và quản lý địa chỉ hộp thư.",
 	"admin.section.domains": "Thêm tên miền Cloudflare và kiểm tra trạng thái DNS.",
 	"admin.section.branding": "Tùy chỉnh tên ứng dụng, biểu tượng và favicon.",
-	"admin.section.licenses": "So sánh giấy phép trả một lần Pro và Team.",
-	"admin.section.accounts": "Thêm và quản lý tài khoản người dùng với giấy phép Team.",
 	"admin.section.apiKeys": "Quản lý quyền truy cập API vào tên miền, tài khoản và hộp thư.",
 	"admin.section.apiKeysTitle": "Khóa API quản trị",
 	"admin.page.aiUsage": "Mức sử dụng AI",

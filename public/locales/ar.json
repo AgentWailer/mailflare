@@ -886,8 +886,6 @@
 	"admin.section.mailboxes": "أنشئ عناوين صناديق البريد وأدرها.",
 	"admin.section.domains": "أضف نطاقات Cloudflare وافحص حالة DNS.",
 	"admin.section.branding": "خصّص اسم التطبيق وأيقونته وأيقونة الموقع.",
-	"admin.section.licenses": "قارن بين ترخيصَي Pro وTeam لمرة واحدة.",
-	"admin.section.accounts": "أضف حسابات المستخدمين وأدرها بترخيص Team.",
 	"admin.section.apiKeys": "أدِر وصول API إلى النطاقات والحسابات وصناديق البريد.",
 	"admin.section.apiKeysTitle": "مفاتيح API للإدارة",
 	"admin.page.aiUsage": "استخدام الذكاء الاصطناعي",

@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "Cipta dan urus alamat peti mel.",
 	"admin.section.domains": "Tambah domain Cloudflare dan periksa keadaan DNS.",
 	"admin.section.branding": "Sesuaikan nama apl, ikon dan favicon.",
-	"admin.section.licenses": "Bandingkan lesen sekali bayar Pro dan Team.",
-	"admin.section.accounts": "Tambah dan urus akaun pengguna dengan lesen Team.",
 	"admin.section.apiKeys": "Urus akses API kepada domain, akaun dan peti mel.",
 	"admin.section.apiKeysTitle": "Kunci API admin",
 	"admin.page.aiUsage": "Penggunaan AI",

@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "Ƙirƙira da sarrafa adiresoshin akwatunan saƙo.",
 	"admin.section.domains": "Ƙara yankunan Cloudflare kuma duba yanayin DNS.",
 	"admin.section.branding": "Keɓance sunan manhaja, alama da favicon.",
-	"admin.section.licenses": "Kwatanta lasisin sau ɗaya na Pro da Team.",
-	"admin.section.accounts": "Ƙara da sarrafa asusun masu amfani da lasisin Team.",
 	"admin.section.apiKeys": "Sarrafa damar API zuwa yankuna, asusu da akwatunan saƙo.",
 	"admin.section.apiKeysTitle": "Maɓallan API na mai gudanarwa",
 	"admin.page.aiUsage": "Amfani da AI",

@@ -860,8 +860,6 @@
 	"admin.section.mailboxes": "मेलबॉक्स पत्ते तयार करा आणि व्यवस्थापित करा.",
 	"admin.section.domains": "Cloudflare डोमेन जोडा आणि DNS स्थिती तपासा.",
 	"admin.section.branding": "अ‍ॅपचे नाव, आयकॉन आणि फेविकॉन सानुकूल करा.",
-	"admin.section.licenses": "Pro आणि Team एकरकमी परवान्यांची तुलना करा.",
-	"admin.section.accounts": "Team परवान्यासह वापरकर्ता खाती जोडा आणि व्यवस्थापित करा.",
 	"admin.section.apiKeys": "डोमेन, खाती आणि मेलबॉक्सवरील API प्रवेश व्यवस्थापित करा.",
 	"admin.section.apiKeysTitle": "अ‍ॅडमिन API कीज",
 	"admin.page.aiUsage": "AI वापर",

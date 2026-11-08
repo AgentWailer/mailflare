@@ -90,6 +90,10 @@ export function AuthShell({
           {!compact && <div className="mt-8 max-w-48">
             <LanguageSelector />
           </div>}
+          {/* Compact screens (login, MFA) still let a visitor switch language before signing in. */}
+          {compact && <div className="mt-5 flex justify-center">
+            <LanguageSelector variant="text" />
+          </div>}
           {footer && (
             <div className="mt-8 text-sm font-medium text-blue-700">
               {footer}

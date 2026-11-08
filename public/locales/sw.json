@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "Unda na usimamie anwani za visanduku vya barua.",
 	"admin.section.domains": "Ongeza vikoa vya Cloudflare na ukague hali ya DNS.",
 	"admin.section.branding": "Badilisha jina la programu, aikoni na favicon upendavyo.",
-	"admin.section.licenses": "Linganisha leseni za mara moja za Pro na Team.",
-	"admin.section.accounts": "Ongeza na usimamie akaunti za watumiaji kwa leseni ya Team.",
 	"admin.section.apiKeys": "Simamia ufikiaji wa API kwa vikoa, akaunti na visanduku vya barua.",
 	"admin.section.apiKeysTitle": "Funguo za API za msimamizi",
 	"admin.page.aiUsage": "Matumizi ya AI",

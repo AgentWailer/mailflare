@@ -61,6 +61,8 @@ import {
 	supportsPermanentDelete,
 } from "@/lib/messages/permanent-delete-utils";
 import clsx from "clsx";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 
 
@@ -518,7 +520,7 @@ export function MessageFolderPage({
 	}
 	async function emptyFolder() {
 		if (!permanentDeleteFolder || !selectedMailbox?.id || readAllTask?.status === "running") return;
-		if (!window.confirm(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
+		if (!(await confirmDialog({ ...questionParts(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t)), confirmLabel: t("list.emptyFolder", { folder: getPermanentDeleteFolderLabel(permanentDeleteFolder, t) }), destructive: true }))) return;
 		setEmptyingFolder(true);
 		try {
 			const scope = { folder: permanentDeleteFolder, mailboxId: selectedMailbox.id, query: "", unreadOnly: false, title };
@@ -551,7 +553,7 @@ export function MessageFolderPage({
 	}
 	async function runSelectedAction(action: BulkMessageAction, folderId?: string) {
 		if (allMatchingSelected && allSelection) {
-			if (action === "delete" && !window.confirm(getPermanentDeleteConfirmText(allSelection.total, t))) return;
+			if (action === "delete" && !(await confirmDialog({ ...questionParts(getPermanentDeleteConfirmText(allSelection.total, t)), confirmLabel: t("common.deleteForever"), destructive: true }))) return;
 			if (action === "trash" && !window.confirm(t("list.confirmAllTrash", { count: allSelection.total.toLocaleString(locale), folder: title }))) return;
 			startBulkScopeTask(currentBulkScope(), allSelection, action, folderId);
 			clearSelection();
@@ -561,7 +563,7 @@ export function MessageFolderPage({
 		if (actionIds.length === 0) return;
 		if (action === "delete") {
 			const ids = expandSelectedIds(actionIds);
-			if (!window.confirm(getPermanentDeleteConfirmText(ids.length, t))) return;
+			if (!(await confirmDialog({ ...questionParts(getPermanentDeleteConfirmText(ids.length, t)), confirmLabel: t("common.deleteForever"), destructive: true }))) return;
 		}
 
 		setPendingBulkAction(true);
@@ -614,6 +616,8 @@ export function MessageFolderPage({
 						</label>
 					</Tooltip>
 					{!hasCategoryTabs && <MessageRefreshButton onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
+					{/* The page's heading for screen readers whenever the toolbar replaces the visible folder title. */}
+					{(actionIds.length > 0 || (!compact && !isMobile)) && <h1 className="sr-only">{title}</h1>}
 					{actionIds.length > 0 || (!compact && !isMobile) ? (
 						<BulkMessageToolbar
 							messageIds={expandSelectedIds(actionIds)}

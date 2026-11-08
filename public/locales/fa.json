@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "نشانی‌های صندوق پستی را ایجاد و مدیریت کنید.",
 	"admin.section.domains": "دامنه‌های Cloudflare را اضافه کنید و وضعیت DNS را بررسی کنید.",
 	"admin.section.branding": "نام برنامه، نماد و فاوآیکون را سفارشی کنید.",
-	"admin.section.licenses": "مجوزهای یک‌باره Pro و Team را مقایسه کنید.",
-	"admin.section.accounts": "با مجوز Team حساب‌های کاربری را اضافه و مدیریت کنید.",
 	"admin.section.apiKeys": "دسترسی API به دامنه‌ها، حساب‌ها و صندوق‌های پستی را مدیریت کنید.",
 	"admin.section.apiKeysTitle": "کلیدهای API مدیر",
 	"admin.page.aiUsage": "مصرف هوش مصنوعی",

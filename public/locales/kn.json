@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "ಮೇಲ್‌ಬಾಕ್ಸ್ ವಿಳಾಸಗಳನ್ನು ರಚಿಸಿ ಮತ್ತು ನಿರ್ವಹಿಸಿ.",
 	"admin.section.domains": "Cloudflare ಡೊಮೇನ್‌ಗಳನ್ನು ಸೇರಿಸಿ ಮತ್ತು DNS ಸ್ಥಿತಿಯನ್ನು ಪರಿಶೀಲಿಸಿ.",
 	"admin.section.branding": "ಆ್ಯಪ್ ಹೆಸರು, ಐಕಾನ್ ಮತ್ತು ಫೇವಿಕಾನ್ ಅನ್ನು ಕಸ್ಟಮೈಸ್ ಮಾಡಿ.",
-	"admin.section.licenses": "Pro ಮತ್ತು Team ಒಂದು-ಬಾರಿಯ ಪರವಾನಗಿಗಳನ್ನು ಹೋಲಿಸಿ.",
-	"admin.section.accounts": "Team ಪರವಾನಗಿಯೊಂದಿಗೆ ಬಳಕೆದಾರ ಖಾತೆಗಳನ್ನು ಸೇರಿಸಿ ಮತ್ತು ನಿರ್ವಹಿಸಿ.",
 	"admin.section.apiKeys": "ಡೊಮೇನ್‌ಗಳು, ಖಾತೆಗಳು ಮತ್ತು ಮೇಲ್‌ಬಾಕ್ಸ್‌ಗಳಿಗೆ API ಪ್ರವೇಶವನ್ನು ನಿರ್ವಹಿಸಿ.",
 	"admin.section.apiKeysTitle": "ನಿರ್ವಾಹಕ API ಕೀಗಳು",
 	"admin.page.aiUsage": "AI ಬಳಕೆ",

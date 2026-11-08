@@ -860,8 +860,6 @@
 	"admin.section.mailboxes": "మెయిల్‌బాక్స్ చిరునామాలను సృష్టించండి మరియు నిర్వహించండి.",
 	"admin.section.domains": "Cloudflare డొమైన్‌లను జోడించండి మరియు DNS స్థితిని పరిశీలించండి.",
 	"admin.section.branding": "యాప్ పేరు, ఐకాన్ మరియు ఫెవికాన్‌ను అనుకూలీకరించండి.",
-	"admin.section.licenses": "Pro మరియు Team ఒకసారి చెల్లించే లైసెన్స్‌లను పోల్చండి.",
-	"admin.section.accounts": "Team లైసెన్స్‌తో వినియోగదారు ఖాతాలను జోడించండి మరియు నిర్వహించండి.",
 	"admin.section.apiKeys": "డొమైన్‌లు, ఖాతాలు మరియు మెయిల్‌బాక్స్‌లకు API యాక్సెస్‌ను నిర్వహించండి.",
 	"admin.section.apiKeysTitle": "అడ్మిన్ API కీలు",
 	"admin.page.aiUsage": "AI వినియోగం",

@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "Posta kutusu adresleri oluşturun ve yönetin.",
 	"admin.section.domains": "Cloudflare alan adları ekleyin ve DNS durumunu inceleyin.",
 	"admin.section.branding": "Uygulama adını, simgesini ve favicon'unu özelleştirin.",
-	"admin.section.licenses": "Pro ve Team tek seferlik lisanslarını karşılaştırın.",
-	"admin.section.accounts": "Team lisansıyla kullanıcı hesapları ekleyin ve yönetin.",
 	"admin.section.apiKeys": "Alan adlarına, hesaplara ve posta kutularına API erişimini yönetin.",
 	"admin.section.apiKeysTitle": "Yönetici API anahtarları",
 	"admin.page.aiUsage": "Yapay zeka kullanımı",

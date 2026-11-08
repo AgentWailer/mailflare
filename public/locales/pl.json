@@ -865,8 +865,6 @@
 	"admin.section.mailboxes": "Twórz adresy skrzynek pocztowych i zarządzaj nimi.",
 	"admin.section.domains": "Dodawaj domeny Cloudflare i sprawdzaj stan DNS.",
 	"admin.section.branding": "Dostosuj nazwę aplikacji, ikonę i favicon.",
-	"admin.section.licenses": "Porównaj jednorazowe licencje Pro i Team.",
-	"admin.section.accounts": "Dodawaj i zarządzaj kontami użytkowników z licencją Team.",
 	"admin.section.apiKeys": "Zarządzaj dostępem API do domen, kont i skrzynek pocztowych.",
 	"admin.section.apiKeysTitle": "Klucze API administratora",
 	"admin.page.aiUsage": "Użycie AI",

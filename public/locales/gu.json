@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "મેલબૉક્સના સરનામાં બનાવો અને સંચાલિત કરો.",
 	"admin.section.domains": "Cloudflare ડોમેન ઉમેરો અને DNS સ્થિતિ તપાસો.",
 	"admin.section.branding": "ઍપનું નામ, આઇકન અને ફેવિકોન કસ્ટમાઇઝ કરો.",
-	"admin.section.licenses": "Pro અને Team એક-વારના લાઇસન્સની સરખામણી કરો.",
-	"admin.section.accounts": "Team લાઇસન્સ સાથે વપરાશકર્તા એકાઉન્ટ ઉમેરો અને સંચાલિત કરો.",
 	"admin.section.apiKeys": "ડોમેન, એકાઉન્ટ અને મેલબૉક્સની API ઍક્સેસ સંચાલિત કરો.",
 	"admin.section.apiKeysTitle": "એડમિન API કી",
 	"admin.page.aiUsage": "AI વપરાશ",

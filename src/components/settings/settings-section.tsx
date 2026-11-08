@@ -7,11 +7,13 @@ type SettingsSectionProps = {
 	id: string;
 	title: string;
 	description?: string;
+	/** Current state shown while collapsed, such as whether a feature is on. */
+	status?: ReactNode;
 	children: ReactNode;
 };
 
 /** Mount on first visit, then retain forms and in-flight actions when collapsed. */
-export function SettingsSection({ id, title, description, children }: SettingsSectionProps) {
+export function SettingsSection({ id, title, description, status, children }: SettingsSectionProps) {
 	const [open, setOpen] = useState(false);
 	const [visited, setVisited] = useState(false);
 	const section = useRef<HTMLElement>(null);
@@ -50,6 +52,7 @@ export function SettingsSection({ id, title, description, children }: SettingsSe
 					<span className="block text-sm font-semibold text-neutral-900 sm:text-base">{title}</span>
 					{description && <span className="mt-1 block text-sm font-normal leading-5 text-neutral-500">{description}</span>}
 				</span>
+				{status && <span className="shrink-0">{status}</span>}
 				<ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-neutral-500 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
 			</button>
 		</h3>

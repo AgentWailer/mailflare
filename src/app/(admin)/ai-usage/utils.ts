@@ -1,5 +1,5 @@
 import { authFetch } from "@/lib/auth/client";
-import { formatUserDate, getUserTimeZone, recentZonedDays } from "@/lib/time/utils";
+import { formatUserDate, getDisplayLocale, getUserTimeZone, recentZonedDays } from "@/lib/time/utils";
 import type { AiUsageDaily, AiUsageResponse } from "./types";
 
 export async function fetchAiUsage(page: number): Promise<AiUsageResponse> {
@@ -35,5 +35,5 @@ export function fillDailyUsage(days: AiUsageDaily[], timeZone = getUserTimeZone(
 }
 
 export function formatDailyLabel(value: string) {
-	return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
+	return new Intl.DateTimeFormat(getDisplayLocale(), { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
 }

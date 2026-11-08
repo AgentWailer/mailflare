@@ -28,14 +28,14 @@ export function MobileSettingsNav({ pathname }: { pathname: string }) {
 	const secondaryActive = !primaryItems.some(item => isActiveSettingsPath(pathname, item.href));
 
 	useEffect(() => {
-		const desktop = window.matchMedia("(min-width: 768px)");
+		const desktop = window.matchMedia("(min-width: 1024px)");
 		const closeOnDesktop = () => { if (desktop.matches) setOpen(false); };
 		desktop.addEventListener("change", closeOnDesktop);
 		return () => desktop.removeEventListener("change", closeOnDesktop);
 	}, []);
 
 	return <Dialog.Root open={open} onOpenChange={setOpen}>
-		<nav data-settings-mobile-nav aria-label={t("settings.nav.menu")} className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white shadow-[0_-2px_12px_rgb(0_0_0/0.04)] md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", paddingLeft: "max(8px, env(safe-area-inset-left, 0px))", paddingRight: "max(8px, env(safe-area-inset-right, 0px))" }}>
+		<nav data-settings-mobile-nav aria-label={t("settings.nav.menu")} className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white shadow-[0_-2px_12px_rgb(0_0_0/0.04)] md:left-[var(--sidebar-width)] lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", paddingLeft: "max(8px, env(safe-area-inset-left, 0px))", paddingRight: "max(8px, env(safe-area-inset-right, 0px))" }}>
 			<div className="mx-auto grid max-w-lg grid-cols-4 gap-1 [&>a>span:last-child]:max-w-full [&>a>span:last-child]:break-words">
 				<Link prefetch={false} href="/inbox" className={targetClass}>
 					<ArrowLeft aria-hidden="true" className="h-5 w-5" /><span>{t("settings.nav.mailbox")}</span>
@@ -56,7 +56,7 @@ export function MobileSettingsNav({ pathname }: { pathname: string }) {
 		<Dialog.Portal>
 			<Dialog.Overlay className="dialog-overlay fixed inset-0 z-[140] bg-black/35" />
 			<Dialog.Content aria-modal="true" aria-describedby={undefined} onCloseAutoFocus={event => {
-				if (!window.matchMedia("(min-width: 768px)").matches) return;
+				if (!window.matchMedia("(min-width: 1024px)").matches) return;
 				event.preventDefault();
 				document.querySelector<HTMLElement>('[data-settings-desktop-nav] [aria-current="page"]')?.focus();
 			}} className="settings-navigation-sheet fixed inset-x-0 bottom-0 z-[150] mx-auto flex max-h-[85dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-neutral-200 bg-white shadow-xl focus:outline-none" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", paddingLeft: "env(safe-area-inset-left, 0px)", paddingRight: "env(safe-area-inset-right, 0px)" }}>

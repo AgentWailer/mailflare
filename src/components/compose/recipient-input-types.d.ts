@@ -10,4 +10,6 @@ export type RecipientInputProps = {
 	autoFocus?: boolean;
 	/** Rendered at the right edge of the row, e.g. the Cc/Bcc toggles. */
 	trailing?: React.ReactNode;
+	/** Id of the inline error that explains why the field is invalid. */
+	errorId?: string;
 };

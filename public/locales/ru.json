@@ -868,8 +868,6 @@
 	"admin.section.mailboxes": "Создавайте почтовые адреса и управляйте ими.",
 	"admin.section.domains": "Добавляйте домены Cloudflare и проверяйте состояние DNS.",
 	"admin.section.branding": "Настройте название, значок и favicon приложения.",
-	"admin.section.licenses": "Сравните разовые лицензии Pro и Team.",
-	"admin.section.accounts": "Добавляйте аккаунты пользователей и управляйте ими с лицензией Team.",
 	"admin.section.apiKeys": "Управляйте доступом по API к доменам, аккаунтам и почтовым ящикам.",
 	"admin.section.apiKeysTitle": "Ключи API администратора",
 	"admin.page.aiUsage": "Использование ИИ",

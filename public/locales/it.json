@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "Crea e gestisci gli indirizzi delle caselle.",
 	"admin.section.domains": "Aggiungi domini Cloudflare e controlla lo stato del DNS.",
 	"admin.section.branding": "Personalizza nome, icona e favicon dell'app.",
-	"admin.section.licenses": "Confronta le licenze una tantum Pro e Team.",
-	"admin.section.accounts": "Aggiungi e gestisci gli account utente con una licenza Team.",
 	"admin.section.apiKeys": "Gestisci l'accesso API a domini, account e caselle.",
 	"admin.section.apiKeysTitle": "Chiavi API di amministrazione",
 	"admin.page.aiUsage": "Utilizzo IA",

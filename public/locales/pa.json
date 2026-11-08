@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "ਮੇਲਬਾਕਸ ਪਤੇ ਬਣਾਓ ਅਤੇ ਸੰਭਾਲੋ।",
 	"admin.section.domains": "Cloudflare ਡੋਮੇਨ ਜੋੜੋ ਅਤੇ DNS ਸਥਿਤੀ ਜਾਂਚੋ।",
 	"admin.section.branding": "ਐਪ ਦਾ ਨਾਮ, ਆਈਕਨ ਅਤੇ ਫੈਵੀਕਨ ਆਪਣੀ ਮਰਜ਼ੀ ਅਨੁਸਾਰ ਬਣਾਓ।",
-	"admin.section.licenses": "Pro ਅਤੇ Team ਇੱਕ-ਵਾਰ ਦੇ ਲਾਇਸੰਸਾਂ ਦੀ ਤੁਲਨਾ ਕਰੋ।",
-	"admin.section.accounts": "Team ਲਾਇਸੰਸ ਨਾਲ ਵਰਤੋਂਕਾਰ ਖਾਤੇ ਜੋੜੋ ਅਤੇ ਸੰਭਾਲੋ।",
 	"admin.section.apiKeys": "ਡੋਮੇਨਾਂ, ਖਾਤਿਆਂ ਅਤੇ ਮੇਲਬਾਕਸਾਂ ਤੱਕ API ਪਹੁੰਚ ਦਾ ਪ੍ਰਬੰਧ ਕਰੋ।",
 	"admin.section.apiKeysTitle": "ਐਡਮਿਨ API ਕੁੰਜੀਆਂ",
 	"admin.page.aiUsage": "AI ਵਰਤੋਂ",

@@ -145,11 +145,16 @@ export function ComposeForm({
 		if (!senderAddresses.includes(selectedFrom)) setSelectedFrom(senderAddresses[0]);
 	}, [selectedFrom, senderAddresses]);
 
+	// Confirmations fade; errors stay until dismissed or the next attempt.
 	useEffect(() => {
-		if (!toast) return;
+		if (!toast || toast.type === "error") return;
 		const timer = setTimeout(() => setToast(null), 3200);
 		return () => clearTimeout(timer);
 	}, [toast]);
+	// A validation error belongs to its field and clears as soon as that field changes.
+	const [fieldError, setFieldError] = useState<{ field: "to" | "body"; message: string } | null>(null);
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- Editing the recipients or the body resolves the error shown for them.
+	useEffect(() => { setFieldError(null); }, [to, cc, bcc, html]);
 
 	const reportDraftLoadError = useEffectEvent((error: unknown) => {
 		const message = error instanceof Error ? error.message : t("compose.error.loadDraft");
@@ -300,19 +305,15 @@ export function ComposeForm({
 	async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		if (refineActive || loading) return;
-		if (to.length === 0) {
-			setToast({ type: "error", message: t("compose.error.noRecipient") });
-			return;
-		}
+		setToast(null);
+		const reject = (field: "to" | "body", message: string) => {
+			setFieldError({ field, message });
+			document.getElementById(field === "to" ? `${mode}-to` : `${mode}-text`)?.focus();
+		};
+		if (to.length === 0) return reject("to", t("compose.error.noRecipient"));
 		const invalid = [...to, ...cc, ...bcc].find((entry) => !isValidRecipient(entry));
-		if (invalid) {
-			setToast({ type: "error", message: t("compose.error.invalidAddress", { address: invalid }) });
-			return;
-		}
-		if (!hasMeaningfulHtml(html) && !quotedHtml) {
-			setToast({ type: "error", message: t("compose.error.emptyBody") });
-			return;
-		}
+		if (invalid) return reject("to", t("compose.error.invalidAddress", { address: invalid }));
+		if (!hasMeaningfulHtml(html) && !quotedHtml) return reject("body", t("compose.error.emptyBody"));
 		setLoading(true);
 		const fullHtml = joinQuotedHtml(html, quotedHtml);
 		if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -591,12 +592,14 @@ export function ComposeForm({
 			{mode === "popup" && modalMode && !minimized && <div data-compose-layer className="fixed inset-0 z-40 bg-neutral-950/65" aria-hidden="true" />}
 			{toast && (
 				<div
+					role={toast.type === "error" ? "alert" : "status"}
 					className={cn(
-						"fixed right-4 top-6 z-[60] max-w-[calc(100vw-32px)] rounded-lg px-4 py-3 text-sm font-medium shadow-lg",
+						"fixed right-4 top-6 z-[60] flex max-w-[calc(100vw-32px)] items-start gap-3 rounded-lg px-4 py-3 text-sm font-medium shadow-lg",
 						toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white",
 					)}
 				>
-					{toast.message}
+					<span className="min-w-0">{toast.message}</span>
+					{toast.type === "error" && <button type="button" onClick={() => setToast(null)} aria-label={t("navigation.close")} className="-my-1 -mr-2 shrink-0 rounded p-1 hover:bg-white/15"><X aria-hidden="true" className="h-4 w-4" /></button>}
 				</div>
 			)}
 			<form ref={frameRef} onSubmit={onSubmit} className={frameClass} role={modalMode && !minimized ? "dialog" : undefined} aria-modal={modalMode && !minimized || undefined} aria-label={modalMode && !minimized ? t("compose.dialogLabel") : undefined} onKeyDown={(event) => { if (modalMode && !minimized && event.key === "Escape") { event.preventDefault(); setModalMode(false); } }} onDragEnterCapture={minimized ? undefined : onFileDragEnter} onDragOverCapture={minimized ? undefined : onFileDragOver} onDragLeaveCapture={minimized ? undefined : onFileDragLeave} onDropCapture={minimized ? undefined : onFileDrop}>
@@ -665,6 +668,7 @@ export function ComposeForm({
 					value={to}
 					onChange={setTo}
 					placeholder={t("compose.toPlaceholder")}
+					errorId={fieldError?.field === "to" ? `${mode}-to-error` : undefined}
 					required
 					disabled={loadingDraft}
 					trailing={
@@ -682,6 +686,7 @@ export function ComposeForm({
 						</>
 					}
 				/>
+				{fieldError?.field === "to" && <p id={`${mode}-to-error`} role="alert" className="border-b border-neutral-100 px-4 py-1.5 text-sm text-red-700">{fieldError.message}</p>}
 				{showCc && (
 					<RecipientInput
 						id={`${mode}-cc`}
@@ -718,6 +723,7 @@ export function ComposeForm({
 				</div>
 				</div>
 				<Label htmlFor={`${mode}-text`} className="sr-only">{t("compose.body")}</Label>
+				{fieldError?.field === "body" && <p role="alert" className="px-4 pt-2 text-sm text-red-700">{fieldError.message}</p>}
 				<RichTextEditor
 					id={`${mode}-text`}
 					mailboxId={selectedMailbox?.id}

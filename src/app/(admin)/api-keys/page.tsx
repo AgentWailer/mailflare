@@ -25,6 +25,8 @@ import { authFetch } from "@/lib/auth/client";
 import type { AdminApiKeyScope } from "@/lib/api/scopes-types";
 import type { ApiKey } from "./types";
 import { ADMIN_KEY_PERMISSIONS, parseApiKeyScopes } from "./utils";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 export default function ApiKeysPage() {
 	const { t } = useLanguage();
@@ -160,7 +162,7 @@ export default function ApiKeysPage() {
 									))}
 								</span>
 							</span>
-						<Button type="button" size="sm" variant="outline" disabled={revoke.isPending} onClick={() => { if (window.confirm(t("apiKeys.revokeConfirm", { name: key.name }))) revoke.mutate(key.id); }}><Trash2 className="h-4 w-4" />{t("common.revoke")}</Button>
+						<Button type="button" size="sm" variant="outline" disabled={revoke.isPending} onClick={async () => { if (await confirmDialog({ ...questionParts(t("apiKeys.revokeConfirm", { name: key.name })), confirmLabel: t("common.revoke"), destructive: true })) revoke.mutate(key.id); }}><Trash2 className="h-4 w-4" />{t("common.revoke")}</Button>
 						</ListRow>
 					))}
 				</List>

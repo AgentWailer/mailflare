@@ -862,8 +862,6 @@
 	"admin.section.mailboxes": "Maak en beheer mailboxadressen.",
 	"admin.section.domains": "Voeg Cloudflare-domeinen toe en controleer de DNS-status.",
 	"admin.section.branding": "Pas de naam, het pictogram en de favicon van de app aan.",
-	"admin.section.licenses": "Vergelijk eenmalige licenties voor Pro en Team.",
-	"admin.section.accounts": "Voeg gebruikersaccounts toe en beheer ze met een Team-licentie.",
 	"admin.section.apiKeys": "Beheer API-toegang tot domeinen, accounts en mailboxen.",
 	"admin.section.apiKeysTitle": "Beheer-API-sleutels",
 	"admin.page.aiUsage": "AI-gebruik",

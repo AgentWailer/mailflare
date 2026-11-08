@@ -8,6 +8,8 @@ import ProviderCard from "./ProviderCard";
 import ResendDomainSection from "./ResendDomainSection";
 import SesSendingConfig from "./SesSendingConfig";
 import type { Domain, SendingProvider } from "./types";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { questionParts } from "@/components/confirm-dialog-utils";
 
 type Option = Exclude<SendingProvider, "none">;
 type Present = Record<Option, boolean | null>;
@@ -54,7 +56,7 @@ export default function SendingSetupSection({ domain, onChange, busy, message, c
 	}, [domain.id, domain.sendingProvider, reload]);
 
 	async function cleanUp(option: Option, title: string) {
-		if (!window.confirm(t("domains.removeSendingConfirm", { title, host: domain.hostname }))) return;
+		if (!(await confirmDialog({ ...questionParts(t("domains.removeSendingConfirm", { title, host: domain.hostname })), confirmLabel: t("domains.cleanUp"), destructive: true }))) return;
 		setRemoving(option);
 		setError("");
 		try {
