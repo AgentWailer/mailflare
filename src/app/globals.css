@@ -746,7 +746,7 @@ body:has(.mail-mobile-shell) { position: fixed; inset: 0; }
 .dark .mail-header-search .mail-search-form:focus-within { background: #373f4d; }
 .dark .mail-row-snippet { color: #a5b3c5; }
 /* Secondary row text stays readable on the selected row's blue in dark mode. */
-.dark .mail-message-row[data-selected="true"] :is(time, .mail-row-snippet, .mail-desktop-snippet) { color: #d2dcec; }
+.dark .mail-message-row[data-selected="true"] :is(time, .mail-row-snippet, .mail-desktop-snippet, [data-preview-separator]) { color: #d2dcec; }
 .dark [data-category-tab][aria-current="page"] { color: #c8ddff; }
 @media (min-width: 768px) {
  [data-message-density="comfortable"] .mail-desktop-row { min-height: 82px; padding-inline: 12px; grid-template-columns: 24px minmax(0,1fr); }

@@ -16,7 +16,7 @@ import {
 } from "./utils";
 
 const STATUS_STYLES: Record<WebhookDelivery["status"], string> = {
-	delivered: "bg-green-600/10 text-green-700",
+	delivered: "bg-green-600/10 text-green-800",
 	failed: "bg-red-600/10 text-red-700",
 	exhausted: "bg-red-600/10 text-red-700",
 	retrying: "bg-amber-500/10 text-amber-700",
