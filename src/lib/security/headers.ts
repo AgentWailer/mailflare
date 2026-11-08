@@ -12,14 +12,15 @@ const csp = [
 	"base-uri 'self'",
 	"form-action 'self'",
 	"frame-ancestors 'self'",
-	"upgrade-insecure-requests",
 ].join("; ");
 
 export function getSecurityHeaders() {
+	// Network previews use plain HTTP too; forcing their assets to HTTPS breaks loading.
+	const development = process.env.NODE_ENV === "development";
 	return [
 		{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet, noimageindex" },
-		{ key: "Content-Security-Policy", value: csp },
-		{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+		{ key: "Content-Security-Policy", value: development ? csp : `${csp}; upgrade-insecure-requests` },
+		...(development ? [] : [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]),
 		{ key: "X-Content-Type-Options", value: "nosniff" },
 		{ key: "X-Frame-Options", value: "SAMEORIGIN" },
 		{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

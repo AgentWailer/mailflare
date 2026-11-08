@@ -49,6 +49,8 @@ export default defineConfig({
 				// Share small UI dependencies across routes instead of fetching a
 				// separate module for each icon/hook. Editors and PDFs stay lazy.
 				return { build: { rolldownOptions: { output: { codeSplitting: { groups: [
+					// The language picker is used by deferred settings/auth screens, not inbox startup.
+					{ name: "language-select", test: /node_modules[\\/]+@radix-ui[\\/]+react-select[\\/]/, priority: 30, includeDependenciesRecursively: false },
 					{ name: "ui-primitives", test: /node_modules[\\/](?:@radix-ui[\\/]|lucide-react[\\/]|react-remove-scroll|react-style-singleton|use-sidecar|use-callback-ref|aria-hidden)/, priority: 20 },
 				] } } } } };
 			},

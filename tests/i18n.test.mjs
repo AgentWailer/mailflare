@@ -129,13 +129,15 @@ test("preference cookie persists for a year, covers every path and is Secure on 
 	assert.equal(i18n.serializeLocaleCookie("bad; Domain=example.com", true), "mailflare-locale=en; Path=/; Max-Age=31536000; SameSite=Lax; Secure");
 });
 
-test("provider server rendering uses initial locale and labels the native language selector", async () => {
+test("provider server rendering uses initial locale and labels the language combobox", async () => {
 	const pt = await i18n.renderLanguage("pt-BR");
 	assert.match(pt, /Entrada/);
 	assert.match(pt, /<label for="[^"]+"[^>]*>Idioma<\/label>/);
-	assert.match(pt, /<select id="[^"]+"/);
-	assert.match(pt, /value="pt-BR" lang="pt-BR" selected=""/);
-	assert.match(await i18n.renderLanguage("en"), /value="en" lang="en" selected=""/);
+	const labelId = pt.match(/<label for="([^"]+)"/)?.[1];
+	assert.ok(labelId);
+	assert.match(pt, new RegExp(`<button[^>]*role="combobox"[^>]*id="${labelId}"[^>]*aria-label="Idioma"`));
+	assert.match(pt, /<span lang="pt-BR">Português \(Brasil\)<\/span>/);
+	assert.match(await i18n.renderLanguage("en"), /<span lang="en">English<\/span>/);
 });
 
 test("root layout passes the same cookie locale to HTML and provider on first render", async () => {
@@ -159,7 +161,8 @@ test("a locale registered once reaches resolution, translation, cookie, selector
 	assert.equal(extended.translate(await extended.loadMessages("xx"), "navigation.inbox"), "Entrada");
 	assert.match(extended.serializeLocaleCookie("xx", true), /^mailflare-locale=xx;/);
 	const selector = await extended.renderLanguage("xx");
-	assert.match(selector, /value="xx" lang="xx" selected="">Testlandic<\/option>/);
+	assert.match(selector, /<button[^>]*role="combobox"[^>]*dir="rtl"/);
+	assert.match(selector, /<span lang="xx">Testlandic<\/span>/);
 	assert.match(selector, />Entrada<\/span>/);
 	const layout = await extended.renderLayout("xx");
 	assert.match(layout, /<html lang="xx"/);
