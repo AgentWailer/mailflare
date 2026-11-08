@@ -26,7 +26,7 @@ export function StatusToastHost() {
 		<div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-24 z-[120] flex justify-center md:inset-x-auto md:bottom-6 md:left-6 md:justify-start">
 			{status && <p key={status.id} data-status-toast onMouseEnter={() => hold("hover", true)} onMouseLeave={() => hold("hover", false)} onFocus={() => hold("focus", true)} onBlur={() => hold("focus", false)} className="status-toast-enter pointer-events-auto flex items-center gap-4 rounded-lg bg-neutral-900 px-4 py-3 text-sm font-medium text-white shadow-lg">
 				<span>{t(status.key)}</span>
-				{status.undo && <button type="button" className="-my-1 rounded px-2 py-1 font-semibold text-blue-300 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-blue-300" onClick={() => {
+				{status.undo && <button type="button" className="-my-1 rounded px-2 py-1 font-semibold text-blue-300 hover:underline focus-visible:outline-2 focus-visible:outline-blue-300" onClick={() => {
 					const undo = status.undo!;
 					// The button is about to disappear: give focus a sensible home first.
 					document.getElementById("main-content")?.focus({ preventScroll: true });

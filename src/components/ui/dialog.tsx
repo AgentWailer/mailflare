@@ -27,7 +27,7 @@ export function DialogContent({
 	// Portaled dialogs must sit above the mobile sidebar and navigation sheet (z-110).
 	return (
 		<DialogPrimitive.Portal>
-			<DialogPrimitive.Overlay className={cn("dialog-overlay fixed inset-0 z-[140] bg-black/35 dark:bg-black/60", overlayClassName)} />
+			<DialogPrimitive.Overlay className={cn("dialog-overlay fixed inset-0 z-[140] bg-black/35", overlayClassName)} />
 			<DialogPrimitive.Content
 				className={cn(
 					"dialog-content fixed left-1/2 top-1/2 z-[150] w-[min(520px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 max-h-[calc(100dvh-32px)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 md:p-6 shadow-xl",

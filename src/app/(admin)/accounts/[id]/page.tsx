@@ -80,8 +80,8 @@ export default function AccountDetailsPage() {
 						)}
 					</span>
 					{account.editable && (
-						<Label className="group cursor-pointer">
-							<span className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm transition-colors group-hover:bg-neutral-50 group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-blue-500">
+						<Label className="cursor-pointer rounded-md focus-within:ring-2 focus-within:ring-blue-500">
+							<span className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm transition-colors hover:bg-neutral-50">
 								<Upload className="h-4 w-4" />
 								{t("account.changeAvatar")}
 							</span>

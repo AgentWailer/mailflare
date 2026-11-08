@@ -64,7 +64,7 @@ function CommandPaletteDialog({ onClose, commands }: { onClose: () => void; comm
               <Command.Group
                 key={category}
                 heading={t(`shortcut.category.${category}` as TranslationKey)}
-                className="mb-2 last:mb-0 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-neutral-500"
+                className="mb-2 last:mb-0"
               >
                 {items.map((item) => <CommandPaletteItem key={item.id} item={item} onSelect={() => run(item)} />)}
               </Command.Group>

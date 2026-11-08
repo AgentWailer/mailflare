@@ -471,7 +471,7 @@ export default function CalendarPage() {
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-600" />
             </div>
-            <Button disabled={pendingAction !== null} onClick={() => openNewEvent()} className={clsx("ml-1 max-md:ml-0 h-10 rounded-full bg-blue-600 px-4 text-white hover:bg-blue-500", mobilePrimaryActionClass, "md:max-xl:w-10 md:max-xl:px-0")} aria-label={t("calendar.newEvent")}><Plus aria-hidden="true" className="h-5 w-5" /><span className="md:max-xl:sr-only">{t("calendar.newEvent")}</span></Button>
+            <Button disabled={pendingAction !== null} onClick={() => openNewEvent()} className={clsx("ml-1 max-md:ml-0 h-10 rounded-full bg-blue-600 px-4 text-white hover:bg-blue-500", mobilePrimaryActionClass, "calendar-new-event")} aria-label={t("calendar.newEvent")}><Plus aria-hidden="true" className="h-5 w-5" /><span>{t("calendar.newEvent")}</span></Button>
           </div>
         </div>,
         headerTarget,

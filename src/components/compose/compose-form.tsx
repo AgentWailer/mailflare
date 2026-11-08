@@ -604,7 +604,7 @@ export function ComposeForm({
 					)}
 				>
 					<span className="min-w-0">{toast.message}</span>
-					{toast.type === "error" && <button type="button" onClick={() => setToast(null)} aria-label={t("navigation.close")} className="-my-1 -mr-2 shrink-0 rounded p-1 hover:bg-white/15"><X aria-hidden="true" className="h-4 w-4" /></button>}
+					{toast.type === "error" && <button type="button" onClick={() => setToast(null)} aria-label={t("navigation.close")} className="-my-1 -mr-2 shrink-0 rounded p-1 hover:bg-red-700"><X aria-hidden="true" className="h-4 w-4" /></button>}
 				</div>
 			)}
 			<form ref={frameRef} onSubmit={onSubmit} className={frameClass} role={modalMode && !minimized ? "dialog" : undefined} aria-modal={modalMode && !minimized || undefined} aria-label={modalMode && !minimized ? t("compose.dialogLabel") : undefined} onKeyDown={(event) => { if (modalMode && !minimized && event.key === "Escape") { event.preventDefault(); setModalMode(false); } }} onDragEnterCapture={minimized ? undefined : onFileDragEnter} onDragOverCapture={minimized ? undefined : onFileDragOver} onDragLeaveCapture={minimized ? undefined : onFileDragLeave} onDropCapture={minimized ? undefined : onFileDrop}>
