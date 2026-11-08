@@ -89,7 +89,8 @@ const links = [
 
 
 // Retain saved folder ordering. Secondary destinations are disclosed without losing the active route.
-const CATEGORY_HREFS = ["/invoices", "/orders", "/promotions", "/social"];
+// Same order as the inbox category tabs.
+const CATEGORY_HREFS = ["/invoices", "/promotions", "/social", "/orders"];
 const MORE_LINK_HREFS = ["/drafts", "/archived", "/spam", "/trash"];
 
 export function DashboardNav({ className }: { className?: string }) {

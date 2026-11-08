@@ -149,7 +149,7 @@
 	"list.selectFrom": "เลือกข้อความจาก {sender}",
 	"list.selectMessage": "เลือกข้อความ",
 	"list.selectAll": "เลือกข้อความที่มองเห็นทั้งหมด",
-	"list.range": "{start} - {end} จาก {total}",
+	"list.range": "{start}–{end} จาก {total}",
 	"list.previousPage": "หน้าก่อนหน้า",
 	"list.nextPage": "หน้าถัดไป",
 	"list.showingUnread": "กำลังแสดงอีเมลที่ยังไม่ได้อ่าน",

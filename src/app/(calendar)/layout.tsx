@@ -63,8 +63,8 @@ export default function CalendarLayout({ children }: { children: React.ReactNode
                       <div id="calendar-header-slot" className="flex min-w-0 flex-1 items-center md:min-w-max max-md:order-last max-md:basis-full max-md:pl-3 max-md:empty:hidden" />
                     </div>
                     {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={clsx("h-11 w-11 shrink-0 rounded-full px-0", assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600")} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? t("agent.assistant.close") : t("agent.assistant.open")} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
+                    <ThemeToggle />
                     <MailboxSelector />
-                      <ThemeToggle />
                   </header>
                   <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                     <AssistantOpenContext.Provider value={assistantVisible}>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import toast, { Toaster } from "react-hot-toast";
@@ -30,7 +31,7 @@ import {
   addDays, addMonths, calendarAnchorDay, CALENDAR_END_HOUR, CALENDAR_HOUR_HEIGHT, CALENDAR_START_HOUR,
   currentTimePosition, dateKey, defaultCalendarStart, dropStartForPosition, EVENT_COLOR_CLASSES, eventEndAfterMinutes, eventPosition, expandCalendarEvents,
   formatEventRange, formatHour, formatLocalDateTime,
-  monthGridDates, PAST_EVENT_COLOR_CLASSES, rescheduleCalendarOccurrence, resizeEventTimes, startOfDay, startOfMonth, startOfWeek, WEEKDAY_OPTIONS,
+  monthGridDates, PAST_EVENT_COLOR_CLASSES, orderedWeekdays, rescheduleCalendarOccurrence, resizeEventTimes, startOfDay, startOfMonth, startOfWeek, WEEKDAY_OPTIONS,
 } from "./utils";
 import clsx from "clsx";
 
@@ -43,7 +44,10 @@ export default function CalendarPage() {
   const [eventsVersion, setEventsVersion] = useState(0);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [visibleDate, setVisibleDate] = useState(() => new Date());
-  const [view, setView] = useState<CalendarView>("week");
+  const [chosenView, setView] = useState<CalendarView | null>(null);
+  // Seven columns do not fit a phone: open the day view there until the visitor picks a view.
+  const isMobile = useIsMobile();
+  const view: CalendarView = chosenView ?? (isMobile ? "day" : "week");
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerMonth, setPickerMonth] = useState(() => new Date());
   const monthPickerRef = useRef<HTMLDivElement | null>(null);
@@ -417,7 +421,7 @@ export default function CalendarPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-7">
-                  {([0, 1, 2, 3, 4, 5, 6] as const).map((weekday) => (
+                  {orderedWeekdays().map((weekday) => (
                     <span key={weekday} aria-label={t(`weekday.${weekday}`)} className="flex h-10 items-center justify-center text-sm font-medium text-neutral-500">{t(`weekday.${weekday}`).charAt(0).toUpperCase()}</span>
                   ))}
                   {pickerDates.map((day) => {
@@ -486,7 +490,7 @@ export default function CalendarPage() {
           <div className="grid" style={{ gridTemplateColumns: `64px repeat(${days.length}, minmax(0, 1fr))`, height: (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT }}>
             <div className="relative">
               {Array.from({ length: CALENDAR_END_HOUR - CALENDAR_START_HOUR }, (_, index) => (
-                <span key={index} className={`absolute right-3 text-xs text-neutral-700 ${index === 0 ? "" : "-translate-y-1/2"}`} style={{ top: index * CALENDAR_HOUR_HEIGHT }}>{index % 2 == 0 ? null : formatHour(CALENDAR_START_HOUR + index)}</span>
+                <span key={index} className={`absolute right-3 text-xs text-neutral-700 ${index === 0 ? "" : "-translate-y-1/2"}`} style={{ top: index * CALENDAR_HOUR_HEIGHT }}>{index === 0 ? null : formatHour(CALENDAR_START_HOUR + index)}</span>
               ))}
             </div>
             {days.map((day) => (

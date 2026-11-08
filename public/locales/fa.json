@@ -149,7 +149,7 @@
 	"list.selectFrom": "انتخاب پیام از {sender}",
 	"list.selectMessage": "انتخاب پیام",
 	"list.selectAll": "انتخاب همه پیام‌های نمایان",
-	"list.range": "{start} - {end} از {total}",
+	"list.range": "{start}–{end} از {total}",
 	"list.previousPage": "صفحه قبل",
 	"list.nextPage": "صفحه بعد",
 	"list.showingUnread": "نمایش ایمیل‌های خوانده‌نشده",

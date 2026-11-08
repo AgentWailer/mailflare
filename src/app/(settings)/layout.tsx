@@ -39,8 +39,11 @@ export default function DashboardLayout({
                   >
                     <HelpCircle className="h-5 w-5" />
                   </Link> */}
-                      <MailboxSelector />
-                      <ThemeToggle />
+                      {/* Same order as the mail header: theme, then the account avatar at the edge. Phones change the theme on the settings page itself. */}
+                      <div className="ml-auto flex shrink-0 items-center gap-1 md:gap-2">
+                        <div className="hidden md:block"><ThemeToggle /></div>
+                        <MailboxSelector />
+                      </div>
                     </header>
                     <main className="page-flush min-h-0 flex-1 overflow-y-auto max-md:rounded-t-3xl max-md:bg-white overscroll-contain scrollbar-gutter-stable">
                       {children}

@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender}-এর বার্তা নির্বাচন করুন",
 	"list.selectMessage": "বার্তা নির্বাচন করুন",
 	"list.selectAll": "দৃশ্যমান সব বার্তা নির্বাচন করুন",
-	"list.range": "{total}-এর মধ্যে {start} - {end}",
+	"list.range": "{total}-এর মধ্যে {start}–{end}",
 	"list.previousPage": "আগের পৃষ্ঠা",
 	"list.nextPage": "পরের পৃষ্ঠা",
 	"list.showingUnread": "অপঠিত ইমেইল দেখানো হচ্ছে",

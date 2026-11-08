@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender} का संदेश चुनें",
 	"list.selectMessage": "संदेश चुनें",
 	"list.selectAll": "सभी दिखाई दे रहे संदेश चुनें",
-	"list.range": "{total} में से {start} - {end}",
+	"list.range": "{total} में से {start}–{end}",
 	"list.previousPage": "पिछला पृष्ठ",
 	"list.nextPage": "अगला पृष्ठ",
 	"list.showingUnread": "अपठित ईमेल दिखाए जा रहे हैं",

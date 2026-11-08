@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender} அனுப்பிய செய்தியைத் தேர்ந்தெடு",
 	"list.selectMessage": "செய்தியைத் தேர்ந்தெடு",
 	"list.selectAll": "தெரியும் அனைத்துச் செய்திகளையும் தேர்ந்தெடு",
-	"list.range": "{total} இல் {start} - {end}",
+	"list.range": "{total} இல் {start}–{end}",
 	"list.previousPage": "முந்தைய பக்கம்",
 	"list.nextPage": "அடுத்த பக்கம்",
 	"list.showingUnread": "படிக்காத மின்னஞ்சல்கள் காட்டப்படுகின்றன",

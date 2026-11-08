@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender} ਦਾ ਸੁਨੇਹਾ ਚੁਣੋ",
 	"list.selectMessage": "ਸੁਨੇਹਾ ਚੁਣੋ",
 	"list.selectAll": "ਸਾਰੇ ਦਿਖਾਈ ਦੇਣ ਵਾਲੇ ਸੁਨੇਹੇ ਚੁਣੋ",
-	"list.range": "{total} ਵਿੱਚੋਂ {start} - {end}",
+	"list.range": "{total} ਵਿੱਚੋਂ {start}–{end}",
 	"list.previousPage": "ਪਿਛਲਾ ਪੰਨਾ",
 	"list.nextPage": "ਅਗਲਾ ਪੰਨਾ",
 	"list.showingUnread": "ਨਾ ਪੜ੍ਹੀਆਂ ਈਮੇਲਾਂ ਦਿਖਾਈਆਂ ਜਾ ਰਹੀਆਂ ਹਨ",

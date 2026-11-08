@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender} నుండి సందేశాన్ని ఎంచుకోండి",
 	"list.selectMessage": "సందేశాన్ని ఎంచుకోండి",
 	"list.selectAll": "కనిపిస్తున్న అన్ని సందేశాలను ఎంచుకోండి",
-	"list.range": "{total} లో {start} - {end}",
+	"list.range": "{total} లో {start}–{end}",
 	"list.previousPage": "మునుపటి పేజీ",
 	"list.nextPage": "తదుపరి పేజీ",
 	"list.showingUnread": "చదవని ఇమెయిల్‌లు చూపబడుతున్నాయి",

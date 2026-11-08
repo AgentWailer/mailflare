@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender} کا پیغام منتخب کریں",
 	"list.selectMessage": "پیغام منتخب کریں",
 	"list.selectAll": "تمام نظر آنے والے پیغامات منتخب کریں",
-	"list.range": "{total} میں سے {start} - {end}",
+	"list.range": "{total} میں سے {start}–{end}",
 	"list.previousPage": "پچھلا صفحہ",
 	"list.nextPage": "اگلا صفحہ",
 	"list.showingUnread": "نہ پڑھی ہوئی ای میلز دکھائی جا رہی ہیں",

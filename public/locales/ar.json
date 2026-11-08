@@ -161,7 +161,7 @@
 	"list.selectFrom": "تحديد الرسالة من {sender}",
 	"list.selectMessage": "تحديد الرسالة",
 	"list.selectAll": "تحديد جميع الرسائل الظاهرة",
-	"list.range": "{start} - {end} من {total}",
+	"list.range": "{start}–{end} من {total}",
 	"list.previousPage": "الصفحة السابقة",
 	"list.nextPage": "الصفحة التالية",
 	"list.showingUnread": "عرض الرسائل غير المقروءة",

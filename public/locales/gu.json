@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender} તરફથી સંદેશો પસંદ કરો",
 	"list.selectMessage": "સંદેશો પસંદ કરો",
 	"list.selectAll": "બધા દેખાતા સંદેશા પસંદ કરો",
-	"list.range": "{total} માંથી {start} - {end}",
+	"list.range": "{total} માંથી {start}–{end}",
 	"list.previousPage": "પાછલું પૃષ્ઠ",
 	"list.nextPage": "આગલું પૃષ્ઠ",
 	"list.showingUnread": "ન વાંચેલા ઇમેઇલ બતાવી રહ્યા છીએ",

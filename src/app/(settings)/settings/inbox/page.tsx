@@ -9,7 +9,7 @@ export default async function SettingsInboxPage() {
 	return <div className="space-y-6 py-4">
 		<SettingsPageHeader title={t("settings.nav.inbox")} description={t("settings.guide.inbox")} />
 		<section className="space-y-3" aria-label={t("settingsPage.inbox.experience")}>
-			<h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t("settingsPage.inbox.experience")}</h2>
+			<h2 className="px-1 pt-2 text-lg font-semibold text-neutral-900">{t("settingsPage.inbox.experience")}</h2>
 			<SettingsGroup id="appearance" title={t("settingsPage.inbox.appearance")}>
 				<div className="grid gap-4 sm:grid-cols-2"><AppearanceSettings compact /><InboxReadingLayoutSettings compact /><MessageDensitySettings className="sm:col-span-2" /></div>
 			</SettingsGroup>
@@ -31,7 +31,7 @@ export default async function SettingsInboxPage() {
 			</SettingsSection>
 		</section>
 		<section className="space-y-3" aria-label={t("settingsPage.inbox.handling")}>
-			<h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t("settingsPage.inbox.handling")}</h2>
+			<h2 className="px-1 pt-2 text-lg font-semibold text-neutral-900">{t("settingsPage.inbox.handling")}</h2>
 			<SettingsSection id="sorting" title={t("smart.title")} description={t("settings.guide.sorting")}>
 				<DeferredInboxSettings section="sorting" />
 			</SettingsSection>

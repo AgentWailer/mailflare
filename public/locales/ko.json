@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender}님의 메시지 선택",
 	"list.selectMessage": "메시지 선택",
 	"list.selectAll": "표시된 모든 메시지 선택",
-	"list.range": "{total}개 중 {start} - {end}",
+	"list.range": "{total}개 중 {start}–{end}",
 	"list.previousPage": "이전 페이지",
 	"list.nextPage": "다음 페이지",
 	"list.showingUnread": "읽지 않은 이메일 표시 중",

@@ -149,7 +149,7 @@
 	"list.selectFrom": "{sender} ൽ നിന്നുള്ള സന്ദേശം തിരഞ്ഞെടുക്കുക",
 	"list.selectMessage": "സന്ദേശം തിരഞ്ഞെടുക്കുക",
 	"list.selectAll": "ദൃശ്യമായ എല്ലാ സന്ദേശങ്ങളും തിരഞ്ഞെടുക്കുക",
-	"list.range": "{total} ൽ {start} - {end}",
+	"list.range": "{total} ൽ {start}–{end}",
 	"list.previousPage": "മുൻ പേജ്",
 	"list.nextPage": "അടുത്ത പേജ്",
 	"list.showingUnread": "വായിക്കാത്ത ഇമെയിലുകൾ കാണിക്കുന്നു",
