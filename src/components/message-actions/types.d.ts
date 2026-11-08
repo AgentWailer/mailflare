@@ -9,6 +9,9 @@ export type MessageActionsProps = {
 	senderAddress: string;
 	direction: MessageDirection;
 	status: string;
+	/** Category and label of the message, so undo is offered only where "move to inbox" restores it exactly. */
+	category?: string | null;
+	folderId?: string | null;
 	read: boolean;
 	unsubscribeUrl?: string | null;
 	subject?: string | null;

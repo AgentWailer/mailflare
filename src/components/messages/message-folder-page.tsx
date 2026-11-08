@@ -402,7 +402,7 @@ export function MessageFolderPage({
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
-	const { messages, total, archiveRow, archiveFailed } = useOptimisticArchive(sourceMessages, sourceTotal,
+	const { messages, total, archiveRow, restoreRow, archiveFailed } = useOptimisticArchive(sourceMessages, sourceTotal,
 		JSON.stringify([query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped, offset]));
 	const isLoading = mailboxesLoading || messagesLoading;
 	useMailboxPreload({ ready: !isLoading && !isRefreshing && !error && !selectedMessageId && !pendingBulkAction && readAllTask?.status !== "running", mailboxId: selectedMailbox?.id, href: config.hrefPrefix, grouped: conversationView, search: input ?? query });
@@ -508,9 +508,10 @@ export function MessageFolderPage({
 	}
 
 	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
-	// Mail moved out of the inbox or a category can be put back with one "Rückgängig" in the confirmation.
-	const undoMove = (ids: string[], action: string) => !config.folderId && ["inbox", "invoices", "promotions", "social", "orders"].includes(config.folder) && ["archive", "trash", "spam"].includes(action)
-		? () => runBulkMessageAction(ids, "inbox", true) : undefined;
+	// Mail moved out of the primary inbox can be put back with one "Rückgängig". Only there is "move to
+	// inbox" the exact inverse: the API files it as primary, so categories and labels get no undo.
+	const undoMove = (ids: string[], action: string, onRestored?: () => void) => !config.folderId && config.folder === "inbox" && ["archive", "trash", "spam"].includes(action)
+		? () => runBulkMessageAction(ids, "inbox", true).then(() => onRestored?.()) : undefined;
 	async function runRowMessageAction(messageId: string, action: RowMessageAction) {
 		if (action !== "archive") {
 			const ids = expandSelectedIds([messageId]);
@@ -522,7 +523,7 @@ export function MessageFolderPage({
 		if (!message) return;
 		try {
 			await archiveRow(message);
-			announceMessageAction("archive", undoMove(message.threadMessageIds ?? [message.id], "archive"));
+			announceMessageAction("archive", undoMove(message.threadMessageIds ?? [message.id], "archive", () => restoreRow(message.id)));
 			setSelectedMessages(current => current.filter(row => row.id !== messageId));
 		} catch {
 			// The optimistic archive restores this row and exposes an inline error.

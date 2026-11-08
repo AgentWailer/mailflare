@@ -49,5 +49,15 @@ export function useOptimisticArchive(source: Message[], sourceTotal: number, sco
 		}
 	}
 
-	return { messages, total, archiveRow, archiveFailed: current.failed };
+	/** After an undo, show the row again without waiting for a refresh to drop it from the exclusions. */
+	function restoreRow(messageId: string) {
+		setState(previous => {
+			if (!previous.rows.has(messageId)) return previous;
+			const rows = new Map(previous.rows);
+			rows.delete(messageId);
+			return { ...previous, rows };
+		});
+	}
+
+	return { messages, total, archiveRow, restoreRow, archiveFailed: current.failed };
 }

@@ -44,6 +44,8 @@ export function MessageActions({
 	senderAddress,
 	direction,
 	status,
+	category,
+	folderId,
 	read,
 	unsubscribeUrl,
 	subject,
@@ -78,7 +80,7 @@ export function MessageActions({
 		setError(null);
 		try {
 			await runSingleMessageAction(messageId, action);
-			if (status === "received" && (action === "archive" || action === "trash" || action === "spam")) announceMessageAction(action, () => runSingleMessageAction(messageId, "inbox"));
+			if (status === "received" && (category ?? "primary") === "primary" && !folderId && (action === "archive" || action === "trash" || action === "spam")) announceMessageAction(action, () => runSingleMessageAction(messageId, "inbox"));
 			const redirect = getMessageActionRedirect(action);
 			if (redirect) router.push(redirect);
 			router.refresh();
@@ -87,7 +89,7 @@ export function MessageActions({
 		} finally {
 			setPendingAction(null);
 		}
-	}, [messageId, router, status, t]);
+	}, [category, folderId, messageId, router, status, t]);
 
 	// In Trash and Spam the delete button removes the message for good instead of
 	// being a no-op, after the user confirms.

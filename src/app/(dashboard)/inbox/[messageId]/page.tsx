@@ -187,6 +187,8 @@ export default function MessageDetailPage() {
         senderAddress={message.fromAddr}
         direction={message.direction}
         status={message.status}
+        category={message.category}
+        folderId={message.folderId}
         read={message.read}
         unsubscribeUrl={data.unsubscribeUrl}
         subject={message.subject}
