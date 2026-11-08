@@ -67,6 +67,9 @@ export function MessageActions({
 	>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [moreOpen, setMoreOpen] = useState(false);
+	// The reader keeps its message in local state, so the toggle remembers its own result for this message.
+	const [readOverride, setReadOverride] = useState<{ messageId: string; read: boolean } | null>(null);
+	const isRead = readOverride?.messageId === messageId ? readOverride.read : read;
 	const [sourceOpen, setSourceOpen] = useState(false);
 	const [snoozeOpen, setSnoozeOpen] = useState(false);
 	const [filterOpen, setFilterOpen] = useState(false);
@@ -80,6 +83,7 @@ export function MessageActions({
 		setError(null);
 		try {
 			await runSingleMessageAction(messageId, action);
+			if (action === "read" || action === "unread") setReadOverride({ messageId, read: action === "read" });
 			if (status === "received" && (category ?? "primary") === "primary" && !folderId && (action === "archive" || action === "trash" || action === "spam")) announceMessageAction(action, () => runSingleMessageAction(messageId, "inbox"));
 			const redirect = getMessageActionRedirect(action);
 			if (redirect) router.push(redirect);
@@ -264,7 +268,7 @@ export function MessageActions({
 	}
 
 	const disabled = pendingAction !== null;
-	const markAction: BulkMessageAction = read ? "unread" : "read";
+	const markAction: BulkMessageAction = isRead ? "unread" : "read";
 	const moveActions = getMoveMessageActions(status, direction);
 
 	return (
@@ -380,15 +384,15 @@ export function MessageActions({
 				</Tooltip>
 			)}
 
-			<Tooltip label={read ? t("common.markUnread") : t("common.markRead")}>
+			<Tooltip label={isRead ? t("common.markUnread") : t("common.markRead")}>
 				<Button
 					variant="ghost"
 					size="roundedSM"
-					aria-label={read ? t("common.markUnread") : t("common.markRead")}
+					aria-label={isRead ? t("common.markUnread") : t("common.markRead")}
 					aria-disabled={disabled || undefined}
 					onClick={() => { if (!disabled) void runAction(markAction); }}
 				>
-					{read ? <Mail size={iconSize} /> : <MailOpen size={iconSize} />}
+					{isRead ? <Mail size={iconSize} /> : <MailOpen size={iconSize} />}
 				</Button>
 			</Tooltip>
 				</>
@@ -437,8 +441,8 @@ export function MessageActions({
 								</DropdownMenu.Item>
 							)}
 							<DropdownMenu.Item className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onSelect={() => void runAction(markAction)}>
-								{read ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
-								{read ? t("common.markUnread") : t("common.markRead")}
+								{isRead ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
+								{isRead ? t("common.markUnread") : t("common.markRead")}
 							</DropdownMenu.Item>
 							<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
 						</>
