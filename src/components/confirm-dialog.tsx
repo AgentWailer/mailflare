@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
+import { useReturnFocus } from "@/components/ui/use-return-focus";
 import type { ConfirmOptions } from "./confirm-dialog-types";
 
 type Request = ConfirmOptions & { resolve: (confirmed: boolean) => void };
@@ -36,11 +37,12 @@ function settle(confirmed: boolean) {
 export function ConfirmDialogHost() {
 	const { t } = useLanguage();
 	const request = useSyncExternalStore(subscribe, () => current, () => null);
+	const returnFocus = useReturnFocus();
 	return (
 		<DialogPrimitive.Root open={request !== null} onOpenChange={(open) => { if (!open) settle(false); }}>
 			<DialogPrimitive.Portal>
 				<DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-[160] bg-black/35" />
-				<DialogPrimitive.Content role="alertdialog" aria-describedby={request?.description ? "confirm-dialog-description" : undefined}
+				<DialogPrimitive.Content role="alertdialog" aria-describedby={request?.description ? "confirm-dialog-description" : undefined} onOpenAutoFocus={returnFocus.onOpenAutoFocus} onCloseAutoFocus={returnFocus.onCloseAutoFocus}
 					className="dialog-content fixed left-1/2 top-1/2 z-[170] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-xl outline-none sm:p-6">
 					<DialogPrimitive.Title className="text-base font-semibold leading-6 text-neutral-900">{request?.title}</DialogPrimitive.Title>
 					{request?.description && <DialogPrimitive.Description id="confirm-dialog-description" className="mt-2 text-sm leading-6 text-neutral-600">{request.description}</DialogPrimitive.Description>}

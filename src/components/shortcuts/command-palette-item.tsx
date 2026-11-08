@@ -22,7 +22,7 @@ export function CommandPaletteItem({ item, onSelect }: CommandPaletteItemProps) 
         {Icon && <Icon className="h-4 w-4 shrink-0 text-neutral-500 group-data-[selected=true]:text-white" />}
         <div className="truncate">
           <span className="text-sm font-medium">{item.title}</span>
-          {item.subtitle && <span className="ml-2 truncate text-xs text-neutral-500 group-data-[selected=true]:text-blue-100">{item.subtitle}</span>}
+          {item.subtitle && <span className="ml-2 truncate text-xs text-neutral-500 group-data-[selected=true]:text-white">{item.subtitle}</span>}
         </div>
       </div>
       {item.shortcut && (

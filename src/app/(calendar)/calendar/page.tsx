@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { useReturnFocus } from "@/components/ui/use-return-focus";
 import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import toast, { Toaster } from "react-hot-toast";
@@ -49,6 +50,7 @@ export default function CalendarPage() {
   // Seven columns do not fit a phone: open the day view there until the visitor picks a view.
   const isMobile = useIsMobile();
   const view: CalendarView = chosenView ?? (isMobile ? "day" : "week");
+  const editorFocus = useReturnFocus();
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerMonth, setPickerMonth] = useState(() => new Date());
   const monthPickerRef = useRef<HTMLDivElement | null>(null);
@@ -540,8 +542,9 @@ export default function CalendarPage() {
       {/* A Radix dialog: focus moves in and stays, Escape closes, focus returns. Outside clicks keep the draft. */}
       <DialogPrimitive.Root open={adding} onOpenChange={(open) => { if (!open && pendingAction !== "save") setClosingEventEditor(true); }}>
         <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className={clsx("dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/35 p-4", closingEventEditor && "pointer-events-none")} data-state={closingEventEditor ? "closed" : "open"}>
-          <DialogPrimitive.Content aria-describedby={undefined} onPointerDownOutside={(event) => event.preventDefault()} className="dialog-content max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl outline-none sm:p-6" data-state={closingEventEditor ? "closed" : "open"}
+        {/* Stay "closed" while unmounting so the open animation never replays after the close animation. */}
+        <DialogPrimitive.Overlay className={clsx("dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/35 p-4", closingEventEditor && "pointer-events-none")} data-state={closingEventEditor || !adding ? "closed" : "open"}>
+          <DialogPrimitive.Content aria-describedby={undefined} onOpenAutoFocus={editorFocus.onOpenAutoFocus} onCloseAutoFocus={editorFocus.onCloseAutoFocus} onPointerDownOutside={(event) => event.preventDefault()} className="dialog-content max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl outline-none sm:p-6" data-state={closingEventEditor || !adding ? "closed" : "open"}
             onAnimationEnd={(event) => {
               if (!closingEventEditor || event.target !== event.currentTarget) return;
               setAdding(false);
