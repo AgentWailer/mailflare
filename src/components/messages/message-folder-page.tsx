@@ -514,6 +514,8 @@ export function MessageFolderPage({
 	const undoMove = (rows: Message[], ids: string[], action: string, onRestored?: () => void) =>
 		!config.folderId && config.folder === "inbox" && ["archive", "trash", "spam"].includes(action) && rows.length > 0
 		&& rows.every(row => (row.category ?? "primary") === "primary" && !row.folderId && (row.threadMessageIds?.length ?? 1) === 1)
+		// Every moved id must be one of the checked rows (a selection can outlive a row's refresh).
+		&& ids.every(id => rows.some(row => row.id === id))
 			? () => runBulkMessageAction(ids, "inbox", true).then(() => onRestored?.()) : undefined;
 	async function runRowMessageAction(messageId: string, action: RowMessageAction) {
 		if (action !== "archive") {
