@@ -189,7 +189,8 @@ export default function MessageDetailPage() {
         status={message.status}
         category={message.category}
         folderId={message.folderId}
-        read={message.read}
+        // Opening an unread message marks it read (MarkAsRead below), so the toggle starts from "read".
+        read={true}
         unsubscribeUrl={data.unsubscribeUrl}
         subject={message.subject}
         bodyText={body?.textBody}
