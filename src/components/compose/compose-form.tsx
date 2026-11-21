@@ -368,10 +368,14 @@ export function ComposeForm({
 					scheduledAt,
 				}),
 			});
-			const data = (await res.json()) as { messageId?: string; scheduled?: boolean; error?: unknown; code?: string; filename?: string };
+			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; error?: unknown; code?: string; filename?: string } | null;
 
 			if (!res.ok) {
-				setToast({ type: "error", message: composeSendError(data, t) });
+				setToast({ type: "error", message: composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
+				return;
+			}
+			if (!data) {
+				setToast({ type: "error", message: composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
 				return;
 			}
 
@@ -399,8 +403,9 @@ export function ComposeForm({
 			setScheduledAt(null);
 			setToast({ type: "success", message: data.scheduled ? t("compose.scheduled") : t("compose.sent") });
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
-		} catch {
-			setToast({ type: "error", message: t("compose.error.sendFailed") });
+		} catch (cause) {
+			const detail = cause instanceof Error ? cause.message.trim() : "";
+			setToast({ type: "error", message: detail ? `${t("compose.error.sendFailed")} (${detail})` : t("compose.error.sendFailed") });
 		} finally {
 			setLoading(false);
 		}

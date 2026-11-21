@@ -51,12 +51,13 @@ test('send network errors and non-JSON responses preserve the message and releas
  await mount(t,async(url)=>{
   if(url!=='/api/send') return null;
   calls++;if(calls===1) throw new TypeError('Network disconnected');
-  return new Response('<html>Bad gateway</html>',{status:502});
+  return new Response('<html>Bad gateway</html>',{status:502,headers:{'cf-ray':'a5e2e7ef1e481496-FRA'}});
  });
  const original=editor().innerHTML;
  await submit(); assert.equal(calls,1);assert.equal(send().disabled,false);assert.equal(editor().innerHTML,original);
- assert.match(document.body.textContent,/Send failed/);
+ assert.match(document.body.textContent,/Send failed \(Network disconnected\)/);
  await submit();assert.equal(calls,2);assert.equal(send().disabled,false);assert.equal(editor().innerHTML,original);
+ assert.match(document.body.textContent,/Send failed \(HTTP 502, Ray a5e2e7ef1e481496\)/);
 });
 
 test('autosave failure leaves a persistent warning until a later edit saves successfully',async t=>{

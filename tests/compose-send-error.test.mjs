@@ -20,3 +20,9 @@ test('ambiguous delivery errors explain that resending requires checking the out
 test('structured validation payloads and absent bodies never become React children',()=>{
  for(const value of [{error:{fieldErrors:{to:['Invalid']}}},null,{},'proxy error'])assert.equal(composeSendError(value,t),de['compose.error.sendFailed']);
 });
+test('HTTP status, Cloudflare Ray ID and validation details are surfaced when response context is supplied',()=>{
+ assert.equal(composeSendError(null,t,{status:403,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']} (HTTP 403, Ray a5e2e7ef1e481496)`);
+ assert.equal(composeSendError(null,t,{status:502,rayId:'invalid ray!'}),`${de['compose.error.sendFailed']} (HTTP 502)`);
+ assert.equal(composeSendError({error:{fieldErrors:{to:['At least one recipient is required']}}},t,{status:400}),`${de['compose.error.sendFailed']}: At least one recipient is required`);
+ assert.equal(composeSendError({error:'Mailbox not found'},t,{status:403,rayId:'a5e2e7ef1e481496-FRA'}),'Mailbox not found');
+});
