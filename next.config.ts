@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
 	  },
 	// Native and server-only packages used by the self-hosted runtime; never bundle them.
 	serverExternalPackages: ["better-sqlite3", "nodemailer", "smtp-server", "ws"],
+	experimental: {
+		// Multipart uploads to /api/send and draft attachments can reach 25 MB plus form overhead.
+		serverActions: { bodySizeLimit: "30mb" },
+	},
 	async headers() {
 		return [
 			{

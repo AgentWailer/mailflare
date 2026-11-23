@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
-import { requireUser } from "@/lib/auth/cookies";
+import { resolveCurrentUser } from "@/lib/auth/cookies";
 import { sendEmailSchema } from "@/lib/validators";
 import { sendEmail } from "@/lib/email/send";
 import { parseSendRequest } from "./utils";
@@ -15,13 +15,19 @@ import { DeliveryOutcomeError } from "@/lib/email/send-errors";
 
 export async function POST(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const { user, failure } = await resolveCurrentUser(env, request);
+	if (!user) {
+		return NextResponse.json(
+			{ error: failure === "origin" ? "Invalid origin" : "Unauthorized" },
+			{ status: failure === "origin" ? 403 : 401 },
+		);
+	}
 	let input;
 	try {
 		input = await parseSendRequest(request);
 	} catch (error) {
-		const status = error instanceof RequestBodyTooLargeError ? 413 : 400;
-		return NextResponse.json({ error: "Invalid send request" }, { status });
+		const tooLarge = error instanceof RequestBodyTooLargeError;
+		return NextResponse.json({ error: tooLarge ? "Request body is too large" : "Invalid send request" }, { status: tooLarge ? 413 : 400 });
 	}
 	const { attachments = [], draftId, ...fields } = input;
 	const parsed = sendEmailSchema.omit({ attachments: true }).safeParse(fields);
