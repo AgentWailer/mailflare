@@ -37,12 +37,15 @@ export function buildRecipientDirectory({
 	own,
 	now = Date.now(),
 	limit = MAX_DIRECTORY_ENTRIES,
+	writtenToOnly = false,
 }: {
 	contacts: readonly RecipientDirectoryContact[];
 	sent: readonly RecipientDirectorySentMessage[];
 	own: readonly string[];
 	now?: number;
 	limit?: number;
+	/** Keep only people in the given sent mail; contacts then lend their names and nothing else. */
+	writtenToOnly?: boolean;
 }): RecipientCandidate[] {
 	const ownSet = new Set(own.map((address) => address.trim().toLowerCase()));
 	const blocked = new Set<string>();
@@ -91,7 +94,7 @@ export function buildRecipientDirectory({
 	}
 
 	return [...byEmail.values()]
-		.filter((candidate) => !blocked.has(candidate.email) && !ownSet.has(candidate.email))
+		.filter((candidate) => !blocked.has(candidate.email) && !ownSet.has(candidate.email) && (!writtenToOnly || candidate.sends > 0))
 		.sort(compareRecipientCandidates)
 		.slice(0, Math.max(0, limit));
 }

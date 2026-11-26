@@ -54,6 +54,9 @@ test("a display name written as somebody else's address is said, whoever the sen
 	// Padding the name, or naming the real address many times first, pushes nothing out of sight.
 	assert.deepEqual(check(`"${"x".repeat(400)} maya.chen@lumen.example" <thief@elsewhere.example>`), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
 	assert.deepEqual(check(`"${"thief@elsewhere.example ".repeat(20)}maya.chen@lumen.example" <thief@elsewhere.example>`), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	// Several at signs in one run of characters hide nothing either.
+	assert.deepEqual(check('"x@maya.chen@lumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	assert.deepEqual(check('"thief@elsewhere.example@maya.chen@lumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
 	const started = performance.now();
 	check(`"${"a".repeat(90_000)}" <thief@elsewhere.example>`);
 	check(`"${"a@".repeat(40_000)}" <thief@elsewhere.example>`);

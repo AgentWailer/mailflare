@@ -68,7 +68,9 @@ export function getSenderWarnings(input: SenderCheckInput): SenderWarning[] {
 
 	const warnings: SenderWarning[] = [];
 	// `"boss@firm.example" <someone@else.example>`: mail programs show the name large and the address small.
-	const shown = addressesWrittenIn(sender.name).find((written) => written !== address);
+	const written = addressesWrittenIn(sender.name).filter((entry) => entry !== address);
+	// Say the one the reader would recognise: an address they know, else the last one written.
+	const shown = written.find((entry) => own.has(entry) || knownAddresses.has(entry)) ?? written.at(-1);
 	if (shown) warnings.push({ kind: "nameIsOtherAddress", shown });
 	const senderDomain = registrableDomain(domainOf(address));
 	const key = nameKey(sender.name);

@@ -140,11 +140,15 @@ function asSeen(text: string | null | undefined): string {
 export function addressesWrittenIn(text: string | null | undefined): string[] {
 	const found = new Set<string>();
 	for (const piece of asSeen(text).split(/[\s<>"'(),;:]+/)) {
-		const at = piece.indexOf("@");
-		if (at <= 0 || at !== piece.lastIndexOf("@")) continue;
-		const dot = piece.indexOf(".", at + 2);
-		if (dot < 0 || dot === piece.length - 1) continue;
-		found.add(piece.toLowerCase());
+		if (!piece.includes("@")) continue;
+		// Every run of `local@domain.tld` in the piece, so `x@maya@firm.example` still shows `maya@firm.example`.
+		const parts = piece.split("@");
+		for (let index = 0; index + 1 < parts.length; index++) {
+			const local = parts[index], domain = parts[index + 1];
+			const dot = domain.indexOf(".", 1);
+			if (!local || dot < 0 || dot === domain.length - 1) continue;
+			found.add(`${local}@${domain}`.toLowerCase());
+		}
 	}
 	return [...found];
 }

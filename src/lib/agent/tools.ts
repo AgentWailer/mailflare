@@ -62,7 +62,7 @@ export const emailToolDescriptions: Record<EmailToolName, string> = {
 	get_email: `Read one email and its attachment metadata without marking it read. ${UNTRUSTED_NOTE}`,
 	get_thread: `Read the recent conversation containing an email before drafting a reply. ${UNTRUSTED_NOTE}`,
 	search_emails: `Search email subject and body in this mailbox. ${UNTRUSTED_NOTE}`,
-	find_contacts: "Find the email address of a person the user writes to, by the start of their name or address. Returns the people the user has sent mail to most, best match first. Use this instead of guessing an address.",
+	find_contacts: "Find the email address of a person the user has written to from this mailbox, by the start of their name or address. Returns the people written to most, best match first. Use this instead of guessing an address.",
 	draft_email: "Save a new email draft to one or more recipients, optionally with copies. This never sends.",
 	draft_reply: "Save a reply draft with recipients and threading derived from the source email. This never sends.",
 	edit_draft: "Update a draft created by the assistant in the selected mailbox. First read it with get_email to get its current revision and attachment IDs. Can change sender, recipients, subject, body, requested schedule, and copy or remove attachments from accessible emails. Use an ISO 8601 send time with timezone offset; null clears it. This never sends or schedules delivery by itself.",
@@ -166,7 +166,8 @@ export async function runEmailTool(context: AgentToolContext, name: EmailToolNam
 	}
 	if (name === "find_contacts") {
 		await requireAccess(context);
-		const directory = await loadRecipientDirectory(db, context.user);
+		// Scoped to this mailbox: a key allowed for one mailbox must not learn who the user writes to from another.
+		const directory = await loadRecipientDirectory(db, context.user, { mailboxId: context.mailboxId });
 		const found = suggestRecipients(directory, input.query as string, new Set(), input.limit as number);
 		return { contacts: found.map((contact) => ({ name: contact.name, email: contact.email, emailsSent: contact.sends })) };
 	}

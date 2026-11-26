@@ -89,6 +89,8 @@
 	"message.replyAll": "Allen antworten",
 	"message.forward": "Weiterleiten",
 	"message.showOriginal": "Original anzeigen",
+	"message.print": "Drucken",
+	"message.printDate": "Datum",
 	"message.blockContact": "Kontakt blockieren",
 	"message.star": "Markieren",
 	"message.removeStar": "Markierung entfernen",

@@ -1,9 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { ComposePrefill } from "./mailto-utils";
-import { UndoSendToast } from "./undo-send-toast";
+
+// Only ever shown after a message was sent with an undo window: kept out of the startup bundle.
+// If it cannot be loaded (connection lost right after sending), the page carries on without the
+// offer; the message is still held and can be taken back under Scheduled.
+const UndoSendToast = lazy(() => import("./undo-send-toast").then((module) => ({ default: module.UndoSendToast })).catch(() => ({ default: (() => null) as typeof import("./undo-send-toast").UndoSendToast })));
 
 /** A message that was just sent with an undo window and has not been delivered yet. */
 export type PendingUndoSend = { messageId: string; until: number };
@@ -78,12 +82,14 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 		<ComposeContext.Provider value={value}>
 			{children}
 			{pendingUndo && (
-				<UndoSendToast
-					key={pendingUndo.messageId}
-					pending={pendingUndo}
-					onDone={() => setPendingUndo((current) => (current?.messageId === pendingUndo.messageId ? null : current))}
-					onRestored={openDraftComposer}
-				/>
+				<Suspense fallback={null}>
+					<UndoSendToast
+						key={pendingUndo.messageId}
+						pending={pendingUndo}
+						onDone={() => setPendingUndo((current) => (current?.messageId === pendingUndo.messageId ? null : current))}
+						onRestored={openDraftComposer}
+					/>
+				</Suspense>
 			)}
 		</ComposeContext.Provider>
 	);

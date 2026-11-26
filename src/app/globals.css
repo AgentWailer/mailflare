@@ -831,3 +831,11 @@ body:has(.mail-mobile-shell) { position: fixed; inset: 0; }
 @media (max-width: 767px) { .mail-mobile-row { padding-left: 18px; } }
 @media (min-width: 768px) { .mail-header-search .mail-search-form { padding-inline: 14px; } }
 @media (max-width: 1023px) { .mail-mobile-header[data-reading-message="true"] { display: none; } }
+
+/* Printing a message (print-message.ts): the printer sees the prepared page, never the application. */
+#mailflare-print-root { display: none; }
+@media print {
+	html.mailflare-printing, html.mailflare-printing body { height: auto !important; overflow: visible !important; position: static !important; background: #fff !important; }
+	html.mailflare-printing body > :not(#mailflare-print-root) { display: none !important; }
+	html.mailflare-printing #mailflare-print-root { display: block; }
+}

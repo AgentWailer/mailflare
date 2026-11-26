@@ -90,6 +90,8 @@
 	"message.replyAll": "Reply all",
 	"message.forward": "Forward",
 	"message.showOriginal": "Show original",
+	"message.print": "Print",
+	"message.printDate": "Date",
 	"message.blockContact": "Block contact",
 	"message.star": "Star",
 	"message.removeStar": "Remove star",
