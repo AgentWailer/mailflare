@@ -6,6 +6,7 @@ const ProfileForm = lazy(() => import("./profile-form").then(module => ({ defaul
 const ForwardingEmailForm = lazy(() => import("./forwarding-email-form").then(module => ({ default: module.ForwardingEmailForm })));
 const MailboxSignatureForm = lazy(() => import("./mailbox-signature-form").then(module => ({ default: module.MailboxSignatureForm })));
 const TimeZoneForm = lazy(() => import("./time-zone-form").then(module => ({ default: module.TimeZoneForm })));
+const MailLinkSettings = lazy(() => import("./mail-link-settings").then(module => ({ default: module.MailLinkSettings })));
 const UndoSendSettings = lazy(() => import("./undo-send-settings").then(module => ({ default: module.UndoSendSettings })));
 const WritingPreferencesSettings = lazy(() => import("./writing-preferences-settings").then(module => ({ default: module.WritingPreferencesSettings })));
 
@@ -28,4 +29,8 @@ export function DeferredWritingPreferencesSettings() {
 
 export function DeferredUndoSendSettings() {
 	return <Suspense fallback={null}><UndoSendSettings /></Suspense>;
+}
+
+export function DeferredMailLinkSettings() {
+	return <Suspense fallback={null}><MailLinkSettings /></Suspense>;
 }

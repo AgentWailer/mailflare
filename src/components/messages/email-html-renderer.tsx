@@ -8,6 +8,8 @@ import { fitEmailToWidth } from "./fit-email-to-width";
 import { createEmailTheme } from "./email-theme";
 import { useExternalContent } from "./use-external-content";
 import { preferNativeAmazonLinks } from "./native-app-links";
+import { useOptionalCompose } from "@/components/compose/compose-context";
+import { parseMailto } from "@/components/compose/mailto-utils";
 
 const BASE_STYLE = `
 :host { display:block; min-width:0; isolation:isolate; contain:paint; }
@@ -25,6 +27,10 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 	collapseQuotes?: boolean;
 }) {
 	const { t } = useLanguage();
+	// Read through a ref: the message is laid out once, not again each time the composer opens or closes.
+	const compose = useOptionalCompose();
+	const composeRef = useRef(compose);
+	useEffect(() => { composeRef.current = compose; });
 	const host = useRef<HTMLDivElement>(null);
 	const preference = useExternalContent();
 	const [remoteOverride, setRemoteOverride] = useState<{ html: string; settings: typeof preference.settings; enabled: boolean } | null>(null);
@@ -61,6 +67,10 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 			const target = event.target as Element | null;
 			const anchor = target?.closest("a[href]");
 			const href = anchor?.getAttribute("href");
+			// An address in a message starts a message here, not in another mail program.
+			// Not from inside the composer: that would put the message being written aside.
+			const mail = composeRef.current && href && /^mailto:/i.test(href) && !host.current?.closest("form") ? parseMailto(href) : null;
+			if (mail) { event.preventDefault(); composeRef.current!.openComposerWith(mail); return; }
 			if (!href?.startsWith("#")) return;
 			event.preventDefault();
 			try {

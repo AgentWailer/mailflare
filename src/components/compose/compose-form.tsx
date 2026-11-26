@@ -25,6 +25,7 @@ import { getSendWarnings } from "./send-warnings-utils";
 import type { SendWarning } from "./send-warnings-types";
 import { invalidateRecipientDirectory, useRecipientDirectory } from "./use-recipient-directory";
 import { readUndoSendSeconds } from "./use-undo-send";
+import type { ComposePrefill } from "./mailto-utils";
 import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleSendMenu } from "./schedule-send-menu";
@@ -52,7 +53,10 @@ export function ComposeForm({
 	mode = "page",
 	draftIdToLoad,
 	onClose,
+	initial,
 }: {
+	/** Recipients, subject and text a new message starts with, e.g. from a mailto link. */
+	initial?: ComposePrefill | null;
 	mode?: "page" | "popup";
 	draftIdToLoad?: string | null;
 	onClose?: () => void;
@@ -63,11 +67,11 @@ export function ComposeForm({
 	const [draftId, setDraftId] = useState<string | null>(null);
 	const [agentRevision, setAgentRevision] = useState<number | null>(null);
 	const [agentReview, setAgentReview] = useState<{ approvalId: string; snapshot: ReviewSnapshot } | null>(null);
-	const [to, setTo] = useState<string[]>([]);
-	const [cc, setCc] = useState<string[]>([]);
-	const [bcc, setBcc] = useState<string[]>([]);
-	const [showCc, setShowCc] = useState(false);
-	const [showBcc, setShowBcc] = useState(false);
+	const [to, setTo] = useState<string[]>(() => initial?.to ?? []);
+	const [cc, setCc] = useState<string[]>(() => initial?.cc ?? []);
+	const [bcc, setBcc] = useState<string[]>(() => initial?.bcc ?? []);
+	const [showCc, setShowCc] = useState(() => !!initial?.cc.length);
+	const [showBcc, setShowBcc] = useState(() => !!initial?.bcc.length);
 	// Warnings waiting for the writer's answer; null while nothing is asked.
 	const [sendWarnings, setSendWarnings] = useState<SendWarning[] | null>(null);
 	// Who was already on the message being answered: they have seen each other's addresses.
@@ -75,9 +79,9 @@ export function ComposeForm({
 	const compose = useOptionalCompose();
 	const directory = useRecipientDirectory();
 	const [threading, setThreading] = useState<ComposeThreading | null>(null);
-	const [subject, setSubject] = useState("");
+	const [subject, setSubject] = useState(() => initial?.subject ?? "");
 	// The body is HTML; quoted/forwarded content is kept aside and folded.
-	const [html, setHtml] = useState("");
+	const [html, setHtml] = useState(() => (initial?.body ? textToHtml(initial.body) : ""));
 	const [quotedHtml, setQuotedHtml] = useState<string | null>(null);
 	const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
 	// Attachments the draft already holds server-side (a forwarded message's files).
@@ -255,8 +259,10 @@ export function ComposeForm({
 		if (!selectedMailbox || loadingDraft || deletingDraft || (draftIdToLoad && !draftId)) return;
 		if (!recoveryLoaded.current) {
 			recoveryLoaded.current = true;
-			journalKey.current = recoveryKey(selectedMailbox.id, draftIdToLoad);
-			const recovered = readRecovery(journalKey.current);
+			// A message started from a link keeps a journal of its own: it neither picks up nor
+			// overwrites an older unsent message, which a plain new message still recovers.
+			journalKey.current = recoveryKey(selectedMailbox.id, initial ? "link" : draftIdToLoad);
+			const recovered = initial ? null : readRecovery(journalKey.current);
 			if (recovered) {
 				const mailbox = mailboxes.find(item => item.id === recovered.payload.mailboxId);
 				if (!mailbox) { writeRecovery(journalKey.current, null); return; }

@@ -16,11 +16,12 @@ write('mailbox.ts', `const mailbox={id:'box',domainId:'domain',localPart:'owner'
 write('entry.tsx', `import React,{useEffect} from 'react';import {createRoot} from 'react-dom/client';
 import {ComposeProvider,useCompose} from '@/components/compose/compose-context';
 import {FloatingComposer} from '@/components/compose/floating-composer';
+import {parseMailto} from '@/components/compose/mailto-utils';
 import {LanguageProvider} from '@/components/language-provider';
 import de from '../../public/locales/de.json';
 const params=new URLSearchParams(location.search);
 if(params.has('dark'))document.documentElement.classList.add('dark');
-function Open(){const compose=useCompose();useEffect(()=>{if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
+function Open(){const compose=useCompose();useEffect(()=>{const link=parseMailto(params.get('mailto'));if(link)compose.openComposerWith(link);else if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
 createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><ComposeProvider><Open/><FloatingComposer/></ComposeProvider></LanguageProvider>);`);
 const de = JSON.parse(readFileSync(join(root, 'public/locales/de.json'), 'utf8'));
 const label = (key, vars = {}) => Object.entries(vars).reduce((text, [name, value]) => text.replace(`{${name}}`, value), de[key]);
@@ -56,7 +57,7 @@ try {
 		const tag = `${width}${dark ? '-dark' : ''}`;
 
 		/** A fresh page with its own record of what the composer asked the server. */
-		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200 } = {}) {
+		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null } = {}) {
 			const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, permissions: ['clipboard-read', 'clipboard-write'] });
 			const page = await context.newPage();
 			page.setDefaultTimeout(10000);
@@ -80,7 +81,7 @@ try {
 				if (path.startsWith('/api/drafts') && method === 'DELETE') return json({ ok: true });
 				return json({ draft });
 			});
-			await page.goto(origin + '/?' + [withDraft && 'draft=1', dark && 'dark=1'].filter(Boolean).join('&'));
+			await page.goto(origin + '/?' + [withDraft && 'draft=1', dark && 'dark=1', mailto && 'mailto=' + encodeURIComponent(mailto)].filter(Boolean).join('&'));
 			const form = page.locator('form');
 			const editor = form.getByRole('textbox', { name: de['editor.messageBody'], exact: true });
 			await editor.waitFor();
@@ -382,7 +383,21 @@ try {
 			assert.equal(t.calls.sends.length, 1);
 			await t.close();
 		}
-		console.log(JSON.stringify({ ...config, dragBetweenLines: true, chipMenu: true, suggestions: true, sendWarnings: true, undoSend: true, noOverflow: true }));
+		// 6. A mail link starts a message with its recipients, subject and text; the text is text, never markup.
+		{
+			const t = await open({ mailto: 'mailto:lin@harborworks.test?cc=max@partner.test&subject=Angebot%20Seeblick&body=Hallo%20Lin%2C%0D%0A%0D%0A%3Cb%3Ebitte%3C%2Fb%3E%20um%20R%C3%BCckruf.' });
+			await t.editor.getByText('um Rückruf').waitFor();
+			assert.deepEqual(await t.chips('to'), ['lin@harborworks.test']);
+			assert.deepEqual(await t.chips('cc'), ['max@partner.test'], `${tag}: Cc is open when the link names one`);
+			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).inputValue(), 'Angebot Seeblick');
+			assert.equal(await t.editor.locator('b').count(), 0, 'markup in a link stays visible text');
+			assert.match(await t.editor.innerText(), /^Hallo Lin,\n+<b>bitte<\/b> um Rückruf\./);
+			await t.page.waitForTimeout(1200);
+			assert.equal(t.calls.saves.at(-1).to, 'lin@harborworks.test', 'the started message is saved as a draft like any other');
+			await t.noOverflow('with a prefilled message');
+			await t.close();
+		}
+		console.log(JSON.stringify({ ...config, dragBetweenLines: true, chipMenu: true, suggestions: true, sendWarnings: true, undoSend: true, mailLink: true, noOverflow: true }));
 	}
 } finally {
 	await browser?.close();
