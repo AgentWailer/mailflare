@@ -122,3 +122,19 @@ export function mailboxLocalPart(local: string, domain: string): string {
 	if (DOTS_IGNORED.has(registrableDomain(domain))) value = value.replace(/\./g, "");
 	return value;
 }
+
+/**
+ * The addresses written inside a piece of text such as a display name, as a
+ * reader would see them: characters that draw nothing are dropped and
+ * full-width or small forms (`＠`, `﹫`, `．`) are read as the plain characters
+ * they pass for. Lower-cased; at most a handful, from at most {@link MAX_COMPARED_CHARS}.
+ */
+export function addressesWrittenIn(text: string | null | undefined): string[] {
+	const seen = withoutInvisible(text ?? "").normalize("NFKC");
+	return Array.from(seen.matchAll(/[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+\.[^\s@<>"'(),;:]+/g)).slice(0, 8).map((match) => match[0].toLowerCase());
+}
+
+/** Whether text shows an at sign in any of the forms it is drawn in. */
+export function showsAtSign(text: string | null | undefined): boolean {
+	return withoutInvisible(text ?? "").normalize("NFKC").includes("@");
+}

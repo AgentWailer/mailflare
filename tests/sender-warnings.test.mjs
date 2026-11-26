@@ -46,6 +46,11 @@ test("mail under the owner's own name from a foreign address is said", () => {
 test("a display name written as somebody else's address is said, whoever the sender is", () => {
 	assert.deepEqual(check('"maya.chen@lumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
 	assert.deepEqual(kinds(check('"Maya Chen (maya.chen@lumen.example)" <thief@elsewhere.example>')), ["nameIsOtherAddress"], "inside a longer name too");
+	// Forms of @ and . that are drawn the same, and characters that draw nothing, hide nothing.
+	assert.deepEqual(check('"maya.chen＠lumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	assert.deepEqual(check('"maya.chen﹫lumen．example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	assert.deepEqual(check('"maya.chen@\u200blumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	assert.deepEqual(check('"thief@elsewhere.example for maya.chen@lumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }], "every address in the name is looked at, not only the first");
 	assert.deepEqual(check('"news@shop.example" <news@shop.example>'), [], "the sender's own address as its name is harmless");
 	assert.deepEqual(check('"NEWS@Shop.example" <news@shop.example>'), []);
 	assert.deepEqual(check('"Preise ab 5@Stück" <news@shop.example>'), [], "an @ alone is no address");

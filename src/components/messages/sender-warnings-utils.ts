@@ -1,7 +1,7 @@
 import { findLookalike, prepareSendWarningFacts } from "@/components/compose/send-warnings-utils";
 import { foldForSearch } from "@/components/compose/recipient-suggest-utils";
 import { getEmailAddressList, parseEmailAddressParts } from "@/lib/email/address";
-import { isMailProviderDomain, registrableDomain, withoutInvisible } from "@/lib/email/confusables";
+import { addressesWrittenIn, isMailProviderDomain, registrableDomain, withoutInvisible } from "@/lib/email/confusables";
 import type { SenderCheckInput, SenderWarning } from "./sender-warnings-types";
 
 /**
@@ -68,8 +68,8 @@ export function getSenderWarnings(input: SenderCheckInput): SenderWarning[] {
 
 	const warnings: SenderWarning[] = [];
 	// `"boss@firm.example" <someone@else.example>`: mail programs show the name large and the address small.
-	const shown = withoutInvisible(sender.name ?? "").match(/[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+\.[^\s@<>"'(),;:]+/)?.[0]?.toLowerCase();
-	if (shown && shown !== address) warnings.push({ kind: "nameIsOtherAddress", shown });
+	const shown = addressesWrittenIn(sender.name).find((written) => written !== address);
+	if (shown) warnings.push({ kind: "nameIsOtherAddress", shown });
 	const senderDomain = registrableDomain(domainOf(address));
 	const key = nameKey(sender.name);
 	if (key) {

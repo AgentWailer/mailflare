@@ -1,4 +1,5 @@
 import { getEmailAddress, joinEmailAddressList, parseEmailAddressParts, splitEmailAddressList } from "@/lib/email/address";
+import { showsAtSign } from "@/lib/email/confusables";
 
 const EMAIL_RE = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
@@ -34,7 +35,8 @@ export function headerToRecipients(value: string | null | undefined): string[] {
  */
 export function getRecipientLabel(entry: string): string {
 	const parts = parseEmailAddressParts(entry);
-	if (!parts.name || parts.name === parts.address || parts.name.includes("@")) return parts.address;
+	// An at sign in any form it is drawn in (`＠`, `﹫`) makes the name read as an address.
+	if (!parts.name || parts.name === parts.address || showsAtSign(parts.name)) return parts.address;
 	return parts.name;
 }
 
