@@ -51,6 +51,14 @@ test("a display name written as somebody else's address is said, whoever the sen
 	assert.deepEqual(check('"maya.chen﹫lumen．example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
 	assert.deepEqual(check('"maya.chen@\u200blumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
 	assert.deepEqual(check('"thief@elsewhere.example for maya.chen@lumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }], "every address in the name is looked at, not only the first");
+	// Padding the name, or naming the real address many times first, pushes nothing out of sight.
+	assert.deepEqual(check(`"${"x".repeat(400)} maya.chen@lumen.example" <thief@elsewhere.example>`), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	assert.deepEqual(check(`"${"thief@elsewhere.example ".repeat(20)}maya.chen@lumen.example" <thief@elsewhere.example>`), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	const started = performance.now();
+	check(`"${"a".repeat(90_000)}" <thief@elsewhere.example>`);
+	check(`"${"a@".repeat(40_000)}" <thief@elsewhere.example>`);
+	check(`"${"a.".repeat(40_000)}@" <thief@elsewhere.example>`);
+	assert(performance.now() - started < 3000, "a name of any length and shape is read in linear time");
 	assert.deepEqual(check('"news@shop.example" <news@shop.example>'), [], "the sender's own address as its name is harmless");
 	assert.deepEqual(check('"NEWS@Shop.example" <news@shop.example>'), []);
 	assert.deepEqual(check('"Preise ab 5@Stück" <news@shop.example>'), [], "an @ alone is no address");

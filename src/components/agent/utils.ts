@@ -156,7 +156,7 @@ export function formatAgentDuration(durationMs: number): string {
 }
 
 export const AGENT_TOOL_NAMES = [
-	"list_emails", "get_email", "get_thread", "search_emails", "draft_email", "draft_reply", "mark_email_read", "move_email", "move_emails",
+	"list_emails", "get_email", "get_thread", "search_emails", "find_contacts", "draft_email", "draft_reply", "mark_email_read", "move_email", "move_emails",
 	"discard_draft", "get_schedule", "search_events", "get_event", "create_event", "update_events", "delete_events", "find_free_time", "get_calendars",
 ] as const;
 

@@ -123,18 +123,33 @@ export function mailboxLocalPart(local: string, domain: string): string {
 	return value;
 }
 
+/** Text as a reader sees it, whole: nothing that draws nothing, full-width and small forms narrowed. */
+function asSeen(text: string | null | undefined): string {
+	// Longer than any header a mail server passes on; both steps are linear in the length.
+	return (text ?? "").slice(0, 100_000).replace(INVISIBLE, "").normalize("NFKC");
+}
+
 /**
  * The addresses written inside a piece of text such as a display name, as a
  * reader would see them: characters that draw nothing are dropped and
  * full-width or small forms (`＠`, `﹫`, `．`) are read as the plain characters
- * they pass for. Lower-cased; at most a handful, from at most {@link MAX_COMPARED_CHARS}.
+ * they pass for. Lower-cased, each once, from the whole text. The text is cut
+ * at its separators and each piece looked at once, so the work is linear
+ * however the text is written.
  */
 export function addressesWrittenIn(text: string | null | undefined): string[] {
-	const seen = withoutInvisible(text ?? "").normalize("NFKC");
-	return Array.from(seen.matchAll(/[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+\.[^\s@<>"'(),;:]+/g)).slice(0, 8).map((match) => match[0].toLowerCase());
+	const found = new Set<string>();
+	for (const piece of asSeen(text).split(/[\s<>"'(),;:]+/)) {
+		const at = piece.indexOf("@");
+		if (at <= 0 || at !== piece.lastIndexOf("@")) continue;
+		const dot = piece.indexOf(".", at + 2);
+		if (dot < 0 || dot === piece.length - 1) continue;
+		found.add(piece.toLowerCase());
+	}
+	return [...found];
 }
 
-/** Whether text shows an at sign in any of the forms it is drawn in. */
+/** Whether text shows an at sign anywhere, in any of the forms it is drawn in. */
 export function showsAtSign(text: string | null | undefined): boolean {
-	return withoutInvisible(text ?? "").normalize("NFKC").includes("@");
+	return asSeen(text).includes("@");
 }

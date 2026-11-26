@@ -191,6 +191,7 @@ test("a chip never shows an address other than the one the message goes to", () 
 	assert.equal(app.getRecipientLabel("boss@lumen.example <thief@elsewhere.example>"), "thief@elsewhere.example");
 	assert.equal(app.getRecipientLabel('"boss＠lumen.example" <thief@elsewhere.example>'), "thief@elsewhere.example", "a full-width at sign reads as one");
 	assert.equal(app.getRecipientLabel('"boss﹫lumen.example" <thief@elsewhere.example>'), "thief@elsewhere.example");
+	assert.equal(app.getRecipientLabel(`"${"x".repeat(400)} boss@lumen.example" <thief@elsewhere.example>`), "thief@elsewhere.example", "however far into the name the address is written");
 	assert.equal(app.getRecipientLabel('"Maya Chen" <maya@example.com>'), "Maya Chen");
 	assert.equal(app.getRecipientLabel("maya@example.com"), "maya@example.com");
 	assert.equal(app.getRecipientLabel('"maya@example.com" <maya@example.com>'), "maya@example.com");
