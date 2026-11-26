@@ -43,6 +43,14 @@ test("mail under the owner's own name from a foreign address is said", () => {
 	assert.deepEqual(check('"Steffen Beispiel" <noreply@lumen.example>'), [], "a system of the owner's own organisation");
 });
 
+test("a display name written as somebody else's address is said, whoever the sender is", () => {
+	assert.deepEqual(check('"maya.chen@lumen.example" <thief@elsewhere.example>'), [{ kind: "nameIsOtherAddress", shown: "maya.chen@lumen.example" }]);
+	assert.deepEqual(kinds(check('"Maya Chen (maya.chen@lumen.example)" <thief@elsewhere.example>')), ["nameIsOtherAddress"], "inside a longer name too");
+	assert.deepEqual(check('"news@shop.example" <news@shop.example>'), [], "the sender's own address as its name is harmless");
+	assert.deepEqual(check('"NEWS@Shop.example" <news@shop.example>'), []);
+	assert.deepEqual(check('"Preise ab 5@Stück" <news@shop.example>'), [], "an @ alone is no address");
+});
+
 test("a lookalike address or domain is said", () => {
 	assert.deepEqual(check("lin@harborwork.example"), [{ kind: "lookalike", like: "harborworks.example" }]);
 	assert.deepEqual(check("Rechnung <billing@harb0rworks.example>"), [{ kind: "lookalike", like: "harborworks.example" }]);

@@ -27,10 +27,15 @@ export function headerToRecipients(value: string | null | undefined): string[] {
 	return parseRecipientEntries(value ?? "");
 }
 
-/** Short label for a chip: the display name if there is one, else the address. */
+/**
+ * Short label for a chip: the display name if there is one, else the address.
+ * A name that is itself written as an address (`"boss@example.com" <other@else.example>`)
+ * is not shown: the chip would name one address while the message goes to another.
+ */
 export function getRecipientLabel(entry: string): string {
 	const parts = parseEmailAddressParts(entry);
-	return parts.name && parts.name !== parts.address ? parts.name : parts.address;
+	if (!parts.name || parts.name === parts.address || parts.name.includes("@")) return parts.address;
+	return parts.name;
 }
 
 export type RecipientField = "to" | "cc" | "bcc";

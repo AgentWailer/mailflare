@@ -27,7 +27,7 @@ test("recipients, subject and text are read as RFC 6068 writes them", () => {
 	assert.deepEqual(app.parseMailto("mailto:?subject=Nur%20Betreff"), { to: [], cc: [], bcc: [], subject: "Nur Betreff", body: "" });
 	assert.equal(app.parseMailto("mailto:a+tag@example.com?subject=1+1").to[0], "a+tag@example.com", "a plus sign stays a plus sign");
 	assert.equal(app.parseMailto("mailto:a@example.com?subject=1+1").subject, "1+1");
-	assert.deepEqual(app.parseMailto("mailto:%22Chen%2C%20Maya%22%20%3Cmaya@example.com%3E").to, ['"Chen, Maya" <maya@example.com>'], "a name with a comma is one recipient");
+	assert.deepEqual(app.parseMailto("mailto:%22Chen%2C%20Maya%22%20%3Cmaya@example.com%3E").to, ["maya@example.com"], "a name with a comma is one recipient, taken by its address");
 	assert.equal(app.parseMailto("mailto:j%C3%BCrgen@example.com?subject=Gr%C3%BC%C3%9Fe").subject, "Grüße");
 });
 
@@ -43,6 +43,10 @@ test("a link cannot plant headers, attachments, markup or endless content", () =
 	assert.equal(parsed.subject, "Hi Bcc: evil@example.com", "the subject stays one line of text");
 	assert.equal(parsed.body, "<script>alert(1)</script>", "the text is kept as text; the composer writes it as text, not as markup");
 	assert.deepEqual(app.parseMailto("mailto:not-an-address,<script>,a@b.example,@,x@").to, ["a@b.example"], "only addresses become recipients");
+	// A link's display name is its writer's word. It must not put one address on the chip and send to another.
+	assert.deepEqual(app.parseMailto("mailto:%22boss@lumen.example%22%20%3Cthief@elsewhere.example%3E?cc=Boss%20%3Cthief2@elsewhere.example%3E").to, ["thief@elsewhere.example"]);
+	assert.deepEqual(app.parseMailto("mailto:a@b.example?cc=Boss%20%3Cthief2@elsewhere.example%3E").cc, ["thief2@elsewhere.example"]);
+	assert.deepEqual(app.parseMailto("mailto:user@localhost,a@b,c@d.example").to, ["c@d.example"], "an address needs a domain with a dot");
 	assert.equal(app.parseMailto(`mailto:${Array.from({ length: 500 }, (_, index) => `p${index}@example.com`).join(",")}`).to.length, 50);
 	assert.equal(app.parseMailto(`mailto:a@example.com?subject=${"s".repeat(5000)}`).subject.length, 500);
 	assert.equal(app.parseMailto(`mailto:a@example.com?body=${"b".repeat(60_000)}`).body.length, 50_000);

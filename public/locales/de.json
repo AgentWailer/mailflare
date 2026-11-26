@@ -313,6 +313,7 @@
 	"settings.mailLinks.failed": "Der Browser hat abgelehnt. E-Mail-Links brauchen eine sichere Adresse (https).",
 	"settings.mailLinks.unsupported": "Dieser Browser kann E-Mail-Links nicht an eine Webseite übergeben. Chrome, Edge und Firefox am Computer können das.",
 	"message.sender.title": "Prüfen Sie, von wem das kommt",
+	"message.sender.nameIsOtherAddress": "Als Name des Absenders steht die Adresse {shown}. Die Nachricht kommt aber in Wahrheit von {address}.",
 	"message.sender.nameOfKnownPerson": "Der Name {name} gehört zu jemandem, an den Sie unter {known} schreiben. Diese Nachricht kommt aber von einer anderen Adresse: {address}.",
 	"message.sender.ownName": "Diese Nachricht trägt Ihren eigenen Namen, {name}, kommt aber von einer Adresse, die nicht Ihnen gehört: {address}.",
 	"message.sender.lookalike": "Die Adresse {address} sieht aus wie {like}, wohin Sie sonst schreiben, ist aber nicht dieselbe.",

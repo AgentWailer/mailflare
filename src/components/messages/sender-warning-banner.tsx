@@ -42,6 +42,7 @@ export function SenderWarningBanner({ fromAddr, replyTo, html }: { fromAddr: str
 				{warnings.map((warning, index) => (
 					<li key={index}>
 						{warning.kind === "nameOfKnownPerson" ? t("message.sender.nameOfKnownPerson", { name: warning.name, known: warning.knownAddress, address })
+							: warning.kind === "nameIsOtherAddress" ? t("message.sender.nameIsOtherAddress", { shown: warning.shown, address })
 							: warning.kind === "ownName" ? t("message.sender.ownName", { name: warning.name, address })
 							: warning.kind === "lookalike" ? t("message.sender.lookalike", { address, like: warning.like })
 							: warning.kind === "replyElsewhere" ? t("message.sender.replyElsewhere", { replyTo: warning.replyTo })

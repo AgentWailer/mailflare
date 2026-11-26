@@ -1,6 +1,8 @@
 export type SenderWarning =
 	/** The sender's name is that of `knownAddress`, whom the owner writes to, but the address is another one. */
 	| { kind: "nameOfKnownPerson"; name: string; knownAddress: string }
+	/** The sender's display name is written as an address, and it is not the address the message comes from. */
+	| { kind: "nameIsOtherAddress"; shown: string }
 	/** The sender signs with the owner's own name from an address that is not theirs. */
 	| { kind: "ownName"; name: string }
 	/** The sender's address or domain reads like `like`, a known correspondent's, but is not the same. */

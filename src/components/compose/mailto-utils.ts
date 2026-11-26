@@ -1,4 +1,4 @@
-import { splitEmailAddressList } from "@/lib/email/address";
+import { getEmailAddress, splitEmailAddressList } from "@/lib/email/address";
 
 /** What a link or another program asks the composer to start with. */
 export type ComposePrefill = { to: string[]; cc: string[]; bcc: string[]; subject: string; body: string };
@@ -18,12 +18,14 @@ function addresses(value: string): string[] {
 	const seen = new Set<string>();
 	const result: string[] = [];
 	for (const entry of splitEmailAddressList(value)) {
-		// Only real addresses: a link must not be able to plant text that merely looks like one.
-		if (!/^[^\s@<>"]+@[^\s@<>"]+$/.test(entry) && !/<[^\s@<>"]+@[^\s@<>"]+>$/.test(entry)) continue;
-		const key = entry.toLowerCase();
+		// Only the bare address is taken from a link. A display name is the link writer's word:
+		// `"boss@example.com" <someone@else.example>` would show one address on the chip and send to another.
+		const address = getEmailAddress(entry).trim();
+		if (!/^[^\s@<>"',;:()]+@[^\s@<>"',;:()]+\.[^\s@<>"',;:()]+$/.test(address)) continue;
+		const key = address.toLowerCase();
 		if (seen.has(key)) continue;
 		seen.add(key);
-		result.push(entry);
+		result.push(address);
 		if (result.length >= MAX_RECIPIENTS_PER_LINE) break;
 	}
 	return result;

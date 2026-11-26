@@ -186,6 +186,14 @@ test("nothing is suggested for nothing typed, and chosen recipients are not offe
 	assert.deepEqual(emails("xyz"), []);
 });
 
+test("a chip never shows an address other than the one the message goes to", () => {
+	assert.equal(app.getRecipientLabel('"boss@lumen.example" <thief@elsewhere.example>'), "thief@elsewhere.example");
+	assert.equal(app.getRecipientLabel("boss@lumen.example <thief@elsewhere.example>"), "thief@elsewhere.example");
+	assert.equal(app.getRecipientLabel('"Maya Chen" <maya@example.com>'), "Maya Chen");
+	assert.equal(app.getRecipientLabel("maya@example.com"), "maya@example.com");
+	assert.equal(app.getRecipientLabel('"maya@example.com" <maya@example.com>'), "maya@example.com");
+});
+
 test("a chosen suggestion becomes a recipient that the composer accepts and can show", () => {
 	const chip = app.candidateToRecipient({ email: "o.brien@example.com", name: 'Pat "The Cat" O\'Brien, Jr.' });
 	assert.equal(app.isValidRecipient(chip), true);

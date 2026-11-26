@@ -320,6 +320,7 @@
 	"settings.mailLinks.failed": "The browser refused. Mail links need a secure (https) address.",
 	"settings.mailLinks.unsupported": "This browser cannot hand mail links to a web page. Chrome, Edge and Firefox on a computer can.",
 	"message.sender.title": "Check who this is from",
+	"message.sender.nameIsOtherAddress": "The sender's name shows the address {shown}, but this message really comes from {address}.",
 	"message.sender.nameOfKnownPerson": "The name {name} belongs to someone you write to at {known}, but this message comes from another address: {address}.",
 	"message.sender.ownName": "This message uses your own name, {name}, but comes from an address that is not yours: {address}.",
 	"message.sender.lookalike": "The address {address} looks like {like}, which you write to, but it is not the same.",
