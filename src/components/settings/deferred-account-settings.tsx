@@ -6,6 +6,7 @@ const ProfileForm = lazy(() => import("./profile-form").then(module => ({ defaul
 const ForwardingEmailForm = lazy(() => import("./forwarding-email-form").then(module => ({ default: module.ForwardingEmailForm })));
 const MailboxSignatureForm = lazy(() => import("./mailbox-signature-form").then(module => ({ default: module.MailboxSignatureForm })));
 const TimeZoneForm = lazy(() => import("./time-zone-form").then(module => ({ default: module.TimeZoneForm })));
+const UndoSendSettings = lazy(() => import("./undo-send-settings").then(module => ({ default: module.UndoSendSettings })));
 const WritingPreferencesSettings = lazy(() => import("./writing-preferences-settings").then(module => ({ default: module.WritingPreferencesSettings })));
 
 export function DeferredProfileForm(props: ComponentProps<typeof ProfileForm>) {
@@ -23,4 +24,8 @@ export function DeferredTimeZoneForm(props: ComponentProps<typeof TimeZoneForm>)
 
 export function DeferredWritingPreferencesSettings() {
 	return <Suspense fallback={null}><WritingPreferencesSettings /></Suspense>;
+}
+
+export function DeferredUndoSendSettings() {
+	return <Suspense fallback={null}><UndoSendSettings /></Suspense>;
 }

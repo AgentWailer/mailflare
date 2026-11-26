@@ -3,7 +3,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { resolveCurrentUser } from "@/lib/auth/cookies";
 import { sendEmailSchema } from "@/lib/validators";
 import { sendEmail } from "@/lib/email/send";
-import { parseSendRequest } from "./utils";
+import { getUndoDeliveryTime, parseSendRequest } from "./utils";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { getSendErrorStatus } from "./error-utils";
 import { getDb } from "@/db";
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 		const tooLarge = error instanceof RequestBodyTooLargeError;
 		return NextResponse.json({ error: tooLarge ? "Request body is too large" : "Invalid send request" }, { status: tooLarge ? 413 : 400 });
 	}
-	const { attachments = [], draftId, ...fields } = input;
+	const { attachments = [], draftId, undoSeconds, ...fields } = input;
 	const parsed = sendEmailSchema.omit({ attachments: true }).safeParse(fields);
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -49,13 +49,17 @@ export async function POST(request: Request) {
 			attachments.push(...(await loadMessageAttachmentContents(env, draftId)));
 		}
 
+		// An undo window is a short scheduled send: the durable job waits, and
+		// cancel-schedule takes the message back to Drafts until delivery claims it.
+		const undoAt = parsed.data.scheduledAt ? null : getUndoDeliveryTime(undoSeconds);
 		const result = await sendEmail(env, {
 			userId: user.id,
 			...parsed.data,
+			...(undoAt ? { scheduledAt: undoAt } : {}),
 			attachments,
 			publicOrigin: new URL(request.url).origin,
 		});
-		return NextResponse.json(result);
+		return NextResponse.json(undoAt && result.scheduled ? { ...result, undoUntil: undoAt.toISOString() } : result);
 	} catch (err) {
 		if (err instanceof MissingAttachmentError) return NextResponse.json({ error: err.message, code: "attachment_unavailable", filename: err.filename }, { status: 409 });
 		if (err instanceof DeliveryOutcomeError) return NextResponse.json({ error: err.message, code: err.code }, { status: getSendErrorStatus(err.message) });
