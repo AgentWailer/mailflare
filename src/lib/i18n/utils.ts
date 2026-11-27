@@ -10,6 +10,32 @@ export function resolveLocale(value: unknown): Locale {
 	return typeof value === "string" && Object.hasOwn(locales, value) ? value as Locale : DEFAULT_LOCALE;
 }
 
+/**
+ * The language of a first visit: the best match of the browser's `Accept-Language`
+ * among the registered languages, English when none fits. An exact code wins
+ * (`pt-PT`), then the same language in another region (`de-AT` reads German,
+ * `pt` the first Portuguese registered). Bounded: a header is read as far as
+ * any browser writes one.
+ */
+export function negotiateLocale(acceptLanguage: string | null | undefined): Locale {
+	if (!acceptLanguage) return DEFAULT_LOCALE;
+	const registered = Object.keys(locales) as Locale[];
+	const wanted = acceptLanguage.slice(0, 1000).split(",").slice(0, 30).map((part, index) => {
+		const [tag, ...parameters] = part.trim().split(";");
+		const quality = parameters.map((parameter) => parameter.trim().match(/^q=([01](?:\.\d{0,3})?)$/)?.[1]).find(Boolean);
+		return { tag: tag.trim().toLowerCase(), quality: quality === undefined ? 1 : Number(quality), index };
+	}).filter((entry) => /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(entry.tag) && entry.quality > 0)
+		.sort((a, b) => b.quality - a.quality || a.index - b.index);
+	for (const { tag } of wanted) {
+		const exact = registered.find((code) => code.toLowerCase() === tag);
+		if (exact) return exact;
+		const base = tag.split("-")[0];
+		const sameLanguage = registered.find((code) => code.toLowerCase() === base) ?? registered.find((code) => code.toLowerCase().split("-")[0] === base);
+		if (sameLanguage) return sameLanguage;
+	}
+	return DEFAULT_LOCALE;
+}
+
 export function getDirection(locale: Locale): "ltr" | "rtl" {
 	return (locales[locale] as { dir?: "rtl" }).dir ?? "ltr";
 }

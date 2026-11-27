@@ -132,10 +132,65 @@ function headerCondition(header: string[]): SQL {
 	}
 }
 
+/** What each RFC 8621 §4.4.1 FilterCondition property must hold. */
+const CONDITION_FIELDS: Record<string, "string" | "date" | "size" | "boolean" | "ids" | "header"> = {
+	inMailbox: "string",
+	inMailboxOtherThan: "ids",
+	before: "date",
+	after: "date",
+	minSize: "size",
+	maxSize: "size",
+	allInThreadHaveKeyword: "string",
+	someInThreadHaveKeyword: "string",
+	noneInThreadHaveKeyword: "string",
+	hasKeyword: "string",
+	notKeyword: "string",
+	hasAttachment: "boolean",
+	text: "string",
+	from: "string",
+	to: "string",
+	cc: "string",
+	bcc: "string",
+	subject: "string",
+	body: "string",
+	header: "header",
+};
+
+/** Operators nested deeper than any client writes; past this the request is refused, not recursed into. */
+const MAX_FILTER_DEPTH = 32;
+
+/**
+ * A client's condition, checked before any of it is used. A property with the
+ * wrong type is `invalidArguments`; one Mailflare does not know is
+ * `unsupportedFilter`, never ignored, because ignoring a condition widens the
+ * result to every message. `null` means the client left the property unset.
+ */
+function checkCondition(raw: unknown): FilterCondition {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw))
+		throw invalidArguments("A filter condition must be an object");
+	const condition: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(raw)) {
+		if (value === null || value === undefined) continue;
+		const kind = Object.hasOwn(CONDITION_FIELDS, key) ? CONDITION_FIELDS[key] : undefined;
+		if (!kind) throw unsupportedFilter(`Cannot filter on ${key}`);
+		const valid =
+			kind === "string" ? typeof value === "string"
+			: kind === "date" ? typeof value === "string" && !Number.isNaN(new Date(value).getTime())
+			: kind === "size" ? typeof value === "number" && Number.isFinite(value) && value >= 0
+			: kind === "boolean" ? typeof value === "boolean"
+			: kind === "ids" ? Array.isArray(value) && value.every((id) => typeof id === "string")
+			: true; // header: headerCondition checks its own shape
+		if (!valid) throw invalidArguments(`${key} has the wrong type`);
+		condition[key] = value;
+	}
+	return condition as FilterCondition;
+}
+
 function conditionToSql(
-	condition: FilterCondition,
+	unchecked: FilterCondition,
 	accessible: Set<string>,
 ): SQL[] {
+	const condition = checkCondition(unchecked);
 	const parts: SQL[] = [];
 	if (condition.inMailbox !== undefined) {
 		const ref = decodeMailboxRef(condition.inMailbox);
@@ -222,11 +277,17 @@ function conditionToSql(
 export function filterToSql(
 	filter: Filter | null | undefined,
 	accessible: Set<string>,
+	depth = 0,
 ): SQL | undefined {
-	if (!filter) return undefined;
+	if (filter === null || filter === undefined) return undefined;
+	if (typeof filter !== "object" || Array.isArray(filter))
+		throw invalidArguments("filter must be an object");
+	if (depth > MAX_FILTER_DEPTH) throw invalidArguments("filter is nested too deeply");
 	if ("operator" in filter) {
-		const children = (filter.conditions ?? [])
-			.map((child) => filterToSql(child, accessible))
+		if (!Array.isArray(filter.conditions))
+			throw invalidArguments("conditions must be a list");
+		const children = filter.conditions
+			.map((child) => filterToSql(child, accessible, depth + 1))
 			.filter((part): part is SQL => !!part);
 		if (children.length === 0) return undefined;
 		if (filter.operator === "AND") return and(...children);

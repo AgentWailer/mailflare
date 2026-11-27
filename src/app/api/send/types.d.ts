@@ -16,4 +16,6 @@ export interface SendRequestPayload {
 	/** Draft whose stored attachments (e.g. forwarded files) should be sent along. */
 	draftId?: string;
 	scheduledAt?: string;
+	/** Hold the message this many seconds before delivery so the sender can take it back. */
+	undoSeconds?: string | number;
 }

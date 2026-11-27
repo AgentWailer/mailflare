@@ -5,7 +5,8 @@ import { questionParts } from "@/components/confirm-dialog-utils";
 
 import { createElement, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Ban, BellOff, Clock, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
+import { Archive, Ban, BellOff, Clock, FileCode2, Forward, ListFilter, Mail, MailOpen, MoreVertical, Printer, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
+import { formatUserDate } from "@/lib/time/utils";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MessageActionMenuContent } from "@/components/messages/message-action-menu-content";
 import { useLanguage } from "@/components/language-provider";
@@ -114,6 +115,18 @@ export function MessageActions({
 	}, [messageId, direction, status, router, t]);
 	const onTrashClick = () => (canDeleteForever ? void deleteForever() : void runAction("trash"));
 	const trashLabel = canDeleteForever ? t("common.deleteForever") : t("actions.moveToTrash");
+	// Loaded when asked for: printing brings the mail sanitiser with it.
+	const onPrint = () => void import("@/components/messages/print-message").then(({ printMessage }) => printMessage({
+		subject: subject || t("list.noSubject"),
+		headers: [
+			{ label: t("compose.from"), value: message?.fromAddr ?? senderAddress },
+			{ label: t("compose.to"), value: message?.toAddr ?? "" },
+			{ label: t("compose.cc"), value: message?.ccAddr ?? "" },
+			{ label: t("message.printDate"), value: messageMeta?.createdAt ? formatUserDate(messageMeta.createdAt, { dateStyle: "full", timeStyle: "short" }) : "" },
+		],
+		html: bodyHtml,
+		text: bodyText,
+	})).catch(() => setError(t("actions.error.update")));
 
 	const replyable = useMemo(() => message ?? {
 		direction,
@@ -485,6 +498,13 @@ export function MessageActions({
 					>
 						<FileCode2 className="h-4 w-4" />
 						{t("message.showOriginal")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item
+						className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
+						onSelect={() => { setMoreOpen(false); onPrint(); }}
+					>
+						<Printer className="h-4 w-4" />
+						{t("message.print")}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator asChild><hr className="my-1 border-neutral-100" /></DropdownMenu.Separator>
 					<DropdownMenu.Label asChild><p className="mt-1 px-3 pb-1 pt-2 text-sm font-medium text-neutral-500">

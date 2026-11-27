@@ -192,6 +192,16 @@ html.dark .compose-refine-glow {
 	.compose-refine-glow { animation: none; opacity: 0.6; }
 }
 
+/* The time left to take a sent message back. */
+@keyframes undo-send-progress {
+	from { transform: scaleX(1); }
+	to { transform: scaleX(0); }
+}
+.undo-send-progress { animation: undo-send-progress linear forwards; }
+@media (prefers-reduced-motion: reduce) {
+	.undo-send-progress { animation: none; }
+}
+
 html.dark .compose-header,
 html.dark [data-compose-ai-bar] > div:last-child {
 	background-color: #303134;
@@ -230,6 +240,10 @@ html.dark [data-compose-ai-bar] > div:last-child {
 	.compose-page { min-height: 0; max-height: var(--compose-viewport-height, 100%); }
 	:is(.compose-popup, .compose-page) :is(.compose-header, .compose-toolbar) button { min-width: 44px; min-height: 44px; }
 	.message-action-menu [role="menuitem"] { min-height: 44px; font-size: 16px; }
+	[data-recipient-menu] [role="menuitem"] { min-height: 44px; font-size: 16px; }
+	[data-send-warning] button { min-height: 44px; }
+	/* The composer fills the screen here, with its send bar along the bottom. */
+	[data-undo-send] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); }
 	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 
@@ -817,3 +831,11 @@ body:has(.mail-mobile-shell) { position: fixed; inset: 0; }
 @media (max-width: 767px) { .mail-mobile-row { padding-left: 18px; } }
 @media (min-width: 768px) { .mail-header-search .mail-search-form { padding-inline: 14px; } }
 @media (max-width: 1023px) { .mail-mobile-header[data-reading-message="true"] { display: none; } }
+
+/* Printing a message (print-message.ts): the printer sees the prepared page, never the application. */
+#mailflare-print-root { display: none; }
+@media print {
+	html.mailflare-printing, html.mailflare-printing body { height: auto !important; overflow: visible !important; position: static !important; background: #fff !important; }
+	html.mailflare-printing body > :not(#mailflare-print-root) { display: none !important; }
+	html.mailflare-printing #mailflare-print-root { display: block; }
+}

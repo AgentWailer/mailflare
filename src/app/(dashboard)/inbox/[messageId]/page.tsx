@@ -25,6 +25,7 @@ import { MessageDetailNavigation } from "@/components/messages/message-detail-na
 import { MessageReadingHeaderButton } from "@/components/messages/message-reading-header-button";
 import { MessageReaderToolbar } from "@/components/messages/message-reader-toolbar";
 import { ScheduledSendBanner } from "@/components/messages/scheduled-send-banner";
+import { SenderWarningBanner } from "@/components/messages/sender-warning-banner";
 import { formatScheduledSendTime } from "@/components/messages/scheduled-send-utils";
 import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
 import { ThreadMessageActions } from "@/components/messages/thread-message-actions";
@@ -295,6 +296,7 @@ export default function MessageDetailPage() {
             </div>
           </div>
           {scheduledAt && <div className="pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} deliveryStatus={deliveryStatus} /></div>}
+          {message.direction === "inbound" && <SenderWarningBanner key={message.id} fromAddr={message.fromAddr} replyTo={message.replyTo} html={body?.htmlBody} />}
           <div className="prose max-w-none text-neutral-900">
             {htmlBody ? (
               <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />

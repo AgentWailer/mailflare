@@ -18,7 +18,14 @@ import { cn } from "@/lib/utils";
 import { SendReview } from "@/components/agent/send-review";
 import type { ReviewSnapshot } from "@/components/agent/send-review-types";
 import { buildSendFormData, fetchDraft, formatAttachmentSize } from "./utils";
-import { RecipientInput } from "./recipient-input";
+import { RecipientFields } from "./recipient-fields";
+import { useOptionalCompose } from "./compose-context";
+import { SendWarningDialog } from "./send-warning-dialog";
+import { getSendWarnings } from "./send-warnings-utils";
+import type { SendWarning } from "./send-warnings-types";
+import { invalidateRecipientDirectory, useRecipientDirectory } from "./use-recipient-directory";
+import { readUndoSendSeconds } from "./use-undo-send";
+import type { ComposePrefill } from "./mailto-utils";
 import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleSendMenu } from "./schedule-send-menu";
@@ -27,13 +34,15 @@ import { useComposeScrollLock } from "./use-compose-scroll-lock";
 import { useComposeViewport } from "./use-compose-viewport";
 import {
 	applyMailboxSignatureHtml,
+	authoredPlainText,
 	hasMeaningfulHtml,
 	htmlToPlainText,
 	joinQuotedHtml,
 	splitQuotedHtml,
 	textToHtml,
 } from "./rich-text-utils";
-import { headerToRecipients, isValidRecipient, recipientsToHeader } from "./recipient-utils";
+import { headerToRecipients, isValidRecipient, moveRecipientsToBcc, recipientsToHeader } from "./recipient-utils";
+import type { RecipientFields as RecipientLines } from "./recipient-utils";
 import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } from "./types";
 import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
@@ -44,7 +53,10 @@ export function ComposeForm({
 	mode = "page",
 	draftIdToLoad,
 	onClose,
+	initial,
 }: {
+	/** Recipients, subject and text a new message starts with, e.g. from a mailto link. */
+	initial?: ComposePrefill | null;
 	mode?: "page" | "popup";
 	draftIdToLoad?: string | null;
 	onClose?: () => void;
@@ -55,15 +67,21 @@ export function ComposeForm({
 	const [draftId, setDraftId] = useState<string | null>(null);
 	const [agentRevision, setAgentRevision] = useState<number | null>(null);
 	const [agentReview, setAgentReview] = useState<{ approvalId: string; snapshot: ReviewSnapshot } | null>(null);
-	const [to, setTo] = useState<string[]>([]);
-	const [cc, setCc] = useState<string[]>([]);
-	const [bcc, setBcc] = useState<string[]>([]);
-	const [showCc, setShowCc] = useState(false);
-	const [showBcc, setShowBcc] = useState(false);
+	const [to, setTo] = useState<string[]>(() => initial?.to ?? []);
+	const [cc, setCc] = useState<string[]>(() => initial?.cc ?? []);
+	const [bcc, setBcc] = useState<string[]>(() => initial?.bcc ?? []);
+	const [showCc, setShowCc] = useState(() => !!initial?.cc.length);
+	const [showBcc, setShowBcc] = useState(() => !!initial?.bcc.length);
+	// Warnings waiting for the writer's answer; null while nothing is asked.
+	const [sendWarnings, setSendWarnings] = useState<SendWarning[] | null>(null);
+	// Who was already on the message being answered: they have seen each other's addresses.
+	const seenRecipients = useRef<string[]>([]);
+	const compose = useOptionalCompose();
+	const directory = useRecipientDirectory();
 	const [threading, setThreading] = useState<ComposeThreading | null>(null);
-	const [subject, setSubject] = useState("");
+	const [subject, setSubject] = useState(() => initial?.subject ?? "");
 	// The body is HTML; quoted/forwarded content is kept aside and folded.
-	const [html, setHtml] = useState("");
+	const [html, setHtml] = useState(() => (initial?.body ? textToHtml(initial.body) : ""));
 	const [quotedHtml, setQuotedHtml] = useState<string | null>(null);
 	const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
 	// Attachments the draft already holds server-side (a forwarded message's files).
@@ -77,6 +95,7 @@ export function ComposeForm({
 	const [draftSaveFailed, setDraftSaveFailed] = useState(false);
 	const [draftSaving, setDraftSaving] = useState(false);
 	const [draftRestored, setDraftRestored] = useState(false);
+	const recipientLines = useMemo<RecipientLines>(() => ({ to, cc, bcc }), [to, cc, bcc]);
 	const frameRef = useRef<HTMLFormElement | null>(null);
 	useComposeViewport(frameRef, !minimized, mode);
 	useComposeScrollLock(frameRef, mode === "popup" && !minimized, modalMode);
@@ -184,6 +203,7 @@ export function ComposeForm({
 				setBcc(draftBcc);
 				setShowCc(draftCc.length > 0);
 				setShowBcc(draftBcc.length > 0);
+				seenRecipients.current = draft.inReplyTo ? [...headerToRecipients(draft.toAddr), ...draftCc] : [];
 				setThreading(
 					draft.inReplyTo || draft.threadId
 						? {
@@ -239,8 +259,10 @@ export function ComposeForm({
 		if (!selectedMailbox || loadingDraft || deletingDraft || (draftIdToLoad && !draftId)) return;
 		if (!recoveryLoaded.current) {
 			recoveryLoaded.current = true;
-			journalKey.current = recoveryKey(selectedMailbox.id, draftIdToLoad);
-			const recovered = readRecovery(journalKey.current);
+			// A message started from a link keeps a journal of its own: it neither picks up nor
+			// overwrites an older unsent message, which a plain new message still recovers.
+			journalKey.current = recoveryKey(selectedMailbox.id, initial ? "link" : draftIdToLoad);
+			const recovered = initial ? null : readRecovery(journalKey.current);
 			if (recovered) {
 				const mailbox = mailboxes.find(item => item.id === recovered.payload.mailboxId);
 				if (!mailbox) { writeRecovery(journalKey.current, null); return; }
@@ -305,10 +327,31 @@ export function ComposeForm({
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- The explicit mailbox fields below define the save snapshot; recovery-only state and save-result state are intentionally non-reactive.
 	}, [bcc, cc, fromAddr, html, loadingDraft, quotedHtml, selectedMailbox?.id, selectedMailbox?.signature, subject, threading, to, draftIdToLoad, deletingDraft]);
 
-	async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+	function onSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		void send();
+	}
+
+	/** The warnings for these recipients, measured against who the writer usually writes to. */
+	function warningsFor(recipients: RecipientLines): SendWarning[] {
+		return getSendWarnings({
+			...recipients,
+			facts: {
+				// Only people the writer wrote to or keeps as contacts; a first mail from a lookalike must not make it known.
+				known: directory.filter((candidate) => candidate.sends > 0 || candidate.source === "manual" || candidate.source === "outbound").map((candidate) => candidate.email),
+				own: senderOptions.map((option) => option.address),
+				organisationDomains: mailboxes.map((mailbox) => mailbox.hostname),
+			},
+			seen: seenRecipients.current,
+			bodyText: `${subject}\n${authoredPlainText(html)}`,
+			hasAttachments: attachments.length + storedAttachments.length > 0,
+		});
+	}
+
+	async function send(options: { confirmed?: boolean; recipients?: RecipientLines } = {}) {
 		if (refineActive || loading) return;
 		setToast(null);
+		const { to, cc, bcc } = options.recipients ?? recipientLines;
 		const reject = (field: "to" | "cc" | "bcc" | "body", message: string) => {
 			setFieldError({ field, message });
 			document.getElementById(field === "body" ? `${mode}-text` : `${mode}-${field}`)?.focus();
@@ -319,6 +362,13 @@ export function ComposeForm({
 			if (invalid) return reject(field, t("compose.error.invalidAddress", { address: invalid }));
 		}
 		if (!hasMeaningfulHtml(html) && !quotedHtml) return reject("body", t("compose.error.emptyBody"));
+		if (!options.confirmed) {
+			const warnings = warningsFor({ to, cc, bcc });
+			if (warnings.length > 0) { setSendWarnings(warnings); return; }
+		}
+		setSendWarnings(null);
+		// An undo window is offered where its "Undo" can be shown, and not for a time the writer picked.
+		const undoSeconds = compose && !scheduledAt ? readUndoSendSeconds() : 0;
 		setLoading(true);
 		const fullHtml = joinQuotedHtml(html, quotedHtml);
 		if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -366,9 +416,10 @@ export function ComposeForm({
 					threading: threading ?? undefined,
 					draftId: currentDraftId,
 					scheduledAt,
+					undoSeconds,
 				}),
 			});
-			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; error?: unknown; code?: string; filename?: string } | null;
+			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; undoUntil?: string; error?: unknown; code?: string; filename?: string } | null;
 
 			if (!res.ok) {
 				setToast({ type: "error", message: composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
@@ -401,7 +452,11 @@ export function ComposeForm({
 			setQuotedHtml(null);
 			setAttachments([]);
 			setScheduledAt(null);
-			setToast({ type: "success", message: data.scheduled ? t("compose.scheduled") : t("compose.sent") });
+			seenRecipients.current = [];
+			invalidateRecipientDirectory();
+			// The server confirms the window it granted; without one the message is already out.
+			if (compose && data.undoUntil && data.messageId && undoSeconds > 0) compose.offerUndoSend(data.messageId, undoSeconds);
+			else setToast({ type: "success", message: data.scheduled ? t("compose.scheduled") : t("compose.sent") });
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
 		} catch (cause) {
 			const detail = cause instanceof Error ? cause.message.trim() : "";
@@ -409,6 +464,22 @@ export function ComposeForm({
 		} finally {
 			setLoading(false);
 		}
+	}
+
+	function applyRecipientLines(next: RecipientLines) {
+		setTo(next.to);
+		setCc(next.cc);
+		setBcc(next.bcc);
+	}
+
+	/** Outsiders leave To and Cc for Bcc; a message needs someone in To, so the writer stands there if nobody is left. */
+	function moveOutsidersToBccAndSend() {
+		const outsiders = sendWarnings?.flatMap((warning) => (warning.kind === "outsiders" ? warning.addresses : [])) ?? [];
+		const moved = moveRecipientsToBcc(recipientLines, outsiders);
+		const next = moved.to.length === 0 && selectedFrom ? { ...moved, to: [fromAddr || selectedFrom] } : moved;
+		applyRecipientLines(next);
+		setShowBcc(true);
+		void send({ confirmed: true, recipients: next });
 	}
 
 	async function deleteDraftAndClose() {
@@ -598,6 +669,7 @@ export function ComposeForm({
 	return (
 		<>
 			{agentReview && <SendReview approvalId={agentReview.approvalId} snapshot={agentReview.snapshot} onClose={() => setAgentReview(null)} onSent={() => { draftGeneration.current += 1; flushSave.current = null; dirtyDraft.current = false; writeRecovery(journalKey.current, null); setAgentReview(null); if (onClose) onClose(); else router.push("/sent"); }} />}
+			<SendWarningDialog warnings={sendWarnings} onCancel={() => setSendWarnings(null)} onSendAnyway={() => void send({ confirmed: true })} onMoveToBcc={moveOutsidersToBccAndSend} />
 			{mode === "popup" && !minimized && <div data-compose-layer className="compose-touch-backdrop fixed inset-0 z-[39] hidden bg-white" aria-hidden="true" />}
 			{mode === "popup" && modalMode && !minimized && <div data-compose-layer className="fixed inset-0 z-40 bg-neutral-950/65" aria-hidden="true" />}
 			{toast && (
@@ -672,56 +744,21 @@ export function ComposeForm({
 						</select>
 					</div>
 				</div>
-				<RecipientInput
-					id={`${mode}-to`}
-					label={t("compose.to")}
-					value={to}
-					onChange={setTo}
-					placeholder={t(isPhone ? "compose.toPlaceholderShort" : "compose.toPlaceholder")}
-					errorId={fieldError?.field === "to" ? `${mode}-to-error` : undefined}
-					required
+				<RecipientFields
+					idPrefix={mode}
+					to={to}
+					cc={cc}
+					bcc={bcc}
+					onChange={applyRecipientLines}
+					showCc={showCc}
+					showBcc={showBcc}
+					onShowCc={() => setShowCc(true)}
+					onShowBcc={() => setShowBcc(true)}
+					toPlaceholder={t(isPhone ? "compose.toPlaceholderShort" : "compose.toPlaceholder")}
+					error={fieldError && fieldError.field !== "body" ? { field: fieldError.field, message: fieldError.message } : null}
 					disabled={loadingDraft}
-					trailing={
-						<>
-							{!showCc && (
-								<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onClick={() => setShowCc(true)}>
-									{t("compose.cc")}
-								</button>
-							)}
-							{!showBcc && (
-								<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onClick={() => setShowBcc(true)}>
-									{t("compose.bcc")}
-								</button>
-							)}
-						</>
-					}
+					directory={directory}
 				/>
-				{fieldError?.field === "to" && <p id={`${mode}-to-error`} role="alert" className="border-b border-neutral-100 px-4 py-1.5 text-sm text-red-700">{fieldError.message}</p>}
-				{showCc && (
-					<RecipientInput
-						id={`${mode}-cc`}
-						label={t("compose.cc")}
-						value={cc}
-						onChange={setCc}
-						placeholder={t("compose.ccPlaceholder")}
-						disabled={loadingDraft}
-						autoFocus={!loadingDraft && cc.length === 0}
-						errorId={fieldError?.field === "cc" ? `${mode}-cc-error` : undefined}
-					/>
-				)}
-				{showBcc && (
-					<RecipientInput
-						id={`${mode}-bcc`}
-						label={t("compose.bcc")}
-						value={bcc}
-						onChange={setBcc}
-						placeholder={t("compose.bccPlaceholder")}
-						disabled={loadingDraft}
-						autoFocus={!loadingDraft && bcc.length === 0}
-						errorId={fieldError?.field === "bcc" ? `${mode}-bcc-error` : undefined}
-					/>
-				)}
-				{(fieldError?.field === "cc" || fieldError?.field === "bcc") && <p id={`${mode}-${fieldError.field}-error`} role="alert" className="border-b border-neutral-100 px-4 py-1.5 text-sm text-red-700">{fieldError.message}</p>}
 				<div className="border-b border-neutral-100 px-4 py-1">
 					<Label htmlFor={`${mode}-subject`} className="sr-only">{t("compose.subject")}</Label>
 					<Input

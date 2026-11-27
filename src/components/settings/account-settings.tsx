@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
-import { DeferredProfileForm as ProfileForm, DeferredForwardingEmailForm as ForwardingEmailForm, DeferredMailboxSignatureForm as MailboxSignatureForm, DeferredTimeZoneForm as TimeZoneForm, DeferredWritingPreferencesSettings as WritingPreferencesSettings } from "./deferred-account-settings";
+import { DeferredProfileForm as ProfileForm, DeferredForwardingEmailForm as ForwardingEmailForm, DeferredMailboxSignatureForm as MailboxSignatureForm, DeferredTimeZoneForm as TimeZoneForm, DeferredWritingPreferencesSettings as WritingPreferencesSettings, DeferredUndoSendSettings as UndoSendSettings, DeferredMailLinkSettings as MailLinkSettings } from "./deferred-account-settings";
 import { AppearanceSettings } from "./appearance-settings";
 import { LanguageSelector } from "@/components/language-selector";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +46,12 @@ export function AccountSettings() {
 			</SettingsSection>}
 			<SettingsSection id="signature" title={t("settings.account.signatureTitle")} description={t("settings.account.signatureDescription")}>
 				<MailboxSignatureForm />
+			</SettingsSection>
+			<SettingsSection id="undo-send" title={t("settings.undoSend.title")} description={t("settings.undoSend.summary")}>
+				<UndoSendSettings />
+			</SettingsSection>
+			<SettingsSection id="mail-links" title={t("settings.mailLinks.title")} description={t("settings.mailLinks.summary")}>
+				<MailLinkSettings />
 			</SettingsSection>
 			<SettingsSection id="writing" title={t("writing.title")} description={t("writing.summary")}>
 				<WritingPreferencesSettings />

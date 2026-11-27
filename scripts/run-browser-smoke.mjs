@@ -9,6 +9,7 @@ export const browserSmokeSuites = [
   'standalone-viewport',
   'attachment-preview',
   'compose-window',
+  'recipient-fields',
   'label-actions',
   'message-star-feedback',
   'draft-recovery',

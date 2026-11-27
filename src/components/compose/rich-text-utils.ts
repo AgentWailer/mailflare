@@ -143,3 +143,14 @@ function renderChildren(element: Element, state: RenderState): string {
 		.map((child) => renderNode(child, state))
 		.join("");
 }
+
+/** The text the writer typed: without the signature block and without quoted replies. */
+export function authoredPlainText(html: string | null | undefined): string {
+	if (!html) return "";
+	if (typeof DOMParser === "undefined") {
+		return htmlToPlainText(html.replace(new RegExp(`<div ${SIGNATURE_ATTRIBUTE}="1">[\\s\\S]*$`, "i"), "").replace(/<blockquote[\s\S]*?<\/blockquote>/gi, ""));
+	}
+	const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+	for (const element of Array.from(doc.body.querySelectorAll(`[${SIGNATURE_ATTRIBUTE}], blockquote`))) element.remove();
+	return htmlToPlainText(doc.body.innerHTML);
+}

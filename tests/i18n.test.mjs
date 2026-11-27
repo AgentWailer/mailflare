@@ -40,8 +40,9 @@ async function bundleI18n(outfile, extraLocale = false) {
 					const initialMessages = await loadMessages(locale);
 					return renderToStaticMarkup(createElement(LanguageProvider, { initialLocale: locale, initialMessages }, createElement(Probe), createElement(LanguageSelector)));
 				}
-				export async function renderLayout(cookieValue) {
+				export async function renderLayout(cookieValue, acceptLanguage) {
 					globalThis.testLocaleCookie = cookieValue;
+					globalThis.testAcceptLanguage = acceptLanguage;
 					return renderToStaticMarkup(await RootLayout({ children: createElement(Probe) }));
 				}
 			`,
@@ -66,7 +67,7 @@ async function bundleI18n(outfile, extraLocale = false) {
 				}));
 				builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers|@\/lib\/cloudflare)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
 				builder.onLoad({ filter: /.*/, namespace: "stub" }, ({ path }) => ({ contents: path === "next/headers"
-					? 'export async function cookies() { return { get(name) { return name === "mailflare-locale" && globalThis.testLocaleCookie !== undefined ? { value: globalThis.testLocaleCookie } : undefined; } }; }'
+					? 'export async function cookies() { return { get(name) { return name === "mailflare-locale" && globalThis.testLocaleCookie !== undefined ? { value: globalThis.testLocaleCookie } : undefined; } }; } export async function headers() { return { get(name) { return name === "accept-language" ? globalThis.testAcceptLanguage ?? null : null; } }; }'
 					: path === "next/font/google"
 						? 'export const Geist = () => ({ variable: "sans" }); export const Geist_Mono = () => ({ variable: "mono" });'
 						: path === "@/lib/cloudflare"
@@ -182,4 +183,38 @@ test("translations interpolate {vars}, keep unknown placeholders and default to 
 	assert.equal(i18n.translate({}, "navigation.inbox", { name: "x" }), "Inbox");
 	assert.equal(i18n.createTranslator("pt-BR", await i18n.loadMessages("pt-BR"))("navigation.inbox", { count: 2 }), "Entrada");
 	assert.equal(i18n.getDirection("en"), "ltr");
+});
+
+test("a first visit is shown in the browser's language, and a chosen language always wins", () => {
+	// What browsers send, most wanted first.
+	assert.equal(i18n.negotiateLocale("de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"), "de");
+	assert.equal(i18n.negotiateLocale("de-AT"), "de", "another region of a registered language");
+	assert.equal(i18n.negotiateLocale("pt-PT,pt;q=0.9"), "pt-PT", "an exact region wins");
+	assert.equal(i18n.negotiateLocale("pt"), "pt-BR", "a bare language takes the first region registered");
+	assert.equal(i18n.negotiateLocale("zh-TW,zh;q=0.9"), "zh-CN");
+	assert.equal(i18n.negotiateLocale("EN-us"), "en");
+	// Quality decides, not position; q=0 means "never this one".
+	assert.equal(i18n.negotiateLocale("en;q=0.5,fr;q=0.9"), "fr");
+	assert.equal(i18n.negotiateLocale("de;q=0,fr"), "fr");
+	assert.equal(i18n.negotiateLocale("de;q=0"), "en");
+	// Languages Mailflare does not have fall through to the next, then to English.
+	assert.equal(i18n.negotiateLocale("fi-FI,sv;q=0.8,de;q=0.5"), "de");
+	assert.equal(i18n.negotiateLocale("fi,sv"), "en");
+	for (const header of [null, undefined, "", "*", ";;;", ",,,", "de;q=abc", "<script>", "x".repeat(100_000), "de".repeat(50_000), "__proto__", "constructor;q=1"]) {
+		const locale = i18n.negotiateLocale(header);
+		assert.ok(Object.hasOwn(i18n.locales, locale), `always a registered language for ${String(header).slice(0, 20)}`);
+	}
+	assert.equal(i18n.negotiateLocale("de;q=abc"), "de", "an unreadable quality counts as fully wanted");
+});
+
+test("the root layout renders a first visit in the browser's language until one is chosen", async () => {
+	const german = await i18n.renderLayout(undefined, "de-DE,de;q=0.9,en;q=0.8");
+	assert.match(german, /<html lang="de"/);
+	assert.match(german, />Posteingang<\/span>/);
+	// A cookie that names no language is no choice; the browser's language still applies.
+	assert.match(await i18n.renderLayout("bad", "de"), /<html lang="de"/);
+	// A chosen language wins over the browser's, English included.
+	assert.match(await i18n.renderLayout("en", "de-DE,de;q=0.9"), /<html lang="en"/);
+	assert.match(await i18n.renderLayout("pt-BR", "de"), /<html lang="pt-BR"/);
+	assert.match(await i18n.renderLayout(undefined, "fi"), /<html lang="en"/);
 });

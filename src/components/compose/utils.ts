@@ -26,6 +26,8 @@ export function buildSendFormData(input: {
 	/** Draft whose stored attachments should be sent with the message. */
 	draftId?: string | null;
 	scheduledAt?: Date | null;
+	/** Seconds the server holds the message so the send can be undone. */
+	undoSeconds?: number;
 }): FormData {
 	const form = new FormData();
 	form.set("from", input.from);
@@ -41,6 +43,7 @@ export function buildSendFormData(input: {
 	if (input.threading?.threadId) form.set("threadId", input.threading.threadId);
 	if (input.draftId) form.set("draftId", input.draftId);
 	if (input.scheduledAt) form.set("scheduledAt", input.scheduledAt.toISOString());
+	else if (input.undoSeconds) form.set("undoSeconds", String(input.undoSeconds));
 	for (const attachment of input.attachments) {
 		form.append("attachments", attachment.file);
 	}

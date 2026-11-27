@@ -1,11 +1,18 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getEnv } from "@/lib/cloudflare";
-import { LOCALE_COOKIE, createTranslator, loadMessages, resolveLocale } from "./utils";
+import { LOCALE_COOKIE, createTranslator, loadMessages, negotiateLocale, resolveLocale } from "./utils";
+import { locales } from "./locales";
 import type { Locale, Messages } from "./types";
 
-/** The locale chosen in the preference cookie, for server code that must render in it. */
+/**
+ * The locale server code must render in: the one chosen in the preference cookie,
+ * and before anything was chosen the browser's own language, so a first visit is
+ * not in English for a reader whose browser asks for German.
+ */
 export async function getRequestLocale() {
-	return resolveLocale((await cookies()).get(LOCALE_COOKIE)?.value);
+	const chosen = (await cookies()).get(LOCALE_COOKIE)?.value;
+	if (typeof chosen === "string" && Object.hasOwn(locales, chosen)) return resolveLocale(chosen);
+	return negotiateLocale((await headers()).get("accept-language"));
 }
 
 /** Server-side catalog load through the static assets binding; English when the catalog cannot be read. */
