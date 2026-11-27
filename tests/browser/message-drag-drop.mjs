@@ -7,7 +7,7 @@ import {createServer} from 'node:http';
 const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwright');
 const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','message-drag-browser-'));
 const write=(name,body)=>writeFileSync(join(dir,name),body);
-write('compose.ts','export const useCompose=()=>({openComposer:()=>{}});');
+write('compose.ts','export const useCompose=()=>({openComposer:()=>{}});export const useOptionalCompose=useCompose;');
 write('mailbox.ts',`const box={id:'box',localPart:'owner',hostname:'example.test',permission:new URLSearchParams(location.search).has('readonly')?'read_only':'full_access'};export const useSelectedMailbox=()=>({selectedMailbox:box,mailboxes:[box],isLoading:false});`);
 write('search.ts','export const useMailSearch=()=>({query:""});');
 write('sidebar.ts',`export const useSidebar=()=>({minimal:false,mobile:false,mobileOpen:false,toggle:()=>{}});`);
