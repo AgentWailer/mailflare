@@ -110,9 +110,15 @@ test('the notice stays while the window regains focus or the minute tick asks ag
  working=true;await announce();await settle();assert.equal(state.error,false);assert.equal(state.failure,null);assert.equal(state.messages[0].id,'back-again');
 });
 
-test('an expired sign-in is not asked about again and again; the notice waits for the reader',async t=>{
- fastTimers(t);let lists=0;
- await mount(t,async url=>{if(!isList(url))return {type:'opaqueredirect',status:0,ok:false};lists++;return lists===1?response('last-good'):offline();});
+test('an expired sign-in is not asked about again and again; only the reader or a new sign-in reads the list again',async t=>{
+ fastTimers(t);let lists=0,signedIn=false;
+ await mount(t,async url=>{if(!isList(url))return signedIn?Response.json({user:{id:'owner'}}):{type:'opaqueredirect',status:0,ok:false};lists++;return lists===1?response('last-good'):signedIn?response('signed-in-again'):offline();});
  await announce();await settle(40);assert.equal(state.failure,'sign-in');
  const asked=lists;await settle(200);assert.equal(lists,asked,'no further tries by itself');assert.equal(state.error,true);assert.equal(state.failure,'sign-in');
+ // The window regaining focus, the minute tick and the connection coming back all announce a change.
+ await announce();await act(async()=>{window.dispatchEvent(new Event('online'));});await settle(200);
+ assert.equal(lists,asked,'background announcements do not ask either');assert.equal(state.failure,'sign-in','the notice with its reload button stays');
+ await act(async()=>state.refresh());assert.equal(lists,asked+1,'the reader\'s own refresh does ask');assert.equal(state.failure,'sign-in');
+ signedIn=true;await act(async()=>{window.dispatchEvent(new Event('mailflare:auth-session-changed'));});await settle();
+ assert.equal(state.error,false);assert.equal(state.messages[0].id,'signed-in-again','a new sign-in reads the list at once');
 });

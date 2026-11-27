@@ -11,7 +11,7 @@ import type { ComposePrefill } from "./mailto-utils";
 const UndoSendToast = lazy(() => import("./undo-send-toast").then((module) => ({ default: module.UndoSendToast })).catch(() => ({ default: (() => null) as typeof import("./undo-send-toast").UndoSendToast })));
 
 /** A message that was just sent with an undo window and has not been delivered yet. */
-export type PendingUndoSend = { messageId: string; until: number };
+export type PendingUndoSend = { messageId: string; until: number; /** Whom it goes to, to tell several waiting messages apart. */ recipient?: string };
 
 type ComposeContextValue = {
 	open: boolean;
@@ -30,7 +30,7 @@ type ComposeContextValue = {
 	openDraftComposer: (draftId: string, options?: { freshReply?: boolean }) => void;
 	closeComposer: () => void;
 	/** Offer to take `messageId` back for the `remainingMs` the server still holds it; the offer outlives the composer that sent it. */
-	offerUndoSend: (messageId: string, remainingMs: number) => void;
+	offerUndoSend: (messageId: string, remainingMs: number, recipient?: string) => void;
 	/** A composer says whether it holds anything worth keeping (text, recipients, files). */
 	reportOccupied: (composer: string, occupied: boolean) => void;
 	isOccupied: () => boolean;
@@ -110,7 +110,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 			setPrefill(null);
 			setFreshReply(false);
 		},
-		offerUndoSend: (messageId, remainingMs) => setPendingUndos((current) => [...current.filter((entry) => entry.messageId !== messageId), { messageId, until: Date.now() + remainingMs }]),
+		offerUndoSend: (messageId, remainingMs, recipient) => setPendingUndos((current) => [...current.filter((entry) => entry.messageId !== messageId), { messageId, until: Date.now() + remainingMs, recipient }]),
 		reportOccupied,
 		isOccupied,
 		setRestoreTarget,
@@ -124,8 +124,8 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 				// (phones, tablets), globals.css lifts the offers above the composer's send bar instead.
 				<div data-compose-layer data-undo-send-stack className="fixed bottom-6 left-6 z-[180] flex max-w-[calc(100vw-32px)] flex-col items-start gap-2">
 					<Suspense fallback={null}>
-						{pendingUndos.map((pending, index) => (
-							<UndoSendToast key={pending.messageId} pending={pending} shortcut={index === pendingUndos.length - 1} onDone={endUndoOffer} onRestored={openRestored} />
+						{pendingUndos.map((pending) => (
+							<UndoSendToast key={pending.messageId} pending={pending} named={pendingUndos.length > 1} onDone={endUndoOffer} onRestored={openRestored} />
 						))}
 					</Suspense>
 				</div>,

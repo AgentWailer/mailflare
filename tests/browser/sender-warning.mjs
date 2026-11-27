@@ -25,7 +25,7 @@ if(params.has('dark'))document.documentElement.classList.add('dark');
 const from=params.get('from')!, replyTo=params.get('replyTo'), html='<p>Bitte überweise heute noch 4.800 Euro. Die Bankdaten stehen <a href="https://lumen-test.example/zahlung">hier: https://lumen.test/zahlung</a>.</p>';
 const message={id:'mail',userId:'owner',mailboxId:'box',direction:'inbound',read:true,starred:false,fromAddr:from,replyTo,toAddr:'steffen@lumen.test',subject:'Dringend',snippet:'Bitte überweise',createdAt:'2026-11-20T12:00:00Z',status:'received',threadId:'thread',textBody:'Bitte überweise heute noch 4.800 Euro.',htmlBody:html,bodyLoaded:true,attachments:[]};
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient()}><LanguageProvider initialLocale="de" initialMessages={de}><main style={{maxWidth:900,margin:'0 auto',padding:16}}>
-{params.has('thread')?<ConversationMessageCard message={message as never} mailboxId="box" defaultExpanded/>:<><SenderWarningBanner fromAddr={from} replyTo={replyTo} html={html}/><p data-body>Bitte überweise heute noch 4.800 Euro.</p></>}
+{params.has('thread')?<ConversationMessageCard message={message as never} mailboxId="box" defaultExpanded/>:<>{params.has('twice')&&<SenderWarningBanner fromAddr={from} replyTo={replyTo} html={html}/>}<SenderWarningBanner fromAddr={from} replyTo={replyTo} html={html}/><p data-body>Bitte überweise heute noch 4.800 Euro.</p></>}
 </main></LanguageProvider></QueryClientProvider>);`);
 const de = JSON.parse(readFileSync(join(root, 'public/locales/de.json'), 'utf8'));
 const label = (key, vars = {}) => Object.entries(vars).reduce((text, [name, value]) => text.replace(`{${name}}`, value), de[key]);
@@ -54,7 +54,7 @@ try {
 	for (const { width, height, touch, dark } of [{ width: 390, height: 844, touch: true }, { width: 390, height: 844, touch: true, dark: true }, { width: 1440, height: 900, touch: false }, { width: 1440, height: 900, touch: false, dark: true }]) {
 		const tag = `${width}${dark ? '-dark' : ''}`;
 		/** A page showing a message from `from`; `directory` is the address book's answer, or a status when it fails. */
-		async function open({ from, replyTo = null, directory = book, thread = false, storage = null }) {
+		async function open({ from, replyTo = null, directory = book, thread = false, storage = null, twice = false, user = 'owner' }) {
 			const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch });
 			const page = await context.newPage();
 			page.setDefaultTimeout(10000);
@@ -64,9 +64,10 @@ try {
 			await page.route('**/api/**', route => {
 				const path = new URL(route.request().url()).pathname;
 				if (path === '/api/compose/recipients') return typeof directory === 'number' ? route.fulfill({ status: directory, contentType: 'application/json', body: '{"error":"unavailable"}' }) : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ recipients: directory }) });
+				if (path === '/api/auth/me') return user ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: user, email: 'steffen@lumen.test', name: 'Steffen Beispiel', role: 'user' } }) }) : route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
 				return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
 			});
-			const query = new URLSearchParams({ from, ...(replyTo ? { replyTo } : {}), ...(dark ? { dark: '1' } : {}), ...(thread ? { thread: '1' } : {}) });
+			const query = new URLSearchParams({ from, ...(replyTo ? { replyTo } : {}), ...(dark ? { dark: '1' } : {}), ...(thread ? { thread: '1' } : {}), ...(twice ? { twice: '1' } : {}) });
 			await page.goto(origin + '/?' + query);
 			return { page, banner: page.locator('[data-sender-warning]'), async close() { assert.deepEqual(errors, [], `${tag}: page errors`); await context.close(); } };
 		}
@@ -146,10 +147,29 @@ try {
 			if (width === 390) await t.page.screenshot({ path: `/tmp/mailflare-sender-warning-thread-${tag}.png` });
 			await t.close();
 		}
-		// 6. A mark made by another account at this browser does not count here.
+		// 6. A mark made by another person at this browser does not count here, whatever mailboxes they share.
 		{
-			const t = await open({ from: '"chef@firma.test" <x@evil.example>', storage: { 'mailflare-trusted-senders:other-box': '["x@evil.example"]', 'mailflare-trusted-senders': '["x@evil.example"]' } });
+			const t = await open({ from: '"chef@firma.test" <x@evil.example>', storage: { 'mailflare-trusted-senders:user:colleague': '["x@evil.example"]', 'mailflare-trusted-senders': '["x@evil.example"]', 'mailflare-trusted-senders:box': '["x@evil.example"]' } });
 			await t.banner.waitFor();
+			await t.close();
+		}
+		// 7. Two checks of one sender on the page (a conversation): answering one answers both, and back again.
+		{
+			const t = await open({ from: '"chef@firma.test" <x@evil.example>', twice: true });
+			await t.page.waitForFunction(() => document.querySelectorAll('[data-sender-warning]').length === 2);
+			const trust = t.banner.first().getByRole('button', { name: de['message.sender.trust'], exact: true });
+			if (touch) await trust.tap(); else await trust.click();
+			await t.page.waitForFunction(() => document.querySelectorAll('[data-sender-trusted]').length === 2 && document.querySelectorAll('[data-sender-warning]').length === 0);
+			const again = t.page.locator('[data-sender-trusted]').last().getByRole('button', { name: de['message.sender.warnAgain'], exact: true });
+			if (touch) await again.tap(); else await again.click();
+			await t.page.waitForFunction(() => document.querySelectorAll('[data-sender-warning]').length === 2 && document.querySelectorAll('[data-sender-trusted]').length === 0);
+			await t.close();
+		}
+		// 8. While it is not known who is reading, the warning is shown and nobody's marks count or can be made.
+		{
+			const t = await open({ from: '"chef@firma.test" <x@evil.example>', user: null, storage: { 'mailflare-trusted-senders': '["x@evil.example"]' } });
+			await t.banner.waitFor();
+			assert.equal(await t.banner.getByRole('button').count(), 0, `${tag}: no mark is offered without a reader to keep it for`);
 			await t.close();
 		}
 		console.log(JSON.stringify({ width, height, dark: !!dark, warning: true, emptyAddressBook: true, publicProvider: true, conversation: true, trustTakenBack: true, noOverflow: true }));

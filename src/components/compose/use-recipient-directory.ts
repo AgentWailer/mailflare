@@ -8,30 +8,39 @@ import type { RecipientCandidate } from "@/lib/contacts/recipient-directory-type
 const FRESH_MS = 5 * 60_000;
 const EMPTY: RecipientCandidate[] = [];
 
-let cached: { session: string | null; at: number; promise: Promise<RecipientCandidate[]> } | null = null;
+/** A stalled request is given up, so what waits for the address book carries on without it. */
+const REQUEST_TIMEOUT_MS = 8_000;
+export type RecipientDirectoryAnswer = { directory: RecipientCandidate[]; /** False when the address book could not be read. */ ok: boolean };
+
+let cached: { session: string | null; at: number; promise: Promise<RecipientDirectoryAnswer> } | null = null;
 
 function isCandidate(value: unknown): value is RecipientCandidate {
 	const item = value as RecipientCandidate;
 	return !!item && typeof item.email === "string" && item.email.includes("@") && typeof item.sends === "number";
 }
 
-/** The ranked address book, shared by every composer of this tab. A failure yields no suggestions, never an error. */
-export function loadRecipientDirectory(force = false): Promise<RecipientCandidate[]> {
+/** The ranked address book and whether it could be read, shared by every composer of this tab. */
+export function loadRecipientDirectoryAnswer(force = false): Promise<RecipientDirectoryAnswer> {
 	const session = getClientSessionToken();
 	if (!force && cached && cached.session === session && Date.now() - cached.at < FRESH_MS) return cached.promise;
-	const promise = authFetch("/api/compose/recipients", { cache: "no-store", redirectOnUnauthorized: false })
+	const promise = authFetch("/api/compose/recipients", { cache: "no-store", redirectOnUnauthorized: false, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
 		.then(async (response) => {
 			if (!response.ok) throw new Error("Recipient directory unavailable");
 			const data = await response.json() as { recipients?: unknown };
-			return Array.isArray(data.recipients) ? data.recipients.filter(isCandidate) : EMPTY;
+			return { directory: Array.isArray(data.recipients) ? data.recipients.filter(isCandidate) : EMPTY, ok: true };
 		})
 		.catch(() => {
 			// Ask again next time instead of keeping the failure for five minutes.
 			if (cached?.promise === promise) cached = null;
-			return EMPTY;
+			return { directory: EMPTY, ok: false };
 		});
 	cached = { session, at: Date.now(), promise };
 	return promise;
+}
+
+/** The ranked address book. A failure yields no suggestions, never an error. */
+export function loadRecipientDirectory(force = false): Promise<RecipientCandidate[]> {
+	return loadRecipientDirectoryAnswer(force).then((answer) => answer.directory);
 }
 
 /** Forget the directory, e.g. after a send changed who is written to most. */

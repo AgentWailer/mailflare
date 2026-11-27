@@ -58,7 +58,7 @@ export function printMessage(message: PrintableMessage): void {
 		// A message's own `header { display: none }` or `h1 { ... }` must not touch the lines above.
 		const mail = document.createElement("div");
 		const mailStyle = document.createElement("style");
-		mailStyle.textContent = `:host{display:block;overflow-wrap:anywhere}img,table{max-width:100%!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
+		mailStyle.textContent = `:host{display:block;color-scheme:light;overflow-wrap:anywhere}img,table{max-width:100%!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
 		mail.attachShadow({ mode: "open" }).replaceChildren(mailStyle, content.content);
 		body.appendChild(mail);
 	} else {
@@ -66,7 +66,7 @@ export function printMessage(message: PrintableMessage): void {
 		text.textContent = message.text ?? "";
 		body.appendChild(text);
 	}
-	style.textContent = `:host{display:block;color:#000;background:#fff;font:12pt/1.45 Arial,Helvetica,sans-serif}
+	style.textContent = `:host{display:block;color:#000;background:#fff;color-scheme:light;font:12pt/1.45 Arial,Helvetica,sans-serif}
 header{border-bottom:1px solid #999;margin:0 0 14pt;padding:0 0 8pt}
 h1{font-size:15pt;margin:0 0 8pt;overflow-wrap:anywhere}
 dl{display:grid;grid-template-columns:max-content 1fr;gap:2pt 10pt;margin:0;font-size:10pt}

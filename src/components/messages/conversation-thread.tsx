@@ -128,7 +128,8 @@ export function ConversationMessageCard({
 	const [attempt, setAttempt] = useState(0);
 	const loadFailed = loadFailure?.id === summary.id && loadFailure.attempt === attempt;
 	const loadedBody = detail?.message?.id === summary.id ? detail.body : null;
-	const message = loadedBody ? { ...summary, ...loadedBody, bodyLoaded: true } : summary;
+	// The full message also knows a Reply-To that older rows keep only in their stored headers.
+	const message = loadedBody ? { ...summary, ...loadedBody, replyTo: summary.replyTo ?? detail?.message?.replyTo ?? null, bodyLoaded: true } : summary;
 	const [readState, setReadState] = useState({ id: summary.id, source: summary.read, value: summary.read });
 	const readSourceChanged = readState.id !== summary.id || readState.source !== summary.read;
 	if (readSourceChanged) setReadState({ id: summary.id, source: summary.read, value: summary.read });

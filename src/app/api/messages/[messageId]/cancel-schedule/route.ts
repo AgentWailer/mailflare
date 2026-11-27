@@ -34,6 +34,8 @@ export async function POST(
 		return NextResponse.json({ error: "You cannot cancel sends from this mailbox" }, { status: 403 });
 	}
 
+	// Taken back already (from Scheduled, or in another tab): asking again finds it where it was put.
+	if (message.direction === "outbound" && message.status === "draft") return NextResponse.json({ ok: true, alreadyDraft: true });
 	if (message.direction !== "outbound" || !["queued", "failed"].includes(message.status) || !(await getScheduledTime(db, message.id))) {
 		return NextResponse.json({ error: "This message is not scheduled" }, { status: 409 });
 	}

@@ -213,12 +213,12 @@ export function RecipientFields({ idPrefix, to, cc, bcc, onChange, showCc, showB
 				trailing: !showCc || !showBcc ? (
 					<>
 						{!showCc && (
-							<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onMouseDown={keepFocus} onClick={() => { setFocusOnReveal("cc"); onShowCc(); }}>
+							<button type="button" data-recipient-reveal className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onMouseDown={keepFocus} onClick={() => { setFocusOnReveal("cc"); onShowCc(); }}>
 								{t("compose.cc")}
 							</button>
 						)}
 						{!showBcc && (
-							<button type="button" className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onMouseDown={keepFocus} onClick={() => { setFocusOnReveal("bcc"); onShowBcc(); }}>
+							<button type="button" data-recipient-reveal className="min-h-9 min-w-9 rounded px-1 hover:text-neutral-800 md:min-h-7" onMouseDown={keepFocus} onClick={() => { setFocusOnReveal("bcc"); onShowBcc(); }}>
 								{t("compose.bcc")}
 							</button>
 						)}

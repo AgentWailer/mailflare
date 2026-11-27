@@ -57,11 +57,11 @@ try {
 		const tag = `${width}${dark ? '-dark' : ''}`;
 
 		/** A fresh page with its own record of what the composer asked the server. */
-		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null, undoRemainingMs = null, reply = false } = {}) {
+		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null, undoRemainingMs = null, reply = false, sendStatus = 200, directoryDelay = 0, directoryStatus = 200 } = {}) {
 			const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, permissions: ['clipboard-read', 'clipboard-write'] });
 			const page = await context.newPage();
 			page.setDefaultTimeout(10000);
-			const calls = { sends: [], saves: [], cancels: [], errors: [] };
+			const calls = { sends: [], saves: [], cancels: [], cancelled: [], errors: [] };
 			page.on('pageerror', error => calls.errors.push(error.message));
 			if (undoSeconds) await page.addInitScript(seconds => localStorage.setItem('mailflare-undo-send-seconds', String(seconds)), undoSeconds);
 			await page.route('**/api/**', async route => {
@@ -70,14 +70,18 @@ try {
 				if (path === '/api/send') {
 					const body = request.postData() ?? '';
 					calls.sends.push({ to: field(body, 'to'), cc: field(body, 'cc'), bcc: field(body, 'bcc'), subject: field(body, 'subject'), undoSeconds: field(body, 'undoSeconds') });
+					if (sendStatus !== 200) return json({ error: sendStatus === 401 ? 'Unauthorized' : 'Mailbox not found' }, sendStatus);
 					const messageId = 'sent-' + calls.sends.length;
 					return json(field(body, 'undoSeconds') ? { messageId, scheduled: true, undoUntil: new Date(Date.now() + 10000).toISOString(), ...(undoRemainingMs === null ? {} : { undoRemainingMs }) } : { messageId });
 				}
-				if (path === '/api/messages/sent-1/cancel-schedule') { calls.cancels.push(method); return json(cancelStatus === 200 ? { ok: true } : { error: 'This message is already being sent' }, cancelStatus); }
-				if (path === '/api/compose/recipients') return json({ recipients: directory });
+				if (/^\/api\/messages\/sent-\d+\/cancel-schedule$/.test(path)) { calls.cancels.push(method); calls.cancelled.push(path.split('/')[3]); return json(cancelStatus === 200 ? { ok: true } : { error: 'This message is already being sent' }, cancelStatus); }
+				if (path === '/api/compose/recipients') {
+					if (directoryDelay) await new Promise(resolve => setTimeout(resolve, directoryDelay));
+					return directoryStatus === 200 ? json({ recipients: directory }) : json({ error: 'unavailable' }, directoryStatus);
+				}
 				if (path === '/api/attachment-policy') return json({ maxMb: 25, cloudThresholdBytes: 3000000 });
 				if (path === '/api/templates') return json({ templates: [] });
-				if (path === '/api/drafts/sent-1' && method === 'GET') return json({ draft: restored });
+				if (/^\/api\/drafts\/sent-\d+$/.test(path) && method === 'GET') return json({ draft: { ...restored, id: path.split('/')[3] } });
 				if (path.startsWith('/api/drafts') && (method === 'PATCH' || method === 'POST')) { calls.saves.push(request.postDataJSON()); return json({ draft: { id: 'draft' } }); }
 				if (path.startsWith('/api/drafts') && method === 'DELETE') return json({ ok: true });
 				return json({ draft: reply ? { ...draft, subject: 'Re: Rechnung im Anhang', inReplyTo: '<original@lumen.test>', threadId: 'thread-1' } : draft });
@@ -121,6 +125,9 @@ try {
 				const targets = await t.chip('to', 'max@partner.test').locator('button').evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { remove: node.hasAttribute('data-recipient-remove'), width: r.width, height: r.height }; }));
 				assert.equal(targets.length, 2);
 				for (const target of targets) assert(target.height >= 44 && (!target.remove || target.width >= 44), `${tag}: chip targets are finger-sized: ${JSON.stringify(targets)}`);
+				const reveal = await t.form.locator('[data-recipient-reveal]').evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { text: node.textContent, width: r.width, height: r.height }; }));
+				assert.equal(reveal.length, 2);
+				for (const target of reveal) assert(target.width >= 44 && target.height >= 44, `${tag}: Cc and Bcc are finger-sized: ${JSON.stringify(reveal)}`);
 				const cdp = await t.context.newCDPSession(t.page);
 				const finger = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1 }] });
 
@@ -390,6 +397,7 @@ try {
 			await warning.getByRole('button', { name: de['compose.warn.moveToBccOnly'], exact: true }).click();
 			await t.page.waitForFunction(text => document.querySelector('[data-send-warning]') && !document.querySelector('[data-send-warning]').textContent.includes(text), label('compose.warn.outsiders', { people: '5', domains: '3' }));
 			assert.equal(t.calls.sends.length, 0, `${tag}: nothing went past the missing attachment`);
+			assert.equal(await t.page.evaluate(() => document.activeElement?.textContent), de['compose.warn.back'], `${tag}: with its button gone, focus is on the way back, not lost`);
 			assert((await warning.innerText()).includes(de['compose.warn.missingAttachment']));
 			assert.deepEqual(await t.chips('bcc'), outsiders, 'the outsiders are in Bcc');
 			assert.deepEqual(await t.chips('to'), ['maya.chen@lumen.test']);
@@ -537,11 +545,96 @@ try {
 			await t.send.click();
 			const toast = t.page.locator('[data-undo-send]');
 			await toast.waitFor();
-			assert((await toast.innerText()).length > 0 && (await toast.evaluate(node => node.textContent)).includes(de['compose.undo.shortcut']), 'the shortcut is said to a screen reader with the offer');
+			// ⌘Z on an Apple keyboard, Strg+Z elsewhere: the page says the one this machine has.
+			const keys = de[await t.page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)) ? 'compose.undo.keysApple' : 'compose.undo.keys'];
+			assert.equal(await toast.locator('[data-undo-keys]').innerText(), keys, `${tag}: the key that takes it back is shown beside the button`);
+			assert((await toast.evaluate(node => node.textContent)).includes(label('compose.undo.hint', { seconds: '9', keys })), 'how long the offer lasts and its key are read out with it: ' + await toast.evaluate(node => node.textContent));
 			await t.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
 			await t.page.keyboard.press('Control+z');
 			await t.page.getByText(de['compose.undo.restored'], { exact: true }).waitFor();
 			assert.deepEqual(t.calls.cancels, ['POST']);
+			await t.close();
+		}
+		// Two messages wait at once: each offer says whom it goes to, and Ctrl+Z takes back the newest that
+		// can still be taken back, then the one before it.
+		if (!touch) {
+			const t = await open({ undoSeconds: 30 });
+			for (const [index, [address, subject]] of [['maya.chen@lumen.test', 'Erste'], ['max@partner.test', 'Zweite']].entries()) {
+				await t.input('to').fill(address);
+				await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill(subject);
+				await t.editor.click();
+				await t.page.keyboard.type('Hallo');
+				await t.send.click();
+				await t.page.waitForFunction(count => document.querySelectorAll('[data-undo-send]').length === count, index + 1);
+			}
+			const offers = t.page.locator('[data-undo-send]');
+			assert.deepEqual(await offers.evaluateAll(nodes => nodes.map(node => node.firstElementChild.firstChild.textContent)), [label('compose.undo.pendingTo', { recipient: 'maya.chen@lumen.test' }), label('compose.undo.pendingTo', { recipient: 'max@partner.test' })], `${tag}: two offers can be told apart`);
+			assert.deepEqual(await offers.evaluateAll(nodes => nodes.map(node => !!node.querySelector('[data-undo-keys]'))), [false, true], `${tag}: the key is shown on the offer it would take back`);
+			await t.page.screenshot({ path: `/tmp/mailflare-undo-send-two-${tag}.png` });
+			await t.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+			await t.page.keyboard.press('Control+z');
+			await t.page.getByText(de['compose.undo.restored'], { exact: true }).waitFor();
+			assert.deepEqual(t.calls.cancelled, ['sent-2'], 'the newest first');
+			await t.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+			await t.page.keyboard.press('Control+z');
+			await t.page.getByText(de['compose.undo.inDrafts'], { exact: true }).waitFor();
+			assert.deepEqual(t.calls.cancelled, ['sent-2', 'sent-1'], `${tag}: the shortcut then serves the older message`);
+			await t.close();
+		}
+		// An expired sign-in is said in the composer; the message and its recipients stay.
+		{
+			const t = await open({ sendStatus: 401 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			const address = t.page.url();
+			await t.send.click();
+			await t.page.getByRole('alert').filter({ hasText: de['compose.error.sendSignedOut'] }).waitFor();
+			assert.equal(t.page.url(), address, `${tag}: the page did not leave for the sign-in`);
+			assert.deepEqual(await t.chips('to'), ['maya.chen@lumen.test']);
+			await t.editor.getByText('Hallo Maya').waitFor();
+			await t.close();
+		}
+		{
+			const t = await open({ sendStatus: 403 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.getByRole('alert').filter({ hasText: de['compose.error.sendNotAllowed'] }).waitFor();
+			await t.noOverflow('with an error');
+			await t.close();
+		}
+		// A slow address book: Send waits for it instead of skipping the comparison.
+		{
+			const t = await open({ directoryDelay: 1500 });
+			await t.input('to').fill('lin@harborwork.test,');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Unterlagen');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Lin');
+			await t.send.click();
+			const warning = t.page.locator('[data-send-warning]');
+			await warning.waitFor();
+			assert((await warning.innerText()).includes(label('compose.warn.lookalike', { address: 'lin@harborwork.test', like: 'harborworks.test' })), `${tag}: the look-alike is caught although the address book was late`);
+			assert.equal(t.calls.sends.length, 0);
+			await t.close();
+		}
+		// An address book that cannot be read: the writer is told that nothing was compared, and decides.
+		{
+			const t = await open({ directoryStatus: 503 });
+			await t.input('to').fill('lin@harborwork.test,');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Unterlagen');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Lin');
+			await t.send.click();
+			const warning = t.page.locator('[data-send-warning]');
+			await warning.getByText(de['compose.warn.unchecked'], { exact: true }).waitFor();
+			assert.equal(t.calls.sends.length, 0);
+			await warning.getByRole('button', { name: de['compose.warn.sendAnyway'], exact: true }).click();
+			await t.page.getByText(de['compose.sent'], { exact: true }).waitFor();
+			assert.equal(t.calls.sends.length, 1);
 			await t.close();
 		}
 		// 6. A mail link starts a message with its recipients, subject and text; the text is text, never markup.

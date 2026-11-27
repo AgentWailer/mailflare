@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,19 @@ export function SendWarningDialog({ warnings, onCancel, onSendAnyway, onMoveToBc
 	onMoveToBcc?: () => void;
 }) {
 	const { t } = useLanguage();
+	const count = warnings?.length ?? 0;
+	// "Move to Bcc" answers one question and its button goes away: focus returns to the way back
+	// instead of falling out of the dialog's controls.
+	useEffect(() => {
+		const dialog = count === 0 ? null : document.querySelector<HTMLElement>("[data-send-warning]");
+		if (!dialog) return;
+		const active = document.activeElement;
+		if (!active || active === document.body || active === dialog || !dialog.contains(active)) dialog.querySelector<HTMLElement>("[data-send-warning-back]")?.focus();
+	}, [count]);
 	const lines = (warnings ?? []).map((warning) => {
 		if (warning.kind === "lookalike") return t("compose.warn.lookalike", { address: warning.address, like: warning.like });
 		if (warning.kind === "outsiders") return t("compose.warn.outsiders", { people: warning.count, domains: warning.domains });
+		if (warning.kind === "unchecked") return t("compose.warn.unchecked");
 		if (warning.kind === "tooManyRecipients") return t("compose.warn.tooManyRecipients", { checked: warning.checked });
 		return t("compose.warn.missingAttachment");
 	});

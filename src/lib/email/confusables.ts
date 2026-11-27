@@ -107,8 +107,12 @@ const MAIL_PROVIDERS = new Set([
 	"yandex.com", "yandex.ru", "mail.ru", "fastmail.com", "hey.com", "arcor.de", "vodafone.de", "1und1.de",
 ]);
 
+/** Providers that run the same public service under many country endings (yahoo.co.uk, outlook.fr, gmx.es). */
+const PROVIDER_BRANDS = new Set(["gmail", "googlemail", "outlook", "hotmail", "live", "msn", "yahoo", "ymail", "aol", "gmx", "yandex", "protonmail", "zoho"]);
+
 export function isMailProviderDomain(domain: string): boolean {
-	return MAIL_PROVIDERS.has(registrableDomain(domain));
+	const registrable = registrableDomain(domain);
+	return MAIL_PROVIDERS.has(registrable) || PROVIDER_BRANDS.has(registrable.split(".")[0]);
 }
 
 /** Domains whose mailboxes ignore dots before the @. */

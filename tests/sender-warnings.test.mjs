@@ -127,6 +127,15 @@ test("a known person's name on another address at the same public mail provider 
 	assert.deepEqual(check('"Maya Chen" <m.chen@lumen.example>'), [], "a second address at her own organisation is still her");
 });
 
+test("a public provider is one whatever country ending it carries", () => {
+	const regional = { ...facts, known: [...facts.known, { email: "anna.klein@yahoo.co.uk", name: "Anna Klein" }, { email: "paul.roux@outlook.fr", name: "Paul Roux" }] };
+	const from = (fromAddr, extra = {}) => kinds(app.getSenderWarnings({ fromAddr, facts: regional, ...extra }));
+	assert.deepEqual(from('"Anna Klein" <anna.klein.2026@yahoo.co.uk>'), ["nameOfKnownPerson"]);
+	assert.deepEqual(from('"Paul Roux" <p.roux.urgent@outlook.fr>'), ["nameOfKnownPerson"]);
+	assert.deepEqual(from('"Buchhaltung" <rechnung@firma.example>', { replyTo: "firma.buchhaltung@hotmail.co.uk" }), ["replyElsewhere"]);
+	assert.deepEqual(from('"Maya Chen" <m.chen@lumen.example>'), [], "an organisation's own domain is still one organisation");
+});
+
 test("the checks that need nobody to compare with work with an empty address book", () => {
 	const alone = { known: [], own: ["steffen@lumen.example"], ownNames: ["Steffen Beispiel"], organisationDomains: ["lumen.example"] };
 	const lonely = (fromAddr, extra = {}) => kinds(app.getSenderWarnings({ fromAddr, facts: alone, ...extra }));

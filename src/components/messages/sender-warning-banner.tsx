@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { useRecipientDirectoryState } from "@/components/compose/use-recipient-directory";
 import { getEmailAddress } from "@/lib/email/address";
-import { getSenderWarnings, readTrustedSenders, trustSender, untrustSender } from "./sender-warnings-utils";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { getSenderWarnings, parseTrustedSenders, readTrustedSendersText, subscribeTrustedSenders, trustSender, untrustSender } from "./sender-warnings-utils";
 
 /**
  * Says so above an incoming message when its sender is not who the name or the
@@ -19,9 +20,12 @@ export function SenderWarningBanner({ fromAddr, replyTo, html }: { fromAddr: str
 	const { mailboxes } = useSelectedMailbox();
 	const { directory, loaded } = useRecipientDirectoryState();
 	const address = getEmailAddress(fromAddr).trim().toLowerCase();
-	// The accounts of one browser keep separate lists.
-	const scope = useMemo(() => mailboxes.map((mailbox) => mailbox.id).sort().join(","), [mailboxes]);
-	const [decision, setDecision] = useState<{ address: string; trusted: boolean } | null>(null);
+	// The people at one browser keep separate lists, also when they share the same mailboxes.
+	const user = useCurrentUser();
+	// Until it is known who is reading, nobody's marks count and none can be made.
+	const scope = user ? `user:${user.id}` : null;
+	// Followed as a store: marking a sender on one message answers every check of that sender on the page.
+	const stored = useSyncExternalStore(subscribeTrustedSenders, () => (scope ? readTrustedSendersText(scope) : ""), () => "");
 	const warnings = useMemo(() => {
 		// Wait for the address book's answer, so a known correspondent is not questioned for a moment.
 		// An empty or unreachable one still leaves the checks that need nobody to compare with.
@@ -36,15 +40,14 @@ export function SenderWarningBanner({ fromAddr, replyTo, html }: { fromAddr: str
 			},
 		});
 	}, [directory, fromAddr, html, loaded, mailboxes, replyTo]);
-	const stored = useMemo(() => (warnings.length > 0 ? readTrustedSenders(scope).includes(address) : false), [address, scope, warnings]);
+	const trusted = useMemo(() => warnings.length > 0 && parseTrustedSenders(stored).includes(address), [address, stored, warnings.length]);
 	if (warnings.length === 0) return null;
-	const trusted = decision?.address === address ? decision.trusted : stored;
 
 	if (trusted) {
 		return (
 			<p role="status" data-sender-trusted className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-600">
 				<span className="min-w-0 break-words">{t("message.sender.trusted", { address })}</span>
-				<button type="button" className="email-presentation-action rounded-lg border border-neutral-300 px-3 py-1.5 font-medium text-neutral-800 hover:bg-neutral-100" onClick={() => { untrustSender(address, scope); setDecision({ address, trusted: false }); }}>
+				<button type="button" className="email-presentation-action rounded-lg border border-neutral-300 px-3 py-1.5 font-medium text-neutral-800 hover:bg-neutral-100" onClick={() => { if (scope) untrustSender(address, scope); }}>
 					{t("message.sender.warnAgain")}
 				</button>
 			</p>
@@ -67,9 +70,11 @@ export function SenderWarningBanner({ fromAddr, replyTo, html }: { fromAddr: str
 				))}
 			</ul>
 			<p className="mt-1.5">{t("message.sender.advice")}</p>
-			<button type="button" className="email-presentation-action mt-2 rounded-lg border border-amber-300 px-3 py-1.5 font-medium hover:bg-amber-100" onClick={() => { trustSender(address, scope); setDecision({ address, trusted: true }); }}>
-				{t("message.sender.trust")}
-			</button>
+			{scope && (
+				<button type="button" className="email-presentation-action mt-2 rounded-lg border border-amber-300 px-3 py-1.5 font-medium hover:bg-amber-100" onClick={() => trustSender(address, scope)}>
+					{t("message.sender.trust")}
+				</button>
+			)}
 		</div>
 	);
 }

@@ -107,6 +107,7 @@ export function getSenderWarnings(input: SenderCheckInput): SenderWarning[] {
 }
 
 const TRUSTED_KEY = "mailflare-trusted-senders";
+const TRUSTED_EVENT = "mailflare:trusted-senders-changed";
 const MAX_TRUSTED = 500;
 
 /** One list per account: what one person found in order says nothing for the next person at this browser. */
@@ -114,22 +115,44 @@ function trustedKey(scope: string): string {
 	return scope ? `${TRUSTED_KEY}:${scope}` : TRUSTED_KEY;
 }
 
-/** Senders the owner looked at and found in order, on this device. */
-export function readTrustedSenders(scope = ""): string[] {
+/** The stored list as text, for a component to follow (`useSyncExternalStore`); empty when nothing is stored. */
+export function readTrustedSendersText(scope = ""): string {
+	try { return localStorage.getItem(trustedKey(scope)) ?? ""; } catch { return ""; }
+}
+
+export function parseTrustedSenders(text: string): string[] {
 	try {
-		const value = JSON.parse(localStorage.getItem(trustedKey(scope)) ?? "[]");
+		const value = JSON.parse(text || "[]");
 		return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string").slice(0, MAX_TRUSTED) : [];
 	} catch { return []; }
 }
 
+/** Senders the owner looked at and found in order, on this device. */
+export function readTrustedSenders(scope = ""): string[] {
+	return parseTrustedSenders(readTrustedSendersText(scope));
+}
+
+function writeTrustedSenders(scope: string, list: string[]) {
+	try { localStorage.setItem(trustedKey(scope), JSON.stringify(list.slice(0, MAX_TRUSTED))); } catch { /* Asking again next time is fine. */ }
+	// Every check of this sender on the page follows, not only the one that was pressed.
+	if (typeof window !== "undefined") window.dispatchEvent(new Event(TRUSTED_EVENT));
+}
+
 export function trustSender(address: string, scope = ""): void {
 	const key = address.trim().toLowerCase();
-	if (!key) return;
-	try { localStorage.setItem(trustedKey(scope), JSON.stringify([key, ...readTrustedSenders(scope).filter((entry) => entry !== key)].slice(0, MAX_TRUSTED))); } catch { /* Asking again next time is fine. */ }
+	if (key) writeTrustedSenders(scope, [key, ...readTrustedSenders(scope).filter((entry) => entry !== key)]);
 }
 
 /** Takes the mark back: the sender is warned about again. */
 export function untrustSender(address: string, scope = ""): void {
 	const key = address.trim().toLowerCase();
-	try { localStorage.setItem(trustedKey(scope), JSON.stringify(readTrustedSenders(scope).filter((entry) => entry !== key))); } catch { /* Nothing was stored, so nothing is trusted. */ }
+	writeTrustedSenders(scope, readTrustedSenders(scope).filter((entry) => entry !== key));
+}
+
+/** Tells `notify` when the list changes, here or in another tab. */
+export function subscribeTrustedSenders(notify: () => void): () => void {
+	const storage = (event: StorageEvent) => { if (event.key === null || event.key.startsWith(TRUSTED_KEY)) notify(); };
+	window.addEventListener(TRUSTED_EVENT, notify);
+	window.addEventListener("storage", storage);
+	return () => { window.removeEventListener(TRUSTED_EVENT, notify); window.removeEventListener("storage", storage); };
 }

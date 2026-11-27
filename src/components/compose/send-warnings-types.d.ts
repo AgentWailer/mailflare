@@ -6,7 +6,9 @@ export type SendWarning =
 	/** The text says something is attached, but nothing is. */
 	| { kind: "missingAttachment" }
 	/** More recipients than are checked; only the first `checked` were looked at. */
-	| { kind: "tooManyRecipients"; checked: number };
+	| { kind: "tooManyRecipients"; checked: number }
+	/** The address book could not be read, so recipients were not compared with known addresses. */
+	| { kind: "unchecked" };
 
 export type SendWarningFacts = {
 	/** Addresses the owner wrote to or keeps as contacts, lower-cased. Never senders only. */

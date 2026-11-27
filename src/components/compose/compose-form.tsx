@@ -23,7 +23,8 @@ import { useOptionalCompose } from "./compose-context";
 import { SendWarningDialog } from "./send-warning-dialog";
 import { getSendWarnings } from "./send-warnings-utils";
 import type { SendWarning } from "./send-warnings-types";
-import { invalidateRecipientDirectory, useRecipientDirectory } from "./use-recipient-directory";
+import { invalidateRecipientDirectory, loadRecipientDirectoryAnswer, useRecipientDirectory } from "./use-recipient-directory";
+import type { RecipientCandidate } from "@/lib/contacts/recipient-directory-types";
 import { readUndoSendSeconds } from "./use-undo-send";
 import type { ComposePrefill } from "./mailto-utils";
 import { addressChipClassName, addressLabelClassName, addressRowClassName } from "./address-field-styles";
@@ -48,6 +49,8 @@ import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } fro
 import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
+/** How long Send waits for the address book before it asks without it. */
+const DIRECTORY_WAIT_MS = 4000;
 /** Below this much remaining time an Undo could not be pressed before delivery. */
 const UNDO_MIN_OFFER_MS = 1500;
 
@@ -104,18 +107,19 @@ export function ComposeForm({
 	const [draftSaving, setDraftSaving] = useState(false);
 	const [draftRestored, setDraftRestored] = useState(false);
 	const recipientLines = useMemo<RecipientLines>(() => ({ to, cc, bcc }), [to, cc, bcc]);
-	// Told to the provider, so a mail link or an undone send does not replace a message being written.
-	const holdsMessage = useMemo(() => to.length + cc.length + bcc.length + attachments.length > 0 || !!subject.trim() || !!authoredPlainText(html).trim(), [attachments.length, bcc.length, cc.length, html, subject, to.length]);
-	const reportOccupied = compose?.reportOccupied;
-	useEffect(() => {
-		reportOccupied?.(mode, holdsMessage);
-		return () => reportOccupied?.(mode, false);
-	}, [holdsMessage, mode, reportOccupied]);
 	const frameRef = useRef<HTMLFormElement | null>(null);
 	useComposeViewport(frameRef, !minimized, mode);
 	useComposeScrollLock(frameRef, mode === "popup" && !minimized, modalMode);
 	const [loading, setLoading] = useState(false);
 	const [loadingDraft, setLoadingDraft] = useState(false);
+	// Told to the provider, so a mail link or an undone send does not replace a message being written.
+	// A draft still loading counts: what it holds is not known yet. So does a picture pasted into an empty body.
+	const holdsMessage = useMemo(() => loadingDraft || to.length + cc.length + bcc.length + attachments.length + storedAttachments.length > 0 || !!subject.trim() || !!quotedHtml || /<img\b/i.test(html) || !!authoredPlainText(html).trim(), [attachments.length, bcc.length, cc.length, html, loadingDraft, quotedHtml, storedAttachments.length, subject, to.length]);
+	const reportOccupied = compose?.reportOccupied;
+	useEffect(() => {
+		reportOccupied?.(mode, holdsMessage);
+		return () => reportOccupied?.(mode, false);
+	}, [holdsMessage, mode, reportOccupied]);
 	const [deletingDraft, setDeletingDraft] = useState(false);
 	const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
 	const [loadedDraftMailboxId, setLoadedDraftMailboxId] = useState<string | null>(null);
@@ -349,12 +353,12 @@ export function ComposeForm({
 	}
 
 	/** The warnings for these recipients, measured against who the writer usually writes to. */
-	function warningsFor(recipients: RecipientLines): SendWarning[] {
+	function warningsFor(recipients: RecipientLines, book: readonly RecipientCandidate[] = directory): SendWarning[] {
 		return getSendWarnings({
 			...recipients,
 			facts: {
 				// Only people the writer wrote to or keeps as contacts; a first mail from a lookalike must not make it known.
-				known: directory.filter((candidate) => candidate.sends > 0 || candidate.source === "manual" || candidate.source === "outbound").map((candidate) => candidate.email),
+				known: book.filter((candidate) => candidate.sends > 0 || candidate.source === "manual" || candidate.source === "outbound").map((candidate) => candidate.email),
 				own: senderOptions.map((option) => option.address),
 				organisationDomains: mailboxes.map((mailbox) => mailbox.hostname),
 			},
@@ -380,7 +384,13 @@ export function ComposeForm({
 		}
 		if (!hasMeaningfulHtml(html) && !quotedHtml) return reject("body", t("compose.error.emptyBody"));
 		if (!options.confirmed) {
-			const warnings = warningsFor({ to, cc, bcc });
+			// The check needs the address book. On a slow connection Send waits a moment for it rather than
+			// skipping the comparison; if it cannot be read at all, the writer is told and decides.
+			setLoading(true);
+			const answer = await Promise.race([loadRecipientDirectoryAnswer(), new Promise<null>((resolve) => setTimeout(() => resolve(null), DIRECTORY_WAIT_MS))]);
+			setLoading(false);
+			const warnings = warningsFor({ to, cc, bcc }, answer?.directory ?? directory);
+			if (!answer?.ok) warnings.push({ kind: "unchecked" });
 			if (warnings.length > 0) { setSendWarnings(warnings); return; }
 		}
 		setSendWarnings(null);
@@ -398,7 +408,7 @@ export function ComposeForm({
 				if (attachments.length > 0) {
 					const form = new FormData();
 					for (const attachment of attachments) form.append("attachments", attachment.file);
-					const uploaded = await authFetch(`/api/drafts/${currentDraftId}/attachments`, { method: "POST", body: form });
+					const uploaded = await authFetch(`/api/drafts/${currentDraftId}/attachments`, { method: "POST", body: form, redirectOnUnauthorized: false });
 					const result = await uploaded.json() as { attachments?: ComposeStoredAttachment[]; error?: string };
 					if (!uploaded.ok) throw new Error(result.error || t("compose.error.draftAttachments"));
 					setStoredAttachments((current) => [...current, ...(result.attachments ?? [])]);
@@ -420,6 +430,9 @@ export function ComposeForm({
 		try {
 			const res = await authFetch("/api/send", {
 				method: "POST",
+				// An expired sign-in is said here, with the message and its files still open: leaving for the
+				// login page would throw them away.
+				redirectOnUnauthorized: false,
 				body: buildSendFormData({
 					attachments,
 					from: fromAddr,
@@ -477,13 +490,14 @@ export function ComposeForm({
 			const undoMs = data.undoUntil && data.messageId && undoSeconds > 0
 				? Math.min(undoSeconds * 1000, Math.max(0, typeof data.undoRemainingMs === "number" ? data.undoRemainingMs : undoSeconds * 1000))
 				: 0;
-			if (compose && data.messageId && undoMs > UNDO_MIN_OFFER_MS) compose.offerUndoSend(data.messageId, undoMs);
+			if (compose && data.messageId && undoMs > UNDO_MIN_OFFER_MS) compose.offerUndoSend(data.messageId, undoMs, getEmailAddress(to[0] ?? ""));
 			// A message held only for an undo window that is as good as over is on its way, not "scheduled".
 			else setToast({ type: "success", message: data.scheduled && !data.undoUntil ? t("compose.scheduled") : t("compose.sent") });
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
 		} catch (cause) {
-			const detail = cause instanceof Error ? cause.message.trim() : "";
-			setToast({ type: "error", message: detail ? `${t("compose.error.sendFailed")} (${detail})` : t("compose.error.sendFailed") });
+			// A failed fetch is a lost connection, said in the interface language; anything else keeps its own words.
+			const detail = cause instanceof Error && !(cause instanceof TypeError) && cause.name !== "TimeoutError" && cause.name !== "AbortError" ? cause.message.trim() : "";
+			setToast({ type: "error", message: composeSendError(null, t, { network: true, detail }) });
 		} finally {
 			setLoading(false);
 		}
