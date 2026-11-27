@@ -1,3 +1,4 @@
+import { listRequestError } from "./list-failure";
 import { getMessageFolderParams } from "@/lib/messages/folder-params";
 import { authFetch, getClientSessionToken } from "@/lib/auth/client";
 import { parseSearchQuery } from "@/lib/search/query-utils";
@@ -194,7 +195,7 @@ export async function fetchMessageList(params: URLSearchParams, force = false, b
 		...(background ? { priority: "low", headers: { "X-Mailflare-Preload": "1" }, redirectOnUnauthorized: false } : {}),
 	})
 		.then((res) => {
-			if (!res.ok) throw new Error(`Message request failed (${res.status})`);
+			if (!res.ok) throw listRequestError(res.status);
 			return res.json();
 		})
 		.then((data) => {

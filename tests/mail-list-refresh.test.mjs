@@ -14,7 +14,7 @@ await build({stdin:{contents:`export {useMessages} from './src/hooks/use-message
 const {useMessages,clearMessageClientState}=await import(pathToFileURL(join(dir,'entry.mjs')).href);
 const React=await import('react');const {act}=React;const {createRoot}=await import('react-dom/client');
 let root,state,renders;
-function Harness(props){state=useMessages(props.folder??'inbox',props.mailbox??'box',props.filters,props.enabled??true);renders.push({ids:state.messages.map(m=>m.id),loading:state.isLoading,refreshing:state.isRefreshing,error:state.error});return React.createElement('div',null,state.messages.map(m=>m.id).join(','));}
+function Harness(props){state=useMessages(props.folder??'inbox',props.mailbox??'box',props.filters,props.enabled??true);renders.push({ids:state.messages.map(m=>m.id),loading:state.isLoading,refreshing:state.isRefreshing,error:state.error,failure:state.failure});return React.createElement('div',null,state.messages.map(m=>m.id).join(','));}
 const response=id=>Response.json({messages:[{id,direction:'inbound',read:false}],total:1,limit:25,offset:0});
 async function mount(t,fetcher,props={}){clearMessageClientState();localStorage.clear();renders=[];document.body.innerHTML='<div id="root"></div>';t.mock.method(globalThis,'fetch',fetcher);root=createRoot(document.getElementById('root'));t.after(async()=>{await act(async()=>root.unmount());});await act(async()=>root.render(React.createElement(Harness,props)));}
 const render=props=>act(async()=>root.render(React.createElement(Harness,props)));
@@ -40,5 +40,61 @@ test('late responses from a previous category cannot replace the current categor
 });
 
 test('an initially disabled hook loads correctly when enabled and handles network rejection',async t=>{
- let calls=0;await mount(t,async()=>{calls++;throw new Error('offline');},{enabled:false});assert.equal(calls,0);const start=renders.length;await render({enabled:true});assert(renders.slice(start).some(r=>r.loading));assert.equal(state.isLoading,false);assert.equal(state.error,true);assert.equal(calls,1);
+ // Every request is refused, the look into the cause included. The first refusal is retried before a notice appears.
+ const real=window.setTimeout;window.setTimeout=(fn,ms,...rest)=>real(fn,Math.min(ms,10),...rest);t.after(()=>{window.setTimeout=real;});
+ let calls=0;await mount(t,async url=>{if(String(url).startsWith('/api/messages?'))calls++;throw new Error('offline');},{enabled:false});assert.equal(calls,0);const start=renders.length;await render({enabled:true});assert(renders.slice(start).some(r=>r.loading));assert.equal(state.isLoading,true,'still loading while the first refusal is retried');assert.equal(state.error,false);assert.equal(calls,1);
+ await act(async()=>{await new Promise(resolve=>setTimeout(resolve,60));});assert.equal(state.isLoading,false);assert.equal(state.error,true);assert.equal(state.failure,'offline');assert(calls>=2);
+});
+
+// The hook waits seconds between its own tries; here every wait is a few milliseconds.
+function fastTimers(t){const real=window.setTimeout;window.setTimeout=(fn,ms,...rest)=>real(fn,Math.min(ms,10),...rest);t.after(()=>{window.setTimeout=real;});}
+const settle=async(ms=80)=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,ms));});
+const announce=()=>act(async()=>{window.dispatchEvent(new Event('mailflare:messages-changed'));});
+const isList=url=>String(url).startsWith('/api/messages?');
+const offline=()=>Promise.reject(new TypeError('Failed to fetch'));
+
+test('a refresh that fails once is tried again by itself and never shows a notice',async t=>{
+ fastTimers(t);let lists=0,probes=0;
+ await mount(t,async url=>{if(!isList(url)){probes++;return Response.json({user:{id:'owner'}});}lists++;return lists===1?response('last-good'):lists===2?offline():response('after-blip');});
+ const start=renders.length;await announce();await settle();
+ assert.equal(state.messages[0].id,'after-blip');assert.equal(lists,3,'one failed try, one successful retry');assert.equal(probes,1,'the failure was looked into once');
+ assert(renders.slice(start).every(r=>!r.error&&r.failure===null),'no notice for a connection that dropped for a moment');
+ assert(renders.slice(start).every(r=>r.ids.length===1),'the list stays on screen throughout');
+});
+
+test('a refresh that keeps failing shows why, keeps trying and clears the notice when it works again',async t=>{
+ fastTimers(t);let lists=0,reachable=false,working=false;
+ await mount(t,async url=>{if(!isList(url))return reachable?Response.json({user:{id:'owner'}}):offline();lists++;return lists===1?response('last-good'):working?response('back-again'):offline();});
+ await announce();await settle();
+ assert.equal(state.error,true);assert.equal(state.failure,'offline','nothing answers: no connection');assert.equal(state.messages[0].id,'last-good');
+ const tries=lists;await settle();assert(lists>tries,'it keeps trying while the notice is shown');assert.equal(state.error,true);
+ reachable=true;await settle();assert.equal(state.failure,'connection','the server answers, only the list request does not');
+ working=true;await settle();assert.equal(state.error,false);assert.equal(state.failure,null);assert.equal(state.messages[0].id,'back-again');
+ const after=lists;await settle();assert.equal(lists,after,'nothing is asked again once the list is back');
+});
+
+test('a login wall in front of the server is named at once and offers to reload instead of blaming the connection',async t=>{
+ fastTimers(t);let lists=0;
+ // An access gateway redirects every request to its login; unfollowed, that is an opaque redirect.
+ await mount(t,async(url,init)=>{if(!isList(url)){assert.equal(init.redirect,'manual');return {type:'opaqueredirect',status:0,ok:false};}lists++;return lists===1?response('last-good'):offline();});
+ await announce();await settle(40);
+ assert.equal(state.error,true);assert.equal(state.failure,'sign-in');assert.equal(state.messages[0].id,'last-good');
+});
+
+test('a server error is silent once, then named; a refresh the reader asked for reports at once',async t=>{
+ fastTimers(t);let lists=0,broken=true;
+ let rendersAtRetry=null;
+ await mount(t,async url=>{assert(isList(url),'a status needs no further question');lists++;if(lists===3)rendersAtRetry=renders.length;return lists===1?response('last-good'):broken?Response.json({error:'unavailable'},{status:503}):response('repaired');});
+ const start=renders.length;await announce();await act(async()=>{await new Promise(resolve=>setTimeout(resolve,200));});
+ assert(rendersAtRetry!==null,'the failed refresh was tried again');assert.equal(renders.slice(start,rendersAtRetry).some(r=>r.error),false,'no notice before the retry has failed too');
+ assert.equal(state.error,true);assert.equal(state.failure,'server');
+ broken=false;await settle();assert.equal(state.error,false);assert.equal(state.messages[0].id,'repaired');
+ broken=true;await act(async()=>state.refresh());assert.equal(state.error,true,'pressing refresh gets an answer right away');assert.equal(state.failure,'server');
+});
+
+test('coming back online reads the list again without waiting for the next try',async t=>{
+ fastTimers(t);let lists=0;
+ await mount(t,async url=>{if(!isList(url))return offline();lists++;return response('list-'+lists);});
+ await act(async()=>{window.dispatchEvent(new Event('online'));});await settle(30);
+ assert.equal(lists,2);assert.equal(state.messages[0].id,'list-2');
 });
