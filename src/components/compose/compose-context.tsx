@@ -11,7 +11,7 @@ import type { ComposePrefill } from "./mailto-utils";
 const UndoSendToast = lazy(() => import("./undo-send-toast").then((module) => ({ default: module.UndoSendToast })).catch(() => ({ default: (() => null) as typeof import("./undo-send-toast").UndoSendToast })));
 
 /** A message that was just sent with an undo window and has not been delivered yet. */
-export type PendingUndoSend = { messageId: string; until: number; /** Whom it goes to, to tell several waiting messages apart. */ recipient?: string };
+export type PendingUndoSend = { messageId: string; until: number; /** Whom it goes to and what it is about, to tell several waiting messages apart. */ recipient?: string; subject?: string };
 
 type ComposeContextValue = {
 	open: boolean;
@@ -30,7 +30,7 @@ type ComposeContextValue = {
 	openDraftComposer: (draftId: string, options?: { freshReply?: boolean }) => void;
 	closeComposer: () => void;
 	/** Offer to take `messageId` back for the `remainingMs` the server still holds it; the offer outlives the composer that sent it. */
-	offerUndoSend: (messageId: string, remainingMs: number, recipient?: string) => void;
+	offerUndoSend: (messageId: string, remainingMs: number, recipient?: string, subject?: string) => void;
 	/** A composer says whether it holds anything worth keeping (text, recipients, files). */
 	reportOccupied: (composer: string, occupied: boolean) => void;
 	isOccupied: () => boolean;
@@ -110,7 +110,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 			setPrefill(null);
 			setFreshReply(false);
 		},
-		offerUndoSend: (messageId, remainingMs, recipient) => setPendingUndos((current) => [...current.filter((entry) => entry.messageId !== messageId), { messageId, until: Date.now() + remainingMs, recipient }]),
+		offerUndoSend: (messageId, remainingMs, recipient, subject) => setPendingUndos((current) => [...current.filter((entry) => entry.messageId !== messageId), { messageId, until: Date.now() + remainingMs, recipient, subject }]),
 		reportOccupied,
 		isOccupied,
 		setRestoreTarget,

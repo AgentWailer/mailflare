@@ -57,7 +57,7 @@ try {
 		const tag = `${width}${dark ? '-dark' : ''}`;
 
 		/** A fresh page with its own record of what the composer asked the server. */
-		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null, undoRemainingMs = null, reply = false, sendStatus = 200, directoryDelay = 0, directoryStatus = 200 } = {}) {
+		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null, undoRemainingMs = null, reply = false, sendStatus = 200, sendBody = null, directoryDelay = 0, directoryStatus = 200 } = {}) {
 			const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, permissions: ['clipboard-read', 'clipboard-write'] });
 			const page = await context.newPage();
 			page.setDefaultTimeout(10000);
@@ -71,6 +71,7 @@ try {
 					const body = request.postData() ?? '';
 					calls.sends.push({ to: field(body, 'to'), cc: field(body, 'cc'), bcc: field(body, 'bcc'), subject: field(body, 'subject'), undoSeconds: field(body, 'undoSeconds') });
 					if (sendStatus !== 200) return json({ error: sendStatus === 401 ? 'Unauthorized' : 'Mailbox not found' }, sendStatus);
+					if (sendBody !== null) return route.fulfill({ status: 200, contentType: 'application/json', body: sendBody });
 					const messageId = 'sent-' + calls.sends.length;
 					return json(field(body, 'undoSeconds') ? { messageId, scheduled: true, undoUntil: new Date(Date.now() + 10000).toISOString(), ...(undoRemainingMs === null ? {} : { undoRemainingMs }) } : { messageId });
 				}
@@ -568,7 +569,7 @@ try {
 				await t.page.waitForFunction(count => document.querySelectorAll('[data-undo-send]').length === count, index + 1);
 			}
 			const offers = t.page.locator('[data-undo-send]');
-			assert.deepEqual(await offers.evaluateAll(nodes => nodes.map(node => node.firstElementChild.firstChild.textContent)), [label('compose.undo.pendingTo', { recipient: 'maya.chen@lumen.test' }), label('compose.undo.pendingTo', { recipient: 'max@partner.test' })], `${tag}: two offers can be told apart`);
+			assert.deepEqual(await offers.evaluateAll(nodes => nodes.map(node => node.firstElementChild.firstChild.textContent)), [label('compose.undo.pendingAbout', { subject: 'Erste', recipient: 'maya.chen@lumen.test' }), label('compose.undo.pendingAbout', { subject: 'Zweite', recipient: 'max@partner.test' })], `${tag}: two offers can be told apart by subject and recipient`);
 			assert.deepEqual(await offers.evaluateAll(nodes => nodes.map(node => !!node.querySelector('[data-undo-keys]'))), [false, true], `${tag}: the key is shown on the offer it would take back`);
 			await t.page.screenshot({ path: `/tmp/mailflare-undo-send-two-${tag}.png` });
 			await t.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
@@ -607,6 +608,21 @@ try {
 			await t.noOverflow('with an error');
 			await t.close();
 		}
+		// A success that names no message, or cannot be read, is not a send: the message stays and the
+		// writer is sent to look before sending again.
+		for (const sendBody of ['{}', '<html>gateway</html>']) {
+			const t = await open({ sendBody });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.getByRole('alert').filter({ hasText: de['compose.error.sendCheckFirst'] }).waitFor();
+			assert.equal(await t.page.getByText(de['compose.sent'], { exact: true }).count(), 0, `${tag}: not reported as sent`);
+			assert.deepEqual(await t.chips('to'), ['maya.chen@lumen.test'], `${tag}: the message is still there`);
+			await t.editor.getByText('Hallo Maya').waitFor();
+			await t.close();
+		}
 		// A slow address book: Send waits for it instead of skipping the comparison.
 		{
 			const t = await open({ directoryDelay: 1500 });
@@ -615,8 +631,13 @@ try {
 			await t.editor.click();
 			await t.page.keyboard.type('Hallo Lin');
 			await t.send.click();
+			// While Send waits, the message cannot be changed or closed: what is checked is what goes out.
+			await t.page.waitForFunction(() => document.querySelector('form')?.inert === true);
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Geändert', { force: true, timeout: 500 }).catch(() => {});
 			const warning = t.page.locator('[data-send-warning]');
 			await warning.waitFor();
+			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).inputValue(), 'Unterlagen', `${tag}: nothing was changed during the wait`);
+			assert.equal(await t.page.evaluate(() => document.querySelector('form').inert), false, 'the message can be edited again once the question is asked');
 			assert((await warning.innerText()).includes(label('compose.warn.lookalike', { address: 'lin@harborwork.test', like: 'harborworks.test' })), `${tag}: the look-alike is caught although the address book was late`);
 			assert.equal(t.calls.sends.length, 0);
 			await t.close();

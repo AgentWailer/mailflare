@@ -1,8 +1,8 @@
 import { authFetch } from "@/lib/auth/client";
 import type { ComposeAttachment, ComposeDraft, ComposeThreading, DraftResponse } from "./types";
 
-export async function fetchDraft(draftId: string): Promise<ComposeDraft> {
-	const res = await authFetch(`/api/drafts/${draftId}`);
+export async function fetchDraft(draftId: string, options?: { redirectOnUnauthorized?: boolean }): Promise<ComposeDraft> {
+	const res = await authFetch(`/api/drafts/${draftId}`, options);
 	const json = (await res.json()) as DraftResponse;
 
 	if (!res.ok || !json.draft) {

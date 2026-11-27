@@ -192,7 +192,10 @@ export async function fetchMessageList(params: URLSearchParams, force = false, b
 	const request = authFetch(`/api/messages?${key}`, {
 		cache: force ? "no-store" : "default",
 		early: !force && !background,
-		...(background ? { priority: "low", headers: { "X-Mailflare-Preload": "1" }, redirectOnUnauthorized: false } : {}),
+		// An ended sign-in is said in the list's own notice ("reload the page"). Leaving for the login page
+		// from a background read would throw away a message being written.
+		redirectOnUnauthorized: false,
+		...(background ? { priority: "low", headers: { "X-Mailflare-Preload": "1" } } : {}),
 	})
 		.then((res) => {
 			if (!res.ok) throw listRequestError(res.status);

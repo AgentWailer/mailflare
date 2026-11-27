@@ -1,4 +1,5 @@
 import { prepareEmailHtml } from "@/lib/email/html";
+import { LONG_TOKEN_STYLE, wrapLongTokens } from "./long-tokens";
 
 export type PrintableMessage = {
 	subject: string;
@@ -50,6 +51,8 @@ export function printMessage(message: PrintableMessage): void {
 		const prepared = prepareEmailHtml(message.html, { reader: true, allowRemote: false });
 		const content = document.createElement("template");
 		content.innerHTML = prepared.html;
+		// As in the reader: words whole, so a table's columns keep their width on paper too.
+		wrapLongTokens(content.content);
 		for (const picture of Array.from(content.content.querySelectorAll("img"))) {
 			// A picture below the fold of a page nobody scrolls would never load lazily.
 			picture.setAttribute("loading", "eager");
@@ -58,7 +61,7 @@ export function printMessage(message: PrintableMessage): void {
 		// A message's own `header { display: none }` or `h1 { ... }` must not touch the lines above.
 		const mail = document.createElement("div");
 		const mailStyle = document.createElement("style");
-		mailStyle.textContent = `:host{display:block;color-scheme:light;overflow-wrap:anywhere}img,table{max-width:100%!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
+		mailStyle.textContent = `:host{display:block;color-scheme:light;overflow-wrap:break-word}${LONG_TOKEN_STYLE}img,table{max-width:100%!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
 		mail.attachShadow({ mode: "open" }).replaceChildren(mailStyle, content.content);
 		body.appendChild(mail);
 	} else {

@@ -23,7 +23,7 @@ import { useOptionalCompose } from "./compose-context";
 import { SendWarningDialog } from "./send-warning-dialog";
 import { getSendWarnings } from "./send-warnings-utils";
 import type { SendWarning } from "./send-warnings-types";
-import { invalidateRecipientDirectory, loadRecipientDirectoryAnswer, useRecipientDirectory } from "./use-recipient-directory";
+import { invalidateRecipientDirectory, isKnownCorrespondent, knownRecipientDirectory, loadRecipientDirectoryAnswer, useRecipientDirectory } from "./use-recipient-directory";
 import type { RecipientCandidate } from "@/lib/contacts/recipient-directory-types";
 import { readUndoSendSeconds } from "./use-undo-send";
 import type { ComposePrefill } from "./mailto-utils";
@@ -36,6 +36,7 @@ import { useComposeViewport } from "./use-compose-viewport";
 import {
 	applyMailboxSignatureHtml,
 	authoredPlainText,
+	hasAuthoredPicture,
 	hasMeaningfulHtml,
 	htmlToPlainText,
 	joinQuotedHtml,
@@ -86,6 +87,8 @@ export function ComposeForm({
 	const [sendWarnings, setSendWarnings] = useState<SendWarning[] | null>(null);
 	// Who was already on the message being answered: they have seen each other's addresses.
 	const seenRecipients = useRef<string[]>([]);
+	const mounted = useRef(true);
+	useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 	const startedAsReply = useRef(freshReply);
 	const compose = useOptionalCompose();
 	const directory = useRecipientDirectory();
@@ -104,6 +107,8 @@ export function ComposeForm({
 	const [toast, setToast] = useState<Toast>(null);
 	const [refineActive, setRefineActive] = useState(false);
 	const [draftSaveFailed, setDraftSaveFailed] = useState(false);
+	// The save was refused because the sign-in ended: the connection is not what needs checking.
+	const [draftSaveSignedOut, setDraftSaveSignedOut] = useState(false);
 	const [draftSaving, setDraftSaving] = useState(false);
 	const [draftRestored, setDraftRestored] = useState(false);
 	const recipientLines = useMemo<RecipientLines>(() => ({ to, cc, bcc }), [to, cc, bcc]);
@@ -114,7 +119,7 @@ export function ComposeForm({
 	const [loadingDraft, setLoadingDraft] = useState(false);
 	// Told to the provider, so a mail link or an undone send does not replace a message being written.
 	// A draft still loading counts: what it holds is not known yet. So does a picture pasted into an empty body.
-	const holdsMessage = useMemo(() => loadingDraft || to.length + cc.length + bcc.length + attachments.length + storedAttachments.length > 0 || !!subject.trim() || !!quotedHtml || /<img\b/i.test(html) || !!authoredPlainText(html).trim(), [attachments.length, bcc.length, cc.length, html, loadingDraft, quotedHtml, storedAttachments.length, subject, to.length]);
+	const holdsMessage = useMemo(() => loadingDraft || to.length + cc.length + bcc.length + attachments.length + storedAttachments.length > 0 || !!subject.trim() || !!quotedHtml || hasAuthoredPicture(html) || !!authoredPlainText(html).trim(), [attachments.length, bcc.length, cc.length, html, loadingDraft, quotedHtml, storedAttachments.length, subject, to.length]);
 	const reportOccupied = compose?.reportOccupied;
 	useEffect(() => {
 		reportOccupied?.(mode, holdsMessage);
@@ -325,7 +330,8 @@ export function ComposeForm({
 				try {
 					const res = await authFetch(id ? `/api/drafts/${id}` : "/api/drafts", { method: id ? "PATCH" : "POST", redirectOnUnauthorized: false, signal: AbortSignal.timeout(15000),
 						headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-					const data = await res.json() as { draft?: { id: string; reused?: boolean } };
+					const data = await res.json().catch(() => ({})) as { draft?: { id: string; reused?: boolean } };
+					setDraftSaveSignedOut(res.status === 401);
 					if (!res.ok || !data.draft?.id) throw new Error("Draft save failed");
 					if (session !== getClientSessionToken()) return;
 					if (data.draft.reused) {
@@ -358,7 +364,7 @@ export function ComposeForm({
 			...recipients,
 			facts: {
 				// Only people the writer wrote to or keeps as contacts; a first mail from a lookalike must not make it known.
-				known: book.filter((candidate) => candidate.sends > 0 || candidate.source === "manual" || candidate.source === "outbound").map((candidate) => candidate.email),
+				known: book.filter(isKnownCorrespondent).map((candidate) => candidate.email),
 				own: senderOptions.map((option) => option.address),
 				organisationDomains: mailboxes.map((mailbox) => mailbox.hostname),
 			},
@@ -367,6 +373,13 @@ export function ComposeForm({
 			bodyText: threading || quotedHtml ? authoredPlainText(html) : `${subject}\n${authoredPlainText(html)}`,
 			hasAttachments: attachments.length + storedAttachments.length > 0,
 		});
+	}
+
+	/** Why a step of "review and send" failed: a lost sign-in and a too large upload in the writer's language. */
+	function reviewFailure(response: Response, said: string | null | undefined, fallback: "compose.error.draftAttachments" | "compose.error.saveForReview" | "compose.error.createReview"): string {
+		if (response.status === 401) return t("compose.error.sendSignedOut");
+		if (response.status === 413) return t("compose.error.sendTooLarge");
+		return said || t(fallback);
 	}
 
 	async function send(options: { confirmed?: boolean; recipients?: RecipientLines } = {}) {
@@ -388,9 +401,14 @@ export function ComposeForm({
 			// skipping the comparison; if it cannot be read at all, the writer is told and decides.
 			setLoading(true);
 			const answer = await Promise.race([loadRecipientDirectoryAnswer(), new Promise<null>((resolve) => setTimeout(() => resolve(null), DIRECTORY_WAIT_MS))]);
+			// A composer closed meanwhile sends nothing.
+			if (!mounted.current) return;
 			setLoading(false);
-			const warnings = warningsFor({ to, cc, bcc }, answer?.directory ?? directory);
-			if (!answer?.ok) warnings.push({ kind: "unchecked" });
+			// Too slow or unreadable now: the address book read earlier still compares. Only with none at
+			// hand is the writer told that nothing was compared.
+			const book = answer?.ok ? answer.directory : knownRecipientDirectory();
+			const warnings = warningsFor({ to, cc, bcc }, book ?? []);
+			if (!book) warnings.push({ kind: "unchecked" });
 			if (warnings.length > 0) { setSendWarnings(warnings); return; }
 		}
 		setSendWarnings(null);
@@ -409,19 +427,19 @@ export function ComposeForm({
 					const form = new FormData();
 					for (const attachment of attachments) form.append("attachments", attachment.file);
 					const uploaded = await authFetch(`/api/drafts/${currentDraftId}/attachments`, { method: "POST", body: form, redirectOnUnauthorized: false });
-					const result = await uploaded.json() as { attachments?: ComposeStoredAttachment[]; error?: string };
-					if (!uploaded.ok) throw new Error(result.error || t("compose.error.draftAttachments"));
-					setStoredAttachments((current) => [...current, ...(result.attachments ?? [])]);
+					const result = await uploaded.json().catch(() => null) as { attachments?: ComposeStoredAttachment[]; error?: string } | null;
+					if (!uploaded.ok) throw new Error(reviewFailure(uploaded, result?.error, "compose.error.draftAttachments"));
+					setStoredAttachments((current) => [...current, ...(result?.attachments ?? [])]);
 					setAttachments([]);
 				}
-				const updated = await authFetch(`/api/drafts/${currentDraftId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId: selectedMailbox?.id, from: fromAddr, to: recipientsToHeader(to), cc: recipientsToHeader(cc), bcc: recipientsToHeader(bcc), subject, html: fullHtml, text: htmlToPlainText(fullHtml), inReplyTo: threading?.inReplyTo ?? null, references: threading?.references ?? null, threadId: threading?.threadId ?? null, scheduledAt: scheduledAt?.toISOString() ?? null }) });
-				if (!updated.ok) throw new Error(t("compose.error.saveForReview"));
-				const current = await fetchDraft(currentDraftId);
+				const updated = await authFetch(`/api/drafts/${currentDraftId}`, { method: "PATCH", redirectOnUnauthorized: false, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId: selectedMailbox?.id, from: fromAddr, to: recipientsToHeader(to), cc: recipientsToHeader(cc), bcc: recipientsToHeader(bcc), subject, html: fullHtml, text: htmlToPlainText(fullHtml), inReplyTo: threading?.inReplyTo ?? null, references: threading?.references ?? null, threadId: threading?.threadId ?? null, scheduledAt: scheduledAt?.toISOString() ?? null }) });
+				if (!updated.ok) throw new Error(reviewFailure(updated, null, "compose.error.saveForReview"));
+				const current = await fetchDraft(currentDraftId, { redirectOnUnauthorized: false });
 				if (!current.agent) throw new Error(t("compose.error.aiMetadata"));
 				setAgentRevision(current.agent.revision);
-				const response = await authFetch("/api/agent/approvals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftId: currentDraftId, expectedRevision: current.agent.revision }) });
-				const result = await response.json() as { approvalId?: string; snapshot?: ReviewSnapshot; error?: string };
-				if (!response.ok || !result.approvalId || !result.snapshot) throw new Error(result.error || t("compose.error.createReview"));
+				const response = await authFetch("/api/agent/approvals", { method: "POST", redirectOnUnauthorized: false, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftId: currentDraftId, expectedRevision: current.agent.revision }) });
+				const result = await response.json().catch(() => null) as { approvalId?: string; snapshot?: ReviewSnapshot; error?: string } | null;
+				if (!response.ok || !result?.approvalId || !result.snapshot) throw new Error(reviewFailure(response, result?.error, "compose.error.createReview"));
 				setAgentReview({ approvalId: result.approvalId, snapshot: result.snapshot });
 			} catch (cause) { setToast({ type: "error", message: cause instanceof Error ? cause.message : t("compose.error.reviewDraft") }); }
 			finally { setLoading(false); }
@@ -455,7 +473,9 @@ export function ComposeForm({
 				setToast({ type: "error", message: composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
 				return;
 			}
-			if (!data) {
+			// Only an answer that names the message is a send. Anything else that came back as a success
+			// (a cut-off body, a page from something in between) leaves the outcome open and the message here.
+			if (!data || typeof data.messageId !== "string" || !data.messageId) {
 				setToast({ type: "error", message: composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
 				return;
 			}
@@ -490,7 +510,7 @@ export function ComposeForm({
 			const undoMs = data.undoUntil && data.messageId && undoSeconds > 0
 				? Math.min(undoSeconds * 1000, Math.max(0, typeof data.undoRemainingMs === "number" ? data.undoRemainingMs : undoSeconds * 1000))
 				: 0;
-			if (compose && data.messageId && undoMs > UNDO_MIN_OFFER_MS) compose.offerUndoSend(data.messageId, undoMs, getEmailAddress(to[0] ?? ""));
+			if (compose && data.messageId && undoMs > UNDO_MIN_OFFER_MS) compose.offerUndoSend(data.messageId, undoMs, getEmailAddress(to[0] ?? ""), subject.trim());
 			// A message held only for an undo window that is as good as over is on its way, not "scheduled".
 			else setToast({ type: "success", message: data.scheduled && !data.undoUntil ? t("compose.scheduled") : t("compose.sent") });
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
@@ -724,7 +744,7 @@ export function ComposeForm({
 					{toast.type === "error" && <button type="button" onClick={() => setToast(null)} aria-label={t("navigation.close")} className="-my-1 -mr-2 shrink-0 rounded p-1 hover:bg-white/15"><X aria-hidden="true" className="h-4 w-4" /></button>}
 				</div>
 			)}
-			<form ref={frameRef} onSubmit={onSubmit} className={frameClass} role={modalMode && !minimized ? "dialog" : undefined} aria-modal={modalMode && !minimized || undefined} aria-label={modalMode && !minimized ? t("compose.dialogLabel") : undefined} onKeyDown={(event) => { if (modalMode && !minimized && event.key === "Escape") { event.preventDefault(); setModalMode(false); } }} onDragEnterCapture={minimized ? undefined : onFileDragEnter} onDragOverCapture={minimized ? undefined : onFileDragOver} onDragLeaveCapture={minimized ? undefined : onFileDragLeave} onDropCapture={minimized ? undefined : onFileDrop}>
+			<form ref={frameRef} onSubmit={onSubmit} className={frameClass} inert={loading} role={modalMode && !minimized ? "dialog" : undefined} aria-modal={modalMode && !minimized || undefined} aria-label={modalMode && !minimized ? t("compose.dialogLabel") : undefined} onKeyDown={(event) => { if (modalMode && !minimized && event.key === "Escape") { event.preventDefault(); setModalMode(false); } }} onDragEnterCapture={minimized ? undefined : onFileDragEnter} onDragOverCapture={minimized ? undefined : onFileDragOver} onDragLeaveCapture={minimized ? undefined : onFileDragLeave} onDropCapture={minimized ? undefined : onFileDrop}>
 				{draggingFiles && !minimized && (
 					<div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-blue-400 bg-blue-50/90 text-sm font-medium text-blue-700" aria-hidden="true">
 						{t("compose.dropFiles")}
@@ -760,7 +780,7 @@ export function ComposeForm({
 				</div>
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")}>
 				{draftRestored && <p role="status" className="px-4 py-2 text-sm">{t("compose.recoveredText")}</p>}
-				{draftSaveFailed && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{t("compose.error.saveDraft")} <button type="button" className="underline" onClick={() => { setDraftSaving(true); flushSave.current?.(); }}>{t("message.retry")}</button></p>}
+				{draftSaveFailed && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{t(draftSaveSignedOut ? "compose.error.saveDraftSignedOut" : "compose.error.saveDraft")} <button type="button" className="underline" onClick={() => { setDraftSaving(true); flushSave.current?.(); }}>{t("message.retry")}</button></p>}
 				<div className="max-h-[45%] shrink-0 overflow-y-auto overscroll-contain">
 				<div className={cn(addressRowClassName, "compose-from-row")}>
 					<Label htmlFor={`${mode}-from`} className={addressLabelClassName}>{t("compose.from")}</Label>

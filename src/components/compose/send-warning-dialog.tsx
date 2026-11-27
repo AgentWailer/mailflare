@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,10 @@ export function SendWarningDialog({ warnings, onCancel, onSendAnyway, onMoveToBc
 	onMoveToBcc?: () => void;
 }) {
 	const { t } = useLanguage();
+	// While the dialog fades out its questions stay as they were, instead of emptying and shrinking.
+	const [shown, setShown] = useState<SendWarning[]>(warnings ?? []);
+	if (warnings?.length && warnings !== shown) setShown(warnings);
+	const open = !!warnings?.length;
 	const count = warnings?.length ?? 0;
 	// "Move to Bcc" answers one question and its button goes away: focus returns to the way back
 	// instead of falling out of the dialog's controls.
@@ -28,18 +32,18 @@ export function SendWarningDialog({ warnings, onCancel, onSendAnyway, onMoveToBc
 		const active = document.activeElement;
 		if (!active || active === document.body || active === dialog || !dialog.contains(active)) dialog.querySelector<HTMLElement>("[data-send-warning-back]")?.focus();
 	}, [count]);
-	const lines = (warnings ?? []).map((warning) => {
+	const lines = shown.map((warning) => {
 		if (warning.kind === "lookalike") return t("compose.warn.lookalike", { address: warning.address, like: warning.like });
 		if (warning.kind === "outsiders") return t("compose.warn.outsiders", { people: warning.count, domains: warning.domains });
 		if (warning.kind === "unchecked") return t("compose.warn.unchecked");
 		if (warning.kind === "tooManyRecipients") return t("compose.warn.tooManyRecipients", { checked: warning.checked });
 		return t("compose.warn.missingAttachment");
 	});
-	const offersBcc = !!onMoveToBcc && !!warnings?.some((warning) => warning.kind === "outsiders");
+	const offersBcc = !!onMoveToBcc && shown.some((warning) => warning.kind === "outsiders");
 	// With another question open, moving to Bcc answers only its own; the rest is asked again.
-	const bccAlsoSends = !!warnings?.every((warning) => warning.kind === "outsiders");
+	const bccAlsoSends = shown.every((warning) => warning.kind === "outsiders");
 	return (
-		<Dialog open={!!warnings?.length} onOpenChange={(open) => { if (!open) onCancel(); }}>
+		<Dialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
 			<DialogContent
 				data-compose-layer
 				data-send-warning

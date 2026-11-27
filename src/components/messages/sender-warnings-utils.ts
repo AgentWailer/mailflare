@@ -117,8 +117,11 @@ function trustedKey(scope: string): string {
 
 /** The stored list as text, for a component to follow (`useSyncExternalStore`); empty when nothing is stored. */
 export function readTrustedSendersText(scope = ""): string {
-	try { return localStorage.getItem(trustedKey(scope)) ?? ""; } catch { return ""; }
+	try { return localStorage.getItem(trustedKey(scope)) ?? ""; } catch { return unstored.get(trustedKey(scope)) ?? ""; }
 }
+
+// Where the browser keeps nothing (storage blocked or full), a mark still holds until the page is closed.
+const unstored = new Map<string, string>();
 
 export function parseTrustedSenders(text: string): string[] {
 	try {
@@ -133,7 +136,8 @@ export function readTrustedSenders(scope = ""): string[] {
 }
 
 function writeTrustedSenders(scope: string, list: string[]) {
-	try { localStorage.setItem(trustedKey(scope), JSON.stringify(list.slice(0, MAX_TRUSTED))); } catch { /* Asking again next time is fine. */ }
+	const text = JSON.stringify(list.slice(0, MAX_TRUSTED));
+	try { localStorage.setItem(trustedKey(scope), text); unstored.delete(trustedKey(scope)); } catch { unstored.set(trustedKey(scope), text); }
 	// Every check of this sender on the page follows, not only the one that was pressed.
 	if (typeof window !== "undefined") window.dispatchEvent(new Event(TRUSTED_EVENT));
 }

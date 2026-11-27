@@ -10,7 +10,22 @@ const EMPTY: RecipientCandidate[] = [];
 
 /** A stalled request is given up, so what waits for the address book carries on without it. */
 const REQUEST_TIMEOUT_MS = 8_000;
-export type RecipientDirectoryAnswer = { directory: RecipientCandidate[]; /** False when the address book could not be read. */ ok: boolean };
+export type RecipientDirectoryAnswer = {
+	/** The address book; after a failed read the last one that was read, or nobody. */
+	directory: RecipientCandidate[];
+	/** False when no address book is at hand: this read failed and there is no earlier one to go by. */
+	ok: boolean;
+};
+
+/**
+ * Somebody the owner wrote to or keeps as a contact. A message that was taken back, or never left,
+ * is no send: the address it was meant for stays a stranger, however it got into the contacts.
+ */
+export function isKnownCorrespondent(candidate: RecipientCandidate): boolean {
+	return candidate.sends > 0 || candidate.source === "manual";
+}
+
+let lastGood: { session: string | null; directory: RecipientCandidate[] } | null = null;
 
 let cached: { session: string | null; at: number; promise: Promise<RecipientDirectoryAnswer> } | null = null;
 
@@ -27,12 +42,15 @@ export function loadRecipientDirectoryAnswer(force = false): Promise<RecipientDi
 		.then(async (response) => {
 			if (!response.ok) throw new Error("Recipient directory unavailable");
 			const data = await response.json() as { recipients?: unknown };
-			return { directory: Array.isArray(data.recipients) ? data.recipients.filter(isCandidate) : EMPTY, ok: true };
+			const directory = Array.isArray(data.recipients) ? data.recipients.filter(isCandidate) : EMPTY;
+			lastGood = { session, directory };
+			return { directory, ok: true };
 		})
 		.catch(() => {
 			// Ask again next time instead of keeping the failure for five minutes.
 			if (cached?.promise === promise) cached = null;
-			return { directory: EMPTY, ok: false };
+			// A somewhat older address book of the same reader still compares; none at all cannot.
+			return lastGood?.session === session ? { directory: lastGood.directory, ok: true } : { directory: EMPTY, ok: false };
 		});
 	cached = { session, at: Date.now(), promise };
 	return promise;
@@ -46,6 +64,11 @@ export function loadRecipientDirectory(force = false): Promise<RecipientCandidat
 /** Forget the directory, e.g. after a send changed who is written to most. */
 export function invalidateRecipientDirectory() {
 	cached = null;
+}
+
+/** The address book already read for this reader, if any, for a caller that cannot wait for a new read. */
+export function knownRecipientDirectory(): RecipientCandidate[] | null {
+	return lastGood?.session === getClientSessionToken() ? lastGood.directory : null;
 }
 
 /** The directory and whether the request for it has answered; an empty or failed answer is loaded too. */

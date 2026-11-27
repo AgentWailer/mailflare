@@ -111,6 +111,7 @@ export function UndoSendToast({ pending, named, onDone, onRestored }: {
 		: phase === "inDrafts" ? t("compose.undo.inDrafts")
 		: phase === "tooLate" ? t("compose.undo.tooLate")
 		: phase === "failed" ? t("compose.undo.failed")
+		: named && pending.recipient && pending.subject ? t("compose.undo.pendingAbout", { recipient: pending.recipient, subject: pending.subject.length > 40 ? `${pending.subject.slice(0, 39)}…` : pending.subject })
 		: named && pending.recipient ? t("compose.undo.pendingTo", { recipient: pending.recipient })
 		: t("compose.undo.pending");
 

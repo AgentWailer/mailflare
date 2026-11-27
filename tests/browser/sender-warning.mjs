@@ -90,9 +90,11 @@ try {
 			await t.page.screenshot({ path: `/tmp/mailflare-sender-warning-${tag}.png` });
 
 			// "This sender is fine" says what it did and can be taken back.
-			if (touch) await trust.tap(); else await trust.click();
+			// With the keyboard, focus follows to the button that takes the mark back instead of being lost.
+			if (touch) await trust.tap(); else { await trust.focus(); await t.page.keyboard.press('Enter'); }
 			const note = t.page.locator('[data-sender-trusted]');
 			await note.waitFor();
+			if (!touch) assert.equal(await t.page.evaluate(() => document.activeElement?.textContent), de['message.sender.warnAgain'], `${tag}: focus is on "warn again"`);
 			assert.equal(await t.banner.count(), 0);
 			assert((await note.innerText()).includes(label('message.sender.trusted', { address: 'maya.chen@lumen-test.example' })));
 			const again = note.getByRole('button', { name: de['message.sender.warnAgain'], exact: true });
@@ -103,8 +105,9 @@ try {
 			await t.page.reload();
 			await note.waitFor();
 			assert.equal(await t.banner.count(), 0, `${tag}: a sender marked as fine is not warned about`);
-			if (touch) await again.tap(); else await again.click();
+			if (touch) await again.tap(); else { await again.focus(); await t.page.keyboard.press('Enter'); }
 			await t.banner.waitFor();
+			if (!touch) assert.equal(await t.page.evaluate(() => document.activeElement?.textContent), de['message.sender.trust'], `${tag}: and back on "this sender is fine"`);
 			await t.page.reload();
 			await t.banner.waitFor();
 			await t.close();
