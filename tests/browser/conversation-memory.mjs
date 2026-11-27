@@ -9,7 +9,7 @@ const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwrig
 const root=process.cwd(),dir=mkdtempSync(join(root,'node_modules','conversation-memory-browser-')),de=JSON.parse(readFileSync('public/locales/de.json','utf8'));
 const write=(name,value)=>writeFileSync(join(dir,name),value);
 write('mailbox.ts',`const mailbox={id:'box',domainId:'domain',localPart:'owner',hostname:'example.test',displayName:'Owner',permission:'full_access'};export const useSelectedMailbox=()=>({selectedMailbox:mailbox,mailboxes:[mailbox]});`);
-write('compose.ts',`export const useCompose=()=>({openDraftComposer:id=>window.__draft=id});`);
+write('compose.ts',`export const useCompose=()=>({openDraftComposer:id=>window.__draft=id});export const useOptionalCompose=useCompose;`);
 write('avatar.tsx',`export const ContactAvatar=()=>null;`);
 write('navigation.ts',`export const useRouter=()=>({push:()=>{}});export const usePathname=()=>'/inbox';`);
 write('entry.tsx',`import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {ConversationThread} from '@/components/messages/conversation-thread';import {LanguageProvider} from '@/components/language-provider';import de from '../../public/locales/de.json';
