@@ -166,7 +166,7 @@ try {
 	}
 	console.log(JSON.stringify({ localeCatalogScripts: true }));
 } catch (error) {
-	if (serverLog) console.error(serverLog.slice(-2000));
+	if (serverLog) console.error(serverLog.split('\n').filter(line => !/^(GET|POST) /.test(line)).join('\n').slice(-2000));
 	throw error;
 } finally {
 	await browser?.close();

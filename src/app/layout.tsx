@@ -7,6 +7,7 @@ import { catalogScriptUrl } from "@/lib/i18n/catalog-registry";
 import { DEFAULT_LOCALE, getDirection } from "@/lib/i18n/utils";
 import { getRequestLocale, loadServerMessages } from "@/lib/i18n/server";
 import { sidebarBootstrapScript } from "@/components/sidebar-state-utils";
+import { earlyRequestsBootstrapScript } from "@/lib/auth/early-requests";
 import { themeBootstrapScript } from "@/components/theme-utils";
 import "./globals.css";
 
@@ -60,6 +61,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 				<meta name="apple-mobile-web-app-status-bar-style" content={dark ? "black" : "default"} suppressHydrationWarning />
 				<meta name="theme-color" content={dark ? "#202124" : "#f6f8fc"} suppressHydrationWarning />
 				{catalogScript ? <script async src={catalogScript} /> : null}
+				{/* Starts the session, mailbox and list requests while the application scripts are still loading. */}
+				<script dangerouslySetInnerHTML={{ __html: earlyRequestsBootstrapScript }} />
 				<script dangerouslySetInnerHTML={{ __html: sidebarBootstrapScript }} />
 				<script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
 				<link rel="icon" href="/api/branding/icon"></link>

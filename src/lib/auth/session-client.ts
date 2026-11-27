@@ -15,6 +15,7 @@ export type SessionSnapshot = {
 let generation = 0;
 let cached: { token: string | null; at: number; value: SessionSnapshot } | null = null;
 let pending: { token: string | null; generation: number; promise: Promise<SessionSnapshot> } | null = null;
+let startedOnce = false;
 
 export function clearSessionSnapshot() {
 	generation++;
@@ -32,7 +33,9 @@ export function fetchSessionSnapshot(force = false): Promise<SessionSnapshot> {
 	if (!force && cached?.token === token && Date.now() - cached.at < 5_000) return Promise.resolve(cached.value);
 	const requestGeneration = generation;
 	const promise = (async () => {
-		const response = await authFetch("/api/auth/me", { cache: "no-store", redirectOnUnauthorized: false, signal: AbortSignal.timeout(5_000) });
+		// The first validation of a page load may be the one the page started before the scripts ran.
+		const response = await authFetch("/api/auth/me", { cache: "no-store", redirectOnUnauthorized: false, signal: AbortSignal.timeout(5_000), early: !startedOnce });
+		startedOnce = true;
 		const value = { status: response.status, data: response.ok ? await response.json() as SessionSnapshot["data"] : null };
 		if (requestGeneration === generation && token === getClientSessionToken()) {
 			const scope = response.ok && value.data?.user ? ensureClientSessionScope() : token;

@@ -17,6 +17,7 @@ export const browserSmokeSuites = [
   'login-entry',
   'language-selector',
   'locale-catalog',
+  'early-start',
   'cookie-session',
 ].map(name => ({ name, args: [`tests/browser/${name}.mjs`] }));
 

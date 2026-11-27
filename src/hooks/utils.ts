@@ -190,6 +190,7 @@ export async function fetchMessageList(params: URLSearchParams, force = false, b
 	const requestGeneration = messageCacheGeneration;
 	const request = authFetch(`/api/messages?${key}`, {
 		cache: force ? "no-store" : "default",
+		early: !force && !background,
 		...(background ? { priority: "low", headers: { "X-Mailflare-Preload": "1" }, redirectOnUnauthorized: false } : {}),
 	})
 		.then((res) => {

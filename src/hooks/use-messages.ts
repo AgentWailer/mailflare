@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Message, MessageFilterOptions, MessageFolder, MessageListResponse } from "./types";
 import { clearMessageCountsCache, clearMessageListCache, fetchMessageList, getCachedMessageList, getMessageQueryParams } from "./utils";
+import { getClientSessionToken } from "@/lib/auth/client";
+import { rememberStartList } from "@/lib/auth/early-requests";
 
 const REFRESH_DEBOUNCE_MS = 150;
 type ListState = { key: string; data: MessageListResponse; loading: boolean; refreshing: boolean; failed: boolean };
@@ -25,6 +27,8 @@ export function useMessages(folder: MessageFolder, mailboxId?: string | null, fi
 			const warm = getCachedMessageList(requestParams);
 			setState(previous => ({ key, data: previous.key === key ? previous.data : warm ?? {}, loading: previous.key === key ? previous.loading || (!warm && !previous.data.messages && !previous.failed) : !warm, refreshing: force, failed: false }));
 			try {
+				// The list a page shows first is what its next start asks for before the scripts have loaded.
+				if (!force) rememberStartList(`/api/messages?${key}`, getClientSessionToken());
 				const data = await fetchMessageList(requestParams, force);
 				if (!cancelled && request === requestNumber) setState({ key, data, loading: false, refreshing: false, failed: false });
 			} catch {
