@@ -12,6 +12,10 @@ import {
 	getManagedContactAvatarUrl,
 } from "./contact-avatar-utils";
 
+// Literal white, not the palette's: the dark theme turns `bg-white` into a dark surface, and a dark
+// logo on a transparent ground would vanish on it. Bundled logos carry the same white themselves.
+const LOGO_GROUND = { backgroundColor: "#ffffff" };
+
 export function ContactAvatar(props: ContactAvatarProps) {
 	// Reset errors and local photo edits when the actual image identity changes.
 	const identity = JSON.stringify([props.mailboxId, normalizeEmailAddress(props.address), props.hasManagedAvatar ?? false, props.managedAvatarUrl, props.fallbackAvatarUrl]);
@@ -31,6 +35,8 @@ function ContactAvatarContent({
 	const [managedAvatar, setManagedAvatar] = useState(hasManagedAvatar);
 	const [imageFailed, setImageFailed] = useState(false);
 	const [avatarVersion, setAvatarVersion] = useState(0);
+	// The picture that is on screen. Until it is, the coloured initial stands in for it.
+	const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
 
 	useEffect(() => {
 		function onAvatarChanged(event: Event) {
@@ -56,13 +62,18 @@ function ContactAvatarContent({
 		else setImageFailed(true);
 	}
 
+	// A logo is often a shape on a transparent ground. Once it is shown, the initial and its colour
+	// would show through it, so they give way to the white ground logos are drawn for.
+	const pictureShown = !!avatarUrl && !imageFailed && loadedUrl === avatarUrl;
+
 	return (
 		<span
 			className={cn("relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-200 text-sm font-semibold text-neutral-700", className)}
-			style={getAvatarColorStyle(normalizeEmailAddress(address) || name)}
+			style={pictureShown ? LOGO_GROUND : getAvatarColorStyle(normalizeEmailAddress(address) || name)}
+			data-avatar-picture={pictureShown ? "" : undefined}
 			aria-hidden
 		>
-			{getContactAvatarInitial(name, address)}
+			{pictureShown ? null : getContactAvatarInitial(name, address)}
 			{avatarUrl && !imageFailed && (managedSource ? (
 				<ProgressiveAvatarImage
 					key={avatarUrl}
@@ -71,6 +82,7 @@ function ContactAvatarContent({
 					priority={priority}
 					className="absolute inset-0 h-full w-full object-cover"
 					onError={onImageError}
+					onLoad={() => setLoadedUrl(avatarUrl)}
 				/>
 			) : (
 				// Logos are already small: use the same URL in the list and reader.
@@ -84,6 +96,7 @@ function ContactAvatarContent({
 					decoding="async"
 					className="absolute inset-0 h-full w-full object-cover"
 					onError={onImageError}
+					onLoad={() => setLoadedUrl(avatarUrl)}
 				/>
 			))}
 		</span>

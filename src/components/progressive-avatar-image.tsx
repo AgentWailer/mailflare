@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ProgressiveAvatarImageProps } from "./progressive-avatar-image-types";
 import { getAvatarPreviewUrl } from "./progressive-avatar-image-utils";
 
-export function ProgressiveAvatarImage({ src, alt, className, onError, priority = false }: ProgressiveAvatarImageProps) {
+export function ProgressiveAvatarImage({ src, alt, className, onError, onLoad, priority = false }: ProgressiveAvatarImageProps) {
 	const [previewReadyFor, setPreviewReadyFor] = useState<string | null>(null);
 	const [previewFailedFor, setPreviewFailedFor] = useState<string | null>(null);
 	const [fullReadyFor, setFullReadyFor] = useState<string | null>(null);
@@ -58,6 +58,7 @@ export function ProgressiveAvatarImage({ src, alt, className, onError, priority 
 			style={showFull ? undefined : { filter: "blur(4px)" }}
 			onLoad={() => {
 				if (!showFull) setPreviewReadyFor(src);
+				onLoad?.();
 			}}
 			onError={() => {
 				if (showFull) {

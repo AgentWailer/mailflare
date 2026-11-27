@@ -33,3 +33,37 @@ test('managed photos, edits, failed photos and changing senders preserve correct
 test('list logos use the identical full image URL without a blurred preview',()=>{
  const markup=renderToStaticMarkup(React.createElement(SenderAvatar,{...apple,priority:false}));assert.match(markup,/src="\/sender-logos\/apple.svg"/);assert(!markup.includes('variant='));assert(!markup.includes('blur('));assert.match(markup,/loading="lazy"/);
 });
+test('the initial and its colour stand in until the picture is shown, then give way to a white ground',async t=>{
+ document.body.innerHTML='<div id="root"></div>';const root=createRoot(document.getElementById('root'));t.after(async()=>act(async()=>root.unmount()));
+ const render=async props=>act(async()=>root.render(React.createElement(SenderAvatar,props)));
+ const avatar=()=>document.querySelector('#root > span'),image=()=>document.querySelector('img');
+ const fire=type=>act(async()=>image().dispatchEvent(new dom.window.Event(type)));
+ // A sender without bundled artwork gets the logo found for its domain, often a shape on a transparent ground.
+ // Invented domains; reserved ones such as .example get no logo at all. Nothing is fetched here.
+ const shop={mailboxId:'box',address:'Hejfish <news@fischladen-beispiel.de>',name:'Hejfish',hasAvatar:false};
+ await render(shop);
+ assert(image().getAttribute('src').startsWith('/api/contacts/logo?'));
+ assert.equal(avatar().textContent,'H','the initial is the placeholder while the logo loads');
+ const placeholder=avatar().style.backgroundColor;assert(placeholder&&placeholder!=='rgb(255, 255, 255)');
+ await fire('load');
+ assert.equal(avatar().textContent,'','no letter is left behind a logo to show through it');
+ assert.equal(avatar().style.backgroundColor,'rgb(255, 255, 255)','nor the placeholder colour');
+ assert(avatar().hasAttribute('data-avatar-picture'));
+ // The next sender starts with its own initial again; nothing of the previous picture's state is kept.
+ await render({...shop,address:'Vorwerk <service@staubsauger-beispiel.de>',name:'Vorwerk'});
+ assert.equal(avatar().textContent,'V');assert.notEqual(avatar().style.backgroundColor,'rgb(255, 255, 255)');
+ await fire('load');assert.equal(avatar().textContent,'');
+ // A logo that cannot be loaded leaves the initial and its colour.
+ await render({...shop,address:'Other <hello@anderes-beispiel.de>',name:'Other'});
+ await fire('error');assert.equal(image(),null);assert.equal(avatar().textContent,'O');assert.notEqual(avatar().style.backgroundColor,'rgb(255, 255, 255)');assert(!avatar().hasAttribute('data-avatar-picture'));
+ // A contact photo behaves the same, from its first (blurred) picture on.
+ globalThis.Image=dom.window.Image;t.after(()=>{delete globalThis.Image;});
+ await render({...shop,address:'Photo <friend@freunde-beispiel.de>',name:'Photo',hasAvatar:true});
+ assert(image().getAttribute('src').startsWith('/api/contacts/avatar?'));assert.equal(avatar().textContent,'P');
+ await fire('load');assert.equal(avatar().textContent,'');assert.equal(avatar().style.backgroundColor,'rgb(255, 255, 255)');
+ // A photo that fails altogether hands over to the domain's logo, which has not loaded yet: the initial is back.
+ await render({...shop,address:'Gone <friend@verloren-beispiel.de>',name:'Gone',hasAvatar:true});
+ await fire('error');await fire('error');
+ assert(image().getAttribute('src').startsWith('/api/contacts/logo?'));assert.equal(avatar().textContent,'G');
+ await fire('load');assert.equal(avatar().textContent,'');
+});
