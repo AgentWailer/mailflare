@@ -153,8 +153,14 @@ try {
 		// A fresh local installation sends every visitor to setup, which offers the language first.
 		await page.goto(`${origin}/setup`, { waitUntil: 'domcontentloaded' });
 		await page.getByRole('heading', { name: en[SETUP_HEADING], exact: true }).waitFor({ timeout: 30000 });
-		await page.getByRole('combobox', { name: en['language.label'] }).click();
-		await page.getByRole('option', { name: 'Deutsch', exact: true }).click();
+		// The heading is server-rendered; the language menu only opens once the page has hydrated. A click
+		// before that is lost, so open it until its options are there.
+		const german = page.getByRole('option', { name: 'Deutsch', exact: true });
+		for (let attempt = 0; attempt < 20 && !(await german.isVisible()); attempt++) {
+			await page.getByRole('combobox', { name: en['language.label'] }).click();
+			await german.waitFor({ timeout: 1500 }).catch(() => {});
+		}
+		await german.click();
 		await page.getByRole('heading', { name: de[SETUP_HEADING], exact: true }).waitFor();
 		assert.equal(await page.locator('html').getAttribute('lang'), 'de');
 		assert.deepEqual(catalogRequests(requested).map(path => path.split('/').at(-1)), ['en.js', 'de.js'], 'the other language comes from its script');

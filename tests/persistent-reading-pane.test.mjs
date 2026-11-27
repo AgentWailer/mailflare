@@ -15,7 +15,7 @@ write('navigation.ts',`import {useSyncExternalStore} from 'react';const listen=f
 write('sidebar.ts',`const setForcedMinimal=()=>{};export const useSidebar=()=>({userId:'owner',setForcedMinimal});`);
 write('assistant.ts','export const useAssistantOpen=()=>false;');
 write('detail.tsx','export const MessageDetailNavigationProvider=({children})=>children;');
-write('list.tsx',`import React from 'react';import {useMessageOpening} from '@/components/messages/message-opening';export function MessageFolderPage({selection}){window.__openMessage=useMessageOpening();window.__listSelection=selection;React.useEffect(()=>{window.__listMounts++;return ()=>window.__listUnmounts++},[]);return <div data-message-list><input aria-label="Filter" defaultValue=""/><div data-scroll-list/><button onClick={()=>selection.setSelectedMessages([{id:'chosen',read:true,mailboxId:'box'}])}>Select</button><output>{selection.selectedMessages.length}</output></div>}`);
+write('list.tsx',`import React from 'react';import {useMessageOpening} from '@/components/messages/message-opening';export function MessageFolderPage({selection}){window.__listRenders=(window.__listRenders||0)+1;window.__openMessage=useMessageOpening();window.__listSelection=selection;React.useEffect(()=>{window.__listMounts++;return ()=>window.__listUnmounts++},[]);return <div data-message-list><input aria-label="Filter" defaultValue=""/><div data-scroll-list/><button onClick={()=>selection.setSelectedMessages([{id:'chosen',read:true,mailboxId:'box'}])}>Select</button><output>{selection.selectedMessages.length}</output></div>}`);
 await build({stdin:{contents:"export {MessageSplitLayout} from './src/components/messages/message-split-layout';export {MessageCategoryLayout} from './src/components/messages/message-category-layout';export {LanguageProvider} from './src/components/language-provider';",resolveDir:process.cwd(),loader:'tsx'},outfile:join(dir,'app.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',tsconfig:'tsconfig.json',alias:{'@/components/messages/message-opening':join(process.cwd(),'src/components/messages/message-opening.tsx'),'next/navigation':join(dir,'navigation.ts'),'@/components/sidebar-state':join(dir,'sidebar.ts'),'@/components/agent/assistant-open-state':join(dir,'assistant.ts')},plugins:[{name:'list-and-detail',setup(b){b.onResolve({filter:/^\.\/(message-folder-page|message-detail-navigation)$/},args=>({path:join(dir,args.path.endsWith('message-folder-page')?'list.tsx':'detail.tsx')}));}}],logLevel:'silent'});
 const app=await import(pathToFileURL(join(dir,'app.mjs')).href),React=await import('react'),{act}=React,{createRoot}=await import('react-dom/client');
 const de=JSON.parse(readFileSync('public/locales/de.json','utf8'));
@@ -68,3 +68,38 @@ for(const layout of ['bottom','right','off'])test(`${layout}: category overviews
 });
 
 for(const ratio of [undefined,.65])test(`bottom pane uses a proportional split (${ratio??'fresh default'}) instead of the legacy pixel height`,async t=>{await mount(t,{ratio,legacyHeight:280});const grid=document.querySelector('[data-reading-layout]');assert.equal(grid.style.gridTemplateRows,`minmax(0,${ratio??.5}fr) minmax(0,${1-(ratio??.5)}fr)`);await navigate('/inbox/one');assert.equal(grid.style.gridTemplateRows,`minmax(0,${ratio??.5}fr) minmax(0,${1-(ratio??.5)}fr)`);});
+
+test('the boundary above the bottom pane follows the pointer: no animation and no list rendering while it is dragged',async t=>{
+ // jsdom has neither pointer capture nor PointerEvent; the handle only reads the button and the position.
+ HTMLElement.prototype.setPointerCapture=()=>{};t.after(()=>{delete HTMLElement.prototype.setPointerCapture;});
+ const pointer=(type,clientY)=>new dom.window.MouseEvent(type,{bubbles:true,button:0,clientX:600,clientY});
+ const frame=()=>act(async()=>{await new Promise(resolve=>requestAnimationFrame(()=>resolve()));});
+ const rows=ratio=>`minmax(0,${ratio}fr) minmax(0,${1-ratio}fr)`;
+ await mount(t,{ratio:.5});await navigate('/inbox/one');await frame();
+ const grid=document.querySelector('[data-reading-layout]'),handle=document.querySelector('[role=separator][aria-orientation=horizontal]');
+ assert.equal(grid.style.transitionDuration,'300ms','opening and closing the list is animated');assert.equal(grid.style.gridTemplateRows,rows(.5));
+ // The list is 400 of 800 pixels high. Grab the boundary and pull it down in steps.
+ await act(async()=>handle.dispatchEvent(pointer('pointerdown',400)));
+ assert.equal(grid.style.transitionDuration,'0ms','a dragged boundary is not animated towards the pointer');
+ const rendersWhileDragging=window.__listRenders;
+ for(const [y,ratio] of [[440,.55],[480,.6],[560,.7]]){
+  await act(async()=>handle.dispatchEvent(pointer('pointermove',y)));await frame();
+  assert.equal(grid.style.gridTemplateRows,rows(ratio),`the boundary is at the pointer one frame after it moved to ${y}`);
+ }
+ assert.equal(window.__listRenders,rendersWhileDragging,'the list is not rendered again for every pointer movement');
+ assert.equal(localStorage.getItem('mailflare-column-width:message-list-ratio:owner'),'0.5','nothing is saved before the drag ends');
+ // Several movements within one frame move the boundary once, to the last position.
+ await act(async()=>{handle.dispatchEvent(pointer('pointermove',500));handle.dispatchEvent(pointer('pointermove',520));});await frame();
+ assert.equal(grid.style.gridTemplateRows,rows(.65));
+ // Letting go right after a movement keeps that position, saves it, and brings the animation back.
+ await act(async()=>{handle.dispatchEvent(pointer('pointermove',480));handle.dispatchEvent(pointer('pointerup',480));});await frame();
+ assert.equal(grid.style.gridTemplateRows,rows(.6));assert.equal(grid.style.transitionDuration,'300ms');
+ assert.equal(localStorage.getItem('mailflare-column-width:message-list-ratio:owner'),'0.6');
+ // The limits hold: the list keeps 96 pixels, the reader 180.
+ await act(async()=>handle.dispatchEvent(pointer('pointerdown',480)));await act(async()=>handle.dispatchEvent(pointer('pointermove',-2000)));await frame();assert.equal(grid.style.gridTemplateRows,rows(96/800));
+ await act(async()=>handle.dispatchEvent(pointer('pointermove',5000)));await frame();assert.equal(grid.style.gridTemplateRows,rows(620/800));
+ await act(async()=>handle.dispatchEvent(pointer('pointerup',5000)));
+ // The arrow keys still move it in steps, with the saved position following.
+ await act(async()=>handle.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true})));
+ assert.equal(grid.style.gridTemplateRows,rows(600/800));assert.equal(localStorage.getItem('mailflare-column-width:message-list-ratio:owner'),String(600/800));
+});

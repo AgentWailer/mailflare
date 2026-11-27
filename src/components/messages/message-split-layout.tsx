@@ -21,6 +21,11 @@ import { readInitialMessageListVisible, saveMessageListVisible } from "./message
 import { useReadingLayout } from "./use-reading-layout";
 import type { MessageSplitLayoutProps, SelectedMessage } from "./types";
 
+/** The grid rows of the list above the reading pane, for the share of the height the list takes. */
+function splitRows(listRatio: number): string {
+	return `minmax(0,${listRatio}fr) minmax(0,${1 - listRatio}fr)`;
+}
+
 export function MessageSplitLayout({
 	children,
 	config,
@@ -43,6 +48,10 @@ export function MessageSplitLayout({
 	const [listWidth, setListWidth] = useState(360);
 	const [listRatio, setListRatio] = useState(.5);
 	const [widthReady, setWidthReady] = useState(false);
+	// While the boundary is dragged it must sit under the pointer: the animation that opens and
+	// closes the list would let it trail 300 ms behind every movement.
+	const [resizing, setResizing] = useState(false);
+	const resizeFrame = useRef<number | null>(null);
 	const [containerWidth, setContainerWidth] = useState(0);
 	const [containerHeight, setContainerHeight] = useState(0);
 	const [manualListVisible, setManualListVisible] = useState(true);
@@ -96,6 +105,7 @@ export function MessageSplitLayout({
 		return () => observer.disconnect();
 	}, [rendersPane]);
 
+	useEffect(() => () => { if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current); }, []);
 	useEffect(() => () => setForcedMinimal(false), [setForcedMinimal]);
 	useEffect(() => { if (below || !twoColumnReading) setForcedMinimal(false); }, [below, twoColumnReading, setForcedMinimal]);
 
@@ -105,7 +115,7 @@ export function MessageSplitLayout({
 
 	return (
 		<MessageOpeningContext.Provider value={openingContext}><MessageSelectionContext.Provider value={selection}>
-		<div ref={containerRef} data-reading-layout={readingLayout} className="h-full min-h-0 overflow-hidden lg:grid lg:transition-[grid-template-columns,grid-template-rows] lg:ease-in-out motion-reduce:transition-none" style={{ gridTemplateColumns: twoColumnReading && !below ? `${listVisible ? renderedListWidth : 0}px minmax(0,1fr)` : "minmax(0,1fr)", gridTemplateRows: twoColumnReading && below ? listVisible ? `minmax(0,${listRatio}fr) minmax(0,${1 - listRatio}fr)` : "0px minmax(0,1fr)" : "minmax(0,1fr)", transitionDuration: widthReady ? "300ms" : "0ms" }}>
+		<div ref={containerRef} data-reading-layout={readingLayout} className="h-full min-h-0 overflow-hidden lg:grid lg:transition-[grid-template-columns,grid-template-rows] lg:ease-in-out motion-reduce:transition-none" style={{ gridTemplateColumns: twoColumnReading && !below ? `${listVisible ? renderedListWidth : 0}px minmax(0,1fr)` : "minmax(0,1fr)", gridTemplateRows: twoColumnReading && below ? listVisible ? splitRows(listRatio) : "0px minmax(0,1fr)" : "minmax(0,1fr)", transitionDuration: widthReady && !resizing ? "300ms" : "0ms" }}>
 			{twoColumnReading && (
 			<aside className={`relative min-h-0 min-w-0 overflow-hidden bg-white lg:block ${selectedMessageId ? "hidden" : "h-full lg:h-auto"} ${listVisible ? below ? "border-b border-neutral-200" : "border-r border-neutral-200" : "pointer-events-none"}`} aria-hidden={!listVisible} inert={!listVisible}>
 				<div className="h-full min-w-0 overflow-hidden" style={{ width: below || !selectedMessageId ? "100%" : renderedListWidth }}>
@@ -119,12 +129,19 @@ export function MessageSplitLayout({
 				<ResizeHandle
 					label={t(below ? "list.resizeHeight" : "list.resize")}
 					orientation={below ? "horizontal" : "vertical"}
-					onResizeStart={() => { startWidth.current = renderedListWidth; resizedWidth.current = renderedListWidth; startHeight.current = renderedListHeight; resizedRatio.current = listRatio; }}
+					onResizeStart={() => { startWidth.current = renderedListWidth; resizedWidth.current = renderedListWidth; startHeight.current = renderedListHeight; resizedRatio.current = listRatio; setResizing(true); }}
 					onResize={(delta) => {
 						if (below) {
-							const height = containerRef.current?.clientHeight || 700;
+							const container = containerRef.current;
+							const height = container?.clientHeight || 700;
 							resizedRatio.current = Math.max(.05, Math.min(.95, Math.max(96, Math.min(startHeight.current + delta, height - 180)) / height));
-							setListRatio(resizedRatio.current);
+							// Move the boundary itself, once per frame, and leave the list and the open message
+							// alone until the drag ends; rendering both for every pointer movement is what made
+							// the boundary lag. The rows are written exactly as the next render writes them.
+							if (container && resizeFrame.current === null) resizeFrame.current = requestAnimationFrame(() => {
+								resizeFrame.current = null;
+								container.style.gridTemplateRows = splitRows(resizedRatio.current);
+							});
 							return;
 						}
 						const requestedWidth = startWidth.current + delta;
@@ -132,7 +149,15 @@ export function MessageSplitLayout({
 						resizedWidth.current = Math.max(250, Math.min(requestedWidth, Math.max(250, (containerRef.current?.clientWidth ?? 1000) - 280)));
 						setListWidth(resizedWidth.current);
 					}}
-					onResizeEnd={() => saveColumnWidth(userId, below ? "message-list-ratio" : "message-list", below ? resizedRatio.current : resizedWidth.current)}
+					onResizeEnd={() => {
+						if (resizeFrame.current !== null) { cancelAnimationFrame(resizeFrame.current); resizeFrame.current = null; }
+						if (below) {
+							if (containerRef.current) containerRef.current.style.gridTemplateRows = splitRows(resizedRatio.current);
+							setListRatio(resizedRatio.current);
+						}
+						setResizing(false);
+						saveColumnWidth(userId, below ? "message-list-ratio" : "message-list", below ? resizedRatio.current : resizedWidth.current);
+					}}
 				/>
 			</aside>
 			)}
