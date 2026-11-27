@@ -395,7 +395,7 @@ export function MessageFolderPage({
 	const setUnreadOnly = selection?.setUnreadOnly ?? setInternalUnreadOnly;
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const { messages: sourceMessages, isLoading: messagesLoading, isRefreshing, error, total: sourceTotal, limit, updateMessages, refresh } = useMessages(config.folder, selectedMailbox?.id, {
+	const { messages: sourceMessages, isLoading: messagesLoading, isRefreshing, error, failure, total: sourceTotal, limit, updateMessages, refresh } = useMessages(config.folder, selectedMailbox?.id, {
 		query,
 		limit: pageSize,
 		offset,
@@ -744,7 +744,10 @@ export function MessageFolderPage({
 			)}
 			{hasCategoryTabs && <InboxCategoryTabs folder={config.folder} compact={compact} onRefresh={refresh} refreshing={isRefreshing} disabled={isLoading || pendingBulkAction} />}
 			{selectionError && <p role="alert" className="shrink-0 px-4 py-2 text-xs text-red-700">{t("list.allSelectionFailed")}</p>}
-			{error && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("list.loadFailed")}</p>}
+			{error && <p role="alert" data-list-failure={failure ?? "connection"} className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm text-red-700">
+				<span className="min-w-0">{t(failure === "sign-in" ? "list.loadFailed.signIn" : failure === "offline" ? "list.loadFailed.offline" : failure === "server" ? "list.loadFailed.server" : "list.loadFailed")}</span>
+				{failure === "sign-in" && <button type="button" onClick={() => window.location.reload()} className="shrink-0 rounded border border-red-200 px-2 py-1 font-medium text-red-800 hover:bg-red-50">{t("list.loadFailed.reload")}</button>}
+			</p>}
 			{archiveFailed && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700">{t("error.updateSelected")}</p>}
 			{starFailure?.scope === selectionScope && <div role="alert" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-800">
 				<span className="min-w-0 flex-1 basis-56 break-words">{t("list.starSaveFailed", { subject: starFailure.subject })}</span>
