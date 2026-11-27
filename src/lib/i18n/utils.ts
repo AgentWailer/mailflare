@@ -1,4 +1,5 @@
-import en from "./en.json";
+import { CATALOG_VERSION, loadCatalogScript } from "./catalog-registry";
+import en from "./english";
 import { DEFAULT_LOCALE, locales } from "./locales";
 import type { Locale, Messages, PluralKey, TranslationKey } from "./types";
 
@@ -43,10 +44,21 @@ export function getDirection(locale: Locale): "ltr" | "rtl" {
 /** Reads a static asset by path. The browser uses `fetch`; server code passes the `ASSETS` binding. */
 export type AssetReader = (path: string) => Promise<Response>;
 
-/** Fetches the catalog for a locale; English is already bundled, others load on demand from `public/locales`. */
-export async function loadMessages(locale: Locale, read: AssetReader = (path) => fetch(path)): Promise<Partial<Messages>> {
+/**
+ * Fetches the catalog for a locale. A build with catalogue scripts loads the language's script in the
+ * browser (cached for good, already completed with English); if that fails, and everywhere else, other
+ * languages are read from `public/locales` and English is the bundled catalogue.
+ */
+export async function loadMessages(locale: Locale, read?: AssetReader): Promise<Partial<Messages>> {
+	if (!read && CATALOG_VERSION && typeof document !== "undefined") {
+		try {
+			return await loadCatalogScript(locale);
+		} catch {
+			// A tab from before a deployment asks for scripts that are gone; the plain catalogue still exists.
+		}
+	}
 	if (locale === DEFAULT_LOCALE) return en;
-	const response = await read(`/locales/${locale}.json`);
+	const response = await (read ?? ((path: string) => fetch(path)))(`/locales/${locale}.json`);
 	if (!response.ok) throw new Error(`Catalog for ${locale} is unavailable (${response.status})`);
 	return response.json();
 }

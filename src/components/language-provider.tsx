@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { CATALOG_VERSION, registeredCatalog } from "@/lib/i18n/catalog-registry";
 import { DEFAULT_LOCALE, createTranslator, getDirection, loadMessages, resolveLocale, serializeLocaleCookie } from "@/lib/i18n/utils";
 import type { Locale, Messages } from "@/lib/i18n/types";
 import type { LanguageState } from "./language-provider-types";
@@ -13,12 +14,28 @@ const LanguageContext = createContext<LanguageState>({
 
 type Active = { locale: Locale; messages?: Partial<Messages> };
 
+// The catalogue hydration waits for when its script has not run yet. `loadMessages` falls back to the
+// plain catalogue file if the script cannot be loaded; if that fails too the interface renders without
+// translations rather than not at all. The promise is kept per language so `use` sees the same one on
+// every render.
+const startCatalogs = new Map<Locale, Promise<Partial<Messages> | undefined>>();
+function startCatalog(locale: Locale) {
+	let loading = startCatalogs.get(locale);
+	if (!loading) startCatalogs.set(locale, loading = loadMessages(locale).catch(() => undefined));
+	return loading;
+}
+
 /**
- * `initialMessages` is the catalog for `initialLocale`, loaded on the server so the first render is already
- * translated. English needs none; it is bundled. Other catalogs load on demand when the language changes.
+ * `initialMessages` is the catalog for `initialLocale` when the page carries it (development, the Node
+ * build). A build with catalogue scripts passes none: the server rendered from the catalogue it keeps,
+ * and the browser reads the one its script registered. Should hydration start before that script has
+ * run, it waits for it; the server-rendered page stays visible meanwhile. Other catalogs load on
+ * demand when the language changes.
  */
 export function LanguageProvider({ initialLocale, initialMessages, children }: { initialLocale: Locale; initialMessages?: Partial<Messages>; children: ReactNode }) {
-	const [active, setActive] = useState<Active>({ locale: initialLocale, messages: initialMessages });
+	const started = initialMessages
+		?? (CATALOG_VERSION ? registeredCatalog(initialLocale) ?? (typeof document === "undefined" ? undefined : use(startCatalog(initialLocale))) : undefined);
+	const [active, setActive] = useState<Active>({ locale: initialLocale, messages: started });
 	const latestRequest = useRef(0);
 
 	const setLocale = useCallback((next: Locale) => {

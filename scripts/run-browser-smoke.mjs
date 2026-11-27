@@ -16,6 +16,7 @@ export const browserSmokeSuites = [
   'queue-health-card',
   'login-entry',
   'language-selector',
+  'locale-catalog',
   'cookie-session',
 ].map(name => ({ name, args: [`tests/browser/${name}.mjs`] }));
 

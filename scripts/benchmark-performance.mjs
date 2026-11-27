@@ -11,12 +11,19 @@ const {chromium}=await import(process.env.MAILFLARE_PLAYWRIGHT_MODULE||'playwrig
 // 2026 (142.6 kB on main) and the recipient and sender-check work (143.6 kB). The line stays close
 // above what ships, so a careless addition still trips it.
 const CSS_BUDGET=146_000;
-// Uncompressed startup script bytes. A steady run measures 1.297 MB (1.290 MB on main before the
-// recipient work; the difference is mostly English interface text, which ships in the bundle). When
-// the reader's preload wins the race with the measurement, up to 14 kB of reader code is counted as
-// startup: main itself measured 1.304 MB that way against the earlier 1.3 MB line. The line leaves
-// room for that race and little else.
-const JS_BUDGET=1_320_000;
+// Uncompressed startup script bytes, without the interface catalogue. A steady run measures 1.143 MB.
+// When the reader's preload wins the race with the measurement, up to 14 kB of reader code is counted
+// as startup. The line leaves room for that race and little else.
+const JS_BUDGET=1_170_000;
+// The interface catalogue is one script per language, cached for good and no longer part of the startup
+// bundle or the page. German, which this benchmark asks for, is 174 kB; the largest (Malayalam) 213 kB.
+const CATALOG_BUDGET=230_000;
+// The page itself. It was 209 kB in German while it carried the catalogue; it is 24 kB without.
+const DOCUMENT_BUDGET=60_000;
+// Requests until the list is shown and idle. A warm run makes 110: 109 before the catalogue became a
+// request of its own (answered from the browser cache), which is the one this line was raised for.
+const REQUEST_BUDGET=111;
+const isCatalog=r=>r.path.startsWith('/_next/static/locales/');
 const runs=Number(process.env.PERF_RUNS||5),output=process.env.PERF_OUTPUT||'/tmp/mailflare-performance.json';
 const temporary=mkdtempSync(join(tmpdir(),'mailflare-perf-')),pause=ms=>new Promise(r=>setTimeout(r,ms));
 const folders=['inbox','promotions','social','invoices','orders','starred','all','snoozed','sent','scheduled','drafts','archived','spam','trash'];
@@ -71,15 +78,15 @@ try{
    const beforeReader=new Set(requests.keys());const click=performance.now();await page.locator('[data-message-row="0"] a').first().click();await page.getByText('Benchmark message content 0',{exact:true}).waitFor();const readerMs=performance.now()-click;await pause(100);
    const readerAssets=[...requests.entries()].filter(([id,r])=>!beforeReader.has(id)&&r.type==='Script').map(([,r])=>r);
    const interaction=await page.evaluate(()=>Math.max(0,...window.__perf.events));assert.deepEqual(errors,[]);
-   const sum=type=>assets.filter(r=>r.type===type).reduce((n,r)=>n+(r.transfer||0),0);
-   const row={width,run,cache,listMs,readerMs,readerJsTransferBytes:readerAssets.reduce((n,r)=>n+(r.transfer||0),0),readerAssets,lcpMs:startup.metrics.lcp,cls:startup.metrics.cls,labInteractionMaxMs:interaction,ttfbMs:startup.nav.responseStart-startup.nav.requestStart,jsTransferBytes:sum('Script'),cssTransferBytes:sum('Stylesheet'),imageTransferBytes:startup.resources.filter(r=>/\.(png|svg|webp|jpg)$/.test(r.path)).reduce((n,r)=>n+r.bytes,0),requestCount:startupRequests,browserCacheHits:cacheHits,longTaskTotalMs:startup.metrics.longTasks.reduce((n,d)=>n+d,0),maxLongTaskMs:Math.max(0,...startup.metrics.longTasks),apis:startup.resources.filter(r=>r.path.startsWith('/api/')),assets:assets.sort((a,b)=>(b.transfer||0)-(a.transfer||0))};results.push(row);console.log(JSON.stringify({...row,assets:undefined,apis:undefined,readerAssets:undefined}));
+   const sum=type=>assets.filter(r=>r.type===type&&!isCatalog(r)).reduce((n,r)=>n+(r.transfer||0),0);
+   const row={width,run,cache,listMs,readerMs,readerJsTransferBytes:readerAssets.reduce((n,r)=>n+(r.transfer||0),0),readerAssets,lcpMs:startup.metrics.lcp,cls:startup.metrics.cls,labInteractionMaxMs:interaction,ttfbMs:startup.nav.responseStart-startup.nav.requestStart,jsTransferBytes:sum('Script'),catalogTransferBytes:assets.filter(isCatalog).reduce((n,r)=>n+(r.transfer||0),0),documentBytes:startup.nav.decodedBodySize,cssTransferBytes:sum('Stylesheet'),imageTransferBytes:startup.resources.filter(r=>/\.(png|svg|webp|jpg)$/.test(r.path)).reduce((n,r)=>n+r.bytes,0),requestCount:startupRequests,browserCacheHits:cacheHits,longTaskTotalMs:startup.metrics.longTasks.reduce((n,d)=>n+d,0),maxLongTaskMs:Math.max(0,...startup.metrics.longTasks),apis:startup.resources.filter(r=>r.path.startsWith('/api/')),assets:assets.sort((a,b)=>(b.transfer||0)-(a.transfer||0))};results.push(row);console.log(JSON.stringify({...row,assets:undefined,apis:undefined,readerAssets:undefined}));
    if(tracing){const complete=new Promise(resolve=>cdp.once('Tracing.tracingComplete',resolve));await cdp.send('Tracing.end');const {stream}=await complete;let trace='';while(true){const part=await cdp.send('IO.read',{handle:stream});trace+=part.base64Encoded?Buffer.from(part.data,'base64').toString():part.data;if(part.eof)break;}await cdp.send('IO.close',{handle:stream});mkdirSync(dirname(output),{recursive:true});writeFileSync(output.replace(/\.json$/,'.trace.json'),trace);}
    cdp.off('Network.responseReceived',onResponse);cdp.off('Network.requestServedFromCache',onCache);cdp.off('Network.loadingFinished',onFinish);
   }
   await context.close();
  }
  const p=(values,q)=>{const sorted=values.toSorted((a,b)=>a-b);return sorted[Math.max(0,Math.ceil(sorted.length*q)-1)];};
- const summaries=[];for(const width of [390,1440])for(const cache of ['cold','warm']){const rows=results.filter(r=>r.width===width&&r.cache===cache),summary={width,cache,runs:rows.length};for(const key of ['listMs','readerMs','readerJsTransferBytes','lcpMs','ttfbMs','labInteractionMaxMs','cls','jsTransferBytes','cssTransferBytes','requestCount','browserCacheHits','longTaskTotalMs'])summary[key]={p50:p(rows.map(r=>r[key]),.5),p75:p(rows.map(r=>r[key]),.75),p95:p(rows.map(r=>r[key]),.95)};summaries.push(summary);}
+ const summaries=[];for(const width of [390,1440])for(const cache of ['cold','warm']){const rows=results.filter(r=>r.width===width&&r.cache===cache),summary={width,cache,runs:rows.length};for(const key of ['listMs','readerMs','readerJsTransferBytes','lcpMs','ttfbMs','labInteractionMaxMs','cls','jsTransferBytes','catalogTransferBytes','documentBytes','cssTransferBytes','requestCount','browserCacheHits','longTaskTotalMs'])summary[key]={p50:p(rows.map(r=>r[key]),.5),p75:p(rows.map(r=>r[key]),.75),p95:p(rows.map(r=>r[key]),.95)};summaries.push(summary);}
  mkdirSync(dirname(output),{recursive:true});writeFileSync(output,JSON.stringify({kind:'controlled lab; synthetic 100ms APIs; production assets; preview without HTTP compression; browser HTTP/1.1; INP field data unavailable',commit:process.env.PERF_COMMIT||'working-tree',createdAt:new Date().toISOString(),machine:{cpu:cpus()[0]?.model,cores:cpus().length,node:process.version,browser:browser.version()},conditions:{readerIdleMs:Number(process.env.PERF_READER_IDLE_MS||500),trace:process.env.PERF_TRACE==='1',runs,cpuThrottle:4,rttMs:100,downloadBytesPerSecond:1500000,uploadBytesPerSecond:750000},summaries,results},null,2));console.log('Saved '+output);
- if(process.env.PERF_CHECK==='1')for(const r of results){assert(r.cls<=.1,'CLS budget');assert(r.jsTransferBytes<JS_BUDGET,'startup JavaScript budget');assert(r.cssTransferBytes<CSS_BUDGET,'CSS budget');assert(r.requestCount<=110,'startup request budget');assert(r.readerMs<3000,'reader interaction budget');assert(r.readerJsTransferBytes<400_000,'first-reader JavaScript budget');if(r.cache==='warm')assert(r.browserCacheHits>0,'warm-cache measurement must actually hit browser cache');}
+ if(process.env.PERF_CHECK==='1')for(const r of results){assert(r.cls<=.1,'CLS budget');assert(r.jsTransferBytes<JS_BUDGET,'startup JavaScript budget');if(r.cache==='cold')assert(r.catalogTransferBytes>0&&r.catalogTransferBytes<CATALOG_BUDGET,'interface catalogue budget');assert(r.documentBytes>0&&r.documentBytes<DOCUMENT_BUDGET,'page document budget');assert(r.cssTransferBytes<CSS_BUDGET,'CSS budget');assert(r.requestCount<=REQUEST_BUDGET,'startup request budget');assert(r.readerMs<3000,'reader interaction budget');assert(r.readerJsTransferBytes<400_000,'first-reader JavaScript budget');if(r.cache==='warm')assert(r.browserCacheHits>0,'warm-cache measurement must actually hit browser cache');}
 }finally{await browser?.close();await new Promise(r=>proxy?proxy.close(r):r());if(preview){preview.kill('SIGTERM');await new Promise(r=>{if(preview.exitCode!==null)return r();preview.once('exit',r);setTimeout(()=>{preview.kill('SIGKILL');r();},5000).unref();});}writeFileSync('/tmp/mailflare-performance-preview.log',logs);rmSync(temporary,{recursive:true,force:true});}
