@@ -2,6 +2,7 @@
 
 import { getUserTimeZone } from "@/lib/time/utils";
 import { clearUserTimeZonePreference } from "@/lib/time/client";
+import { awaitEarlyResponse, forgetStartRequests, takeEarlyResponse } from "./early-requests";
 import type {
 	AuthFetchOptions,
 	AuthSessionChangedDetail,
@@ -26,6 +27,7 @@ function writeSessionScope(scope: string | null): void {
 }
 
 function dispatchAuthSessionChanged(authenticated: boolean): void {
+	forgetStartRequests();
 	try {
 		localStorage.removeItem("mailflare-recovery-scope");
 		for (const key of Object.keys(sessionStorage)) if (key.startsWith("mailflare-compose-recovery:")) sessionStorage.removeItem(key);
@@ -103,13 +105,19 @@ export async function authFetch(input: RequestInfo | URL, init: AuthFetchOptions
 		const target = new URL(input instanceof Request ? input.url : String(input), window.location.href);
 		if (target.origin !== window.location.origin) throw new TypeError("Authenticated requests must stay on the Mailflare origin");
 	}
-	const { redirectOnUnauthorized = true, headers, ...requestInit } = init;
+	const { redirectOnUnauthorized = true, early = false, headers, ...requestInit } = init;
 	const sessionToken = getClientSessionToken();
-	const response = await fetch(input, {
+	const send = () => fetch(input, {
 		...requestInit,
 		credentials: "same-origin",
 		headers: getAuthHeaders(headers ?? (input instanceof Request ? input.headers : undefined)),
 	});
+	// The page may already have asked for this while the scripts were loading; that answer is used
+	// once. Anything else about the request (a method, a body, own headers) means it is not that one.
+	const started = early && typeof input === "string" && !headers && !requestInit.body && (requestInit.method ?? "GET") === "GET"
+		? takeEarlyResponse(input, sessionToken, getUserTimeZone())
+		: null;
+	const response = started ? await awaitEarlyResponse(started, requestInit.signal).catch(send) : await send();
 
 	if (response.status === 401 && redirectOnUnauthorized && typeof window !== "undefined"
 		&& sessionToken === getClientSessionToken()) {

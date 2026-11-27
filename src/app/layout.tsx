@@ -3,9 +3,11 @@ import { cookies } from "next/headers";
 import { ForkSource } from "@/components/fork-source";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
+import { catalogScriptUrl } from "@/lib/i18n/catalog-registry";
 import { DEFAULT_LOCALE, getDirection } from "@/lib/i18n/utils";
 import { getRequestLocale, loadServerMessages } from "@/lib/i18n/server";
 import { sidebarBootstrapScript } from "@/components/sidebar-state-utils";
+import { earlyRequestsBootstrapScript } from "@/lib/auth/early-requests";
 import { themeBootstrapScript } from "@/components/theme-utils";
 import "./globals.css";
 
@@ -42,7 +44,11 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
 	const locale = await getRequestLocale();
-	const messages = locale === DEFAULT_LOCALE ? undefined : await loadServerMessages(locale);
+	// A build with catalogue scripts sends the language as its own long-cached file: the server keeps
+	// the catalogue for rendering and the page only names the script. Otherwise it travels in the page.
+	const catalogScript = catalogScriptUrl(locale);
+	const loaded = catalogScript || locale !== DEFAULT_LOCALE ? await loadServerMessages(locale) : undefined;
+	const messages = catalogScript ? undefined : loaded;
 	const dark = (await cookies()).get("mailflare-theme-color")?.value === "dark";
 	return (
 		<html lang={locale} dir={getDirection(locale)} className={dark ? "dark" : "light"} style={{ colorScheme: dark ? "dark" : "light", backgroundColor: dark ? "#202124" : "#f6f8fc" }} suppressHydrationWarning>
@@ -54,6 +60,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 				{/* Render chrome metadata before the bootstrap to avoid a second late-streamed status tag. */}
 				<meta name="apple-mobile-web-app-status-bar-style" content={dark ? "black" : "default"} suppressHydrationWarning />
 				<meta name="theme-color" content={dark ? "#202124" : "#f6f8fc"} suppressHydrationWarning />
+				{catalogScript ? <script async src={catalogScript} /> : null}
+				{/* Starts the session, mailbox and list requests while the application scripts are still loading. */}
+				<script dangerouslySetInnerHTML={{ __html: earlyRequestsBootstrapScript }} />
 				<script dangerouslySetInnerHTML={{ __html: sidebarBootstrapScript }} />
 				<script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
 				<link rel="icon" href="/api/branding/icon"></link>

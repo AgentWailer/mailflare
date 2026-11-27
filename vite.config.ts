@@ -6,8 +6,15 @@ import { readdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import type { OutputOptions } from "rolldown";
+import { catalogScriptPath, catalogScriptSource, catalogVersion, DEFAULT_CATALOG, readCatalogs } from "./scripts/locale-catalog-scripts.mjs";
 
 const pdfPackage = createRequire(import.meta.url).resolve("pdfjs-dist/package.json");
+
+// Interface catalogues, shipped by a build as scripts of their own (see scripts/locale-catalog-scripts.mjs).
+const catalogs = readCatalogs(import.meta.dirname);
+const catalogsVersion = catalogVersion(catalogs);
+const englishModule = resolve("src/lib/i18n/english.ts").replaceAll("\\", "/");
+const englishClientModule = resolve("src/lib/i18n/english-client.ts");
 
 function workerSidecarOutput(output: OutputOptions = {}, assetsDir = "_next/static"): OutputOptions {
 	const fallback = output.chunkFileNames;
@@ -53,6 +60,30 @@ export default defineConfig({
 					{ name: "language-select", test: /node_modules[\\/]+@radix-ui[\\/]+react-select[\\/]/, priority: 30, includeDependenciesRecursively: false },
 					{ name: "ui-primitives", test: /node_modules[\\/](?:@radix-ui[\\/]|lucide-react[\\/]|react-remove-scroll|react-style-singleton|use-sidecar|use-callback-ref|aria-hidden)/, priority: 20 },
 				] } } } } };
+			},
+		},
+		{
+			// Tells application code that this build has catalogue scripts, and under which version.
+			// Development keeps the catalogue in the page, so a changed text shows without a rebuild.
+			name: "locale-catalog-version",
+			apply: "build",
+			config: () => ({ define: { __MAILFLARE_CATALOG_VERSION__: JSON.stringify(catalogsVersion) } }),
+		},
+		{
+			// One script per language under the immutable static path; the browser bundle reads English
+			// from those instead of carrying it (about 150 kB) in the startup script for every language.
+			name: "locale-catalog-scripts",
+			apply: "build",
+			applyToEnvironment: environment => environment.name === "client",
+			async load(id) {
+				if (id.split("?", 1)[0].replaceAll("\\", "/") !== englishModule) return null;
+				return readFile(englishClientModule, "utf8");
+			},
+			generateBundle() {
+				const english = catalogs.get(DEFAULT_CATALOG);
+				for (const [code, catalog] of catalogs) {
+					this.emitFile({ type: "asset", fileName: `_next/static/${catalogScriptPath(catalogsVersion, code)}`, source: catalogScriptSource(code, catalog, english) });
+				}
 			},
 		},
 		{

@@ -39,7 +39,7 @@ export async function fetchMailboxOptions(force = false): Promise<MailboxOption[
 
 	const requestGeneration = cacheGeneration;
 	mailboxesRequestSessionToken = sessionToken;
-	mailboxesRequest = authFetch("/api/mailboxes")
+	mailboxesRequest = authFetch("/api/mailboxes", { early: !force })
 		.then((res) => res.json())
 		.then((data) => {
 			const items = ((data as { mailboxes?: MailboxOption[] }).mailboxes ?? []).map((m) => ({

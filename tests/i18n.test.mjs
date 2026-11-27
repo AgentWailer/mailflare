@@ -6,6 +6,9 @@ import test, { after } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
+import { runInNewContext } from "node:vm";
+import { catalogScriptPath, catalogScriptSource, catalogVersion, readCatalogs } from "../scripts/locale-catalog-scripts.mjs";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = mkdtempSync(join(tmpdir(), "mailflare-i18n-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
@@ -23,8 +26,10 @@ globalThis.readTestAsset = async (input) => {
 };
 globalThis.fetch = globalThis.readTestAsset;
 
-async function bundleI18n(outfile, extraLocale = false) {
+// `catalogVersion` builds as the Workers build does, where catalogues are scripts of their own.
+async function bundleI18n(outfile, extraLocale = false, catalogVersion = null) {
 	await build({
+		define: catalogVersion ? { __MAILFLARE_CATALOG_VERSION__: JSON.stringify(catalogVersion) } : {},
 		stdin: {
 			contents: `
 				import { createElement } from "react";
@@ -35,6 +40,8 @@ async function bundleI18n(outfile, extraLocale = false) {
 				import { loadMessages } from "./src/lib/i18n/utils";
 				export * from "./src/lib/i18n/utils";
 				export * from "./src/lib/i18n/locales";
+				export { loadServerMessages } from "./src/lib/i18n/server";
+				export { CATALOG_VERSION, catalogScriptUrl } from "./src/lib/i18n/catalog-registry";
 				function Probe() { return createElement("span", null, useLanguage().t("navigation.inbox")); }
 				export async function renderLanguage(locale) {
 					const initialMessages = await loadMessages(locale);
@@ -217,4 +224,96 @@ test("the root layout renders a first visit in the browser's language until one 
 	assert.match(await i18n.renderLayout("en", "de-DE,de;q=0.9"), /<html lang="en"/);
 	assert.match(await i18n.renderLayout("pt-BR", "de"), /<html lang="pt-BR"/);
 	assert.match(await i18n.renderLayout(undefined, "fi"), /<html lang="en"/);
+});
+
+test("a catalogue script registers its language, completed with English, under one version for all", () => {
+	const catalogs = readCatalogs(root);
+	assert.deepEqual([...catalogs.keys()].filter((code) => code !== "en").sort(), Object.keys(i18n.locales).filter((code) => code !== "en").sort(), "every registered language has a catalogue");
+	const run = (source, context = {}) => { runInNewContext(source, context); return context.__mailflareCatalogs; };
+
+	const arabic = catalogs.get("ar");
+	const untranslated = Object.keys(en).filter((key) => !(key in arabic));
+	assert.ok(untranslated.length > 0, "Arabic is a catalogue with gaps");
+	const registered = run(catalogScriptSource("ar", arabic, en));
+	assert.deepEqual(Object.keys(registered), ["ar"]);
+	assert.equal(registered.ar["navigation.sent"], arabic["navigation.sent"]);
+	for (const key of untranslated) assert.equal(registered.ar[key], en[key], `${key} falls back to English inside the script`);
+	assert.deepEqual(Object.keys(registered.ar).sort(), Object.keys({ ...en, ...arabic }).sort());
+
+	// A second script adds to what the first registered; English is itself, untouched.
+	const both = run(catalogScriptSource("en", en, en), { __mailflareCatalogs: registered });
+	assert.deepEqual(Object.keys(both), ["ar", "en"]);
+	assert.deepEqual({ ...both.en }, en);
+
+	// Text that would end a string or a script element in other places is only ever data here.
+	const hostile = { "navigation.inbox": "</script><script>globalThis.hit=1</script> \u2028 ' \" ` ${1} \\" };
+	const context = {};
+	assert.equal(run(catalogScriptSource("de", hostile, {}), context).de["navigation.inbox"], hostile["navigation.inbox"]);
+	assert.equal(context.hit, undefined);
+
+	assert.throws(() => catalogScriptSource("de", JSON.parse('{"__proto__":"x"}'), en), /__proto__/);
+	assert.throws(() => catalogScriptSource("de", { "navigation.inbox": { nested: true } }, en), /not text/);
+	for (const code of ["../en", "de.js", "", "a", "de\"]", "constructor()"]) assert.throws(() => catalogScriptSource(code, {}, en), /Not a language code/);
+
+	const version = catalogVersion(catalogs);
+	assert.match(version, /^[0-9a-f]{16}$/);
+	assert.equal(catalogVersion(readCatalogs(root)), version, "the same text gives the same address");
+	const changed = new Map(catalogs).set("de", { ...catalogs.get("de"), "navigation.inbox": "Eingang" });
+	assert.notEqual(catalogVersion(changed), version, "changed text gives every language a new address");
+	assert.equal(catalogScriptPath(version, "pt-BR"), `locales/${version}/pt-BR.js`);
+});
+
+test("a build with catalogue scripts names the script in the page and renders from the catalogue the server keeps", async () => {
+	const file = join(outDir, "catalog-scripts.mjs");
+	await bundleI18n(file, false, "0123456789abcdef");
+	const built = await import(pathToFileURL(file).href);
+	assert.equal(built.CATALOG_VERSION, "0123456789abcdef");
+	assert.equal(i18n.CATALOG_VERSION, null, "a build without them keeps the catalogue in the page");
+	assert.equal(i18n.catalogScriptUrl("de"), null);
+	assert.equal(built.catalogScriptUrl("pt-BR"), "/_next/static/locales/0123456789abcdef/pt-BR.js");
+
+	const reads = [];
+	const readAsset = globalThis.readTestAsset;
+	globalThis.readTestAsset = (input) => { reads.push(new URL(String(input), "https://mailflare.local").pathname); return readAsset(input); };
+	try {
+		delete globalThis.__mailflareCatalogs;
+		const german = await built.renderLayout("de");
+		assert.match(german, /<html lang="de"/);
+		assert.match(german, /<script async="" src="\/_next\/static\/locales\/0123456789abcdef\/de\.js"><\/script>/);
+		assert.match(german, />Posteingang<\/span>/, "rendered in German without the catalogue being passed along");
+		assert.deepEqual(reads, ["/locales/de.json"]);
+
+		// The isolate keeps the parsed catalogue: the next page does not read it again.
+		assert.match(await built.renderLayout("de"), />Posteingang<\/span>/);
+		assert.deepEqual(reads, ["/locales/de.json"]);
+
+		// What the server keeps is what the script registers: the language completed with English.
+		const arabic = JSON.parse(readFileSync(join(root, "public/locales/ar.json"), "utf8"));
+		assert.deepEqual(await built.loadServerMessages("ar"), { ...en, ...arabic });
+
+		const english = await built.renderLayout(undefined);
+		assert.match(english, /<script async="" src="\/_next\/static\/locales\/0123456789abcdef\/en\.js"><\/script>/);
+		assert.match(english, />Inbox<\/span>/);
+		assert.equal(reads.filter((path) => path === "/locales/en.json").length, 0, "English is never read as an asset");
+
+		// A catalogue that cannot be read renders in English and is tried again next time.
+		globalThis.readTestAsset = async () => new Response("gone", { status: 404 });
+		delete globalThis.__mailflareCatalogs;
+		const failed = await built.renderLayout("de");
+		assert.match(failed, /<html lang="de"/);
+		assert.match(failed, />Inbox<\/span>/);
+		globalThis.readTestAsset = readAsset;
+		assert.match(await built.renderLayout("de"), />Posteingang<\/span>/);
+
+		// Only so many languages are kept; the one loaded longest ago gives way.
+		for (const code of ["fr", "es", "it", "nl", "pl", "tr", "ru"]) await built.loadServerMessages(code);
+		assert.ok(Object.keys(globalThis.__mailflareCatalogs).length <= 6);
+		assert.ok(globalThis.__mailflareCatalogs.ru, "the newest is kept");
+	} finally {
+		globalThis.readTestAsset = readAsset;
+		delete globalThis.__mailflareCatalogs;
+	}
+
+	// The page of a build without catalogue scripts names none.
+	assert.doesNotMatch(await i18n.renderLayout("de"), /static\/locales/);
 });
