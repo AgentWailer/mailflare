@@ -242,8 +242,13 @@ html.dark [data-compose-ai-bar] > div:last-child {
 	.message-action-menu [role="menuitem"] { min-height: 44px; font-size: 16px; }
 	[data-recipient-menu] [role="menuitem"] { min-height: 44px; font-size: 16px; }
 	[data-send-warning] button { min-height: 44px; }
+	/* A chip is pressed with a thumb here: its name and its remove button are each a full target. */
+	[data-recipient-chip] { min-height: 44px; padding-block: 0; align-items: stretch; }
+	[data-recipient-chip] button { min-height: 44px; }
+	[data-recipient-chip] [data-recipient-remove] { width: 44px; height: auto; margin-right: -8px; border-radius: 9999px; }
+	[data-list-failure] button { min-height: 44px; }
 	/* The composer fills the screen here, with its send bar along the bottom. */
-	[data-undo-send] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); }
+	[data-undo-send-stack] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); align-items: center; }
 	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 

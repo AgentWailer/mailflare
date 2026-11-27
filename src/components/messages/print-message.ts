@@ -10,14 +10,17 @@ export type PrintableMessage = {
 
 const ROOT_ID = "mailflare-print-root";
 const ACTIVE_CLASS = "mailflare-printing";
+/** How long a printout waits for the pictures attached to the message. */
+const PICTURE_WAIT_MS = 3000;
 
 /**
  * Prints one message: its subject, who it is from and to, and its body, without
  * the application around it. The page is built beside the app and shown only
  * to the printer (the `mailflare-printing` rules in globals.css), which works
  * where printing a frame does not (iOS). The body is the same sanitised HTML the
- * reader shows, inside a shadow root so its styles stay its own; pictures on
- * the web are not fetched for a printout.
+ * reader shows, in a shadow root of its own: its styles neither reach the
+ * heading lines above it nor the application. Pictures on the web are not
+ * fetched for a printout; pictures that came with the message are waited for.
  */
 export function printMessage(message: PrintableMessage): void {
 	document.getElementById(ROOT_ID)?.remove();
@@ -42,13 +45,22 @@ export function printMessage(message: PrintableMessage): void {
 	header.appendChild(list);
 
 	const body = document.createElement("main");
-	let tags = "";
+	const pictures: HTMLImageElement[] = [];
 	if (message.html) {
 		const prepared = prepareEmailHtml(message.html, { reader: true, allowRemote: false });
 		const content = document.createElement("template");
 		content.innerHTML = prepared.html;
-		body.appendChild(content.content);
-		tags = `${prepared.rootTag},${prepared.bodyTag}{display:block}`;
+		for (const picture of Array.from(content.content.querySelectorAll("img"))) {
+			// A picture below the fold of a page nobody scrolls would never load lazily.
+			picture.setAttribute("loading", "eager");
+			if (picture.getAttribute("src")) pictures.push(picture);
+		}
+		// A message's own `header { display: none }` or `h1 { ... }` must not touch the lines above.
+		const mail = document.createElement("div");
+		const mailStyle = document.createElement("style");
+		mailStyle.textContent = `:host{display:block;overflow-wrap:anywhere}img,table{max-width:100%!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
+		mail.attachShadow({ mode: "open" }).replaceChildren(mailStyle, content.content);
+		body.appendChild(mail);
 	} else {
 		const text = document.createElement("pre");
 		text.textContent = message.text ?? "";
@@ -59,8 +71,7 @@ header{border-bottom:1px solid #999;margin:0 0 14pt;padding:0 0 8pt}
 h1{font-size:15pt;margin:0 0 8pt;overflow-wrap:anywhere}
 dl{display:grid;grid-template-columns:max-content 1fr;gap:2pt 10pt;margin:0;font-size:10pt}
 dt{color:#444}dd{margin:0;overflow-wrap:anywhere}
-main{overflow-wrap:anywhere}pre{white-space:pre-wrap;font:inherit;margin:0}
-img,table{max-width:100%!important}a{color:inherit}${tags}`;
+main{overflow-wrap:anywhere}pre{white-space:pre-wrap;font:inherit;margin:0}`;
 	root.replaceChildren(style, header, body);
 
 	const finish = () => {
@@ -71,7 +82,18 @@ img,table{max-width:100%!important}a{color:inherit}${tags}`;
 	document.body.appendChild(host);
 	document.documentElement.classList.add(ACTIVE_CLASS);
 	window.addEventListener("afterprint", finish);
-	try { window.print(); } catch { finish(); return; }
-	// Browsers that return from print() without ever reporting `afterprint` must not keep the page hidden.
-	setTimeout(() => { if (document.getElementById(ROOT_ID) === host && !window.matchMedia("print").matches) finish(); }, 60_000);
+	const print = () => {
+		if (document.getElementById(ROOT_ID) !== host) return;
+		try { window.print(); } catch { finish(); return; }
+		// Browsers that return from print() without ever reporting `afterprint` must not keep the page hidden.
+		setTimeout(() => { if (document.getElementById(ROOT_ID) === host && !window.matchMedia("print").matches) finish(); }, 60_000);
+	};
+	const waiting = pictures.filter((picture) => !picture.complete);
+	if (waiting.length === 0) { print(); return; }
+	// The message's own pictures, a few seconds at most: a missing one must not hold the printout back.
+	let left = waiting.length, started = false;
+	const start = () => { if (!started) { started = true; print(); } };
+	const settled = () => { if (--left === 0) start(); };
+	for (const picture of waiting) { picture.addEventListener("load", settled, { once: true }); picture.addEventListener("error", settled, { once: true }); }
+	setTimeout(start, PICTURE_WAIT_MS);
 }

@@ -32,9 +32,13 @@ export function useMessages(folder: MessageFolder, mailboxId?: string | null, fi
 		async function load(force = false, origin: "event" | "reader" | "retry" = "event") {
 			const request = ++requestNumber;
 			if (retryTimer) { window.clearTimeout(retryTimer); retryTimer = null; }
-			if (origin !== "retry") failedTries = 0;
+			// Only the reader's own refresh starts over. A read set off by the window gaining focus or by the
+			// minute tick while the connection is down keeps the notice and the waits: the notice goes when
+			// a read succeeds, not when the next one starts.
+			if (origin === "reader") failedTries = 0;
+			const keep = origin !== "reader";
 			const warm = getCachedMessageList(requestParams);
-			setState(previous => ({ key, data: previous.key === key ? previous.data : warm ?? {}, loading: previous.key === key ? previous.loading || (!warm && !previous.data.messages && !previous.failed) : !warm, refreshing: force && origin !== "retry", failed: origin === "retry" && previous.key === key ? previous.failed : false, failure: origin === "retry" && previous.key === key ? previous.failure : null }));
+			setState(previous => ({ key, data: previous.key === key ? previous.data : warm ?? {}, loading: previous.key === key ? previous.loading || (!warm && !previous.data.messages && !previous.failed) : !warm, refreshing: force && origin !== "retry", failed: keep && previous.key === key ? previous.failed : false, failure: keep && previous.key === key ? previous.failure : null }));
 			try {
 				// The list a page shows first is what its next start asks for before the scripts have loaded.
 				if (!force) rememberStartList(`/api/messages?${key}`, getClientSessionToken());
@@ -49,6 +53,8 @@ export function useMessages(folder: MessageFolder, mailboxId?: string | null, fi
 				setState(previous => shown
 					? { ...previous, loading: false, refreshing: false, failed: true, failure }
 					: { ...previous, refreshing: false });
+				// An expired sign-in does not come back by asking again; the notice offers to load the page anew.
+				if (failure === "sign-in") return;
 				retryTimer = window.setTimeout(() => {
 					retryTimer = null;
 					// A hidden page tries again when it is looked at; the realtime hook announces that.

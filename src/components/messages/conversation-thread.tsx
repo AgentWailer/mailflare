@@ -7,6 +7,7 @@ import { ContactAvatar } from "@/components/contacts/contact-avatar";
 import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
 import { runSingleMessageAction } from "@/components/message-actions/utils";
 import { EmailHtmlRenderer } from "./email-html-renderer";
+import { SenderWarningBanner } from "@/components/messages/sender-warning-banner";
 import { getMessageBodyDisplay, resolveInlineAttachmentUrls } from "@/app/(dashboard)/inbox/[messageId]/utils";
 
 import { useLanguage } from "@/components/language-provider";
@@ -218,6 +219,7 @@ export function ConversationMessageCard({
 				</div>}
 				{expanded && body && (
 					<div className="pb-4 pt-2">
+						{!outbound && <SenderWarningBanner fromAddr={message.fromAddr} replyTo={message.replyTo} html={message.htmlBody} />}
 						{body.html ? (
 							<EmailHtmlRenderer html={body.html} />
 						) : (

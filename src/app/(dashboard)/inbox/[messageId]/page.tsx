@@ -200,6 +200,8 @@ export default function MessageDetailPage() {
         message={message}
         messageMeta={message}
         bodyHtml={body?.htmlBody}
+        // The printout shows the pictures sent inside the message, as the reader does.
+        printHtml={resolveInlineAttachmentUrls(body?.htmlBody ?? null, message.id, attachments)}
       />
       <MessageDetailNavigation messageId={message.id} />
     </MessageReaderToolbar>

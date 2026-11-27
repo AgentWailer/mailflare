@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import type { ComposePrefill } from "./mailto-utils";
 
@@ -18,13 +19,23 @@ type ComposeContextValue = {
 	/** What a new message starts with when it was opened from a link, and a number that changes with each such opening. */
 	prefill: ComposePrefill | null;
 	composeId: number;
+	/** The open draft was created a moment ago as a reply: its recipients are the answered message's. */
+	freshReply: boolean;
 	openComposer: () => void;
-	/** A new message that starts with these recipients, subject and text, e.g. from a mailto link. */
-	openComposerWith: (prefill: ComposePrefill) => void;
-	openDraftComposer: (draftId: string) => void;
+	/**
+	 * A new message that starts with these recipients, subject and text, e.g. from a mailto link.
+	 * False when a composer holds a message being written: that one is not put aside for a link.
+	 */
+	openComposerWith: (prefill: ComposePrefill) => boolean;
+	openDraftComposer: (draftId: string, options?: { freshReply?: boolean }) => void;
 	closeComposer: () => void;
-	/** Offer to take `messageId` back for `seconds`; the offer outlives the composer that sent it. */
-	offerUndoSend: (messageId: string, seconds: number) => void;
+	/** Offer to take `messageId` back for the `remainingMs` the server still holds it; the offer outlives the composer that sent it. */
+	offerUndoSend: (messageId: string, remainingMs: number) => void;
+	/** A composer says whether it holds anything worth keeping (text, recipients, files). */
+	reportOccupied: (composer: string, occupied: boolean) => void;
+	isOccupied: () => boolean;
+	/** The page composer, while it is shown, opens a message taken back with Undo instead of the floating one. */
+	setRestoreTarget: (target: ((draftId: string) => void) | null) => void;
 };
 
 const ComposeContext = createContext<ComposeContextValue | null>(null);
@@ -43,53 +54,82 @@ export function useOptionalCompose() {
 export function ComposeProvider({ children }: { children: ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [draftId, setDraftId] = useState<string | null>(null);
-	const [pendingUndo, setPendingUndo] = useState<PendingUndoSend | null>(null);
+	// Several messages can wait at once: each keeps its own offer until its own window ends.
+	const [pendingUndos, setPendingUndos] = useState<PendingUndoSend[]>([]);
 	const [prefill, setPrefill] = useState<ComposePrefill | null>(null);
 	const [composeId, setComposeId] = useState(0);
+	const [freshReply, setFreshReply] = useState(false);
+	const occupied = useRef(new Set<string>());
+	const restoreTarget = useRef<((draftId: string) => void) | null>(null);
+	const setRestoreTarget = useCallback((target: ((draftId: string) => void) | null) => { restoreTarget.current = target; }, []);
 
-	const openDraftComposer = useCallback((nextDraftId: string) => {
+	const openDraftComposer = useCallback((nextDraftId: string, options?: { freshReply?: boolean }) => {
 		setPrefill(null);
+		setFreshReply(!!options?.freshReply);
 		setDraftId(nextDraftId);
 		setOpen(true);
 	}, []);
+	const reportOccupied = useCallback((composer: string, value: boolean) => {
+		if (value) occupied.current.add(composer); else occupied.current.delete(composer);
+	}, []);
+	const isOccupied = useCallback(() => occupied.current.size > 0, []);
+	const endUndoOffer = useCallback((messageId: string) => setPendingUndos((current) => current.filter((entry) => entry.messageId !== messageId)), []);
+	/** The restored message opens where nothing is lost by it; otherwise it waits under Drafts. */
+	const openRestored = useCallback((restoredId: string) => {
+		if (occupied.current.size > 0) return false;
+		// The page composer takes its message back itself; a second window on top of it would be one too many.
+		if (restoreTarget.current) restoreTarget.current(restoredId); else openDraftComposer(restoredId);
+		return true;
+	}, [openDraftComposer]);
 	const value = useMemo<ComposeContextValue>(() => ({
 		open,
 		draftId,
 		prefill,
 		composeId,
+		freshReply,
 		// Takes no argument on purpose: it is used directly as a click handler.
 		openComposer: () => {
 			setPrefill(null);
+			setFreshReply(false);
 			setDraftId(null);
 			setOpen(true);
 		},
 		openComposerWith: (next) => {
+			if (occupied.current.size > 0) return false;
 			setPrefill(next);
 			setComposeId((current) => current + 1);
+			setFreshReply(false);
 			setDraftId(null);
 			setOpen(true);
+			return true;
 		},
 		openDraftComposer,
 		closeComposer: () => {
 			setOpen(false);
 			setDraftId(null);
 			setPrefill(null);
+			setFreshReply(false);
 		},
-		offerUndoSend: (messageId, seconds) => setPendingUndo({ messageId, until: Date.now() + seconds * 1000 }),
-	}), [composeId, draftId, open, openDraftComposer, prefill]);
+		offerUndoSend: (messageId, remainingMs) => setPendingUndos((current) => [...current.filter((entry) => entry.messageId !== messageId), { messageId, until: Date.now() + remainingMs }]),
+		reportOccupied,
+		isOccupied,
+		setRestoreTarget,
+	}), [setRestoreTarget, composeId, draftId, freshReply, isOccupied, open, openDraftComposer, prefill, reportOccupied]);
 
 	return (
 		<ComposeContext.Provider value={value}>
 			{children}
-			{pendingUndo && (
-				<Suspense fallback={null}>
-					<UndoSendToast
-						key={pendingUndo.messageId}
-						pending={pendingUndo}
-						onDone={() => setPendingUndo((current) => (current?.messageId === pendingUndo.messageId ? null : current))}
-						onRestored={openDraftComposer}
-					/>
-				</Suspense>
+			{pendingUndos.length > 0 && createPortal(
+				// In the bottom left corner beside the desktop composer. Where the composer fills the screen
+				// (phones, tablets), globals.css lifts the offers above the composer's send bar instead.
+				<div data-compose-layer data-undo-send-stack className="fixed bottom-6 left-6 z-[180] flex max-w-[calc(100vw-32px)] flex-col items-start gap-2">
+					<Suspense fallback={null}>
+						{pendingUndos.map((pending, index) => (
+							<UndoSendToast key={pending.messageId} pending={pending} shortcut={index === pendingUndos.length - 1} onDone={endUndoOffer} onRestored={openRestored} />
+						))}
+					</Suspense>
+				</div>,
+				document.body,
 			)}
 		</ComposeContext.Provider>
 	);

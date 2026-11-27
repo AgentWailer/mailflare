@@ -3,7 +3,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { resolveCurrentUser } from "@/lib/auth/cookies";
 import { sendEmailSchema } from "@/lib/validators";
 import { sendEmail } from "@/lib/email/send";
-import { getUndoDeliveryTime, parseSendRequest } from "./utils";
+import { getUndoSeconds, parseSendRequest } from "./utils";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { getSendErrorStatus } from "./error-utils";
 import { getDb } from "@/db";
@@ -51,15 +51,19 @@ export async function POST(request: Request) {
 
 		// An undo window is a short scheduled send: the durable job waits, and
 		// cancel-schedule takes the message back to Drafts until delivery claims it.
-		const undoAt = parsed.data.scheduledAt ? null : getUndoDeliveryTime(undoSeconds);
+		// The window starts once the message is ready to wait (sendEmail), not while its files are still
+		// being stored, and the answer says how much of it is left on this clock, not the browser's.
+		const undoWindow = parsed.data.scheduledAt ? null : getUndoSeconds(undoSeconds);
 		const result = await sendEmail(env, {
 			userId: user.id,
 			...parsed.data,
-			...(undoAt ? { scheduledAt: undoAt } : {}),
+			...(undoWindow ? { undoSeconds: undoWindow } : {}),
 			attachments,
 			publicOrigin: new URL(request.url).origin,
 		});
-		return NextResponse.json(undoAt && result.scheduled ? { ...result, undoUntil: undoAt.toISOString() } : result);
+		return NextResponse.json(result.undoUntil
+			? { ...result, undoUntil: result.undoUntil.toISOString(), undoRemainingMs: Math.max(0, result.undoUntil.getTime() - Date.now()) }
+			: result);
 	} catch (err) {
 		if (err instanceof MissingAttachmentError) return NextResponse.json({ error: err.message, code: "attachment_unavailable", filename: err.filename }, { status: 409 });
 		if (err instanceof DeliveryOutcomeError) return NextResponse.json({ error: err.message, code: err.code }, { status: getSendErrorStatus(err.message) });

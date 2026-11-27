@@ -41,11 +41,15 @@ import {
 	splitQuotedHtml,
 	textToHtml,
 } from "./rich-text-utils";
+import { forgetReplyStartRecipients, replyStartRecipients } from "./reply-seen-utils";
 import { headerToRecipients, isValidRecipient, moveRecipientsToBcc, recipientsToHeader } from "./recipient-utils";
 import type { RecipientFields as RecipientLines } from "./recipient-utils";
 import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } from "./types";
 import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
+
+/** Below this much remaining time an Undo could not be pressed before delivery. */
+const UNDO_MIN_OFFER_MS = 1500;
 
 type Toast = { type: "success" | "error"; message: string } | null;
 
@@ -54,7 +58,10 @@ export function ComposeForm({
 	draftIdToLoad,
 	onClose,
 	initial,
+	freshReply = false,
 }: {
+	/** The draft to load is a reply created a moment ago: its recipients are the answered message's. */
+	freshReply?: boolean;
 	/** Recipients, subject and text a new message starts with, e.g. from a mailto link. */
 	initial?: ComposePrefill | null;
 	mode?: "page" | "popup";
@@ -76,6 +83,7 @@ export function ComposeForm({
 	const [sendWarnings, setSendWarnings] = useState<SendWarning[] | null>(null);
 	// Who was already on the message being answered: they have seen each other's addresses.
 	const seenRecipients = useRef<string[]>([]);
+	const startedAsReply = useRef(freshReply);
 	const compose = useOptionalCompose();
 	const directory = useRecipientDirectory();
 	const [threading, setThreading] = useState<ComposeThreading | null>(null);
@@ -96,6 +104,13 @@ export function ComposeForm({
 	const [draftSaving, setDraftSaving] = useState(false);
 	const [draftRestored, setDraftRestored] = useState(false);
 	const recipientLines = useMemo<RecipientLines>(() => ({ to, cc, bcc }), [to, cc, bcc]);
+	// Told to the provider, so a mail link or an undone send does not replace a message being written.
+	const holdsMessage = useMemo(() => to.length + cc.length + bcc.length + attachments.length > 0 || !!subject.trim() || !!authoredPlainText(html).trim(), [attachments.length, bcc.length, cc.length, html, subject, to.length]);
+	const reportOccupied = compose?.reportOccupied;
+	useEffect(() => {
+		reportOccupied?.(mode, holdsMessage);
+		return () => reportOccupied?.(mode, false);
+	}, [holdsMessage, mode, reportOccupied]);
 	const frameRef = useRef<HTMLFormElement | null>(null);
 	useComposeViewport(frameRef, !minimized, mode);
 	useComposeScrollLock(frameRef, mode === "popup" && !minimized, modalMode);
@@ -203,7 +218,8 @@ export function ComposeForm({
 				setBcc(draftBcc);
 				setShowCc(draftCc.length > 0);
 				setShowBcc(draftBcc.length > 0);
-				seenRecipients.current = draft.inReplyTo ? [...headerToRecipients(draft.toAddr), ...draftCc] : [];
+				// Only the people on the answered message have seen each other; whoever was added since has not.
+				seenRecipients.current = draft.inReplyTo ? replyStartRecipients(draft.id, startedAsReply.current ? [...headerToRecipients(draft.toAddr), ...draftCc] : null) : [];
 				setThreading(
 					draft.inReplyTo || draft.threadId
 						? {
@@ -343,7 +359,8 @@ export function ComposeForm({
 				organisationDomains: mailboxes.map((mailbox) => mailbox.hostname),
 			},
 			seen: seenRecipients.current,
-			bodyText: `${subject}\n${authoredPlainText(html)}`,
+			// A reply's subject is the other side's wording ("Re: Rechnung im Anhang"); only a new message's is the writer's.
+			bodyText: threading || quotedHtml ? authoredPlainText(html) : `${subject}\n${authoredPlainText(html)}`,
 			hasAttachments: attachments.length + storedAttachments.length > 0,
 		});
 	}
@@ -419,7 +436,7 @@ export function ComposeForm({
 					undoSeconds,
 				}),
 			});
-			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; undoUntil?: string; error?: unknown; code?: string; filename?: string } | null;
+			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; undoUntil?: string; undoRemainingMs?: number; error?: unknown; code?: string; filename?: string } | null;
 
 			if (!res.ok) {
 				setToast({ type: "error", message: composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
@@ -435,6 +452,7 @@ export function ComposeForm({
 			flushSave.current = null; dirtyDraft.current = false; writeRecovery(journalKey.current, null); draftRequestId.current = null; savedDraftId.current = null; creationStarted.current = false;
 			setDraftSaveFailed(false);
 			if (currentDraftId) {
+				forgetReplyStartRecipients(currentDraftId);
 				void authFetch(`/api/drafts/${currentDraftId}`, { method: "DELETE" }).catch(() => {}).finally(() => {
 					window.dispatchEvent(new Event("mailflare:messages-changed"));
 				});
@@ -454,9 +472,14 @@ export function ComposeForm({
 			setScheduledAt(null);
 			seenRecipients.current = [];
 			invalidateRecipientDirectory();
-			// The server confirms the window it granted; without one the message is already out.
-			if (compose && data.undoUntil && data.messageId && undoSeconds > 0) compose.offerUndoSend(data.messageId, undoSeconds);
-			else setToast({ type: "success", message: data.scheduled ? t("compose.scheduled") : t("compose.sent") });
+			// The server says how long it still holds the message, on its own clock: uploading large files
+			// used part of the window, and this device's clock may be wrong. Without a window the message is out.
+			const undoMs = data.undoUntil && data.messageId && undoSeconds > 0
+				? Math.min(undoSeconds * 1000, Math.max(0, typeof data.undoRemainingMs === "number" ? data.undoRemainingMs : undoSeconds * 1000))
+				: 0;
+			if (compose && data.messageId && undoMs > UNDO_MIN_OFFER_MS) compose.offerUndoSend(data.messageId, undoMs);
+			// A message held only for an undo window that is as good as over is on its way, not "scheduled".
+			else setToast({ type: "success", message: data.scheduled && !data.undoUntil ? t("compose.scheduled") : t("compose.sent") });
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
 		} catch (cause) {
 			const detail = cause instanceof Error ? cause.message.trim() : "";
@@ -472,14 +495,17 @@ export function ComposeForm({
 		setBcc(next.bcc);
 	}
 
-	/** Outsiders leave To and Cc for Bcc; a message needs someone in To, so the writer stands there if nobody is left. */
+	/**
+	 * Outsiders leave To and Cc for Bcc; a message needs someone in To, so the writer stands there if nobody is left.
+	 * That answers the one question about who sees whom. Anything else that was asked is asked again.
+	 */
 	function moveOutsidersToBccAndSend() {
 		const outsiders = sendWarnings?.flatMap((warning) => (warning.kind === "outsiders" ? warning.addresses : [])) ?? [];
 		const moved = moveRecipientsToBcc(recipientLines, outsiders);
 		const next = moved.to.length === 0 && selectedFrom ? { ...moved, to: [fromAddr || selectedFrom] } : moved;
 		applyRecipientLines(next);
 		setShowBcc(true);
-		void send({ confirmed: true, recipients: next });
+		void send({ recipients: next });
 	}
 
 	async function deleteDraftAndClose() {

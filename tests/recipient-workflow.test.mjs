@@ -206,3 +206,15 @@ test("a chosen suggestion becomes a recipient that the composer accepts and can 
 	assert.equal(app.candidateToRecipient({ email: "max@example.com", name: "MAX@example.com" }), "max@example.com");
 	assert.deepEqual([...app.recipientAddressSet(["Maya <MAYA@example.com>"], ["dev@example.com"])], ["maya@example.com", "dev@example.com"]);
 });
+
+test("capital letters that carry no accent are found by their plain form", () => {
+	const people = [
+		{ email: "lukasz@example.com", name: "Łukasz Nowak", sends: 3, lastSentAt: 1, lastSeenAt: 1, source: "outbound" },
+		{ email: "dj@example.com", name: "Đorđe Petrović", sends: 2, lastSentAt: 1, lastSeenAt: 1, source: "outbound" },
+		{ email: "strasse@example.com", name: "STRAẞE Verwaltung", sends: 1, lastSentAt: 1, lastSeenAt: 1, source: "manual" },
+	];
+	const find = (query) => app.suggestRecipients(people, query, new Set()).map((entry) => entry.email);
+	assert.deepEqual(find("lukasz"), ["lukasz@example.com"]);
+	assert.deepEqual(find("dor"), ["dj@example.com"]);
+	assert.deepEqual(find("strasse"), ["strasse@example.com"]);
+});

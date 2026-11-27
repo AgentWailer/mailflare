@@ -39,13 +39,18 @@ export function invalidateRecipientDirectory() {
 	cached = null;
 }
 
-export function useRecipientDirectory(enabled = true): RecipientCandidate[] {
-	const [directory, setDirectory] = useState<RecipientCandidate[]>(EMPTY);
+/** The directory and whether the request for it has answered; an empty or failed answer is loaded too. */
+export function useRecipientDirectoryState(enabled = true): { directory: RecipientCandidate[]; loaded: boolean } {
+	const [state, setState] = useState<{ directory: RecipientCandidate[]; loaded: boolean }>({ directory: EMPTY, loaded: false });
 	useEffect(() => {
 		if (!enabled) return;
 		let active = true;
-		void loadRecipientDirectory().then((list) => { if (active) setDirectory(list); });
+		void loadRecipientDirectory().then((directory) => { if (active) setState({ directory, loaded: true }); });
 		return () => { active = false; };
 	}, [enabled]);
-	return directory;
+	return state;
+}
+
+export function useRecipientDirectory(enabled = true): RecipientCandidate[] {
+	return useRecipientDirectoryState(enabled).directory;
 }

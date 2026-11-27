@@ -70,7 +70,12 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 			// An address in a message starts a message here, not in another mail program.
 			// Not from inside the composer: that would put the message being written aside.
 			const mail = composeRef.current && href && /^mailto:/i.test(href) && !host.current?.closest("form") ? parseMailto(href) : null;
-			if (mail) { event.preventDefault(); composeRef.current!.openComposerWith(mail); return; }
+			if (mail) {
+				event.preventDefault();
+				// A message being written keeps its window; the link opens the page composer beside it.
+				if (!composeRef.current!.openComposerWith(mail)) window.open(`/compose?mailto=${encodeURIComponent(href!)}`, "_blank", "noopener");
+				return;
+			}
 			if (!href?.startsWith("#")) return;
 			event.preventDefault();
 			try {

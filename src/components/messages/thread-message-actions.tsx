@@ -93,7 +93,7 @@ export function ThreadMessageActions({
 				recipients: getReplyRecipients(message, ownAddresses, mode),
 				threading: getReplyThreading(message),
 			});
-			openDraftComposer(draftId);
+			openDraftComposer(draftId, { freshReply: true });
 		} catch (nextError) {
 			setError(nextError instanceof Error ? nextError.message : t("message.error.reply"));
 		} finally {

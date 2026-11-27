@@ -79,8 +79,11 @@ export function getSenderWarnings(input: SenderCheckInput): SenderWarning[] {
 			warnings.push({ kind: "ownName", name: sender.name!.trim() });
 		} else {
 			// The same name at the same organisation is a second address of that person, not somebody else.
-			const person = input.facts.known.find((entry) => nameKey(entry.name) === key && registrableDomain(domainOf(entry.email.toLowerCase())) !== senderDomain);
-			const sameOrganisation = input.facts.known.some((entry) => nameKey(entry.name) === key && registrableDomain(domainOf(entry.email.toLowerCase())) === senderDomain);
+			// A public mail provider is nobody's organisation: anyone can open an address there under any name.
+			const sharedDomain = isMailProviderDomain(senderDomain);
+			const atSenderDomain = (entry: { email: string }) => registrableDomain(domainOf(entry.email.toLowerCase())) === senderDomain;
+			const person = input.facts.known.find((entry) => nameKey(entry.name) === key && (sharedDomain || !atSenderDomain(entry)));
+			const sameOrganisation = !sharedDomain && input.facts.known.some((entry) => nameKey(entry.name) === key && atSenderDomain(entry));
 			if (person && !sameOrganisation) warnings.push({ kind: "nameOfKnownPerson", name: sender.name!.trim(), knownAddress: person.email.toLowerCase() });
 		}
 	}
@@ -106,16 +109,27 @@ export function getSenderWarnings(input: SenderCheckInput): SenderWarning[] {
 const TRUSTED_KEY = "mailflare-trusted-senders";
 const MAX_TRUSTED = 500;
 
+/** One list per account: what one person found in order says nothing for the next person at this browser. */
+function trustedKey(scope: string): string {
+	return scope ? `${TRUSTED_KEY}:${scope}` : TRUSTED_KEY;
+}
+
 /** Senders the owner looked at and found in order, on this device. */
-export function readTrustedSenders(): string[] {
+export function readTrustedSenders(scope = ""): string[] {
 	try {
-		const value = JSON.parse(localStorage.getItem(TRUSTED_KEY) ?? "[]");
+		const value = JSON.parse(localStorage.getItem(trustedKey(scope)) ?? "[]");
 		return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string").slice(0, MAX_TRUSTED) : [];
 	} catch { return []; }
 }
 
-export function trustSender(address: string): void {
+export function trustSender(address: string, scope = ""): void {
 	const key = address.trim().toLowerCase();
 	if (!key) return;
-	try { localStorage.setItem(TRUSTED_KEY, JSON.stringify([key, ...readTrustedSenders().filter((entry) => entry !== key)].slice(0, MAX_TRUSTED))); } catch { /* Asking again next time is fine. */ }
+	try { localStorage.setItem(trustedKey(scope), JSON.stringify([key, ...readTrustedSenders(scope).filter((entry) => entry !== key)].slice(0, MAX_TRUSTED))); } catch { /* Asking again next time is fine. */ }
+}
+
+/** Takes the mark back: the sender is warned about again. */
+export function untrustSender(address: string, scope = ""): void {
+	const key = address.trim().toLowerCase();
+	try { localStorage.setItem(trustedKey(scope), JSON.stringify(readTrustedSenders(scope).filter((entry) => entry !== key))); } catch { /* Nothing was stored, so nothing is trusted. */ }
 }

@@ -56,6 +56,7 @@ export function MessageActions({
 	message,
 	messageMeta,
 	bodyHtml,
+	printHtml,
 }: MessageActionsProps) {
 	const { t } = useLanguage();
 	const router = useRouter();
@@ -124,7 +125,7 @@ export function MessageActions({
 			{ label: t("compose.cc"), value: message?.ccAddr ?? "" },
 			{ label: t("message.printDate"), value: messageMeta?.createdAt ? formatUserDate(messageMeta.createdAt, { dateStyle: "full", timeStyle: "short" }) : "" },
 		],
-		html: bodyHtml,
+		html: printHtml ?? bodyHtml,
 		text: bodyText,
 	})).catch(() => setError(t("actions.error.update")));
 
@@ -155,7 +156,7 @@ export function MessageActions({
 				recipients: getReplyRecipients(replyable, ownAddresses, mode),
 				threading: getReplyThreading(replyable),
 			});
-			openDraftComposer(draftId);
+			openDraftComposer(draftId, { freshReply: true });
 		} catch (replyError) {
 			setError(replyError instanceof Error ? replyError.message : t("message.error.reply"));
 		} finally {

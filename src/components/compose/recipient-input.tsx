@@ -136,7 +136,8 @@ export function RecipientInput({
 				setDismissedFor(draft);
 				return;
 			}
-			if ((event.key === "Enter" || event.key === "Tab") && highlighted !== null) {
+			// Shift+Tab goes back to the previous control; it never picks.
+			if ((event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) && highlighted !== null) {
 				event.preventDefault();
 				pick(suggestions[highlighted]);
 				return;
@@ -334,7 +335,7 @@ export function RecipientInput({
 							onClick={() => pick(candidate)}
 						>
 							<span className="truncate font-medium text-neutral-900">{candidate.name || candidate.email}</span>
-							{candidate.name && <span className="truncate text-xs text-neutral-500">{candidate.email}</span>}
+							{candidate.name && <span className={cn("truncate text-xs", highlighted === index ? "text-neutral-700" : "text-neutral-500")}>{candidate.email}</span>}
 						</li>
 					))}
 				</ul>,

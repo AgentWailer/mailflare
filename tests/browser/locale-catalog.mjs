@@ -138,6 +138,16 @@ try {
 		await context.close();
 	}
 
+	// The same for English, which the browser carries no copy of: its plain file is read, never bare keys.
+	{
+		const { context, page, requested, errors } = await openInbox({ locale: 'en-US', catalog: 'unreachable' });
+		await page.locator('a[href="/sent"]').filter({ hasText: en['navigation.sent'] }).first().waitFor();
+		assert(requested.includes('/locales/en.json'), 'English falls back to its plain catalogue');
+		assert.equal(await page.getByText('navigation.sent', { exact: true }).count(), 0, 'no bare key is shown');
+		assert.deepEqual(errors, [], 'an unreachable English script causes no hydration error');
+		await context.close();
+	}
+
 	// Choosing another language while the app is open loads that language's script and keeps the choice.
 	{
 		const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'en-US' });

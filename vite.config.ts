@@ -81,6 +81,9 @@ export default defineConfig({
 			},
 			generateBundle() {
 				const english = catalogs.get(DEFAULT_CATALOG);
+				// The file a browser falls back to when the English script cannot be loaded, beside the
+				// other languages' files from `public/locales`.
+				this.emitFile({ type: "asset", fileName: `locales/${DEFAULT_CATALOG}.json`, source: JSON.stringify(english) });
 				for (const [code, catalog] of catalogs) {
 					this.emitFile({ type: "asset", fileName: `_next/static/${catalogScriptPath(catalogsVersion, code)}`, source: catalogScriptSource(code, catalog, english) });
 				}

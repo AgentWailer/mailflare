@@ -37,6 +37,12 @@ export type SendEmailInput = {
 	attachments?: AttachmentContent[];
 	/** Future delivery time. Values at or before the current time send immediately. */
 	scheduledAt?: string | Date;
+	/**
+	 * Hold the message this many seconds so the sender can take it back ("undo send"). Counted from
+	 * the moment the message is ready to wait, so storing large attachments does not use the window up.
+	 * Ignored when `scheduledAt` names a future time.
+	 */
+	undoSeconds?: number;
 	publicOrigin?: string;
 };
 
@@ -75,7 +81,7 @@ function toRecipientList(value: string | string[] | undefined): string[] {
 export async function sendEmail(
 	env: CloudflareEnv,
 	input: SendEmailInput,
-): Promise<{ messageId: string; scheduled?: boolean }> {
+): Promise<{ messageId: string; scheduled?: boolean; undoUntil?: Date }> {
 	const db = getDb(env);
 	const sender = await getAuthorizedSenderAddress(env, input);
 	const attachments = input.attachments ?? [];
@@ -112,7 +118,7 @@ export async function sendEmail(
 
 	const messageId = newId("msg");
 	const requestedSchedule = input.scheduledAt ? new Date(input.scheduledAt) : null;
-	const scheduledAt = requestedSchedule && requestedSchedule.getTime() > Date.now()
+	const chosenTime = requestedSchedule && requestedSchedule.getTime() > Date.now()
 		? requestedSchedule
 		: null;
 	const snippet = buildSnippet(input.text ?? null, input.html ?? null);
@@ -122,6 +128,8 @@ export async function sendEmail(
 	// together. A failed publication must not leave queued mail with no job.
 	const stored = await storeMessageAttachments(env, messageId, attachments, { persist: false });
 	stored.forEach((attachment, index) => { attachments[index].storageId = attachment.id; });
+	const undoUntil = !chosenTime && input.undoSeconds && input.undoSeconds > 0 ? new Date(Date.now() + input.undoSeconds * 1000) : null;
+	const scheduledAt = chosenTime ?? undoUntil;
 	const jobId = newId("job");
 	try {
 		await db.batch([
@@ -153,6 +161,7 @@ export async function sendEmail(
 				status: scheduledAt ? "queued" : "sending",
 				payload: JSON.stringify({
 					...input,
+					undoSeconds: undefined,
 					from: sender.fromAddr,
 					to,
 					cc,
@@ -196,7 +205,7 @@ export async function sendEmail(
 			await db.update(outboundJobs).set({ error: "queue_pending" }).where(eq(outboundJobs.id, jobId))
 				.catch(() => console.error("Outbound queue handoff awaits recovery"));
 		}
-		return { messageId, scheduled: true };
+		return { messageId, scheduled: true, ...(undoUntil ? { undoUntil } : {}) };
 	}
 
 	await deliverEmail(env, delivery);

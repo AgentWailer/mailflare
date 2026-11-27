@@ -98,3 +98,21 @@ test('coming back online reads the list again without waiting for the next try',
  await act(async()=>{window.dispatchEvent(new Event('online'));});await settle(30);
  assert.equal(lists,2);assert.equal(state.messages[0].id,'list-2');
 });
+
+test('the notice stays while the window regains focus or the minute tick asks again, until a read succeeds',async t=>{
+ fastTimers(t);let lists=0,working=false,release=null;
+ await mount(t,async url=>{if(!isList(url))return offline();lists++;if(lists===1)return response('last-good');if(working)return response('back-again');if(release)return new Promise((_,reject)=>{const fail=release;release=null;fail(()=>reject(new TypeError('Failed to fetch')));});return offline();});
+ await announce();await settle();assert.equal(state.error,true);assert.equal(state.failure,'offline');
+ // The next read is held open: while it is under way the notice must still be there.
+ let fail;release=f=>{fail=f;};const start=renders.length;await announce();await act(async()=>{await new Promise(resolve=>setTimeout(resolve,200));});
+ assert(fail,'the read set off by the announcement is under way');assert.equal(renders.slice(start).every(r=>r.error&&r.failure==='offline'),true,'no render without the notice: '+JSON.stringify(renders.slice(start)));
+ await act(async()=>{fail();});await settle();assert.equal(state.error,true);
+ working=true;await announce();await settle();assert.equal(state.error,false);assert.equal(state.failure,null);assert.equal(state.messages[0].id,'back-again');
+});
+
+test('an expired sign-in is not asked about again and again; the notice waits for the reader',async t=>{
+ fastTimers(t);let lists=0;
+ await mount(t,async url=>{if(!isList(url))return {type:'opaqueredirect',status:0,ok:false};lists++;return lists===1?response('last-good'):offline();});
+ await announce();await settle(40);assert.equal(state.failure,'sign-in');
+ const asked=lists;await settle(200);assert.equal(lists,asked,'no further tries by itself');assert.equal(state.error,true);assert.equal(state.failure,'sign-in');
+});

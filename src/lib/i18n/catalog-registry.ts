@@ -38,7 +38,10 @@ export function anyRegisteredCatalog(): Catalog | undefined {
 
 export function registerCatalog(locale: Locale, messages: Catalog): Catalog {
 	const catalogs = registry();
-	if (!Object.hasOwn(catalogs, locale)) {
+	if (Object.hasOwn(catalogs, locale)) {
+		// Asked for again: it becomes the newest, so the language in use is the last to be dropped.
+		delete catalogs[locale];
+	} else {
 		const codes = Object.keys(catalogs);
 		if (codes.length >= MAX_SERVER_CATALOGS) delete catalogs[codes[0]];
 	}

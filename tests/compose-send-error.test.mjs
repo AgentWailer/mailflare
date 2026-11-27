@@ -21,8 +21,13 @@ test('structured validation payloads and absent bodies never become React childr
  for(const value of [{error:{fieldErrors:{to:['Invalid']}}},null,{},'proxy error'])assert.equal(composeSendError(value,t),de['compose.error.sendFailed']);
 });
 test('HTTP status, Cloudflare Ray ID and validation details are surfaced when response context is supplied',()=>{
- assert.equal(composeSendError(null,t,{status:403,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']} (HTTP 403, Ray a5e2e7ef1e481496)`);
- assert.equal(composeSendError(null,t,{status:502,rayId:'invalid ray!'}),`${de['compose.error.sendFailed']} (HTTP 502)`);
+ assert.equal(composeSendError(null,t,{status:403,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']} (HTTP 403, Ray a5e2e7ef1e481496). ${de['compose.error.sendRetry']}`);
+ assert.equal(composeSendError(null,t,{status:502,rayId:'invalid ray!'}),`${de['compose.error.sendFailed']} (HTTP 502). ${de['compose.error.sendRetry']}`);
  assert.equal(composeSendError({error:{fieldErrors:{to:['At least one recipient is required']}}},t,{status:400}),`${de['compose.error.sendFailed']}: At least one recipient is required`);
  assert.equal(composeSendError({error:'Mailbox not found'},t,{status:403,rayId:'a5e2e7ef1e481496-FRA'}),'Mailbox not found');
+});
+test('a message that is too large and a lost sign-in are said in the interface language with what to do',()=>{
+ assert.equal(composeSendError({error:'Request body is too large'},t,{status:413}),de['compose.error.sendTooLarge']);
+ assert.equal(composeSendError(null,t,{status:413,rayId:'a5e2e7ef1e481496-FRA'}),de['compose.error.sendTooLarge'],'also when a proxy in front refused it');
+ assert.equal(composeSendError({error:'Unauthorized'},t,{status:401}),de['compose.error.sendSignedOut']);
 });

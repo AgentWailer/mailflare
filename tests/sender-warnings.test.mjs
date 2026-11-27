@@ -120,6 +120,34 @@ test("links are compared by the site they name", () => {
 	assert(performance.now() - started < 5000);
 });
 
+test("a known person's name on another address at the same public mail provider is said", () => {
+	// Anyone can open an address at a public provider under any name: sharing gmail.com makes nobody a colleague.
+	assert.deepEqual(check('"Jo Friend" <urgent.help.2026@gmail.com>'), [{ kind: "nameOfKnownPerson", name: "Jo Friend", knownAddress: "friend.name@gmail.com" }]);
+	assert.deepEqual(check('"Jo Friend" <friend.name@gmail.com>'), [], "the address the owner writes to");
+	assert.deepEqual(check('"Maya Chen" <m.chen@lumen.example>'), [], "a second address at her own organisation is still her");
+});
+
+test("the checks that need nobody to compare with work with an empty address book", () => {
+	const alone = { known: [], own: ["steffen@lumen.example"], ownNames: ["Steffen Beispiel"], organisationDomains: ["lumen.example"] };
+	const lonely = (fromAddr, extra = {}) => kinds(app.getSenderWarnings({ fromAddr, facts: alone, ...extra }));
+	assert.deepEqual(lonely('"chef@firma.example" <x@evil.example>'), ["nameIsOtherAddress"]);
+	assert.deepEqual(lonely('"Steffen Beispiel" <steffen.beispiel@mail-service.example>'), ["ownName"]);
+	assert.deepEqual(lonely('"Buchhaltung" <rechnung@firma.example>', { replyTo: "firma.buchhaltung.2026@gmail.com" }), ["replyElsewhere"]);
+	assert.deepEqual(lonely('"Shop" <news@shop.example>'), [], "an ordinary stranger is left alone");
+});
+
+test("a mark is kept per account and can be taken back", () => {
+	storage.clear();
+	app.trustSender("x@evil.example", "box-a");
+	assert.deepEqual(app.readTrustedSenders("box-a"), ["x@evil.example"]);
+	assert.deepEqual(app.readTrustedSenders("box-b"), [], "another account at this browser decides for itself");
+	assert.deepEqual(app.readTrustedSenders(), []);
+	app.untrustSender(" X@Evil.example ", "box-a");
+	assert.deepEqual(app.readTrustedSenders("box-a"), [], "the sender is warned about again");
+	app.untrustSender("never@marked.example", "box-a");
+	assert.deepEqual(app.readTrustedSenders("box-a"), []);
+});
+
 test("a sender marked as fine is remembered on the device", () => {
 	assert.deepEqual(app.readTrustedSenders(), []);
 	app.trustSender(" Maya.Chen@Lumen-Example.example ");
