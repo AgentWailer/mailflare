@@ -610,6 +610,21 @@ export const sessions = sqliteTable("sessions", {
 		.$defaultFn(() => new Date()),
 });
 
+/**
+ * The device behind a session of an installed app. Kept apart from `sessions` so the web
+ * sign-in does not depend on this table; a device session is recognised by its `dev_` token.
+ */
+export const deviceSessions = sqliteTable("device_sessions", {
+	sessionId: text("session_id")
+		.primaryKey()
+		.references(() => sessions.id, { onDelete: "cascade" }),
+	deviceName: text("device_name").notNull(),
+	lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+});
+
 export const pushSubscriptions = sqliteTable(
 	"push_subscriptions",
 	{

@@ -83,6 +83,11 @@ export const loginSchema = z.object({
 	password: z.string().min(1),
 });
 
+const deviceNameSchema = z.string().trim().min(1).max(80);
+
+/** Sign-in from an installed app: the same credentials plus a name for the device. */
+export const appLoginSchema = loginSchema.extend({ deviceName: deviceNameSchema });
+
 export const passwordResetRequestSchema = z.object({
 	email: z.string().trim().email(),
 });
@@ -96,6 +101,8 @@ export const mfaVerifySchema = z.object({
 	challengeToken: z.string().min(8).max(200),
 	code: z.string().trim().min(6).max(32),
 });
+
+export const appMfaVerifySchema = mfaVerifySchema.extend({ deviceName: deviceNameSchema });
 
 export const mfaEnrollSchema = z.object({
 	password: z.string().min(1),

@@ -42,6 +42,11 @@ const INTERNAL_TABLES = [
 	// Exporting it would make restore fail, since the triggers recreate these
 	// primary keys before the table's own rows would be inserted.
 	"jmap_mailbox_revisions",
+	// The device sync log is written by triggers as messages are restored. A device
+	// whose cursor no longer fits the restored log is told to sync from scratch.
+	"mail_changes",
+	// Like push subscriptions: bound to one device. A restored device session still works.
+	"device_sessions",
 ];
 
 /**

@@ -1,10 +1,15 @@
 import { and, eq, gt, ne, getTableColumns } from "drizzle-orm";
 import { newId } from "@/lib/ids";
 import { getDb } from "@/db";
-import { sessions, users } from "@/db/schema";
+import { deviceSessions, sessions, users } from "@/db/schema";
 
 export const SESSION_COOKIE = "ep_session";
 const SESSION_DAYS = 30;
+/** An installed app stays signed in while it is used: 90 days, renewed at most once a week. */
+const DEVICE_SESSION_DAYS = 90;
+const DEVICE_SESSION_RENEW_BELOW_DAYS = 83;
+const DEVICE_TOKEN_PREFIX = "dev_";
+const DAY_MS = 86_400_000;
 
 export function generateSessionToken(): string {
 	return newId("sess");
@@ -33,6 +38,46 @@ export async function createSession(env: CloudflareEnv, userId: string): Promise
 	return token;
 }
 
+/**
+ * A session for an installed app. Its token starts with `dev_`, which is how a request is
+ * recognised as coming from a device without reading anything but the `sessions` row.
+ */
+export async function createDeviceSession(env: CloudflareEnv, userId: string, deviceName: string): Promise<string> {
+	const db = getDb(env);
+	const token = newId("dev");
+	const id = newId();
+	await db.batch([
+		db.insert(sessions).values({
+			id,
+			userId,
+			tokenHash: await hashSessionToken(token),
+			expiresAt: new Date(Date.now() + DEVICE_SESSION_DAYS * DAY_MS),
+		}),
+		db.insert(deviceSessions).values({ sessionId: id, deviceName }),
+	]);
+	return token;
+}
+
+async function renewDeviceSession(
+	env: CloudflareEnv,
+	token: string,
+	session: { id: string; expiresAt: Date },
+): Promise<void> {
+	if (!token.startsWith(DEVICE_TOKEN_PREFIX)) return;
+	const now = Date.now();
+	if (session.expiresAt.getTime() - now >= DEVICE_SESSION_RENEW_BELOW_DAYS * DAY_MS) return;
+	try {
+		const db = getDb(env);
+		await db.batch([
+			db.update(sessions).set({ expiresAt: new Date(now + DEVICE_SESSION_DAYS * DAY_MS) }).where(eq(sessions.id, session.id)),
+			db.update(deviceSessions).set({ lastUsedAt: new Date(now) }).where(eq(deviceSessions.sessionId, session.id)),
+		]);
+	} catch (error) {
+		// The request is authenticated either way; a missed renewal is retried on the next one.
+		console.warn("Device session renewal failed", error);
+	}
+}
+
 export async function getUserFromSession(
 	env: CloudflareEnv,
 	token: string | undefined,
@@ -41,11 +86,16 @@ export async function getUserFromSession(
 	const db = getDb(env);
 	const tokenHash = await hashSessionToken(token);
 	// Check live session validity and load the user in one database round trip.
-	const [user] = await db.select(getTableColumns(users)).from(sessions)
+	const [row] = await db.select({
+		user: getTableColumns(users),
+		session: { id: sessions.id, expiresAt: sessions.expiresAt },
+	}).from(sessions)
 		.innerJoin(users, eq(users.id, sessions.userId))
 		.where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
 		.limit(1);
-	return user ?? null;
+	if (!row) return null;
+	await renewDeviceSession(env, token, row.session);
+	return row.user;
 }
 
 export async function getSessionFromToken(
@@ -60,6 +110,7 @@ export async function getSessionFromToken(
 		.from(sessions)
 		.where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
 		.limit(1);
+	if (session) await renewDeviceSession(env, token, session);
 	return session ?? null;
 }
 
