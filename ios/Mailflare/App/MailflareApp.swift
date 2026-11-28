@@ -1,9 +1,13 @@
 import SwiftUI
+import UserNotifications
 import MailflareKit
 
 @main
 struct MailflareApp: App {
-	@State private var model = AppModel(dependencies: MailflareApp.dependencies())
+	/// One model for the whole app: the app delegate reaches it when iOS reports a notification.
+	static let model = AppModel(dependencies: MailflareApp.dependencies())
+	@State private var model = MailflareApp.model
+	@UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
 	private static func dependencies() -> AppDependencies {
 		var dependencies = AppDependencies(
@@ -12,8 +16,14 @@ struct MailflareApp: App {
 			transport: URLSessionTransport(),
 			defaults: .standard,
 			deviceName: UIDevice.current.name,
-			removeWebData: { userId in await WebSession.removeData(userId: userId) }
+			removeWebData: { userId in await WebSession.removeData(userId: userId) },
+			requestNotifications: { await Notifications.requestPermissionAndRegister() },
+			setBadge: { count in Task { try? await UNUserNotificationCenter.current().setBadgeCount(count) } }
 		)
+		#if !DEBUG
+		// TestFlight and App Store builds are known to Apple's production service.
+		dependencies.pushEnvironment = "production"
+		#endif
 		#if DEBUG
 		// Hooks for the UI walk-through: start as a fresh install, or behave as without a network.
 		let environment = ProcessInfo.processInfo.environment

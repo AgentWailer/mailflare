@@ -64,8 +64,8 @@ recovering data to replacement resources.
    `drizzle/migrations` with the currently deployed revision. Never edit an
    applied migration. Apply backward-compatible additive changes before code
    that requires them: for example, 0083 adds `messages.reply_to`, and 0084 adds
-   `messages.header_metadata`. The same holds for `0085_mail_changes` and
-   `0086_device_sessions`, which the iOS app's routes read (`docs/ios-app.md`);
+   `messages.header_metadata`. The same holds for `0085_mail_changes`,
+   `0086_device_sessions` and `0087_app_devices`, which the iOS app's routes read (`docs/ios-app.md`);
    the web interface works without them. A code-only release with no pending migrations
    needs no D1 change.
 

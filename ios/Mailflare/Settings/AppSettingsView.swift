@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 import MailflareKit
 
 /// What is set on this device: how much mail it keeps, how it feels, how it reaches the
@@ -16,8 +17,19 @@ struct AppSettingsView: View {
 	@State private var devices: [SignedInDevice]?
 	@State private var devicesError: String?
 	@State private var deviceToEnd: SignedInDevice?
+	@State private var notifications: UNAuthorizationStatus?
 
 	private static let dayChoices = [7, 14, 30, 60, 90]
+
+	private var notificationState: String {
+		switch notifications {
+		case .authorized, .provisional, .ephemeral: String(localized: "Allowed")
+		case .denied: String(localized: "Switched off")
+		case .notDetermined: String(localized: "Not asked yet")
+		case nil: ""
+		@unknown default: ""
+		}
+	}
 
 	var body: some View {
 		Form {
@@ -37,6 +49,25 @@ struct AppSettingsView: View {
 				Toggle("Group conversations", isOn: $conversations)
 				Toggle("Haptic feedback", isOn: $haptics)
 			}
+
+			Section {
+				LabeledContent("New mail", value: notificationState)
+				if notifications == .notDetermined {
+					Button("Allow notifications") {
+						Task {
+							await Notifications.requestPermissionAndRegister()
+							notifications = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+						}
+					}
+				} else if let settings = URL(string: UIApplication.openNotificationSettingsURLString) {
+					Link("Open the notification settings of iOS", destination: settings)
+				}
+			} header: {
+				Text("Notifications")
+			} footer: {
+				Text("A notification shows sender, subject and the first lines. Archive, mark as read and delete work from the notification itself.")
+			}
+			.task { notifications = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
 
 			Section {
 				LabeledContent("Server", value: session.api.access.baseURL.host() ?? "")

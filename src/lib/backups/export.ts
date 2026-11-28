@@ -47,6 +47,8 @@ const INTERNAL_TABLES = [
 	"mail_changes",
 	// Like push subscriptions: bound to one device. A restored device session still works.
 	"device_sessions",
+	// The same: the address Apple gave one installed app. The app registers again when it starts.
+	"app_devices",
 ];
 
 /**

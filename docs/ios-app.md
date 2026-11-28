@@ -2,8 +2,8 @@
 
 The native iPhone app lives in `ios/`. Its design is in
 [superpowers/specs/2026-11-28-ios-app-design.md](superpowers/specs/2026-11-28-ios-app-design.md).
-This page describes what exists after stages 1 to 3 and 5 (reading, acting on mail, writing,
-search) and how to set it up.
+This page describes what exists after all five stages (reading, acting on mail, writing,
+notifications, search) and how to set it up.
 
 ## What the app does today
 
@@ -36,7 +36,15 @@ search) and how to set it up.
   what the phone does not hold, such as mail older than the offline period; such a message
   opens from the server. Spam is left out, as on the web.
 
-Not built yet: notifications from Apple (stage 4). Writing still
+- Notifications from Apple for new mail, once the server holds an Apple key (see
+  *Notifications* below): sender, subject and the first lines, grouped by conversation,
+  with the number of unread inbox mail at the icon. Archive, mark as read and delete work
+  from the notification, for every signed-in account, once the phone is unlocked. Tapping opens the message, in its
+  account. The notification also wakes the app so the mail is on the phone by then.
+
+Notifications still lack answering from the notification and the silent update of the
+number at the icon when mail is read on another device; the number is corrected by every
+sync instead. Writing still
 lacks the web's warnings before sending (lookalike address, many visible recipients,
 missing attachment), undo send, scanning a document with the camera, and drafts that
 show on other devices: a draft put aside in the app stays on this phone.
@@ -70,6 +78,8 @@ Apply these migrations before the code that uses them is deployed:
   delete and list-relevant update of a message adds a row; a nightly job drops rows older
   than 45 days.
 - `0086_device_sessions.sql`: `device_sessions`, the device behind an app's session.
+- `0087_app_devices.sql`: `app_devices`, the address Apple gave the app of a session.
+  Only read when the Apple key is set.
 
 New routes, all behind the usual session check:
 
@@ -78,12 +88,36 @@ New routes, all behind the usual session check:
 | `POST /api/app/login`, `POST /api/app/login/mfa` | Sign-in for the app. Returns a device session token (`dev_…`), sets no cookie. |
 | `GET /api/app/sync?cursor=&days=&limit=` | First the last `days` in pages, then only what changed since the cursor. |
 | `GET /api/app/devices`, `DELETE /api/app/devices/[id]` | The devices signed in to the account, and signing one of them out. |
+| `POST /api/app/push`, `DELETE /api/app/push` | The app hands over, or takes back, the address Apple reaches it at. Only a device session may. |
 
 A device session lasts 90 days and renews itself while it is used. The app sends it in the
 header `X-Mailflare-Session`, on `/api/realtime` too. It must not use `Authorization: Bearer`:
 an Access application with Managed OAuth (as set up for ChatGPT) claims that header for its
 own access tokens and answers 401 to anything else before the request reaches Mailflare.
 The first TestFlight build did exactly that: sign-in worked, every later request was refused.
+
+## Notifications
+
+New mail is announced through Apple's push service from the same place that sends web push
+(`sendPushNotifications`), with the same checks: a session that still holds, an active
+user, the right to read the mailbox now, mail that is worth a notification
+(`src/lib/push/apns.ts`). A Worker reaches `api.push.apple.com` directly; that was tried
+from Cloudflare's network before this was built.
+
+The server needs a key from the Apple developer account, created once:
+
+1. At developer.apple.com open **Certificates, Identifiers & Profiles → Keys → +**, name
+   the key, tick **Apple Push Notifications service (APNs)** and download the `.p8` file.
+   It can be downloaded once. Note the **Key ID** shown there.
+2. Apply migration `0087_app_devices.sql`.
+3. Set on the Worker: the secret `APNS_KEY` (the whole text of the `.p8` file), and
+   `APNS_KEY_ID`, `APNS_TEAM_ID` (`4F3M4YYQN3`) and `APNS_BUNDLE_ID`
+   (`de.steffenvonlindern.mailflare`).
+
+Without these four the server sends nothing to Apple and does not read the table. The app
+asks for permission after the first sign-in and registers at every start; a TestFlight
+build is known to Apple's production service, a development build to the sandbox. An
+address Apple reports as gone is forgotten.
 
 ## First start
 
@@ -205,5 +239,7 @@ The simulator and the tests cannot prove these, and none of them has been tried 
 - Background refresh, which iOS grants as it sees fit.
 - Fetching attachments only on Wi-Fi.
 - The camera for the QR code.
+- Notifications. The tests prove what the server sends to Apple and what the app does with
+  a notification; the delivery itself needs the Apple key and a phone.
 - Sending a message for real. The local test server has no way to deliver mail, so the
   tests prove the requests and their order, not a delivery.

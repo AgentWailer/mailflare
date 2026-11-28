@@ -11,6 +11,12 @@ struct AppDependencies {
 	var deviceName: String
 	/// Removes what the in-app web pages stored for an account: their cookies above all.
 	var removeWebData: @Sendable (String) async -> Void = { _ in }
+	/// Which of Apple's two push services this build is known to: a development build to the sandbox.
+	var pushEnvironment = "sandbox"
+	/// Asks for permission to notify and, when given, for the address Apple reaches this app at.
+	var requestNotifications: @MainActor () async -> Void = {}
+	/// Sets the number at the app's icon.
+	var setBadge: @Sendable (Int) -> Void = { _ in }
 }
 
 /// One signed-in account in use: its server client, its mail on the device and its sync.
@@ -56,6 +62,11 @@ final class AppModel {
 	var needsSecondFactor: Bool { challengeToken != nil }
 	/// True when the sign-in form was opened to add a further account.
 	private(set) var isAddingAccount = false
+	/// A message a notification asked to open; the main view takes it and clears it.
+	var messageToOpen: String?
+	/// The address Apple reaches this app at, and the accounts the server already knows it for.
+	private var pushToken: String?
+	private var pushRegistrations = Set<String>()
 
 	private let dependencies: AppDependencies
 	private var pendingServer: URL?
@@ -163,6 +174,69 @@ final class AppModel {
 		challengeToken = nil
 		isAddingAccount = false
 		activate(account)
+		Task { await registerPush() }
+	}
+
+	// MARK: Notifications
+
+	/// iOS reports the app's address at every start; the server is told once per account and address.
+	func pushTokenReceived(_ token: String) async {
+		pushToken = token
+		await registerPush()
+	}
+
+	private func registerPush() async {
+		guard let token = pushToken, let access else { return }
+		for account in accounts {
+			let key = "\(account.userId) \(account.sessionToken) \(token)"
+			guard !pushRegistrations.contains(key) else { continue }
+			// A failure is left for the next start; notifications are a courtesy, not a duty.
+			if (try? await client(access, token: account.sessionToken).registerPush(token: token, environment: dependencies.pushEnvironment)) != nil {
+				pushRegistrations.insert(key)
+			}
+		}
+	}
+
+	/// Called once the user is in their mail: the question fits there, not before the sign-in.
+	func askForNotifications() async {
+		await dependencies.requestNotifications()
+	}
+
+	/// A notification was tapped: show its message, in the account it belongs to.
+	func openFromNotification(userId: String, messageId: String) async {
+		if phase == .loading { await start() }
+		guard let account = accounts.first(where: { $0.userId == userId }) else { return }
+		if session?.account.userId != userId { activate(account) }
+		messageToOpen = messageId
+	}
+
+	/// An action chosen on a notification, without opening the app on that message. Works for
+	/// an account that is not the one on screen, without switching to it.
+	func performFromNotification(_ action: MailAction, userId: String, messageId: String) async {
+		if phase == .loading { await start() }
+		guard let access, let account = accounts.first(where: { $0.userId == userId }) else { return }
+		if let session, session.account.userId == userId {
+			await Self.perform(action, messageId: messageId, store: session.store, engine: session.engine)
+			updateBadge()
+			return
+		}
+		guard let store = try? MailStore.open(userId: userId, directory: dependencies.storeDirectory) else { return }
+		let engine = SyncEngine(api: client(access, token: account.sessionToken), store: store, settings: syncSettings(for: store))
+		await Self.perform(action, messageId: messageId, store: store, engine: engine)
+		try? store.close()
+	}
+
+	private static func perform(_ action: MailAction, messageId: String, store: MailStore, engine: SyncEngine) async {
+		// The notification can be ahead of the device: fetch the message before acting on it.
+		if (try? store.message(id: messageId)) == nil { await engine.syncNow() }
+		await engine.perform(action, messageIds: [messageId])
+		await engine.syncNow()
+	}
+
+	/// The number at the icon: unread mail in the inbox of the account on screen.
+	func updateBadge() {
+		guard let store = session?.store, let count = try? store.unreadInboxCount() else { return }
+		dependencies.setBadge(count)
 	}
 
 	// MARK: Accounts
@@ -226,6 +300,7 @@ final class AppModel {
 	func backgroundSync() async {
 		if phase == .loading { await start() }
 		await session?.engine.syncNow()
+		updateBadge()
 	}
 
 	// MARK: Session
@@ -262,8 +337,9 @@ final class AppModel {
 			errorMessage = nil
 			phase = .ready
 			statusTask = Task { [weak self] in
-				for await status in await engine.statusUpdates() where status == .signedOut {
-					await self?.handleSignedOut(userId: account.userId)
+				for await status in await engine.statusUpdates() {
+					if status == .signedOut { await self?.handleSignedOut(userId: account.userId) }
+					if case .idle = status { self?.updateBadge() }
 				}
 			}
 			Task {

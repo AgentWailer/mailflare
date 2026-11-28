@@ -40,6 +40,14 @@ struct MainView: View {
 				Haptics.play(.error)
 			}
 		}
+		// A tapped notification opens its message on top of wherever the user was.
+		.onChange(of: model.messageToOpen, initial: true) { _, id in
+			guard let id else { return }
+			model.messageToOpen = nil
+			composer.intent = nil
+			if path.last != .message(id) { path.append(.message(id)) }
+		}
+		.task { await model.askForNotifications() }
 		.onChange(of: scenePhase) { _, phase in
 			if phase == .active { Task { await session.engine.syncNow() } }
 			if phase == .background { BackgroundRefresh.schedule() }

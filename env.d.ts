@@ -44,6 +44,11 @@ interface CloudflareEnv {
 	MCP_ACCESS_AUDIENCE?: string;
 	/** Audience of the Access application in front of the app's routes, when it is not the MCP one. */
 	APP_ACCESS_AUDIENCE?: string;
+	/** Apple's push service for the iOS app: the .p8 key's text, its id, the team and the app's bundle id. */
+	APNS_KEY?: string;
+	APNS_KEY_ID?: string;
+	APNS_TEAM_ID?: string;
+	APNS_BUNDLE_ID?: string;
 	CF_TOKEN?: string;
 	GMAIL_OAUTH_CLIENT_ID?: string;
 	GMAIL_OAUTH_CLIENT_SECRET?: string;

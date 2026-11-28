@@ -17,6 +17,7 @@
 		20D4B9F05A813105E371E320 /* MessageModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D5AF6CF6308E752ECD958B /* MessageModelTests.swift */; };
 		216E77B5EDA4CF21BAD4B36F /* WalkthroughTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14E33281AC96185B9E26081 /* WalkthroughTests.swift */; };
 		26AB9DA803B67AE49E435DCD /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DB6265D72B7B99DCA65E03 /* AppModel.swift */; };
+		2E71778CB77D2C4FECB4C473 /* NotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C82254A4E0ED90BEC25F982F /* NotificationTests.swift */; };
 		31AF4807560B22CB624FB970 /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFDB6EF54512B96C48BB13E /* SearchResultsView.swift */; };
 		348F83C124418A28BE18862B /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2FE52762FB1DF0BD379050 /* Messages.swift */; };
 		3B660CE08B174F06BECD9196 /* AccessKeyParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76FA1160FD014E61AD363079 /* AccessKeyParsingTests.swift */; };
@@ -55,6 +56,7 @@
 		E6A5F31A483313384002497F /* MailActionControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78462848D288432FE4C98E44 /* MailActionControls.swift */; };
 		E8C38A56100217F0CF775FF2 /* MailActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0655C30FAB3D4ADF778EC43D /* MailActions.swift */; };
 		EAC33CE3382935DD8A9A3761 /* Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF10FA018326DC32EED258D /* Presentation.swift */; };
+		F0269657CC59454C57FFFEDB /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C5392A134E33C695D312D1 /* Notifications.swift */; };
 		F47B4350DE01504E6D802565 /* RecipientField.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1AA6197723C7BBA59B00AE2 /* RecipientField.swift */; };
 /* End PBXBuildFile section */
 
@@ -88,6 +90,7 @@
 		2E06CF763FDF8B283FCF0697 /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
 		2EE717879FFFC48716AEB02D /* SearchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchModel.swift; sourceTree = "<group>"; };
 		315A3E5956761FB30C6F3953 /* SearchModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchModelTests.swift; sourceTree = "<group>"; };
+		33C5392A134E33C695D312D1 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
 		3EF10FA018326DC32EED258D /* Presentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Presentation.swift; sourceTree = "<group>"; };
 		3EF215A2A868D1ABBA1C1A2B /* Routes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Routes.swift; sourceTree = "<group>"; };
 		40BB452D8179270369E09048 /* MailflareKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MailflareKit; path = MailflareKit; sourceTree = SOURCE_ROOT; };
@@ -120,9 +123,11 @@
 		BE638DB8715E6CA3BF587EF5 /* ComposeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeTests.swift; sourceTree = "<group>"; };
 		C1AA6197723C7BBA59B00AE2 /* RecipientField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipientField.swift; sourceTree = "<group>"; };
 		C1ADA5582B9059D7331DB55B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C82254A4E0ED90BEC25F982F /* NotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTests.swift; sourceTree = "<group>"; };
 		CE1D4C097C12AA4700D1C71F /* FormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormattingTests.swift; sourceTree = "<group>"; };
 		D14E33281AC96185B9E26081 /* WalkthroughTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkthroughTests.swift; sourceTree = "<group>"; };
 		D2054584C8B4ED4D27BA6499 /* AccessKeyScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessKeyScanner.swift; sourceTree = "<group>"; };
+		DC635A52587C9BC62FB7284D /* Mailflare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mailflare.entitlements; sourceTree = "<group>"; };
 		DDE1DEFF2BAAED72D9F731B2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		E20F7E3019D340527018BE40 /* MailflareTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MailflareTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5DB6265D72B7B99DCA65E03 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -211,10 +216,12 @@
 				C1ADA5582B9059D7331DB55B /* Assets.xcassets */,
 				4B4BC912A47D60DB7EC46139 /* Info.plist */,
 				86822F3A9CD77C7B3169109C /* Localizable.xcstrings */,
+				DC635A52587C9BC62FB7284D /* Mailflare.entitlements */,
 				DDE1DEFF2BAAED72D9F731B2 /* PrivacyInfo.xcprivacy */,
 				F80F5607FF8EBEB403C5139D /* App */,
 				52E2F9D96315EF463296A1B3 /* Compose */,
 				D09E4D15437C3018BFEE5E16 /* Mail */,
+				DEE29548E2310B533F800C3C /* Notifications */,
 				209727EC23B98ABEB2CD66B4 /* Reader */,
 				5AF389925A9530CF0E419693 /* Settings */,
 				B76AF97DD73E35C8D38AE466 /* Setup */,
@@ -277,12 +284,21 @@
 				AB6BADA1416C95388593FB0A /* MailActionsTests.swift */,
 				052E305D9BF3F7D296F10BA0 /* MessageListModelTests.swift */,
 				62D5AF6CF6308E752ECD958B /* MessageModelTests.swift */,
+				C82254A4E0ED90BEC25F982F /* NotificationTests.swift */,
 				315A3E5956761FB30C6F3953 /* SearchModelTests.swift */,
 				BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */,
 				9E03CB149725E1C88FFCD715 /* WebSessionTests.swift */,
 				E2F2FCA991E582239B1CCC89 /* Support */,
 			);
 			path = MailflareTests;
+			sourceTree = "<group>";
+		};
+		DEE29548E2310B533F800C3C /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				33C5392A134E33C695D312D1 /* Notifications.swift */,
+			);
+			path = Notifications;
 			sourceTree = "<group>";
 		};
 		E1DA03DC8D061DC1BA81AF88 /* Web */ = {
@@ -458,6 +474,7 @@
 				40C31BFB088EA64D56EB4A80 /* MailActionsTests.swift in Sources */,
 				9E48435D861292DAA2B343BA /* MessageListModelTests.swift in Sources */,
 				20D4B9F05A813105E371E320 /* MessageModelTests.swift in Sources */,
+				2E71778CB77D2C4FECB4C473 /* NotificationTests.swift in Sources */,
 				6730705DAC7CE65761073BE9 /* SearchModelTests.swift in Sources */,
 				B64570EAA8E4DAA7DB467710 /* SkeletonTests.swift in Sources */,
 				4E0C629CE35CB03A141F5851 /* TestSupport.swift in Sources */,
@@ -498,6 +515,7 @@
 				C12D6D8B82F22593724987B1 /* MessageRowView.swift in Sources */,
 				BC0E12A584CCE5DF2291FBBF /* MessageView.swift in Sources */,
 				348F83C124418A28BE18862B /* Messages.swift in Sources */,
+				F0269657CC59454C57FFFEDB /* Notifications.swift in Sources */,
 				EAC33CE3382935DD8A9A3761 /* Presentation.swift in Sources */,
 				F47B4350DE01504E6D802565 /* RecipientField.swift in Sources */,
 				3BBD2F07BCB6EB86B6301292 /* RichTextEditor.swift in Sources */,
@@ -533,6 +551,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mailflare/Mailflare.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Mailflare/Info.plist;
@@ -617,7 +636,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 4F3M4YYQN3;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -679,7 +698,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 4F3M4YYQN3;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -718,6 +737,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mailflare/Mailflare.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Mailflare/Info.plist;

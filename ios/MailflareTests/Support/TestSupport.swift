@@ -65,9 +65,12 @@ func makeModel(_ transport: RouteTransport, credentials: InMemoryCredentialStore
 	let directory = FileManager.default.temporaryDirectory.appending(path: "mailflare-app-tests-\(UUID().uuidString)")
 	let defaults = UserDefaults(suiteName: "mailflare-tests-\(UUID().uuidString)")!
 	let model = AppModel(dependencies: AppDependencies(credentials: credentials, storeDirectory: directory, transport: transport, defaults: defaults, deviceName: "Test iPhone",
-	                                                    removeWebData: { userId in removedWebData.withLock { $0.append(userId) } }))
+	                                                    removeWebData: { userId in removedWebData.withLock { $0.append(userId) } },
+	                                                    setBadge: { count in badges.withLock { $0.append(count) } }))
 	return (model, directory)
 }
 
 /// The accounts whose web data the model asked to remove, in order.
 nonisolated let removedWebData = Mutex<[String]>([])
+/// The numbers the model put at the app's icon, in order.
+nonisolated let badges = Mutex<[Int]>([])

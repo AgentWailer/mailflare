@@ -315,6 +315,13 @@ public final class MailStore: Sendable {
 		try writer.read { try Self.message($0, id: id) }
 	}
 
+	/// Unread mail in the inbox of every mailbox, as the number at the app's icon counts it:
+	/// without promotions, spam, trash, archived and snoozed mail.
+	public func unreadInboxCount(now: Date = Date()) throws -> Int {
+		let filter = MailQueries.filter(ListScope(folder: .inbox, unreadOnly: true), now: now)
+		return try writer.read { try Int.fetchOne($0, sql: "SELECT count(*) FROM message m WHERE \(filter.sql)", arguments: filter.arguments) ?? 0 }
+	}
+
 	/// The mail on this device that contains every word of `text`, newest first. Spam is left out,
 	/// as the server's search leaves it out.
 	public func search(_ text: String, mailboxId: String? = nil, limit: Int) throws -> [ListItem] {
