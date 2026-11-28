@@ -54,6 +54,14 @@ import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
 /** How long a send may take, large attachments on a slow connection included, before it is given up. */
 const SEND_TIMEOUT_MS = 5 * 60_000;
+/** A short, stable name for what a link prefilled, to tell one link's unsent message from another's. */
+function linkName(prefill: unknown): string {
+	const text = JSON.stringify(prefill) ?? "";
+	let hash = 5381;
+	for (let index = 0; index < text.length; index++) hash = ((hash * 33) ^ text.charCodeAt(index)) >>> 0;
+	return hash.toString(36);
+}
+
 /** How long the removal of a sent message's draft may hold other messages back. */
 const DRAFT_REMOVAL_MS = 15_000;
 /** How long Send waits for the address book before it asks without it. */
@@ -295,10 +303,11 @@ export function ComposeForm({
 		if (!selectedMailbox || loadingDraft || deletingDraft || (draftIdToLoad && !draftId)) return;
 		if (!recoveryLoaded.current) {
 			recoveryLoaded.current = true;
-			// A message started from a link keeps a journal of its own: it neither picks up nor
-			// overwrites an older unsent message, which a plain new message still recovers.
-			journalKey.current = recoveryKey(selectedMailbox.id, initial ? "link" : draftIdToLoad);
-			const recovered = initial ? null : readRecovery(journalKey.current);
+			// A message started from a link keeps a journal of its own, named after that link: it neither
+			// picks up nor overwrites an older unsent message, and the same link opened again (a reload
+			// while saving failed) finds what was written instead of starting over.
+			journalKey.current = recoveryKey(selectedMailbox.id, initial ? `link:${linkName(initial)}` : draftIdToLoad);
+			const recovered = readRecovery(journalKey.current);
 			if (recovered) {
 				const mailbox = mailboxes.find(item => item.id === recovered.payload.mailboxId);
 				if (!mailbox) { writeRecovery(journalKey.current, null); return; }
@@ -420,8 +429,8 @@ export function ComposeForm({
 			// skipping the comparison; if it cannot be read at all, the writer is told and decides.
 			setLoading(true);
 			const answer = await Promise.race([loadRecipientDirectoryAnswer(), new Promise<null>((resolve) => setTimeout(() => resolve(null), DIRECTORY_WAIT_MS))]);
-			// A composer closed meanwhile sends nothing.
-			if (!mounted.current) return;
+			// A composer closed meanwhile sends nothing, and says so: Send had been pressed.
+			if (!mounted.current) { announceFailure("compose.error.closedSend", t("compose.error.closedBeforeSend")); return; }
 			setLoading(false);
 			// Too slow or unreadable now: the address book read earlier still compares. Only with none at
 			// hand is the writer told that nothing was compared.
@@ -439,7 +448,7 @@ export function ComposeForm({
 		if (dirtyDraft.current) flushSave.current?.();
 		await saveChain.current;
 		// Closed while the draft was being saved: a message whose window is gone is not sent.
-		if (!mounted.current) return;
+		if (!mounted.current) { announceFailure("compose.error.closedSend", t("compose.error.closedBeforeSend")); return; }
 		const currentDraftId = savedDraftId.current ?? draftId;
 		if (currentDraftId && agentRevision !== null) {
 			try {

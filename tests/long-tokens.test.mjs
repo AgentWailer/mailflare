@@ -91,6 +91,7 @@ test("the extra break points for a message too small to read are for longer word
 	// An IBAN is compared digit by digit and stays in one piece, also one long enough to count as a long string.
 	const iban = wrap("<p>IBAN MT84MALT011000012345MTLCAST001S, Verwendungszweck</p>");
 	assert.equal(breaks(iban.content), 0);
+	assert.equal(breaks(wrap("<p>mt84malt011000012345mtlcast001s und weiter</p>").content), 0, "also written in small letters");
 	addRelaxedBreaks(iban.content);
 	assert.equal(iban.content.querySelector("p").innerHTML.includes("MT84MALT011000012345MTLCAST001S"), true);
 	// An amount glued to its currency and a timestamp carry letters and are numbers all the same; a name with a few digits is not.

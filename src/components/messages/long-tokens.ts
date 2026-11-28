@@ -89,7 +89,7 @@ export function splitLongToken(token: string, longest = LONG_TOKEN_PIECE, shorte
 }
 
 /** An IBAN written without spaces: country, check digits, up to 30 letters and digits. */
-const IBAN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/;
+const IBAN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/i;
 
 function breakable(token: string, relaxed: boolean): boolean {
 	const length = graphemes(token).length;

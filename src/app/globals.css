@@ -257,7 +257,7 @@ html.dark [data-compose-ai-bar] > div:last-child {
 	/* The composer fills the screen here, with its send bar along the bottom. */
 	[data-undo-send-stack] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); align-items: center; }
 	/* A composer that fills the screen has its send bar where notices otherwise stand: they stand above it. */
-	:is(html[data-undo-offers], body:has(.compose-popup:not(.compose-minimized))) .status-stack { bottom: calc(env(safe-area-inset-bottom) + 9rem + var(--undo-stack-space, 0px)); }
+	:is(html[data-undo-offers], body:has(.compose-popup:not(.compose-minimized), .compose-page)) .status-stack { bottom: calc(env(safe-area-inset-bottom) + 9rem + var(--undo-stack-space, 0px)); }
 	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 
@@ -272,6 +272,8 @@ pre {
 /* Confirmations and failures share a corner with the "undo send" offers and stand above them. */
 .status-stack { bottom: 6rem; }
 @media (min-width: 768px) { .status-stack { bottom: calc(1.5rem + var(--undo-stack-space, 0px)); } }
+/* Beside a desktop composer (window, enlarged or page) the bottom corner is where Send is: notices go to the top. */
+@media (min-width: 1024px) and (pointer: fine) { body:has(.compose-popup:not(.compose-minimized), .compose-page) .status-stack { top: 1rem; bottom: auto; } }
 
 @keyframes status-toast-show {
 	from { opacity: 0; transform: translateY(8px); }

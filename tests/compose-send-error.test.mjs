@@ -24,7 +24,10 @@ test('a failure the server words itself keeps its status and Ray ID',()=>{
 test('a failure said after the window was closed points to Drafts, never to a window that is gone',()=>{
  const closed=[composeSendError({error:'Queue write failed.'},t,{status:500,closed:true}),composeSendError(null,t,{status:403,closed:true}),composeSendError(null,t,{network:true,closed:true}),composeSendError(null,t,{status:401,closed:true})];
  for(const text of closed){assert.match(text,/Entwürfe/);assert.doesNotMatch(text,/hier noch geöffnet|dieses Fenster/);}
- assert.match(closed[0],/HTTP 500/);assert.match(closed[0],/Gesendet/,'an open outcome still says to look before sending again');
+ assert.match(closed[0],/HTTP 500/);
+ // A refusal that names a field of the window says where the message is, once that window is gone.
+ for(const [data,status] of [[{error:'Mailbox not found'},403],[{error:'Request body is too large'},413],[{error:'Too many recipients'},400],[{code:'attachment_unavailable',filename:'a.pdf'},409]]){const text=composeSendError(data,t,{status,closed:true});assert.match(text,/Entwürfe/,text);assert.equal((text.match(/Entwürfe/g)??[]).length,1,text);}
+ assert.doesNotMatch(composeSendError({error:'Mailbox not found'},t,{status:403}),/Entwürfe/,'with the window open the advice is about the window');
  assert.equal(composeSendError({code:'delivery_status_pending',error:'x'},t,{status:500,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.deliveryStatusPending']} (HTTP 500, Ray a5e2e7ef1e481496)`);
  assert.equal(composeSendError({code:'delivery_unknown',error:'x'},t,{status:502}),`${de['compose.error.deliveryUnknown']} (HTTP 502)`);
 });

@@ -74,6 +74,8 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 	const blockedOpen = useRef<{ draftId: string | null; open: () => void } | null>(null);
 	const setSending = useCallback((value: boolean, sentDraftId?: string | null) => {
 		sending.current = Math.max(0, sending.current + (value ? 1 : -1));
+		// The draft that went out is never opened again, whichever send is the last to end.
+		if (!value && sentDraftId && blockedOpen.current?.draftId === sentDraftId) blockedOpen.current = null;
 		if (sending.current > 0) return;
 		const blocked = blockedOpen.current;
 		blockedOpen.current = null;

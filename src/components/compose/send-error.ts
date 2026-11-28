@@ -90,6 +90,17 @@ export function composeSendError(
 	t: (key: TranslationKey, vars?: TranslationVars) => string,
 	context?: ComposeSendErrorContext,
 ): string {
+	const said = sendErrorText(data, t, context);
+	// Advice that names a field of the window ("choose another under From") needs the way back to it
+	// once that window is gone.
+	return context?.closed && !/Entwürfe|Drafts/.test(said) ? `${said} ${t("compose.error.closedInDrafts")}` : said;
+}
+
+function sendErrorText(
+	data: unknown,
+	t: (key: TranslationKey, vars?: TranslationVars) => string,
+	context?: ComposeSendErrorContext,
+): string {
 	// A connection that broke says nothing about whether the message arrived.
 	if (context?.network) return withNextStep(`${t("compose.error.sendFailed")} (${context.detail?.trim() || t("compose.error.sendNoConnection")})`, t, context);
 	const fallback = formatFallbackSendError(t("compose.error.sendFailed"), context);
