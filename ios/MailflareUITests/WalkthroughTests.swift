@@ -143,6 +143,19 @@ final class WalkthroughTests: XCTestCase {
 		capture("08-mailboxes")
 		app.swipeUp()
 
+		// An area without a native screen opens as its web page, signed in as the same account.
+		// Over the test server's plain http the page arrives without its styles and scripts:
+		// Mailflare's pages tell the browser to load every part over https. What can be seen
+		// here is that the page is served to a signed-in user and does not ask to sign in.
+		app.staticTexts["Kalender"].firstMatch.tap()
+		expect(app.webViews.firstMatch, "The calendar's web page")
+		sleep(4)
+		capture("09b-web-calendar")
+		expect(app.webViews.links.firstMatch, "Content of the page")
+		XCTAssertFalse(app.webViews.secureTextFields.firstMatch.waitForExistence(timeout: 5), "The web page asks to sign in again")
+		XCTAssertFalse(app.staticTexts["Diese Seite kann nicht geöffnet werden"].exists, "The page failed to load")
+		back(app)
+
 		// App settings.
 		app.staticTexts["Einstellungen"].firstMatch.tap()
 		expect(app.staticTexts["Mails offline behalten"], "The app settings")
@@ -155,7 +168,8 @@ final class WalkthroughTests: XCTestCase {
 		// Give the content of the window time to arrive, then cut the connection.
 		app.swipeDown()
 		app.staticTexts["Posteingang"].firstMatch.tap()
-		expect(app.staticTexts["Gerade aktualisiert"], "An up-to-date inbox", timeout: 60)
+		// "Gerade aktualisiert", or "Aktualisiert vor 1 Min." when the walk-through took a while.
+		expect(app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'aktualisiert'")).firstMatch, "An up-to-date inbox", timeout: 60)
 		sleep(5)
 		app.terminate()
 

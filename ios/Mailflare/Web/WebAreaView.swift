@@ -37,7 +37,8 @@ struct WebAreaView: View {
 				}
 			case .ready:
 				if let store {
-					InstallationWebView(url: session.api.access.baseURL.appending(path: area.path), access: session.api.access, store: store) { openURL($0) }
+					InstallationWebView(url: session.api.access.baseURL.appending(path: area.path), access: session.api.access, store: store,
+					                    onExternalLink: { openURL($0) }, onFailure: { state = .failed($0) })
 						.ignoresSafeArea(edges: .bottom)
 				}
 			}
@@ -68,6 +69,8 @@ private struct InstallationWebView: UIViewRepresentable {
 	let access: ServerAccess
 	let store: WKWebsiteDataStore
 	let onExternalLink: (URL) -> Void
+	/// A page that cannot be loaded must say so instead of staying blank.
+	let onFailure: (String) -> Void
 
 	func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -96,6 +99,21 @@ private struct InstallationWebView: UIViewRepresentable {
 			// Only a deliberate tap leaves the app; a page cannot send the user elsewhere by itself.
 			if navigationAction.navigationType == .linkActivated, navigationAction.targetFrame?.isMainFrame != false { parent.onExternalLink(url) }
 			return navigationAction.targetFrame?.isMainFrame == false ? .allow : .cancel
+		}
+
+		func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+			report(error)
+		}
+
+		func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+			report(error)
+		}
+
+		private func report(_ error: any Error) {
+			// A navigation we cancelled ourselves, or one replaced by the next, is not a failure.
+			let code = (error as NSError).code
+			guard code != NSURLErrorCancelled, code != 102 else { return }
+			parent.onFailure(error.localizedDescription)
 		}
 	}
 }
