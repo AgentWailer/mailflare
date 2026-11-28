@@ -218,6 +218,25 @@ export const jmapMailboxRevisions = sqliteTable("jmap_mailbox_revisions", {
 	revision: integer("revision").notNull().default(0),
 });
 
+/**
+ * Append-only log of message changes, written by triggers (migration 0085) so a
+ * device can ask what changed since its last sync. Pruned after 45 days.
+ */
+export const mailChanges = sqliteTable(
+	"mail_changes",
+	{
+		seq: integer("seq").primaryKey({ autoIncrement: true }),
+		mailboxId: text("mailbox_id").notNull(),
+		messageId: text("message_id").notNull(),
+		kind: text("kind", { enum: ["changed", "removed"] }).notNull(),
+		changedAt: integer("changed_at").notNull(),
+	},
+	(t) => [
+		index("mail_changes_mailbox_seq_idx").on(t.mailboxId, t.seq),
+		index("mail_changes_changed_at_idx").on(t.changedAt),
+	],
+);
+
 export const apiKeys = sqliteTable("api_keys", {
 	id: text("id").primaryKey(),
 	kind: text("kind", { enum: ["legacy", "mcp"] }).notNull().default("legacy"),
