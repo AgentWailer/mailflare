@@ -31,6 +31,8 @@ enum SettingKey {
 	static let autoAttachments = "attachments.auto"
 	static let attachmentsWiFiOnly = "attachments.wifiOnly"
 	static let lastScope = "list.lastScope"
+	/// The account's own setting for pictures from the internet, as last fetched from the server.
+	static let externalContent = "externalContent"
 }
 
 @Observable
@@ -238,7 +240,8 @@ final class AppModel {
 			if session?.account.userId != account.userId { try? session?.store.close() }
 			let store = try session?.account.userId == account.userId ? session!.store : MailStore.open(userId: account.userId, directory: dependencies.storeDirectory)
 			let api = client(access, token: account.sessionToken)
-			let engine = SyncEngine(api: api, store: store, settings: syncSettings(for: store))
+			let cache = store.directory.map { AttachmentCache(directory: $0.appending(path: "attachments", directoryHint: .isDirectory)) }
+			let engine = SyncEngine(api: api, store: store, settings: syncSettings(for: store), attachments: cache, isOnWiFi: { Connectivity.shared.isOnWiFi })
 			let session = AccountSession(account: account, api: api, store: store, engine: engine)
 			self.session = session
 			dependencies.defaults.set(account.userId, forKey: Self.activeUserKey)
@@ -249,7 +252,10 @@ final class AppModel {
 					await self?.handleSignedOut(userId: account.userId)
 				}
 			}
-			Task { await engine.syncNow() }
+			Task {
+				await engine.syncNow()
+				if let allowed = try? await api.externalContentAllowed() { try? store.setSetting(SettingKey.externalContent, allowed ? "1" : "0") }
+			}
 		} catch {
 			errorMessage = String(localized: "The mail on this device could not be opened.")
 			phase = .needsSignIn

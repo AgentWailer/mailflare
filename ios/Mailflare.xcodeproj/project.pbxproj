@@ -11,16 +11,20 @@
 		08A135FD614F243A2C4977C1 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060BA86142822C2062D52090 /* Haptics.swift */; };
 		0EEC9A5C1BF752F0B4FDAF70 /* MailboxListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACAD72910ED4FCF4849B426 /* MailboxListView.swift */; };
 		0FF6775BAF2623320A16B685 /* AccessKeyScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2054584C8B4ED4D27BA6499 /* AccessKeyScanner.swift */; };
+		20D4B9F05A813105E371E320 /* MessageModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D5AF6CF6308E752ECD958B /* MessageModelTests.swift */; };
 		26AB9DA803B67AE49E435DCD /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DB6265D72B7B99DCA65E03 /* AppModel.swift */; };
 		348F83C124418A28BE18862B /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2FE52762FB1DF0BD379050 /* Messages.swift */; };
 		3B660CE08B174F06BECD9196 /* AccessKeyParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76FA1160FD014E61AD363079 /* AccessKeyParsingTests.swift */; };
 		3FC42D69E207D10C96796FDA /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 86822F3A9CD77C7B3169109C /* Localizable.xcstrings */; };
 		424848952E4702263AB1D186 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 211D844A89586F7781DFD929 /* RootView.swift */; };
 		42D5564B00F317A82F19235C /* MessageListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B79D605874D6BFF71D1304 /* MessageListModel.swift */; };
+		43CAD425F28DF5930F17D692 /* Connectivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62DDAFC8291B4F60C39ACF8E /* Connectivity.swift */; };
 		4E0C629CE35CB03A141F5851 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2D23399A2D0B17FD320EAC /* TestSupport.swift */; };
 		6313347BCC1B9BDF21D6A0A6 /* Routes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF215A2A868D1ABBA1C1A2B /* Routes.swift */; };
 		77809147C36411CA278C5CEB /* AccessKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9295BB1CE820F1828A07E7E /* AccessKey.swift */; };
+		79FA21D877C2F43731FEAB84 /* MessageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6FAB48BECB1D238D54CE8E /* MessageModel.swift */; };
 		84105ACEBD278DC860888EFF /* WebAreaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7818EE14A4EB112A1112DB5 /* WebAreaView.swift */; };
+		899F516C93280F30DE459EA0 /* MailBodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98C9B7B629502B07168AEF19 /* MailBodyView.swift */; };
 		914FDA1C934320E173085D5F /* MessageListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60854C2D14D6C727E1464F32 /* MessageListView.swift */; };
 		98D359E8B9F3E86B3C66E06F /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED9AE53A2F06897281F7BE4B /* MainView.swift */; };
 		9E48435D861292DAA2B343BA /* MessageListModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 052E305D9BF3F7D296F10BA0 /* MessageListModelTests.swift */; };
@@ -52,6 +56,7 @@
 		052E305D9BF3F7D296F10BA0 /* MessageListModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageListModelTests.swift; sourceTree = "<group>"; };
 		060BA86142822C2062D52090 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		08B4DB0154FD3AD1C37DC2FB /* MessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageView.swift; sourceTree = "<group>"; };
+		0F6FAB48BECB1D238D54CE8E /* MessageModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageModel.swift; sourceTree = "<group>"; };
 		211D844A89586F7781DFD929 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		2ACAD72910ED4FCF4849B426 /* MailboxListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailboxListView.swift; sourceTree = "<group>"; };
 		2E06CF763FDF8B283FCF0697 /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
@@ -61,10 +66,13 @@
 		4B4BC912A47D60DB7EC46139 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4F0AD281A51060AD2B0DB510 /* Mailflare.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mailflare.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		60854C2D14D6C727E1464F32 /* MessageListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageListView.swift; sourceTree = "<group>"; };
+		62D5AF6CF6308E752ECD958B /* MessageModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageModelTests.swift; sourceTree = "<group>"; };
+		62DDAFC8291B4F60C39ACF8E /* Connectivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Connectivity.swift; sourceTree = "<group>"; };
 		65A2F3FE795DE3A708DCE739 /* MailflareApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailflareApp.swift; sourceTree = "<group>"; };
 		76FA1160FD014E61AD363079 /* AccessKeyParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessKeyParsingTests.swift; sourceTree = "<group>"; };
 		7C2D23399A2D0B17FD320EAC /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
 		86822F3A9CD77C7B3169109C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		98C9B7B629502B07168AEF19 /* MailBodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailBodyView.swift; sourceTree = "<group>"; };
 		A7818EE14A4EB112A1112DB5 /* WebAreaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAreaView.swift; sourceTree = "<group>"; };
 		AB559F2089FCDFCACB6C7873 /* MessageRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRowView.swift; sourceTree = "<group>"; };
 		AC2FE52762FB1DF0BD379050 /* Messages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Messages.swift; sourceTree = "<group>"; };
@@ -103,6 +111,8 @@
 		209727EC23B98ABEB2CD66B4 /* Reader */ = {
 			isa = PBXGroup;
 			children = (
+				98C9B7B629502B07168AEF19 /* MailBodyView.swift */,
+				0F6FAB48BECB1D238D54CE8E /* MessageModel.swift */,
 				08B4DB0154FD3AD1C37DC2FB /* MessageView.swift */,
 			);
 			path = Reader;
@@ -132,6 +142,7 @@
 		8B59C7FEB41430B97A0C261E /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				62DDAFC8291B4F60C39ACF8E /* Connectivity.swift */,
 				060BA86142822C2062D52090 /* Haptics.swift */,
 				AC2FE52762FB1DF0BD379050 /* Messages.swift */,
 				3EF10FA018326DC32EED258D /* Presentation.swift */,
@@ -194,6 +205,7 @@
 				2E06CF763FDF8B283FCF0697 /* AppModelTests.swift */,
 				CE1D4C097C12AA4700D1C71F /* FormattingTests.swift */,
 				052E305D9BF3F7D296F10BA0 /* MessageListModelTests.swift */,
+				62D5AF6CF6308E752ECD958B /* MessageModelTests.swift */,
 				BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */,
 				E2F2FCA991E582239B1CCC89 /* Support */,
 			);
@@ -340,6 +352,7 @@
 				D8BBB37D0BADE0B2A2F5CDDB /* AppModelTests.swift in Sources */,
 				B3954196BFB4A9418939C148 /* FormattingTests.swift in Sources */,
 				9E48435D861292DAA2B343BA /* MessageListModelTests.swift in Sources */,
+				20D4B9F05A813105E371E320 /* MessageModelTests.swift in Sources */,
 				B64570EAA8E4DAA7DB467710 /* SkeletonTests.swift in Sources */,
 				4E0C629CE35CB03A141F5851 /* TestSupport.swift in Sources */,
 			);
@@ -353,12 +366,15 @@
 				0FF6775BAF2623320A16B685 /* AccessKeyScanner.swift in Sources */,
 				26AB9DA803B67AE49E435DCD /* AppModel.swift in Sources */,
 				C4A167CAEB2066B4B29C1D0A /* AppSettingsView.swift in Sources */,
+				43CAD425F28DF5930F17D692 /* Connectivity.swift in Sources */,
 				08A135FD614F243A2C4977C1 /* Haptics.swift in Sources */,
+				899F516C93280F30DE459EA0 /* MailBodyView.swift in Sources */,
 				0EEC9A5C1BF752F0B4FDAF70 /* MailboxListView.swift in Sources */,
 				D51EF5944D5A4D7B3D3CC0AD /* MailflareApp.swift in Sources */,
 				98D359E8B9F3E86B3C66E06F /* MainView.swift in Sources */,
 				42D5564B00F317A82F19235C /* MessageListModel.swift in Sources */,
 				914FDA1C934320E173085D5F /* MessageListView.swift in Sources */,
+				79FA21D877C2F43731FEAB84 /* MessageModel.swift in Sources */,
 				C12D6D8B82F22593724987B1 /* MessageRowView.swift in Sources */,
 				BC0E12A584CCE5DF2291FBBF /* MessageView.swift in Sources */,
 				348F83C124418A28BE18862B /* Messages.swift in Sources */,

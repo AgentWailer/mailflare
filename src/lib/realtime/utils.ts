@@ -5,7 +5,10 @@ import { isTeamMailboxSharingEnabled } from "@/lib/mailboxes/access-utils";
 import type { NewMessageNotification, AgentDraftNotification } from "./types";
 import { sendPushNotifications } from "@/lib/push/server";
 
+/** The session a realtime connection is opened with: an app's bearer token, or a browser's cookie. */
 export function getSessionTokenFromRequest(request: Request): string | undefined {
+	const authorization = request.headers.get("Authorization");
+	if (authorization?.startsWith("Bearer ")) return authorization.slice(7).trim() || undefined;
 	const cookie = request.headers.get("Cookie");
 	if (!cookie) return undefined;
 

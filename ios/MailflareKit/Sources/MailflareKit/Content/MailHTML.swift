@@ -67,33 +67,19 @@ public enum MailHTML {
 			"""
 	}
 
-	private static let removedWithContent = ["script", "iframe", "object", "embed", "noscript", "title", "applet", "frameset", "frame", "audio", "video", "textarea", "select", "button"]
-	private static let removedTags = ["form", "input", "meta", "link", "base", "html", "head", "body", "!doctype", "option", "source", "track"]
+	/// Elements dropped together with what they contain.
+	private static let removedWithContent: Set<String> = ["script", "iframe", "object", "noscript", "title", "applet", "frameset", "audio", "video", "textarea", "select", "button"]
+	/// Elements whose tags are dropped while their content stays.
+	private static let removedTags: Set<String> = ["form", "input", "meta", "link", "base", "html", "head", "body", "option", "source", "track", "embed", "frame", "param"]
 
+	/// Walks the markup tag by tag, the way a browser splits it, and writes back only what is
+	/// harmless. Text between tags is never touched, so a sentence that merely looks like an
+	/// attribute stays as it was written.
 	static func sanitize(_ source: String, allowRemote: Bool, inlineImages: [String: String], blocked: inout Bool) -> String {
-		var html = source
-		// Removing one tag can join the halves of another ("<scr<script>ipt>"), so repeat until nothing changes.
-		for _ in 0..<8 {
-			let before = html
-			html = html.replacing(/<!--[\s\S]*?-->/, with: "")
-			for tag in removedWithContent {
-				html = html.replacing(try! Regex("<\(tag)\\b[^>]*>[\\s\\S]*?</\(tag)\\s*>").ignoresCase(), with: "")
-			}
-			for tag in removedWithContent + removedTags {
-				html = html.replacing(try! Regex("</?\(tag)\\b[^>]*>?").ignoresCase(), with: "")
-			}
-			// Event handlers: on…="…", on…='…' or on…=value.
-			html = html.replacing(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/.ignoresCase(), with: "")
-			if html == before { break }
-		}
-
-		// Links may lead to web pages, mail addresses, phone numbers and places in the mail itself.
-		html = html.replacing(/(\s(?:href|action|formaction|xlink:href)\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+)/.ignoresCase()) { match in
-			let value = unquote(String(match.output.2))
-			let scheme = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().filter { !$0.isWhitespace && $0.asciiValue.map { $0 > 31 } ?? true }
-			let allowed = ["https://", "http://", "mailto:", "tel:", "#"].contains { scheme.hasPrefix($0) }
-			return "\(match.output.1)\"\(allowed ? attribute(value) : "#")\""
-		}
+		let characters = Array(source)
+		var output = ""
+		var index = 0
+		var skipping: String?
 
 		// Pictures: embedded ones are shown, pictures from the internet only when allowed.
 		func resource(_ value: String) -> String? {
@@ -107,23 +93,134 @@ public enum MailHTML {
 			}
 			return nil
 		}
-		html = html.replacing(/(\s)(src|background|poster)(\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+)/.ignoresCase()) { match in
-			guard let allowed = resource(unquote(String(match.output.4))) else { return "\(match.output.1)data-blocked-\(match.output.2)=\"\"" }
-			return "\(match.output.1)\(match.output.2)=\"\(attribute(allowed))\""
+
+		// Style sheets may not pull in others, and their pictures follow the same rule as any picture.
+		func css(_ text: String) -> String {
+			var css = text.replacing(/@import[^;]*;?/.ignoresCase(), with: "")
+			css = css.replacing(/url\(\s*(?:"[^"]*"|'[^']*'|[^)]*)\)/.ignoresCase()) { match in
+				let inner = unquote(String(match.output.dropFirst(4).dropLast()).trimmingCharacters(in: .whitespaces))
+				guard let allowed = resource(inner) else { return "none" }
+				return "url(\"\(allowed.replacingOccurrences(of: "\"", with: "%22"))\")"
+			}
+			return css.replacing(/expression\s*\(/.ignoresCase(), with: "(").replacingOccurrences(of: "</", with: "<\\/")
 		}
-		html = html.replacing(/\s(?:srcset|ping|data-src)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/.ignoresCase()) { match in
-			if match.output.lowercased().contains("http") && !allowRemote { blocked = true }
-			return ""
+
+		func filtered(_ name: String, _ value: String?) -> String? {
+			guard name.wholeMatch(of: /[a-z_:][a-z0-9_:.\-]*/) != nil, !name.hasPrefix("on") else { return nil }
+			guard let value else { return name }
+			switch name {
+			case "srcset", "ping", "data-src", "action", "formaction", "srcdoc", "http-equiv":
+				if name == "srcset" || name == "data-src", value.lowercased().contains("http"), !allowRemote { blocked = true }
+				return nil
+			case "href", "xlink:href":
+				// Links may lead to web pages, mail addresses, phone numbers and places in the mail itself.
+				let scheme = String(value.lowercased().unicodeScalars.filter { $0.value > 32 && $0.properties.generalCategory != .format })
+				let allowed = ["https://", "http://", "mailto:", "tel:", "#"].contains { scheme.hasPrefix($0) }
+				return "\(name)=\"\(allowed ? attribute(value) : "#")\""
+			case "src", "background", "poster":
+				return resource(value).map { "\(name)=\"\(attribute($0))\"" }
+			case "style":
+				return "style=\"\(attribute(css(value)))\""
+			default:
+				return "\(name)=\"\(attribute(value))\""
+			}
 		}
-		// Style sheets may not pull in others, and their pictures follow the same rule.
-		html = html.replacing(/@import[^;]*;?/.ignoresCase(), with: "")
-		html = html.replacing(/url\(\s*(?:"[^"]*"|'[^']*'|[^)]*)\)/.ignoresCase()) { match in
-			let inner = unquote(String(match.output.dropFirst(4).dropLast()).trimmingCharacters(in: .whitespaces))
-			guard let allowed = resource(inner) else { return "none" }
-			return "url(\"\(allowed.replacingOccurrences(of: "\"", with: "%22"))\")"
+
+		while index < characters.count {
+			guard characters[index] == "<" else {
+				let start = index
+				while index < characters.count, characters[index] != "<" { index += 1 }
+				if skipping == nil { output.append(contentsOf: characters[start..<index]) }
+				continue
+			}
+			// A comment is dropped whole; one that never ends takes the rest with it.
+			if characters[index...].starts(with: Array("<!--")) {
+				index = end(of: Array("-->"), in: characters, from: index + 4) ?? characters.count
+				continue
+			}
+			guard index + 1 < characters.count, characters[index + 1].isLetter || "/!?".contains(characters[index + 1]) else {
+				if skipping == nil { output.append("&lt;") }
+				index += 1
+				continue
+			}
+			// Read the tag as a browser does: a name, then attributes whose values may be quoted.
+			var cursor = index + 1
+			let closing = characters[cursor] == "/"
+			if closing { cursor += 1 }
+			let nameStart = cursor
+			while cursor < characters.count, !characters[cursor].isWhitespace, characters[cursor] != ">", characters[cursor] != "/" { cursor += 1 }
+			let name = String(characters[nameStart..<cursor]).lowercased()
+			var attributes: [String] = []
+			var terminated = false
+			while cursor < characters.count {
+				let character = characters[cursor]
+				if character == ">" { terminated = true; cursor += 1; break }
+				if character.isWhitespace || character == "/" { cursor += 1; continue }
+				let attributeStart = cursor
+				while cursor < characters.count, !characters[cursor].isWhitespace, !"=>/".contains(characters[cursor]) { cursor += 1 }
+				// A stray "=" would otherwise never be consumed.
+				if cursor == attributeStart { cursor += 1; continue }
+				let attributeName = String(characters[attributeStart..<cursor]).lowercased()
+				var lookahead = cursor
+				while lookahead < characters.count, characters[lookahead].isWhitespace { lookahead += 1 }
+				var value: String?
+				if lookahead < characters.count, characters[lookahead] == "=" {
+					cursor = lookahead + 1
+					while cursor < characters.count, characters[cursor].isWhitespace { cursor += 1 }
+					if cursor < characters.count, characters[cursor] == "\"" || characters[cursor] == "'" {
+						let quote = characters[cursor]
+						let valueStart = cursor + 1
+						cursor = valueStart
+						while cursor < characters.count, characters[cursor] != quote { cursor += 1 }
+						value = String(characters[valueStart..<min(cursor, characters.count)])
+						cursor = min(cursor + 1, characters.count)
+					} else {
+						let valueStart = cursor
+						while cursor < characters.count, !characters[cursor].isWhitespace, characters[cursor] != ">" { cursor += 1 }
+						value = String(characters[valueStart..<cursor])
+					}
+				}
+				if let kept = filtered(attributeName, value) { attributes.append(kept) }
+			}
+			index = cursor
+			// A tag that never closes is not markup a mail client should guess at.
+			guard terminated else { break }
+
+			if let waiting = skipping {
+				if closing, name == waiting { skipping = nil }
+				continue
+			}
+			guard name.wholeMatch(of: /[a-z][a-z0-9:\-]*/) != nil else { continue }
+			if removedWithContent.contains(name) {
+				if !closing { skipping = name }
+				continue
+			}
+			if removedTags.contains(name) { continue }
+			if name == "style", !closing {
+				// The sheet is text up to its closing tag, not markup.
+				let close = start(of: Array("</style"), in: characters, from: index) ?? characters.count
+				output.append("<style>\(css(String(characters[index..<close])))</style>")
+				index = end(of: Array(">"), in: characters, from: close) ?? characters.count
+				continue
+			}
+			output.append(closing ? "</\(name)>" : "<\(([name] + attributes).joined(separator: " "))>")
 		}
-		html = html.replacing(/expression\s*\(/.ignoresCase(), with: "(")
-		return html
+		return output
+	}
+
+	/// Where `needle` begins at or after `from`, compared without regard to case.
+	private static func start(of needle: [Character], in characters: [Character], from: Int) -> Int? {
+		guard !needle.isEmpty, characters.count >= needle.count, from <= characters.count - needle.count else { return nil }
+		var index = from
+		while index <= characters.count - needle.count {
+			if zip(needle, characters[index..<index + needle.count]).allSatisfy({ $0.lowercased() == $1.lowercased() }) { return index }
+			index += 1
+		}
+		return nil
+	}
+
+	private static func end(of needle: [Character], in characters: [Character], from: Int) -> Int? {
+		start(of: needle, in: characters, from: from).map { $0 + needle.count }
 	}
 
 	private static func unquote(_ value: String) -> String {

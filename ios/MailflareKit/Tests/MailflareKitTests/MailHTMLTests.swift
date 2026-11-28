@@ -22,6 +22,22 @@ import Testing
 		#expect(page.contains("Hello"))
 	}
 
+	@Test func `attributes are found however they are separated, as a browser finds them`() {
+		let page = render("""
+			<img/onerror=alert(1) src=x><svg/onload=alert(2)><p title="a"onclick="alert(3)">x</p><p title='b'onmouseover=alert(4)>y</p>
+			<a/href="javascript:alert(5)">z</a><a title="t"href='javascript:alert(6)'>w</a><img alt="i"src="https://track.example/p.gif">
+			<img/src="https://track.example/q.gif"><div\nonclick=alert(7)>n</div><div\tONCLICK\t=\t"alert(8)">t</div>
+			""").html.lowercased()
+		for forbidden in ["onerror", "onload", "onclick", "onmouseover", "javascript:", "track.example"] {
+			#expect(!page.contains(forbidden), "\(forbidden) survived")
+		}
+	}
+
+	@Test func `text that only mentions an event handler is left alone`() {
+		let page = render("<p>Set font=bold and price on sale=yes, see online=1</p>").html
+		#expect(page.contains("price on sale=yes, see online=1"))
+	}
+
 	@Test func `dangerous link targets are neutralised and ordinary ones survive`() {
 		let page = render("""
 			<a href="javascript:alert(1)">a</a><a href=" JaVaScRiPt:alert(1)">b</a><a href='data:text/html,<script>1</script>'>c</a><a href="vbscript:x">d</a>

@@ -25,7 +25,10 @@ public struct MailAddress: Equatable, Hashable, Sendable {
 	/// A "name" that is itself an address or a host name says nothing, or pretends to be someone
 	/// else's address. Compatibility forms such as the full-width @ are folded first.
 	static func looksLikeAddress(_ name: String) -> Bool {
-		let folded = name.precomposedStringWithCompatibilityMapping.lowercased()
+		// Invisible characters are dropped and look-alike dots become dots before looking.
+		let visible = String(String.UnicodeScalarView(name.unicodeScalars.filter { $0.properties.generalCategory != .format && !$0.properties.isDefaultIgnorableCodePoint }))
+		let dotted = String(visible.map { "\u{3002}\u{FF0E}\u{FF61}\u{06D4}\u{2024}\u{2027}\u{30FB}\u{00B7}".contains($0) ? "." : $0 })
+		let folded = dotted.precomposedStringWithCompatibilityMapping.lowercased()
 		if folded.contains("@") { return true }
 		// A dot between two letter runs, the last at least two long: "bank.example", not "Dr. Anna".
 		return folded.contains(/[\p{L}\p{N}-]+\.[\p{L}]{2,}(?![\p{L}\p{N}])/)

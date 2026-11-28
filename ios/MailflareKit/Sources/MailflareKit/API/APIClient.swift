@@ -44,6 +44,12 @@ public struct APIClient: Sendable {
 		return try await decode(Answer.self, .get, "/api/auth/me").user
 	}
 
+	/// Whether the account lets mail load pictures from the internet without asking.
+	public func externalContentAllowed() async throws -> Bool {
+		struct Answer: Decodable { let enabled: Bool }
+		return try await decode(Answer.self, .get, "/api/settings/external-content").enabled
+	}
+
 	// MARK: Mail
 
 	public func sync(cursor: String?, days: Int, limit: Int) async throws -> SyncPage {
