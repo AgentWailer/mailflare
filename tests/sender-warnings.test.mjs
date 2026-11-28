@@ -16,7 +16,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const directory = mkdtempSync(join(root, "node_modules", "mailflare-sender-warnings-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
-	stdin: { contents: `export * from "./src/components/messages/sender-warnings-utils.ts";`, resolveDir: root, sourcefile: "sender-warnings-entry.ts" },
+	stdin: { contents: `export * from "./src/components/messages/sender-warnings-utils.ts";export { isMailProviderDomain } from "./src/lib/email/confusables.ts";export { hasAuthoredPicture } from "./src/components/compose/rich-text-utils.ts";export { isKnownCorrespondent } from "./src/components/compose/use-recipient-directory.ts";`, resolveDir: root, sourcefile: "sender-warnings-entry.ts" },
 	outfile: join(directory, "entry.mjs"), bundle: true, platform: "node", format: "esm", target: "node24", tsconfig: join(root, "tsconfig.json"), packages: "external", logLevel: "silent",
 });
 const app = await import(pathToFileURL(join(directory, "entry.mjs")).href);
@@ -120,6 +120,79 @@ test("links are compared by the site they name", () => {
 	assert(performance.now() - started < 5000);
 });
 
+test("a known person's name on another address at the same public mail provider is said", () => {
+	// Anyone can open an address at a public provider under any name: sharing gmail.com makes nobody a colleague.
+	assert.deepEqual(check('"Jo Friend" <urgent.help.2026@gmail.com>'), [{ kind: "nameOfKnownPerson", name: "Jo Friend", knownAddress: "friend.name@gmail.com" }]);
+	assert.deepEqual(check('"Jo Friend" <friend.name@gmail.com>'), [], "the address the owner writes to");
+	assert.deepEqual(check('"Maya Chen" <m.chen@lumen.example>'), [], "a second address at her own organisation is still her");
+});
+
+test("a public provider is one whatever country ending it carries", () => {
+	const regional = { ...facts, known: [...facts.known, { email: "anna.klein@yahoo.co.uk", name: "Anna Klein" }, { email: "paul.roux@outlook.fr", name: "Paul Roux" }] };
+	const from = (fromAddr, extra = {}) => kinds(app.getSenderWarnings({ fromAddr, facts: regional, ...extra }));
+	assert.deepEqual(from('"Anna Klein" <anna.klein.2026@yahoo.co.uk>'), ["nameOfKnownPerson"]);
+	assert.deepEqual(from('"Paul Roux" <p.roux.urgent@outlook.fr>'), ["nameOfKnownPerson"]);
+	assert.deepEqual(from('"Buchhaltung" <rechnung@firma.example>', { replyTo: "firma.buchhaltung@hotmail.co.uk" }), ["replyElsewhere"]);
+	assert.deepEqual(from('"Maya Chen" <m.chen@lumen.example>'), [], "an organisation's own domain is still one organisation");
+});
+
+test("a mistyped or forged ending of a public provider is not the provider", () => {
+	// gmail.co, outlook.cm and the like belong to whoever registered them. They must be compared, not waved through.
+	for (const domain of ["gmail.co", "gmail.cm", "gmail.con", "hotmail.co", "outlook.cm", "yahoo.co", "live.io", "gmx.xyz"]) assert.equal(app.isMailProviderDomain(domain), false, domain);
+	for (const domain of ["gmail.com", "yahoo.co.uk", "outlook.fr", "hotmail.co.uk", "gmx.es", "mail.yahoo.co.uk", "protonmail.ch"]) assert.equal(app.isMailProviderDomain(domain), true, domain);
+	assert.deepEqual(kinds(check('"Jo" <friend.name@gmail.co>')), ["lookalike"], "mail from the look-alike of a friend's address is said");
+	assert.deepEqual(kinds(check('friend.name@gmail.cm')), ["lookalike"]);
+});
+
+test("the checks that need nobody to compare with work with an empty address book", () => {
+	const alone = { known: [], own: ["steffen@lumen.example"], ownNames: ["Steffen Beispiel"], organisationDomains: ["lumen.example"] };
+	const lonely = (fromAddr, extra = {}) => kinds(app.getSenderWarnings({ fromAddr, facts: alone, ...extra }));
+	assert.deepEqual(lonely('"chef@firma.example" <x@evil.example>'), ["nameIsOtherAddress"]);
+	assert.deepEqual(lonely('"Steffen Beispiel" <steffen.beispiel@mail-service.example>'), ["ownName"]);
+	assert.deepEqual(lonely('"Buchhaltung" <rechnung@firma.example>', { replyTo: "firma.buchhaltung.2026@gmail.com" }), ["replyElsewhere"]);
+	assert.deepEqual(lonely('"Shop" <news@shop.example>'), [], "an ordinary stranger is left alone");
+});
+
+test("where the browser stores nothing, a mark still holds until the page is closed", () => {
+	const real = globalThis.localStorage;
+	globalThis.localStorage = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("quota"); } };
+	try {
+		app.trustSender("x@evil.example", "user:a");
+		assert.deepEqual(app.readTrustedSenders("user:a"), ["x@evil.example"], "the button is not dead");
+		assert.deepEqual(app.readTrustedSenders("user:b"), []);
+		app.untrustSender("x@evil.example", "user:a");
+		assert.deepEqual(app.readTrustedSenders("user:a"), []);
+	} finally { globalThis.localStorage = real; }
+});
+
+test("a full store, which still reads but no longer writes, does not leave the button dead", () => {
+	const real = globalThis.localStorage, kept = new Map([["mailflare-trusted-senders:user:full", '["old@example.com"]']]);
+	globalThis.localStorage = { getItem: (key) => kept.get(key) ?? null, setItem() { throw new Error("QuotaExceededError"); } };
+	try {
+		app.trustSender("x@evil.example", "user:full");
+		assert.deepEqual(app.readTrustedSenders("user:full"), ["x@evil.example", "old@example.com"], "the mark of this visit is read, not the older stored list");
+		app.untrustSender("x@evil.example", "user:full");
+		assert.deepEqual(app.readTrustedSenders("user:full"), ["old@example.com"]);
+		// Once writing works again, the store is the truth again.
+		globalThis.localStorage = { getItem: (key) => kept.get(key) ?? null, setItem: (key, value) => { kept.set(key, value); } };
+		app.trustSender("y@evil.example", "user:full");
+		assert.deepEqual(JSON.parse(kept.get("mailflare-trusted-senders:user:full")), ["y@evil.example", "old@example.com"]);
+		assert.deepEqual(app.readTrustedSenders("user:full"), ["y@evil.example", "old@example.com"]);
+	} finally { globalThis.localStorage = real; }
+});
+
+test("a mark is kept per account and can be taken back", () => {
+	storage.clear();
+	app.trustSender("x@evil.example", "box-a");
+	assert.deepEqual(app.readTrustedSenders("box-a"), ["x@evil.example"]);
+	assert.deepEqual(app.readTrustedSenders("box-b"), [], "another account at this browser decides for itself");
+	assert.deepEqual(app.readTrustedSenders(), []);
+	app.untrustSender(" X@Evil.example ", "box-a");
+	assert.deepEqual(app.readTrustedSenders("box-a"), [], "the sender is warned about again");
+	app.untrustSender("never@marked.example", "box-a");
+	assert.deepEqual(app.readTrustedSenders("box-a"), []);
+});
+
 test("a sender marked as fine is remembered on the device", () => {
 	assert.deepEqual(app.readTrustedSenders(), []);
 	app.trustSender(" Maya.Chen@Lumen-Example.example ");
@@ -136,4 +209,25 @@ test("names are compared as people's names", () => {
 	assert.equal(app.nameKey("A B"), null);
 	assert.equal(app.nameKey(null), null);
 	assert.equal(app.nameKey("Maya​ Chen"), app.nameKey("Maya Chen"), "an invisible character changes nothing");
+});
+
+test("only a real send or a kept contact makes an address known", () => {
+	const candidate = (sends, source) => ({ email: "lin@harborwork.example", name: null, sends, lastSentAt: null, lastSeenAt: 1, source });
+	assert.equal(app.isKnownCorrespondent(candidate(1, "outbound")), true, "written to");
+	assert.equal(app.isKnownCorrespondent(candidate(0, "manual")), true, "kept as a contact");
+	// A send that was taken back or never left leaves the contact row behind, and nothing else.
+	assert.equal(app.isKnownCorrespondent(candidate(0, "outbound")), false, "a look-alike must not become known by an undone send");
+	assert.equal(app.isKnownCorrespondent(candidate(0, "inbound")), false, "somebody who only wrote to the owner");
+	// While a message waits (undo window, scheduled time) its recipient is not known yet.
+	assert.equal(app.isKnownCorrespondent({ ...candidate(1, "outbound"), delivered: 0 }), false);
+	assert.equal(app.isKnownCorrespondent({ ...candidate(2, "outbound"), delivered: 1 }), true);
+});
+
+test("a picture counts as the writer's own only outside the signature and the quoted mail", () => {
+	const signature = '<div data-mailflare-signature="1"><br><p>Grüße<br><img src="https://example.com/logo.png" alt="Logo"></p></div>';
+	assert.equal(app.hasAuthoredPicture(signature), false, "the logo in the signature of an otherwise empty message");
+	assert.equal(app.hasAuthoredPicture(`<blockquote><img src="cid:a"></blockquote>${signature}`), false, "a picture in the quoted original");
+	assert.equal(app.hasAuthoredPicture(`<p><img src="data:image/png;base64,AAAA"></p>${signature}`), true, "a pasted picture");
+	assert.equal(app.hasAuthoredPicture("<p>Text</p>"), false);
+	assert.equal(app.hasAuthoredPicture(null), false);
 });

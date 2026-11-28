@@ -103,12 +103,26 @@ const MAIL_PROVIDERS = new Set([
 	"gmail.com", "googlemail.com", "outlook.com", "outlook.de", "hotmail.com", "hotmail.de", "live.com", "live.de",
 	"msn.com", "yahoo.com", "yahoo.de", "ymail.com", "icloud.com", "me.com", "mac.com", "aol.com", "aol.de",
 	"gmx.de", "gmx.net", "gmx.at", "gmx.ch", "gmx.com", "web.de", "t-online.de", "freenet.de", "posteo.de",
-	"posteo.net", "mailbox.org", "proton.me", "protonmail.com", "pm.me", "tutanota.com", "tuta.io", "zoho.com",
+	"posteo.net", "mailbox.org", "proton.me", "protonmail.com", "protonmail.ch", "pm.me", "tutanota.com", "tuta.io", "zoho.com",
 	"yandex.com", "yandex.ru", "mail.ru", "fastmail.com", "hey.com", "arcor.de", "vodafone.de", "1und1.de",
 ]);
 
+/**
+ * The same public services under their real country endings. Listed one by one on purpose: a rule
+ * like "anything called gmail.*" would also take `gmail.co` or `outlook.cm` for the provider, and
+ * those are exactly the mistyped and forged domains the look-alike check exists to catch.
+ */
+const REGIONAL_MAIL_PROVIDERS = new Set([
+	"yahoo.co.uk", "yahoo.fr", "yahoo.it", "yahoo.es", "yahoo.ca", "yahoo.com.au", "yahoo.com.br", "yahoo.co.jp", "yahoo.co.in", "yahoo.in", "yahoo.at", "yahoo.ch", "yahoo.nl",
+	"outlook.fr", "outlook.it", "outlook.es", "outlook.at", "outlook.ch", "outlook.be", "outlook.dk", "outlook.ie", "outlook.pt", "outlook.jp", "outlook.com.au", "outlook.com.br",
+	"hotmail.co.uk", "hotmail.fr", "hotmail.it", "hotmail.es", "hotmail.at", "hotmail.ch", "hotmail.nl", "hotmail.be", "hotmail.ca",
+	"live.co.uk", "live.fr", "live.it", "live.nl", "live.at", "live.ch", "live.be", "live.ca", "live.com.au",
+	"aol.co.uk", "aol.fr", "aol.it", "gmx.fr", "gmx.es", "gmx.it", "gmx.co.uk", "gmx.us", "yandex.by", "yandex.kz", "yandex.ua", "zoho.eu", "zoho.in",
+]);
+
 export function isMailProviderDomain(domain: string): boolean {
-	return MAIL_PROVIDERS.has(registrableDomain(domain));
+	const registrable = registrableDomain(domain);
+	return MAIL_PROVIDERS.has(registrable) || REGIONAL_MAIL_PROVIDERS.has(registrable);
 }
 
 /** Domains whose mailboxes ignore dots before the @. */

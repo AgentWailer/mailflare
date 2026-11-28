@@ -26,7 +26,7 @@ export async function getRequestLocale() {
 export async function loadServerMessages(locale: Locale): Promise<Partial<Messages> | undefined> {
 	if (CATALOG_VERSION) {
 		const kept = registeredCatalog(locale);
-		if (kept) return kept;
+		if (kept) return registerCatalog(locale, kept);
 		if (locale === DEFAULT_LOCALE) return registerCatalog(locale, en);
 	}
 	try {

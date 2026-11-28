@@ -34,10 +34,16 @@ export async function POST(
 		return NextResponse.json({ error: "You cannot cancel sends from this mailbox" }, { status: 403 });
 	}
 
+	// Taken back already (from Scheduled, or in another tab): asking again finds it where it was put.
+	if (message.direction === "outbound" && message.status === "draft") return NextResponse.json({ ok: true, alreadyDraft: true });
+	const isDraftAgain = async () => (await db.select({ status: messages.status }).from(messages).where(eq(messages.id, message.id)).limit(1))[0]?.status === "draft";
 	if (message.direction !== "outbound" || !["queued", "failed"].includes(message.status) || !(await getScheduledTime(db, message.id))) {
+		if (message.direction === "outbound" && await isDraftAgain()) return NextResponse.json({ ok: true, alreadyDraft: true });
 		return NextResponse.json({ error: "This message is not scheduled" }, { status: 409 });
 	}
 	if (!(await cancelScheduledSend(db, message.id))) {
+		// Two undo requests at once: the other one took the message back, which is what this one asked for.
+		if (await isDraftAgain()) return NextResponse.json({ ok: true, alreadyDraft: true });
 		return NextResponse.json({ error: "This message is already being sent" }, { status: 409 });
 	}
 	return NextResponse.json({ ok: true });

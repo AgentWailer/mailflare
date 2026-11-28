@@ -55,8 +55,14 @@ export const MAX_UNDO_SECONDS = 120;
  * whole number of seconds within the limit.
  */
 export function getUndoDeliveryTime(value: string | number | undefined, now = Date.now()): Date | null {
+	const seconds = getUndoSeconds(value);
+	return seconds === null ? null : new Date(now + seconds * 1000);
+}
+
+/** The undo window asked for, in whole seconds within the limit; null when none or not valid. */
+export function getUndoSeconds(value: string | number | undefined): number | null {
 	if (value === undefined || value === "") return null;
 	const seconds = typeof value === "number" ? value : /^\d{1,3}$/.test(value) ? Number(value) : NaN;
 	if (!Number.isInteger(seconds) || seconds < 1 || seconds > MAX_UNDO_SECONDS) return null;
-	return new Date(now + seconds * 1000);
+	return seconds;
 }

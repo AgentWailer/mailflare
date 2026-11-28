@@ -4,7 +4,8 @@ import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
 import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
-import { fitEmailToWidth } from "./fit-email-to-width";
+import { addRelaxedBreaks, wrapLongTokens } from "./long-tokens";
+import { fitEmailToWidth, relaxedWrapStyle } from "./fit-email-to-width";
 import { createEmailTheme } from "./email-theme";
 import { useExternalContent } from "./use-external-content";
 import { preferNativeAmazonLinks } from "./native-app-links";
@@ -48,9 +49,11 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		const prepared = prepareEmailHtml(html, { reader: true, allowRemote });
 		setHasRemote(prepared.hasRemote);
 		const base = document.createElement("style");
-		base.textContent = `${BASE_STYLE}\n${prepared.rootTag} { display:block; font:14px/1.5 Arial,sans-serif; color:#202124; background:#fff; color-scheme:light; overflow-wrap:anywhere; }\n${prepared.bodyTag} { display:block; }`;
+		base.textContent = `${BASE_STYLE}\n${prepared.rootTag} { display:block; font:14px/1.5 Arial,sans-serif; color:#202124; background:#fff; color-scheme:light; overflow-wrap:break-word; }\n${prepared.bodyTag} { display:block; }\n${relaxedWrapStyle()}`;
 		const content = document.createElement("template");
 		content.innerHTML = collapseQuotes ? collapseQuotedEmailHtml(prepared.html, preserveLeadingQuote) ?? "" : prepared.html;
+		// Words stay whole so table columns keep their width; very long strings get places to break.
+		wrapLongTokens(content.content);
 		const viewport = document.createElement(`${prepared.rootTag}-viewport`);
 		const canvas = document.createElement(`${prepared.rootTag}-canvas`);
 		canvas.appendChild(content.content);
@@ -61,7 +64,7 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		const mailBody = root.querySelector(prepared.bodyTag);
 		// Preserve the message direction inside the fitted presentation surface.
 		if (mailBody) host.current.dir = window.getComputedStyle(mailBody).direction;
-		const stopFitting = fitEmailToWidth(host.current, viewport, canvas);
+		const stopFitting = fitEmailToWidth(host.current, viewport, canvas, () => addRelaxedBreaks(canvas));
 		// Document fragment navigation does not automatically find IDs inside a shadow tree.
 		const navigate = (event: Event) => {
 			const target = event.target as Element | null;
@@ -70,7 +73,12 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 			// An address in a message starts a message here, not in another mail program.
 			// Not from inside the composer: that would put the message being written aside.
 			const mail = composeRef.current && href && /^mailto:/i.test(href) && !host.current?.closest("form") ? parseMailto(href) : null;
-			if (mail) { event.preventDefault(); composeRef.current!.openComposerWith(mail); return; }
+			if (mail) {
+				event.preventDefault();
+				// A message being written keeps its window; the link opens the page composer beside it.
+				if (!composeRef.current!.openComposerWith(mail)) window.open(`/compose?mailto=${encodeURIComponent(href!)}`, "_blank", "noopener");
+				return;
+			}
 			if (!href?.startsWith("#")) return;
 			event.preventDefault();
 			try {

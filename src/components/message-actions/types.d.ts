@@ -24,6 +24,8 @@ export type MessageActionsProps = {
 	/** Needed by Forward, which quotes the original header block. */
 	messageMeta?: Pick<Message, "id" | "subject" | "createdAt">;
 	bodyHtml?: string | null;
+	/** The body as the printer gets it: with the message's own pictures resolved. Defaults to `bodyHtml`. */
+	printHtml?: string | null;
 };
 
 export type MessageSnoozeDialogProps = {

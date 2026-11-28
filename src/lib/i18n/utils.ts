@@ -46,21 +46,35 @@ export type AssetReader = (path: string) => Promise<Response>;
 
 /**
  * Fetches the catalog for a locale. A build with catalogue scripts loads the language's script in the
- * browser (cached for good, already completed with English); if that fails, and everywhere else, other
- * languages are read from `public/locales` and English is the bundled catalogue.
+ * browser (cached for good, already completed with English); if that fails, the language's plain
+ * catalogue file is read, English included. Everywhere else other languages are read from
+ * `public/locales` and English is the bundled catalogue.
  */
 export async function loadMessages(locale: Locale, read?: AssetReader): Promise<Partial<Messages>> {
-	if (!read && CATALOG_VERSION && typeof document !== "undefined") {
+	// The browser of a build with catalogue scripts carries no English of its own (`english-client.ts`).
+	const scripted = !read && !!CATALOG_VERSION && typeof document !== "undefined";
+	if (scripted) {
 		try {
 			return await loadCatalogScript(locale);
 		} catch {
 			// A tab from before a deployment asks for scripts that are gone; the plain catalogue still exists.
 		}
 	}
-	if (locale === DEFAULT_LOCALE) return en;
-	const response = await (read ?? ((path: string) => fetch(path)))(`/locales/${locale}.json`);
-	if (!response.ok) throw new Error(`Catalog for ${locale} is unavailable (${response.status})`);
-	return response.json();
+	// There English is read as a file like every other language (the build writes `/locales/en.json`);
+	// a failure is thrown, so a language change that did not happen is not saved as if it had.
+	if (locale === DEFAULT_LOCALE && !scripted) return en;
+	const get = read ?? ((path: string) => fetch(path));
+	const file = async (code: Locale): Promise<Partial<Messages>> => {
+		const response = await get(`/locales/${code}.json`);
+		if (!response.ok) throw new Error(`Catalog for ${code} is unavailable (${response.status})`);
+		return response.json();
+	};
+	if (!scripted || locale === DEFAULT_LOCALE) return file(locale);
+	// A catalogue file holds only what is translated. Its script was completed with English, and so was
+	// what the server rendered from: the fallback is completed the same way, or untranslated texts
+	// would come out as bare keys and differ from the server's page.
+	const [messages, english] = await Promise.all([file(locale), file(DEFAULT_LOCALE).catch(() => ({}))]);
+	return { ...english, ...messages };
 }
 
 export type TranslationVars = Record<string, string | number | null | undefined>;

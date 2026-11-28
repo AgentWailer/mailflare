@@ -2,7 +2,8 @@ import type { RecipientCandidate } from "./recipient-directory-types";
 
 /** Lower case without accents, so `gvoz` finds Gvožđar and `muller` finds Müller. */
 export function foldForSearch(value: string): string {
-	return value.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/ß/g, "ss").replace(/ł/g, "l").toLowerCase();
+	// Lower case first: Đ, Ł and ẞ have no accent to strip and are only matched in their small form.
+	return value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/ß/g, "ss").replace(/ł/g, "l");
 }
 
 function words(value: string): string[] {

@@ -10,6 +10,8 @@ export const browserSmokeSuites = [
   'attachment-preview',
   'compose-window',
   'recipient-fields',
+  'sender-warning',
+  'mail-table-layout',
   'label-actions',
   'message-star-feedback',
   'draft-recovery',

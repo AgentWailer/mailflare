@@ -107,6 +107,25 @@ test('missing files stop send and forwarding, preserve draft/source and clean on
  assert.equal(f.DB.db.prepare("SELECT count(*) n FROM message_attachments WHERE message_id='forward'").get().n,0);assert.deepEqual([...f.objects.keys()],['source-key']);
 });
 
+test('a sent draft is removed with the send, so the same draft cannot be sent a second time',async t=>{
+ const f=await fixture(t);f.DB.db.exec("DELETE FROM agent_draft_metadata WHERE draft_id='draft'");
+ const send=()=>app.sendRoute(new Request('https://mailflare.test/api/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mailboxId:'box',draftId:'draft',from:'owner@example.test',to:'recipient@example.test',subject:'Approved',text:'Approved body'})}));
+ const first=await send();assert.equal(first.status,200,JSON.stringify(await first.clone().json()));
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages WHERE id='draft'").get().n,0,'the draft went with the message');
+ const sent=f.sent.length;
+ const second=await send();assert.equal(second.status,404);assert.equal((await second.json()).error,'Draft not found');assert.equal(f.sent.length,sent,'nothing went out again');
+});
+
+test('a draft whose files storage refuses to remove is still gone after the send, and cannot be sent again',async t=>{
+ const f=await fixture(t);f.DB.db.exec("DELETE FROM agent_draft_metadata WHERE draft_id='draft'");
+ const remove=f.env.BUCKET.delete;f.env.BUCKET.delete=async key=>{if(key==='old-key')throw new Error('storage unavailable');return remove(key);};
+ const send=()=>app.sendRoute(new Request('https://mailflare.test/api/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mailboxId:'box',draftId:'draft',from:'owner@example.test',to:'recipient@example.test',subject:'Approved',text:'Approved body'})}));
+ const first=await send();assert.equal(first.status,200);
+ assert.equal(f.DB.db.prepare("SELECT count(*) n FROM messages WHERE id='draft'").get().n,0,'the draft itself went, whatever happened to its files');
+ const sent=f.sent.length;
+ const second=await send();assert.equal(second.status,404);assert.equal(f.sent.length,sent,'nothing went out again');
+});
+
 test('failed upload publication rolls back both newly created rows and objects',async t=>{
  const f=await fixture(t);f.DB.db.exec("CREATE TRIGGER reject_bad_file BEFORE INSERT ON message_attachments WHEN NEW.filename='bad.pdf' BEGIN SELECT RAISE(FAIL,'synthetic failure'); END");
  await assert.rejects(app.storeMessageAttachments(f.env,'forward',[{filename:'good.pdf',type:'application/pdf',content:new TextEncoder().encode('pdf').buffer},{filename:'bad.pdf',type:'application/pdf',content:new TextEncoder().encode('pdf').buffer}]),error=>error.cause?.message==='synthetic failure');

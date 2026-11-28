@@ -145,6 +145,15 @@ function renderChildren(element: Element, state: RenderState): string {
 }
 
 /** The text the writer typed: without the signature block and without quoted replies. */
+/** A picture the owner put into the body; the logo in the signature and pictures in quoted mail are not theirs. */
+export function hasAuthoredPicture(html: string | null | undefined): boolean {
+	if (!html || !/<img\b/i.test(html)) return false;
+	if (typeof DOMParser === "undefined") return /<img\b/i.test(html.replace(new RegExp(`<div ${SIGNATURE_ATTRIBUTE}="1">[\\s\\S]*$`, "i"), "").replace(/<blockquote[\s\S]*?<\/blockquote>/gi, ""));
+	const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+	for (const element of Array.from(doc.body.querySelectorAll(`[${SIGNATURE_ATTRIBUTE}], blockquote`))) element.remove();
+	return !!doc.body.querySelector("img");
+}
+
 export function authoredPlainText(html: string | null | undefined): string {
 	if (!html) return "";
 	if (typeof DOMParser === "undefined") {

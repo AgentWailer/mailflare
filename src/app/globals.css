@@ -198,8 +198,13 @@ html.dark .compose-refine-glow {
 	to { transform: scaleX(0); }
 }
 .undo-send-progress { animation: undo-send-progress linear forwards; }
+/* A bar that does not move would say the whole time is left: without motion it is left out. */
 @media (prefers-reduced-motion: reduce) {
-	.undo-send-progress { animation: none; }
+	.undo-send-progress { display: none; }
+}
+/* The key that takes a send back is shown where there is a keyboard to press it on. */
+@media (hover: none) and (pointer: coarse) {
+	.undo-send-keys { display: none; }
 }
 
 html.dark .compose-header,
@@ -242,8 +247,17 @@ html.dark [data-compose-ai-bar] > div:last-child {
 	.message-action-menu [role="menuitem"] { min-height: 44px; font-size: 16px; }
 	[data-recipient-menu] [role="menuitem"] { min-height: 44px; font-size: 16px; }
 	[data-send-warning] button { min-height: 44px; }
+	/* A chip is pressed with a thumb here: its name and its remove button are each a full target. */
+	[data-recipient-chip] { min-height: 44px; padding-block: 0; align-items: stretch; }
+	[data-recipient-chip] button { min-height: 44px; }
+	[data-recipient-chip] [data-recipient-remove] { width: 44px; height: auto; margin-right: -8px; border-radius: 9999px; }
+	[data-list-failure] button { min-height: 44px; }
+	[data-recipient-reveal] { min-width: 44px; min-height: 44px; }
+	.compose-toast-close { min-width: 44px; min-height: 44px; margin-block: -10px; }
 	/* The composer fills the screen here, with its send bar along the bottom. */
-	[data-undo-send] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); }
+	[data-undo-send-stack] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); align-items: center; }
+	/* A composer that fills the screen has its send bar where notices otherwise stand: they stand above it. */
+	:is(html[data-undo-offers], body:has(.compose-popup:not(.compose-minimized), .compose-page)) .status-stack { bottom: calc(env(safe-area-inset-bottom) + 9rem + var(--undo-stack-space, 0px)); }
 	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 
@@ -254,6 +268,12 @@ pre {
 .text {
 	font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/* Confirmations and failures share a corner with the "undo send" offers and stand above them. */
+.status-stack { bottom: 6rem; }
+@media (min-width: 768px) { .status-stack { bottom: calc(1.5rem + var(--undo-stack-space, 0px)); } }
+/* Beside a desktop composer (window, enlarged or page) the bottom corner is where Send is: notices go to the top. */
+@media (min-width: 1024px) and (pointer: fine) { body:has(.compose-popup:not(.compose-minimized), .compose-page) .status-stack { top: 1rem; bottom: auto; } }
 
 @keyframes status-toast-show {
 	from { opacity: 0; transform: translateY(8px); }

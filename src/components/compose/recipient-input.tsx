@@ -136,7 +136,8 @@ export function RecipientInput({
 				setDismissedFor(draft);
 				return;
 			}
-			if ((event.key === "Enter" || event.key === "Tab") && highlighted !== null) {
+			// Shift+Tab goes back to the previous control; it never picks.
+			if ((event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) && highlighted !== null) {
 				event.preventDefault();
 				pick(suggestions[highlighted]);
 				return;
@@ -153,6 +154,11 @@ export function RecipientInput({
 			onChange(value.slice(0, -1));
 			changeDraft(last);
 		}
+	}
+
+	/** The chip the menu belonged to is gone from this line: focus goes to the line, not to the page. */
+	function refocus() {
+		setTimeout(() => inputRef.current?.focus(), 0);
 	}
 
 	function edit(entry: string) {
@@ -223,7 +229,7 @@ export function RecipientInput({
 										>
 											<DropdownMenu.Label className="truncate px-3 pb-1 pt-2 text-xs font-medium text-neutral-500">{address}</DropdownMenu.Label>
 											{onMove && moveTargets?.map((target) => (
-												<DropdownMenu.Item key={target.field} className={menuItemClassName} onSelect={() => onMove(entry, target.field)}>
+												<DropdownMenu.Item key={target.field} className={menuItemClassName} onSelect={() => { onMove(entry, target.field); refocus(); }}>
 													<ArrowRightLeft className="h-4 w-4 shrink-0 text-neutral-500" />
 													{t("recipient.moveTo", { field: target.label })}
 												</DropdownMenu.Item>
@@ -237,7 +243,7 @@ export function RecipientInput({
 												<Copy className="h-4 w-4 shrink-0 text-neutral-500" />
 												{t("recipient.copy")}
 											</DropdownMenu.Item>
-											<DropdownMenu.Item className={cn(menuItemClassName, "text-red-700")} onSelect={() => onChange(value.filter((item) => item !== entry))}>
+											<DropdownMenu.Item className={cn(menuItemClassName, "text-red-700")} onSelect={() => { onChange(value.filter((item) => item !== entry)); refocus(); }}>
 												<Trash2 className="h-4 w-4 shrink-0" />
 												{t("recipient.removeItem")}
 											</DropdownMenu.Item>
@@ -253,6 +259,8 @@ export function RecipientInput({
 										onClick={(event) => {
 											event.stopPropagation();
 											onChange(value.filter((item) => item !== entry));
+											// The button goes with its chip: focus stays in the line, as from the menu.
+											refocus();
 										}}
 									>
 										<X className="h-3.5 w-3.5" />
@@ -334,7 +342,7 @@ export function RecipientInput({
 							onClick={() => pick(candidate)}
 						>
 							<span className="truncate font-medium text-neutral-900">{candidate.name || candidate.email}</span>
-							{candidate.name && <span className="truncate text-xs text-neutral-500">{candidate.email}</span>}
+							{candidate.name && <span className={cn("truncate text-xs", highlighted === index ? "text-neutral-700" : "text-neutral-500")}>{candidate.email}</span>}
 						</li>
 					))}
 				</ul>,

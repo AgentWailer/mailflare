@@ -191,3 +191,29 @@ test("styled signatures are deterministic and editor copies are inert but export
 	assert.match(prepareEmailHtml(preview, { forOutgoing: true }).html, /\.signature\{color:red;background:url\(https:\/\/remote.example\/bg\)/);
 	assert.equal(sanitizeEditorHtml(prepareEmailHtml(preview, { forOutgoing: true }).html), preview);
 });
+
+test("in the reader, rules that squeeze a table column to one character are read as their harmless form", () => {
+	// Payment receipts style every cell of the price column this way; as written, "$114.24" is shown one digit per line.
+	const receipt = '<html><head><style>td.amount { word-break: break-word !important } .note { overflow-wrap: anywhere; word-wrap: anywhere } .code { word-break: break-all } .var { --word-break: break-word; word-break: var(--word-break) } .q::after { content: "word-break: break-word" }</style></head><body><table style="word-break:break-all"><tr><td style="width:100%;word-break:break-word">Sync yearly</td><td class="amount" style="font:15px Arial; word-break : break-word">$114.24</td></tr></table></body></html>';
+	const shown = prepareEmailHtml(receipt, { reader: true }).html;
+	assert.match(shown, /td\.amount\{word-break:normal!important;overflow-wrap:break-word!important\}/, "the rule keeps its weight");
+	assert.match(shown, /\.note\{overflow-wrap:break-word;overflow-wrap:break-word\}/);
+	assert.match(shown, /\.code\{word-break:break-all\}/, "what a sender asks for on purpose is kept");
+	// The cell goes on overriding the `break-all` it inherits from its table: `normal`, not nothing.
+	assert.match(shown, /<td style="width:100%;word-break:normal;overflow-wrap:break-word"/);
+	assert.match(shown, /style="font:15px Arial;word-break:normal;overflow-wrap:break-word"/, "the other declarations of the cell are untouched");
+	assert.match(shown, /<table style="word-break:break-all"/);
+	// A name the sender gave to something of their own, and words inside a string, are not rules to rewrite.
+	assert.match(shown, /--word-break:\s*break-word/);
+	assert.match(shown, /content:"word-break: break-word"/);
+	assert.doesNotMatch(shown.replace(/--word-break:\s*break-word/, "").replace(/content:"[^"]*"/, ""), /word-break:\s*break-word|anywhere/i);
+	// Editing and sending pass the message on as it was written.
+	assert.match(prepareEmailHtml(receipt, { forOutgoing: true }).html, /word-break:break-word/);
+	assert.match(sanitizeEditorHtml('<p style="word-break:break-word">x</p>'), /word-break:break-word/);
+	// The same keywords spelled with an escape are the same to a browser, and are read the same here.
+	const escaped = prepareEmailHtml('<style>.a { word-break: break\\-word } .b { overflow-wrap: any\\77 here }</style><table><tr><td class="a" style="word-break:break\\-word">$114.24</td></tr></table>', { reader: true }).html;
+	assert.doesNotMatch(escaped, /break\\|any\\|anywhere|word-break:\s*break-word/i);
+	assert.match(escaped, /<td class="a" style="word-break:normal;overflow-wrap:break-word"/);
+	// A style that says neither is left exactly as it was.
+	assert.match(prepareEmailHtml('<p style="margin:0 0 8px;color:#333">x</p>', { reader: true }).html, /style="margin:0 0 8px;color:#333"/);
+});

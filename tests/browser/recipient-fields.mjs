@@ -18,11 +18,13 @@ import {ComposeProvider,useCompose} from '@/components/compose/compose-context';
 import {FloatingComposer} from '@/components/compose/floating-composer';
 import {parseMailto} from '@/components/compose/mailto-utils';
 import {LanguageProvider} from '@/components/language-provider';
+import {StatusToastHost} from '@/components/status-toast-host';
+import {announceStatus} from '@/lib/status-announcer';
 import de from '../../public/locales/de.json';
 const params=new URLSearchParams(location.search);
 if(params.has('dark'))document.documentElement.classList.add('dark');
-function Open(){const compose=useCompose();useEffect(()=>{const link=parseMailto(params.get('mailto'));if(link)compose.openComposerWith(link);else if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
-createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><ComposeProvider><Open/><FloatingComposer/></ComposeProvider></LanguageProvider>);`);
+function Open(){const compose=useCompose();(window as never as {compose:unknown}).compose=compose;(window as never as {announce:unknown}).announce=announceStatus;useEffect(()=>{const link=parseMailto(params.get('mailto'));if(link)compose.openComposerWith(link);else if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
+createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><ComposeProvider><Open/><FloatingComposer/></ComposeProvider><StatusToastHost/></LanguageProvider>);`);
 const de = JSON.parse(readFileSync(join(root, 'public/locales/de.json'), 'utf8'));
 const label = (key, vars = {}) => Object.entries(vars).reduce((text, [name, value]) => text.replace(`{${name}}`, value), de[key]);
 
@@ -57,11 +59,11 @@ try {
 		const tag = `${width}${dark ? '-dark' : ''}`;
 
 		/** A fresh page with its own record of what the composer asked the server. */
-		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null } = {}) {
+		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null, undoRemainingMs = null, reply = false, sendStatus = 200, sendBody = null, sendDelay = 0, directoryDelay = 0, directoryStatus = 200 } = {}) {
 			const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, permissions: ['clipboard-read', 'clipboard-write'] });
 			const page = await context.newPage();
 			page.setDefaultTimeout(10000);
-			const calls = { sends: [], saves: [], cancels: [], errors: [] };
+			const calls = { sends: [], saves: [], cancels: [], cancelled: [], errors: [] };
 			page.on('pageerror', error => calls.errors.push(error.message));
 			if (undoSeconds) await page.addInitScript(seconds => localStorage.setItem('mailflare-undo-send-seconds', String(seconds)), undoSeconds);
 			await page.route('**/api/**', async route => {
@@ -70,16 +72,23 @@ try {
 				if (path === '/api/send') {
 					const body = request.postData() ?? '';
 					calls.sends.push({ to: field(body, 'to'), cc: field(body, 'cc'), bcc: field(body, 'bcc'), subject: field(body, 'subject'), undoSeconds: field(body, 'undoSeconds') });
-					return json(field(body, 'undoSeconds') ? { messageId: 'sent-1', scheduled: true, undoUntil: new Date(Date.now() + 10000).toISOString() } : { messageId: 'sent-1' });
+					if (sendDelay) await new Promise(resolve => setTimeout(resolve, sendDelay));
+					if (sendStatus !== 200) return json({ error: sendStatus === 401 ? 'Unauthorized' : sendStatus >= 500 ? 'Queue write failed' : 'Mailbox not found' }, sendStatus);
+					if (sendBody !== null) return route.fulfill({ status: 200, contentType: 'application/json', body: sendBody });
+					const messageId = 'sent-' + calls.sends.length;
+					return json(field(body, 'undoSeconds') ? { messageId, scheduled: true, undoUntil: new Date(Date.now() + 10000).toISOString(), ...(undoRemainingMs === null ? {} : { undoRemainingMs }) } : { messageId });
 				}
-				if (path === '/api/messages/sent-1/cancel-schedule') { calls.cancels.push(method); return json(cancelStatus === 200 ? { ok: true } : { error: 'This message is already being sent' }, cancelStatus); }
-				if (path === '/api/compose/recipients') return json({ recipients: directory });
+				if (/^\/api\/messages\/sent-\d+\/cancel-schedule$/.test(path)) { calls.cancels.push(method); calls.cancelled.push(path.split('/')[3]); return json(cancelStatus === 200 ? { ok: true } : { error: 'This message is already being sent' }, cancelStatus); }
+				if (path === '/api/compose/recipients') {
+					if (directoryDelay) await new Promise(resolve => setTimeout(resolve, directoryDelay));
+					return directoryStatus === 200 ? json({ recipients: directory }) : json({ error: 'unavailable' }, directoryStatus);
+				}
 				if (path === '/api/attachment-policy') return json({ maxMb: 25, cloudThresholdBytes: 3000000 });
 				if (path === '/api/templates') return json({ templates: [] });
-				if (path === '/api/drafts/sent-1' && method === 'GET') return json({ draft: restored });
+				if (/^\/api\/drafts\/sent-\d+$/.test(path) && method === 'GET') return json({ draft: { ...restored, id: path.split('/')[3] } });
 				if (path.startsWith('/api/drafts') && (method === 'PATCH' || method === 'POST')) { calls.saves.push(request.postDataJSON()); return json({ draft: { id: 'draft' } }); }
 				if (path.startsWith('/api/drafts') && method === 'DELETE') return json({ ok: true });
-				return json({ draft });
+				return json({ draft: reply ? { ...draft, subject: 'Re: Rechnung im Anhang', inReplyTo: '<original@lumen.test>', threadId: 'thread-1' } : draft });
 			});
 			await page.goto(origin + '/?' + [withDraft && 'draft=1', dark && 'dark=1', mailto && 'mailto=' + encodeURIComponent(mailto)].filter(Boolean).join('&'));
 			const form = page.locator('form');
@@ -116,6 +125,13 @@ try {
 			const ghost = t.page.locator('[data-recipient-drag-ghost]'), menu = t.page.getByRole('menu');
 			const from = await centre(t.chip('to', 'max@partner.test'));
 			if (touch) {
+				// A chip is pressed with a thumb here: its name and its remove button are each a full target.
+				const targets = await t.chip('to', 'max@partner.test').locator('button').evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { remove: node.hasAttribute('data-recipient-remove'), width: r.width, height: r.height }; }));
+				assert.equal(targets.length, 2);
+				for (const target of targets) assert(target.height >= 44 && (!target.remove || target.width >= 44), `${tag}: chip targets are finger-sized: ${JSON.stringify(targets)}`);
+				const reveal = await t.form.locator('[data-recipient-reveal]').evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { text: node.textContent, width: r.width, height: r.height }; }));
+				assert.equal(reveal.length, 2);
+				for (const target of reveal) assert(target.width >= 44 && target.height >= 44, `${tag}: Cc and Bcc are finger-sized: ${JSON.stringify(reveal)}`);
 				const cdp = await t.context.newCDPSession(t.page);
 				const finger = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1 }] });
 
@@ -211,6 +227,8 @@ try {
 			await t.page.keyboard.press('Enter');
 			assert.deepEqual(await t.chips('bcc'), [MAYA]);
 			assert.deepEqual(await t.chips('cc'), []);
+			// The chip left its line with the menu still open on it: focus goes to that line, not to the page.
+			await t.page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
 
 			// Edit pulls the address back into the line; Remove takes it off; the x still works.
 			await t.chip('to', 'max@partner.test').locator('button').first().click();
@@ -222,8 +240,12 @@ try {
 			assert.deepEqual(await t.chips('to'), ['lin@harborworks.test', 'maxine@partner.test']);
 			await t.chip('to', 'maxine@partner.test').locator('button').first().click();
 			await menu.getByRole('menuitem', { name: de['recipient.removeItem'], exact: true }).click();
-			await t.chip('to', 'lin@harborworks.test').getByRole('button', { name: label('recipient.remove', { address: 'lin@harborworks.test' }), exact: true }).click();
+			await t.page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
+			// By keyboard: the x goes with its chip, and focus stays in the line instead of falling to the page.
+			await t.chip('to', 'lin@harborworks.test').getByRole('button', { name: label('recipient.remove', { address: 'lin@harborworks.test' }), exact: true }).focus();
+			await t.page.keyboard.press('Enter');
 			assert.deepEqual(await t.chips('to'), []);
+			await t.page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
 			await t.noOverflow('after moving chips');
 			await t.close();
 		}
@@ -243,6 +265,27 @@ try {
 			assert.equal(await to.getAttribute('aria-expanded'), 'true');
 			assert.equal(await options.first().getAttribute('aria-selected'), 'true');
 			if (width === 390 || dark) await t.page.screenshot({ path: `/tmp/mailflare-recipient-suggestions-${tag}.png` });
+
+			{
+				// The address under a highlighted name is readable on the highlight, in dark mode too.
+				const ratio = await options.first().evaluate(option => {
+					// Whatever notation the browser reports (oklch, lab), a canvas says the colour in sRGB.
+					const canvas = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+					const parse = value => { canvas.clearRect(0, 0, 1, 1); canvas.fillStyle = value; canvas.fillRect(0, 0, 1, 1); return [...canvas.getImageData(0, 0, 1, 1).data].slice(0, 3); };
+					const luminance = ([r, g, b]) => [r, g, b].map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }).reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+					const text = luminance(parse(getComputedStyle(option.lastElementChild).color)), ground = luminance(parse(getComputedStyle(option).backgroundColor));
+					return (Math.max(text, ground) + 0.05) / (Math.min(text, ground) + 0.05);
+				});
+				assert(ratio >= 4.5, `${tag}: the highlighted suggestion's address has contrast ${ratio.toFixed(2)}`);
+			}
+			// Shift+Tab leaves the line for the control before it; it never picks the highlighted person.
+			await t.page.keyboard.press('Shift+Tab');
+			assert.equal((await t.chips('to')).some(entry => entry.includes('maya.chen@lumen.test')), false, `${tag}: Shift+Tab did not pick a suggestion`);
+			assert.equal(await to.evaluate(el => el === document.activeElement), false, `${tag}: Shift+Tab leaves the line`);
+			await t.row('to').locator('[data-recipient-remove]').first().click();
+			await to.click();
+			await to.pressSequentially('ma');
+			await list.waitFor();
 
 			await t.page.keyboard.press('ArrowDown');
 			assert.equal(await options.nth(1).getAttribute('aria-selected'), 'true');
@@ -298,6 +341,16 @@ try {
 			assert(text.includes(label('compose.warn.lookalike', { address: 'lin@harborwork.test', like: 'harborworks.test' })), text);
 			assert(text.includes(de['compose.warn.missingAttachment']), text);
 			await t.inViewport(warning, 'the question');
+			{
+				// Every answer can be read and pressed: none is cut off by the dialog, in the real German wording.
+				const frame = await warning.boundingBox(), buttons = warning.getByRole('button');
+				const boxes = await buttons.evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { text: node.textContent, x: r.x, y: r.y, right: r.right, bottom: r.bottom, clipped: node.scrollWidth > node.clientWidth }; }));
+				for (const box of boxes) assert(box.x >= frame.x && box.right <= frame.x + frame.width + 0.5 && box.bottom <= frame.y + frame.height + 0.5 && !box.clipped, `${tag}: "${box.text}" is whole inside the question: ${JSON.stringify({ box, frame })}`);
+				const back = boxes.find(box => box.text === de['compose.warn.back']), anyway = boxes.find(box => box.text === de['compose.warn.sendAnyway']);
+				if (width < 640) assert(back.y < anyway.y, `${tag}: on a phone the way back comes first, sending past the warning last`);
+				const [backFilled, anywayFilled] = await Promise.all(['[data-send-warning-back]', '[data-send-warning-send]'].map(selector => warning.locator(selector).evaluate(node => getComputedStyle(node).backgroundColor)));
+				assert.notEqual(backFilled, anywayFilled, `${tag}: the way back is the filled button, not sending anyway`);
+			}
 			if (width === 390 || dark) await t.page.screenshot({ path: `/tmp/mailflare-send-warning-${tag}.png` });
 			assert.equal(await t.page.evaluate(() => document.activeElement?.textContent), de['compose.warn.back'], 'the way back is focused');
 			await t.page.keyboard.press('Enter');
@@ -332,6 +385,59 @@ try {
 			await t.close();
 		}
 		{
+			// Outsiders in To and a promised attachment that is missing: moving to Bcc answers only its own question.
+			const t = await open();
+			const outsiders = ['a@one.test', 'b@one.test', 'c@two.test', 'd@three.test', 'e@three.test'];
+			await t.input('to').fill('maya.chen@lumen.test, ' + outsiders.join(', ') + ',');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Einladung');
+			await t.editor.click();
+			await t.page.keyboard.type('Die Einladung finden Sie im Anhang.');
+			await t.send.click();
+			const warning = t.page.locator('[data-send-warning]');
+			await warning.waitFor();
+			{
+				// Three answers in German are the widest row there is; none may be cut off.
+				const frame = await warning.boundingBox();
+				const boxes = await warning.getByRole('button').evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { text: node.textContent, x: r.x, right: r.right }; }));
+				assert.equal(boxes.length, 3);
+				for (const box of boxes) assert(box.x >= frame.x && box.right <= frame.x + frame.width + 0.5, `${tag}: "${box.text}" is whole inside the question: ${JSON.stringify({ box, frame })}`);
+				if (width === 1440) { await t.page.waitForTimeout(350); await t.page.screenshot({ path: `/tmp/mailflare-send-warning-three-${tag}.png` }); }
+			}
+			assert.equal(await warning.getByRole('button', { name: de['compose.warn.moveToBcc'], exact: true }).count(), 0, 'it does not promise to send while another question is open');
+			await warning.getByRole('button', { name: de['compose.warn.moveToBccOnly'], exact: true }).click();
+			await t.page.waitForFunction(text => document.querySelector('[data-send-warning]') && !document.querySelector('[data-send-warning]').textContent.includes(text), label('compose.warn.outsiders', { people: '5', domains: '3' }));
+			assert.equal(t.calls.sends.length, 0, `${tag}: nothing went past the missing attachment`);
+			assert.equal(await t.page.evaluate(() => document.activeElement?.textContent), de['compose.warn.back'], `${tag}: with its button gone, focus is on the way back, not lost`);
+			assert((await warning.innerText()).includes(de['compose.warn.missingAttachment']));
+			assert.deepEqual(await t.chips('bcc'), outsiders, 'the outsiders are in Bcc');
+			assert.deepEqual(await t.chips('to'), ['maya.chen@lumen.test']);
+			await warning.getByRole('button', { name: de['compose.warn.sendAnyway'], exact: true }).click();
+			await t.page.getByText(de['compose.sent'], { exact: true }).waitFor();
+			assert.deepEqual(t.calls.sends.map(send => send.bcc), [outsiders.join(', ')], 'sent once, after the second answer');
+			await t.close();
+		}
+		{
+			// A reply whose subject mentions an attachment is the other side's wording, not a promise of the writer.
+			const t = await open({ withDraft: true, reply: true });
+			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).inputValue(), 'Re: Rechnung im Anhang');
+			await t.send.click();
+			await t.page.getByText(de['compose.sent'], { exact: true }).waitFor();
+			assert.equal(await t.page.locator('[data-send-warning]').count(), 0, `${tag}: a reply is not asked about the subject it answers`);
+			await t.close();
+		}
+		{
+			// In a new message the subject is the writer's own, and a promised attachment is asked about.
+			const t = await open();
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Rechnung im Anhang');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.locator('[data-send-warning]').getByText(de['compose.warn.missingAttachment'], { exact: true }).waitFor();
+			assert.equal(t.calls.sends.length, 0);
+			await t.close();
+		}
+		{
 			// An ordinary message to someone the owner writes to is not asked about.
 			const t = await open();
 			await t.input('to').fill('maya.chen@lumen.test');
@@ -361,6 +467,12 @@ try {
 			const box = await t.inViewport(undo, 'Undo');
 			if (touch) assert(box.height >= 44, `${tag}: Undo is finger-sized`);
 			assert.equal(await undo.evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); }), true, `${tag}: Undo is not covered by the composer`);
+			// A confirmation said meanwhile uses the same corner: it stands above the offer, not under it.
+			await t.page.evaluate(() => window.announce('status.archived'));
+			await t.page.locator('[data-status-toast]').waitFor();
+			await t.page.waitForTimeout(250);
+			const corner = await t.page.evaluate(() => { const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom }; }; return { notice: box('[data-status-toast]'), offer: box('[data-undo-send]') }; });
+			assert(corner.notice.bottom <= corner.offer.y + 0.5 || corner.notice.y >= corner.offer.bottom - 0.5 || corner.notice.right <= corner.offer.x + 0.5 || corner.notice.x >= corner.offer.right - 0.5, `${tag}: the confirmation and the undo offer do not cover each other: ${JSON.stringify(corner)}`);
 			// The offer must not sit on the composer's own controls: the next message is written while it shows.
 			const toastBox = await toast.boundingBox();
 			for (const control of [t.send, t.form.getByRole('button', { name: de['compose.attachFiles'], exact: true }), t.form.getByRole('button', { name: de['compose.deleteDraft'], exact: true })]) {
@@ -380,6 +492,236 @@ try {
 				assert.deepEqual(await t.chips('to'), [], 'a message that already went is not reopened');
 			}
 			assert.deepEqual(t.calls.cancels, ['POST']);
+			assert.equal(t.calls.sends.length, 1);
+			await t.close();
+		}
+		// The offer lasts as long as the server holds the message, however the page re-renders meanwhile,
+		// and a window that is already used up is not offered at all.
+		{
+			const t = await open({ undoSeconds: 10, undoRemainingMs: 2500 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			const toast = t.page.locator('[data-undo-send]');
+			await toast.waitFor();
+			const shown = Date.now();
+			// Writing the next message re-renders the composer and its provider again and again.
+			await t.input('to').fill('max@partner.test');
+			await t.editor.click();
+			await t.page.keyboard.type('Noch etwas');
+			await toast.waitFor({ state: 'detached' });
+			const lasted = Date.now() - shown;
+			assert(lasted < 2600, `${tag}: the offer ends before the server delivers (2.5 s), it lasted ${lasted} ms`);
+			assert.equal(t.calls.cancels.length, 0);
+			await t.close();
+		}
+		{
+			const t = await open({ undoSeconds: 10, undoRemainingMs: 300 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.getByText(de['compose.sent'], { exact: true }).waitFor();
+			assert.equal(await t.page.locator('[data-undo-send]').count(), 0, `${tag}: no Undo is offered that could not be pressed in time`);
+			await t.close();
+		}
+		// Undo while the next message is being written: that one stays, the restored one waits under Drafts.
+		{
+			const t = await open({ undoSeconds: 10 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			const toast = t.page.locator('[data-undo-send]');
+			await toast.waitFor();
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Die nächste Nachricht');
+			await t.editor.click();
+			await t.page.keyboard.type('Neuer Text');
+			// Ctrl+Z in a text field stays the field's own undo.
+			await t.page.keyboard.press('Control+z');
+			assert.equal(t.calls.cancels.length, 0, `${tag}: undo in the text does not take the sent message back`);
+			const undo = toast.getByRole('button', { name: de['compose.undo.action'], exact: true });
+			if (touch) await undo.tap(); else await undo.click();
+			await t.page.getByText(de['compose.undo.inDrafts'], { exact: true }).waitFor();
+			assert.deepEqual(t.calls.cancels, ['POST']);
+			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).inputValue(), 'Die nächste Nachricht', `${tag}: the message being written is not replaced`);
+			await t.close();
+		}
+		// Without a pointer: Ctrl+Z outside a text field takes the message back.
+		if (!touch) {
+			const t = await open({ undoSeconds: 10 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			const toast = t.page.locator('[data-undo-send]');
+			await toast.waitFor();
+			// ⌘Z on an Apple keyboard, Strg+Z elsewhere: the page says the one this machine has.
+			const keys = de[await t.page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)) ? 'compose.undo.keysApple' : 'compose.undo.keys'];
+			assert.equal(await toast.locator('[data-undo-keys]').innerText(), keys, `${tag}: the key that takes it back is shown beside the button`);
+			assert((await toast.evaluate(node => node.textContent)).includes(label('compose.undo.hint', { seconds: '9', keys })), 'how long the offer lasts and its key are read out with it: ' + await toast.evaluate(node => node.textContent));
+			await t.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+			await t.page.keyboard.press('Control+z');
+			await t.page.getByText(de['compose.undo.restored'], { exact: true }).waitFor();
+			assert.deepEqual(t.calls.cancels, ['POST']);
+			await t.close();
+		}
+		// Two messages wait at once: each offer says whom it goes to, and Ctrl+Z takes back the newest that
+		// can still be taken back, then the one before it.
+		if (!touch) {
+			const t = await open({ undoSeconds: 30 });
+			for (const [index, [address, subject]] of [['maya.chen@lumen.test', 'Erste'], ['max@partner.test', 'Zweite']].entries()) {
+				await t.input('to').fill(address);
+				await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill(subject);
+				await t.editor.click();
+				await t.page.keyboard.type('Hallo');
+				await t.send.click();
+				await t.page.waitForFunction(count => document.querySelectorAll('[data-undo-send]').length === count, index + 1);
+			}
+			const offers = t.page.locator('[data-undo-send]');
+			assert.deepEqual(await offers.evaluateAll(nodes => nodes.map(node => node.firstElementChild.firstChild.textContent)), [label('compose.undo.pendingAbout', { subject: 'Erste', recipient: 'maya.chen@lumen.test' }), label('compose.undo.pendingAbout', { subject: 'Zweite', recipient: 'max@partner.test' })], `${tag}: two offers can be told apart by subject and recipient`);
+			assert.deepEqual(await offers.evaluateAll(nodes => nodes.map(node => !!node.querySelector('[data-undo-keys]'))), [false, true], `${tag}: the key is shown on the offer it would take back`);
+			await t.page.screenshot({ path: `/tmp/mailflare-undo-send-two-${tag}.png` });
+			await t.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+			await t.page.keyboard.press('Control+z');
+			await t.page.getByText(de['compose.undo.restored'], { exact: true }).waitFor();
+			assert.deepEqual(t.calls.cancelled, ['sent-2'], 'the newest first');
+			await t.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+			await t.page.keyboard.press('Control+z');
+			await t.page.getByText(de['compose.undo.inDrafts'], { exact: true }).waitFor();
+			assert.deepEqual(t.calls.cancelled, ['sent-2', 'sent-1'], `${tag}: the shortcut then serves the older message`);
+			await t.close();
+		}
+		// An expired sign-in is said in the composer; the message and its recipients stay.
+		{
+			const t = await open({ sendStatus: 401 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			const address = t.page.url();
+			await t.send.click();
+			await t.page.getByRole('alert').filter({ hasText: de['compose.error.sendSignedOut'] }).waitFor();
+			assert.equal(t.page.url(), address, `${tag}: the page did not leave for the sign-in`);
+			assert.deepEqual(await t.chips('to'), ['maya.chen@lumen.test']);
+			await t.editor.getByText('Hallo Maya').waitFor();
+			await t.close();
+		}
+		{
+			const t = await open({ sendStatus: 403 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.getByRole('alert').filter({ hasText: de['compose.error.sendNotAllowed'] }).waitFor();
+			await t.noOverflow('with an error');
+			// After the refusal, focus is back on Send, not lost on the page.
+			await t.page.waitForFunction(text => document.activeElement?.textContent?.trim() === text, de['compose.send']);
+			if (touch) { const close = await t.page.getByRole('alert').getByRole('button', { name: de['navigation.close'], exact: true }).boundingBox(); assert(close.width >= 44 && close.height >= 44, `${tag}: the notice's close button is finger-sized: ${JSON.stringify(close)}`); }
+			await t.close();
+		}
+		// A success that names no message, or cannot be read, is not a send: the message stays and the
+		// writer is sent to look before sending again.
+		for (const sendBody of ['{}', '<html>gateway</html>']) {
+			const t = await open({ sendBody });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.getByRole('alert').filter({ hasText: de['compose.error.sendCheckFirst'] }).waitFor();
+			assert.equal(await t.page.getByText(de['compose.sent'], { exact: true }).count(), 0, `${tag}: not reported as sent`);
+			assert.deepEqual(await t.chips('to'), ['maya.chen@lumen.test'], `${tag}: the message is still there`);
+			await t.editor.getByText('Hallo Maya').waitFor();
+			await t.close();
+		}
+		// The window is closed while its message is on the way. Until the send has answered, the same
+		// draft cannot be opened and sent a second time, and a refusal is said although the window is gone.
+		for (const sendStatus of [500, 200]) {
+			const t = await open({ sendStatus, sendDelay: 1500 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.waitForFunction(() => document.querySelector('form [aria-busy="true"]'));
+			// First "preparing" (the address book, the draft), then, once the message itself is on its way, "sending":
+			// said outside the locked part, where a screen reader still reads.
+			await t.page.waitForFunction(text => document.querySelector('form [role="status"].sr-only')?.textContent === text, de['compose.sending']);
+			await t.form.getByRole('button', { name: de['compose.close'], exact: true }).click();
+			await t.page.waitForFunction(() => !document.querySelector('form'));
+			await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
+			await t.page.locator('[data-status-toast]').getByText(de['compose.sendingBusy'], { exact: true }).waitFor();
+			// A mail link is not put off: its caller is told to open it in a tab of its own.
+			assert.equal(await t.page.evaluate(() => window.compose.openComposerWith({ to: ['lin@harborworks.test'] })), false, `${tag}: a mail link during a send goes to a new tab`);
+			assert.equal(await t.page.locator('form').count(), 0, `${tag}: no second window for a message that is being sent`);
+			if (sendStatus === 200) {
+				await t.page.locator('[data-status-toast]').getByText(de['compose.sent'], { exact: true }).waitFor();
+				// The draft that was asked for meanwhile is the one that went out: it is not opened to be sent again.
+				await t.page.waitForTimeout(400);
+				assert.equal(await t.page.locator('form').count(), 0, `${tag}: a sent draft does not open again`);
+				await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
+			} else {
+				// A refusal is not a confirmation: it interrupts, names the reason and stays until it is closed.
+				const failure = t.page.locator('[role="alert"] [data-status-failure]');
+				await failure.getByText(de['compose.error.closedSend'], { exact: true }).waitFor();
+				assert.match(await failure.innerText(), /HTTP 500/, `${tag}: the notice keeps the reason`);
+				assert.match(await failure.innerText(), /Entwürfe/, `${tag}: and says where the message is`);
+				assert.doesNotMatch(await failure.innerText(), /hier noch geöffnet/, `${tag}: a closed window is not "still open here"`);
+				await t.page.waitForTimeout(5600);
+				assert.equal(await failure.count(), 1, `${tag}: the refusal does not fade like a confirmation`);
+				// The message asked for while the send ran opens now by itself.
+				await t.page.locator('form').waitFor();
+				await failure.getByRole('button', { name: de['notification.dismiss'], exact: true }).click();
+				await failure.waitFor({ state: 'detached' });
+			}
+			assert.equal(t.calls.sends.length, 1, `${tag}: sent once`);
+			// Once it has answered, messages open again.
+			await t.page.locator('form').waitFor();
+			await t.close();
+		}
+		// A slow address book: Send waits for it instead of skipping the comparison.
+		{
+			const t = await open({ directoryDelay: 1500 });
+			await t.input('to').fill('lin@harborwork.test,');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Unterlagen');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Lin');
+			await t.send.click();
+			// While Send waits, the message cannot be changed or closed: what is checked is what goes out.
+			await t.page.waitForFunction(() => document.querySelector('form [aria-busy="true"]')?.inert === true);
+			// Only the message is locked. The window itself can still be minimised or closed: a send that
+			// hangs must not hold the whole screen.
+			assert.equal(await t.form.getByRole('button', { name: de['compose.close'], exact: true }).evaluate(node => !node.closest('[inert]') && !node.disabled), true, `${tag}: Close stays usable while a send is prepared`);
+			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).evaluate(node => !!node.closest('[inert]')), true);
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Geändert', { force: true, timeout: 500 }).catch(() => {});
+			const warning = t.page.locator('[data-send-warning]');
+			await warning.waitFor();
+			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).inputValue(), 'Unterlagen', `${tag}: nothing was changed during the wait`);
+			assert.equal(await t.page.evaluate(() => !!document.querySelector('form [inert]')), false, 'the message can be edited again once the question is asked');
+			assert((await warning.innerText()).includes(label('compose.warn.lookalike', { address: 'lin@harborwork.test', like: 'harborworks.test' })), `${tag}: the look-alike is caught although the address book was late`);
+			assert.equal(t.calls.sends.length, 0);
+			await t.close();
+		}
+		// An address book that cannot be read: the writer is told that nothing was compared, and decides.
+		{
+			const t = await open({ directoryStatus: 503 });
+			await t.input('to').fill('lin@harborwork.test,');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Unterlagen');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Lin');
+			await t.send.click();
+			const warning = t.page.locator('[data-send-warning]');
+			await warning.getByText(de['compose.warn.unchecked'], { exact: true }).waitFor();
+			assert.equal(t.calls.sends.length, 0);
+			await warning.getByRole('button', { name: de['compose.warn.sendAnyway'], exact: true }).click();
+			await t.page.getByText(de['compose.sent'], { exact: true }).waitFor();
 			assert.equal(t.calls.sends.length, 1);
 			await t.close();
 		}

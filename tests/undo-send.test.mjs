@@ -11,7 +11,7 @@ const root = process.cwd(), dir = mkdtempSync(join(root, 'node_modules', 'undo-s
 after(() => rmSync(dir, { recursive: true, force: true }));
 const mocks = {
 	'@/lib/email/outbound-provider': 'export const getOutboundProviderConfig=async()=>({provider:"resend"});export const sendThroughProvider=(...args)=>globalThis.undoProbe.send(...args);',
-	'@/lib/email/attachments': 'export const loadMessageAttachmentContents=async()=>[];export const storeMessageAttachments=async()=>[];export const cleanupUnpublishedAttachments=async()=>{};export const validateAttachments=()=>{};export const normalizeAttachmentContent=x=>x;',
+	'@/lib/email/attachments': 'export const loadMessageAttachmentContents=async()=>[];export const storeMessageAttachments=async()=>{await globalThis.undoProbe.store?.();return [];};export const cleanupUnpublishedAttachments=async()=>{};export const validateAttachments=()=>{};export const normalizeAttachmentContent=x=>x;',
 	'@/lib/email/webhooks': 'export const dispatchWebhooks=async()=>{};',
 	'@/lib/mailboxes/audit': 'export const createAuditLog=async()=>{};',
 	'@/lib/contacts/gravatar': 'export const importGravatarAvatar=async()=>null;',
@@ -23,7 +23,7 @@ await build({
 		export {getDb} from './src/db';
 		export {processOutboundQueue,sendEmail} from './src/lib/email/send';
 		export {cancelScheduledSend} from './src/lib/email/scheduled';
-		export {getUndoDeliveryTime,MAX_UNDO_SECONDS} from './src/app/api/send/utils';
+		export {getUndoDeliveryTime,getUndoSeconds,MAX_UNDO_SECONDS} from './src/app/api/send/utils';
 		export {userOwnsDraft} from './src/app/api/drafts/utils';
 		export {loadRecipientDirectory} from './src/lib/contacts/recipient-directory';
 	`, resolveDir: root },
@@ -124,4 +124,35 @@ test('the address book ranks who this user wrote to and never shows another user
 		assert.equal(emails.has(hidden), false, `${hidden} must not be suggested`);
 	const others = await app.loadRecipientDirectory(f.db, { id: 'other', email: 'other@example.test', role: 'user' });
 	assert.deepEqual(others.map(entry => entry.email).sort(), ['private@other-user.test', 'secret@other-user.test']);
+});
+
+test('the undo window starts when the message is ready to wait, not while its files are still being stored', async t => {
+	const f = await fixture(t);
+	// A large attachment on a slow connection to storage: most of a short window would be gone.
+	globalThis.undoProbe.store = () => new Promise(resolve => setTimeout(resolve, 400));
+	const asked = Date.now();
+	const result = await app.sendEmail(f.env, { ...message, undoSeconds: 2 });
+	const returned = Date.now();
+	assert.equal(result.scheduled, true);
+	assert(returned - asked >= 380, 'storing took its time');
+	assert(result.undoUntil.getTime() >= asked + 2380, `the whole window follows the upload: ${result.undoUntil.getTime() - asked} ms after the request`);
+	assert(result.undoUntil.getTime() - returned > 1500, 'the sender still has the window they chose');
+	const job = f.row('SELECT scheduled_at, status, payload FROM outbound_jobs WHERE message_id=?', result.messageId);
+	assert.equal(job.status, 'queued');
+	assert.equal(job.scheduled_at * 1000, Math.floor(result.undoUntil.getTime() / 1000) * 1000, 'delivery waits for the same moment the sender was told');
+	assert.equal(JSON.parse(job.payload).undoSeconds, undefined, 'the delivery itself is not held a second time');
+	assert.equal(f.sent.length, 0);
+});
+
+test('a time the sender picked wins over an undo window, and no window means no deadline', async t => {
+	const f = await fixture(t);
+	const later = new Date(Date.now() + 3_600_000);
+	const scheduled = await app.sendEmail(f.env, { ...message, scheduledAt: later, undoSeconds: 10 });
+	assert.equal(scheduled.undoUntil, undefined);
+	assert.equal(f.row('SELECT scheduled_at FROM outbound_jobs WHERE message_id=?', scheduled.messageId).scheduled_at, Math.floor(later.getTime() / 1000));
+	const direct = await app.sendEmail(f.env, { ...message });
+	assert.equal(direct.undoUntil, undefined);
+	assert.equal(direct.scheduled, undefined);
+	assert.equal(app.getUndoSeconds('10'), 10);
+	for (const refused of [undefined, '', '0', '-5', '1.5', '121', 'soon', 0, 500]) assert.equal(app.getUndoSeconds(refused), null, `refused: ${String(refused)}`);
 });

@@ -206,3 +206,28 @@ test("a chosen suggestion becomes a recipient that the composer accepts and can 
 	assert.equal(app.candidateToRecipient({ email: "max@example.com", name: "MAX@example.com" }), "max@example.com");
 	assert.deepEqual([...app.recipientAddressSet(["Maya <MAYA@example.com>"], ["dev@example.com"])], ["maya@example.com", "dev@example.com"]);
 });
+
+test("capital letters that carry no accent are found by their plain form", () => {
+	const people = [
+		{ email: "lukasz@example.com", name: "Łukasz Nowak", sends: 3, lastSentAt: 1, lastSeenAt: 1, source: "outbound" },
+		{ email: "dj@example.com", name: "Đorđe Petrović", sends: 2, lastSentAt: 1, lastSeenAt: 1, source: "outbound" },
+		{ email: "strasse@example.com", name: "STRAẞE Verwaltung", sends: 1, lastSentAt: 1, lastSeenAt: 1, source: "manual" },
+	];
+	const find = (query) => app.suggestRecipients(people, query, new Set()).map((entry) => entry.email);
+	assert.deepEqual(find("lukasz"), ["lukasz@example.com"]);
+	assert.deepEqual(find("dor"), ["dj@example.com"]);
+	assert.deepEqual(find("strasse"), ["strasse@example.com"]);
+});
+
+test("a message that still waits to go ranks its recipient but is not a delivered send", () => {
+	const waiting = (toAddr, status) => ({ toAddr, ccAddr: null, bccAddr: null, createdAt: new Date(now), status });
+	const list = app.buildRecipientDirectory({
+		now, own: [], limit: 25,
+		contacts: [contact("lin@harborwork.example", null, "outbound", now), contact("maya@example.com", "Maya Chen", "outbound", now)],
+		// An undo window or a scheduled time holds the first; the second went out twice, and once more is on its way.
+		sent: [waiting("lin@harborwork.example", "queued"), waiting("maya@example.com", "sent"), waiting("maya@example.com", "sending"), sentTo("maya@example.com", now)],
+	});
+	const byEmail = Object.fromEntries(list.map((entry) => [entry.email, entry]));
+	assert.deepEqual([byEmail["lin@harborwork.example"].sends, byEmail["lin@harborwork.example"].delivered], [1, 0], "it can still be taken back");
+	assert.deepEqual([byEmail["maya@example.com"].sends, byEmail["maya@example.com"].delivered], [3, 2], "a row without a status is an old sent one");
+});

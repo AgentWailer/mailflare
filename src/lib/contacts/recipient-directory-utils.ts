@@ -53,7 +53,7 @@ export function buildRecipientDirectory({
 	const get = (email: string) => {
 		let candidate = byEmail.get(email);
 		if (!candidate && byEmail.size < MAX_TRACKED_ADDRESSES) {
-			candidate = { email, name: null, sends: 0, lastSentAt: null, lastSeenAt: null, source: null };
+			candidate = { email, name: null, sends: 0, delivered: 0, lastSentAt: null, lastSeenAt: null, source: null };
 			byEmail.set(email, candidate);
 		}
 		return candidate;
@@ -87,6 +87,7 @@ export function buildRecipientDirectory({
 			const candidate = get(email);
 			if (!candidate) continue;
 			candidate.sends += 1;
+			if (!message.status || message.status === "sent") candidate.delivered = (candidate.delivered ?? 0) + 1;
 			if (sentAt !== null && (candidate.lastSentAt === null || sentAt > candidate.lastSentAt)) candidate.lastSentAt = sentAt;
 			// A contact's own name stands; the name used in sent mail fills a gap.
 			if (!candidate.name && names.has(email)) candidate.name = names.get(email)!;

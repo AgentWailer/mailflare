@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Message, MessageFilterOptions, MessageFolder, MessageListResponse } from "./types";
 import { clearMessageCountsCache, clearMessageListCache, fetchMessageList, getCachedMessageList, getMessageQueryParams } from "./utils";
-import { getClientSessionToken } from "@/lib/auth/client";
+import { AUTH_SESSION_CHANGED_EVENT, getClientSessionToken } from "@/lib/auth/client";
 import { rememberStartList } from "@/lib/auth/early-requests";
 import { classifyListFailure, listRetryDelay, type ListFailure } from "./list-failure";
 
@@ -24,17 +24,26 @@ export function useMessages(folder: MessageFolder, mailboxId?: string | null, fi
 		let requestNumber = 0;
 		let retryTimer: number | null = null;
 		let failedTries = 0;
+		let signedOut = false;
 		const requestParams = new URLSearchParams(key);
 		// A failed read is tried again by itself: a connection that drops for a moment (a laptop waking
 		// up, a changed network) must not leave a notice behind that only the next new mail removes.
 		// The first failure of a read nobody asked for is therefore silent; the notice appears when
 		// the retry fails too, or at once when the reader pressed refresh or has to sign in again.
 		async function load(force = false, origin: "event" | "reader" | "retry" = "event") {
+			// A lost sign-in does not come back by asking again: only the reader's own refresh, a new
+			// sign-in or loading the page anew reads the list again.
+			if (signedOut && origin !== "reader") return;
+			signedOut = false;
 			const request = ++requestNumber;
 			if (retryTimer) { window.clearTimeout(retryTimer); retryTimer = null; }
-			if (origin !== "retry") failedTries = 0;
+			// Only the reader's own refresh starts over. A read set off by the window gaining focus or by the
+			// minute tick while the connection is down keeps the notice and the waits: the notice goes when
+			// a read succeeds, not when the next one starts.
+			if (origin === "reader") failedTries = 0;
+			const keep = origin !== "reader";
 			const warm = getCachedMessageList(requestParams);
-			setState(previous => ({ key, data: previous.key === key ? previous.data : warm ?? {}, loading: previous.key === key ? previous.loading || (!warm && !previous.data.messages && !previous.failed) : !warm, refreshing: force && origin !== "retry", failed: origin === "retry" && previous.key === key ? previous.failed : false, failure: origin === "retry" && previous.key === key ? previous.failure : null }));
+			setState(previous => ({ key, data: previous.key === key ? previous.data : warm ?? {}, loading: previous.key === key ? previous.loading || (!warm && !previous.data.messages && !previous.failed) : !warm, refreshing: force && origin !== "retry", failed: keep && previous.key === key ? previous.failed : false, failure: keep && previous.key === key ? previous.failure : null }));
 			try {
 				// The list a page shows first is what its next start asks for before the scripts have loaded.
 				if (!force) rememberStartList(`/api/messages?${key}`, getClientSessionToken());
@@ -49,6 +58,8 @@ export function useMessages(folder: MessageFolder, mailboxId?: string | null, fi
 				setState(previous => shown
 					? { ...previous, loading: false, refreshing: false, failed: true, failure }
 					: { ...previous, refreshing: false });
+				// An expired sign-in does not come back by asking again; the notice offers to load the page anew.
+				if (failure === "sign-in") { signedOut = true; return; }
 				retryTimer = window.setTimeout(() => {
 					retryTimer = null;
 					// A hidden page tries again when it is looked at; the realtime hook announces that.
@@ -65,6 +76,8 @@ export function useMessages(folder: MessageFolder, mailboxId?: string | null, fi
 		void load();
 		const onOnline = () => { void load(true); };
 		window.addEventListener("online", onOnline);
+		const onSessionChanged = () => { signedOut = false; void load(true); };
+		window.addEventListener(AUTH_SESSION_CHANGED_EVENT, onSessionChanged);
 		function onMessagesChanged() {
 			clearMessageListCache();
 			clearMessageCountsCache();
@@ -78,6 +91,7 @@ export function useMessages(folder: MessageFolder, mailboxId?: string | null, fi
 			reload.current = async () => {};
 			window.removeEventListener("mailflare:messages-changed", onMessagesChanged);
 			window.removeEventListener("online", onOnline);
+			window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, onSessionChanged);
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 			if (retryTimer) window.clearTimeout(retryTimer);
 		};

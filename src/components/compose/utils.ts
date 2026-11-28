@@ -1,12 +1,13 @@
 import { authFetch } from "@/lib/auth/client";
 import type { ComposeAttachment, ComposeDraft, ComposeThreading, DraftResponse } from "./types";
 
-export async function fetchDraft(draftId: string): Promise<ComposeDraft> {
-	const res = await authFetch(`/api/drafts/${draftId}`);
-	const json = (await res.json()) as DraftResponse;
+export async function fetchDraft(draftId: string, options?: { redirectOnUnauthorized?: boolean }): Promise<ComposeDraft> {
+	const res = await authFetch(`/api/drafts/${draftId}`, options);
+	const json = ((await res.json().catch(() => null)) ?? {}) as DraftResponse;
 
 	if (!res.ok || !json.draft) {
-		throw new Error(json.error ?? "Failed to load draft");
+		// The status travels with the error, so a caller can say "signed out" instead of the server's words.
+		throw Object.assign(new Error(json.error ?? "Failed to load draft"), { status: res.status });
 	}
 
 	return json.draft;

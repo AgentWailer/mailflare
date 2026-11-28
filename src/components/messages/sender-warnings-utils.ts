@@ -79,8 +79,11 @@ export function getSenderWarnings(input: SenderCheckInput): SenderWarning[] {
 			warnings.push({ kind: "ownName", name: sender.name!.trim() });
 		} else {
 			// The same name at the same organisation is a second address of that person, not somebody else.
-			const person = input.facts.known.find((entry) => nameKey(entry.name) === key && registrableDomain(domainOf(entry.email.toLowerCase())) !== senderDomain);
-			const sameOrganisation = input.facts.known.some((entry) => nameKey(entry.name) === key && registrableDomain(domainOf(entry.email.toLowerCase())) === senderDomain);
+			// A public mail provider is nobody's organisation: anyone can open an address there under any name.
+			const sharedDomain = isMailProviderDomain(senderDomain);
+			const atSenderDomain = (entry: { email: string }) => registrableDomain(domainOf(entry.email.toLowerCase())) === senderDomain;
+			const person = input.facts.known.find((entry) => nameKey(entry.name) === key && (sharedDomain || !atSenderDomain(entry)));
+			const sameOrganisation = !sharedDomain && input.facts.known.some((entry) => nameKey(entry.name) === key && atSenderDomain(entry));
 			if (person && !sameOrganisation) warnings.push({ kind: "nameOfKnownPerson", name: sender.name!.trim(), knownAddress: person.email.toLowerCase() });
 		}
 	}
@@ -104,18 +107,61 @@ export function getSenderWarnings(input: SenderCheckInput): SenderWarning[] {
 }
 
 const TRUSTED_KEY = "mailflare-trusted-senders";
+const TRUSTED_EVENT = "mailflare:trusted-senders-changed";
 const MAX_TRUSTED = 500;
 
-/** Senders the owner looked at and found in order, on this device. */
-export function readTrustedSenders(): string[] {
+/** One list per account: what one person found in order says nothing for the next person at this browser. */
+function trustedKey(scope: string): string {
+	return scope ? `${TRUSTED_KEY}:${scope}` : TRUSTED_KEY;
+}
+
+// Where the browser keeps nothing (storage blocked or full), a mark still holds until the page is closed.
+const unstored = new Map<string, string>();
+
+/** The stored list as text, for a component to follow (`useSyncExternalStore`); empty when nothing is stored. */
+export function readTrustedSendersText(scope = ""): string {
+	const key = trustedKey(scope);
+	// A mark that could not be written (storage full or blocked) is newer than whatever is stored.
+	const held = unstored.get(key);
+	if (held !== undefined) return held;
+	try { return localStorage.getItem(key) ?? ""; } catch { return ""; }
+}
+
+
+export function parseTrustedSenders(text: string): string[] {
 	try {
-		const value = JSON.parse(localStorage.getItem(TRUSTED_KEY) ?? "[]");
+		const value = JSON.parse(text || "[]");
 		return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string").slice(0, MAX_TRUSTED) : [];
 	} catch { return []; }
 }
 
-export function trustSender(address: string): void {
+/** Senders the owner looked at and found in order, on this device. */
+export function readTrustedSenders(scope = ""): string[] {
+	return parseTrustedSenders(readTrustedSendersText(scope));
+}
+
+function writeTrustedSenders(scope: string, list: string[]) {
+	const text = JSON.stringify(list.slice(0, MAX_TRUSTED));
+	try { localStorage.setItem(trustedKey(scope), text); unstored.delete(trustedKey(scope)); } catch { unstored.set(trustedKey(scope), text); }
+	// Every check of this sender on the page follows, not only the one that was pressed.
+	if (typeof window !== "undefined") window.dispatchEvent(new Event(TRUSTED_EVENT));
+}
+
+export function trustSender(address: string, scope = ""): void {
 	const key = address.trim().toLowerCase();
-	if (!key) return;
-	try { localStorage.setItem(TRUSTED_KEY, JSON.stringify([key, ...readTrustedSenders().filter((entry) => entry !== key)].slice(0, MAX_TRUSTED))); } catch { /* Asking again next time is fine. */ }
+	if (key) writeTrustedSenders(scope, [key, ...readTrustedSenders(scope).filter((entry) => entry !== key)]);
+}
+
+/** Takes the mark back: the sender is warned about again. */
+export function untrustSender(address: string, scope = ""): void {
+	const key = address.trim().toLowerCase();
+	writeTrustedSenders(scope, readTrustedSenders(scope).filter((entry) => entry !== key));
+}
+
+/** Tells `notify` when the list changes, here or in another tab. */
+export function subscribeTrustedSenders(notify: () => void): () => void {
+	const storage = (event: StorageEvent) => { if (event.key === null || event.key.startsWith(TRUSTED_KEY)) notify(); };
+	window.addEventListener(TRUSTED_EVENT, notify);
+	window.addEventListener("storage", storage);
+	return () => { window.removeEventListener(TRUSTED_EVENT, notify); window.removeEventListener("storage", storage); };
 }

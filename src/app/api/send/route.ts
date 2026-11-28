@@ -3,7 +3,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { resolveCurrentUser } from "@/lib/auth/cookies";
 import { sendEmailSchema } from "@/lib/validators";
 import { sendEmail } from "@/lib/email/send";
-import { getUndoDeliveryTime, parseSendRequest } from "./utils";
+import { getUndoSeconds, parseSendRequest } from "./utils";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { getSendErrorStatus } from "./error-utils";
 import { getDb } from "@/db";
@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { loadMessageAttachmentContents, MissingAttachmentError } from "@/lib/email/attachments";
 import { userOwnsDraft } from "@/app/api/drafts/utils";
 import { DeliveryOutcomeError } from "@/lib/email/send-errors";
+import { deleteMessageWithObjects } from "@/lib/email/message-cleanup";
 
 export async function POST(request: Request) {
 	const env = getEnv();
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
 
 	// Files already stored on the draft (a forwarded message's attachments) ride
 	// along with whatever the composer uploaded in this request.
+	let sourceDraft: { id: string; rawR2Key: string | null } | null = null;
 	try {
 		if (draftId) {
 			const db = getDb(env);
@@ -47,19 +49,38 @@ export async function POST(request: Request) {
 			const [agent] = await db.select({ draftId: agentDraftMetadata.draftId }).from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, draftId)).limit(1);
 			if (agent) return NextResponse.json({ error: "Review and confirm this AI draft before sending" }, { status: 409 });
 			attachments.push(...(await loadMessageAttachmentContents(env, draftId)));
+			sourceDraft = { id: draftId, rawR2Key: draft.rawR2Key };
 		}
 
 		// An undo window is a short scheduled send: the durable job waits, and
 		// cancel-schedule takes the message back to Drafts until delivery claims it.
-		const undoAt = parsed.data.scheduledAt ? null : getUndoDeliveryTime(undoSeconds);
+		// The window starts once the message is ready to wait (sendEmail), not while its files are still
+		// being stored, and the answer says how much of it is left on this clock, not the browser's.
+		const undoWindow = parsed.data.scheduledAt ? null : getUndoSeconds(undoSeconds);
 		const result = await sendEmail(env, {
 			userId: user.id,
 			...parsed.data,
-			...(undoAt ? { scheduledAt: undoAt } : {}),
+			...(undoWindow ? { undoSeconds: undoWindow } : {}),
 			attachments,
 			publicOrigin: new URL(request.url).origin,
 		});
-		return NextResponse.json(undoAt && result.scheduled ? { ...result, undoUntil: undoAt.toISOString() } : result);
+		// The message is out (or waiting): its draft goes with it, here and not only when the browser
+		// asks afterwards. A second request for the same draft then finds none ("Draft not found")
+		// instead of sending the message again. A removal that fails is left to the browser's own.
+		if (sourceDraft) {
+			const db = getDb(env);
+			await deleteMessageWithObjects(env, db, sourceDraft.id, sourceDraft.rawR2Key).catch(async (error: unknown) => {
+				// Storage refused one of its files. What must not stay is the draft itself: a draft that
+				// can still be read can still be sent. Its row goes; a stray file is the lesser harm.
+				console.warn("Sent message's draft files could not be removed", error instanceof Error ? error.message : error);
+				await db.delete(messages).where(eq(messages.id, sourceDraft!.id)).catch((failure: unknown) => {
+					console.error("Sent message's draft could not be removed", failure instanceof Error ? failure.message : failure);
+				});
+			});
+		}
+		return NextResponse.json(result.undoUntil
+			? { ...result, undoUntil: result.undoUntil.toISOString(), undoRemainingMs: Math.max(0, result.undoUntil.getTime() - Date.now()) }
+			: result);
 	} catch (err) {
 		if (err instanceof MissingAttachmentError) return NextResponse.json({ error: err.message, code: "attachment_unavailable", filename: err.filename }, { status: 409 });
 		if (err instanceof DeliveryOutcomeError) return NextResponse.json({ error: err.message, code: err.code }, { status: getSendErrorStatus(err.message) });

@@ -317,3 +317,34 @@ test("a build with catalogue scripts names the script in the page and renders fr
 	// The page of a build without catalogue scripts names none.
 	assert.doesNotMatch(await i18n.renderLayout("de"), /static\/locales/);
 });
+
+test("a browser whose catalogue script cannot be loaded gets the language's file completed with English", async () => {
+	const built = await import(pathToFileURL(join(outDir, "catalog-scripts.mjs")).href);
+	const arabic = JSON.parse(readFileSync(join(root, "public/locales/ar.json"), "utf8"));
+	const untranslated = Object.keys(en).find((key) => !(key in arabic));
+	const fetched = [], real = { document: globalThis.document, fetch: globalThis.fetch, catalogs: globalThis.__mailflareCatalogs };
+	// A page whose script elements always fail to load, as after a deployment removed the old scripts.
+	globalThis.document = { createElement: () => ({}), head: { appendChild: (script) => queueMicrotask(() => script.onerror()) } };
+	globalThis.fetch = async (path) => {
+		fetched.push(String(path));
+		if (path === "/locales/en.json") return Response.json(en);
+		if (path === "/locales/ar.json") return Response.json(arabic);
+		return new Response("gone", { status: 404 });
+	};
+	delete globalThis.__mailflareCatalogs;
+	try {
+		const messages = await built.loadMessages("ar");
+		assert.deepEqual(messages, { ...en, ...arabic }, "exactly what its script and the server hold");
+		if (untranslated) assert.equal(built.translate(messages, untranslated), en[untranslated], "an untranslated text is English, never a bare key");
+		assert.deepEqual(fetched.sort(), ["/locales/ar.json", "/locales/en.json"]);
+		assert.deepEqual(await built.loadMessages("en"), en, "English is read from its own file");
+		// Without the English file the language still loads; without its own file the change fails and nothing is saved.
+		globalThis.fetch = async (path) => (path === "/locales/ar.json" ? Response.json(arabic) : new Response("gone", { status: 404 }));
+		assert.deepEqual(await built.loadMessages("ar"), arabic);
+		await assert.rejects(built.loadMessages("en"), /unavailable/);
+		await assert.rejects(built.loadMessages("de"), /unavailable/);
+	} finally {
+		globalThis.document = real.document; globalThis.fetch = real.fetch;
+		if (real.catalogs) globalThis.__mailflareCatalogs = real.catalogs; else delete globalThis.__mailflareCatalogs;
+	}
+});

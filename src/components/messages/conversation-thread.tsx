@@ -7,6 +7,7 @@ import { ContactAvatar } from "@/components/contacts/contact-avatar";
 import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
 import { runSingleMessageAction } from "@/components/message-actions/utils";
 import { EmailHtmlRenderer } from "./email-html-renderer";
+import { SenderWarningBanner } from "@/components/messages/sender-warning-banner";
 import { getMessageBodyDisplay, resolveInlineAttachmentUrls } from "@/app/(dashboard)/inbox/[messageId]/utils";
 
 import { useLanguage } from "@/components/language-provider";
@@ -127,7 +128,8 @@ export function ConversationMessageCard({
 	const [attempt, setAttempt] = useState(0);
 	const loadFailed = loadFailure?.id === summary.id && loadFailure.attempt === attempt;
 	const loadedBody = detail?.message?.id === summary.id ? detail.body : null;
-	const message = loadedBody ? { ...summary, ...loadedBody, bodyLoaded: true } : summary;
+	// The full message also knows a Reply-To that older rows keep only in their stored headers.
+	const message = loadedBody ? { ...summary, ...loadedBody, replyTo: summary.replyTo ?? detail?.message?.replyTo ?? null, bodyLoaded: true } : summary;
 	const [readState, setReadState] = useState({ id: summary.id, source: summary.read, value: summary.read });
 	const readSourceChanged = readState.id !== summary.id || readState.source !== summary.read;
 	if (readSourceChanged) setReadState({ id: summary.id, source: summary.read, value: summary.read });
@@ -218,10 +220,11 @@ export function ConversationMessageCard({
 				</div>}
 				{expanded && body && (
 					<div className="pb-4 pt-2">
+						{!outbound && <SenderWarningBanner fromAddr={message.fromAddr} replyTo={message.replyTo} html={message.htmlBody} />}
 						{body.html ? (
 							<EmailHtmlRenderer html={body.html} />
 						) : (
-							<pre className="max-w-[72ch] whitespace-pre-wrap font-sans text-sm text-neutral-900">{body.text}</pre>
+							<pre className="max-w-[72ch] whitespace-pre-wrap break-words font-sans text-sm text-neutral-900">{body.text}</pre>
 						)}
 						{body.quotedHtml && <QuotedEmailToggle html={body.quotedHtml} />}
 						{attachments.length > 0 && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -14,19 +15,35 @@ export function SendWarningDialog({ warnings, onCancel, onSendAnyway, onMoveToBc
 	warnings: SendWarning[] | null;
 	onCancel: () => void;
 	onSendAnyway: () => void;
-	/** Offered when outsiders would see each other; moves them to Bcc and sends. */
+	/** Offered when outsiders would see each other; moves them to Bcc, and sends when nothing else was asked. */
 	onMoveToBcc?: () => void;
 }) {
 	const { t } = useLanguage();
-	const lines = (warnings ?? []).map((warning) => {
+	// While the dialog fades out its questions stay as they were, instead of emptying and shrinking.
+	const [shown, setShown] = useState<SendWarning[]>(warnings ?? []);
+	if (warnings?.length && warnings !== shown) setShown(warnings);
+	const open = !!warnings?.length;
+	const count = warnings?.length ?? 0;
+	// "Move to Bcc" answers one question and its button goes away: focus returns to the way back
+	// instead of falling out of the dialog's controls.
+	useEffect(() => {
+		const dialog = count === 0 ? null : document.querySelector<HTMLElement>("[data-send-warning]");
+		if (!dialog) return;
+		const active = document.activeElement;
+		if (!active || active === document.body || active === dialog || !dialog.contains(active)) dialog.querySelector<HTMLElement>("[data-send-warning-back]")?.focus();
+	}, [count]);
+	const lines = shown.map((warning) => {
 		if (warning.kind === "lookalike") return t("compose.warn.lookalike", { address: warning.address, like: warning.like });
 		if (warning.kind === "outsiders") return t("compose.warn.outsiders", { people: warning.count, domains: warning.domains });
+		if (warning.kind === "unchecked") return t("compose.warn.unchecked");
 		if (warning.kind === "tooManyRecipients") return t("compose.warn.tooManyRecipients", { checked: warning.checked });
 		return t("compose.warn.missingAttachment");
 	});
-	const offersBcc = !!onMoveToBcc && !!warnings?.some((warning) => warning.kind === "outsiders");
+	const offersBcc = !!onMoveToBcc && shown.some((warning) => warning.kind === "outsiders");
+	// With another question open, moving to Bcc answers only its own; the rest is asked again.
+	const bccAlsoSends = shown.every((warning) => warning.kind === "outsiders");
 	return (
-		<Dialog open={!!warnings?.length} onOpenChange={(open) => { if (!open) onCancel(); }}>
+		<Dialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
 			<DialogContent
 				data-compose-layer
 				data-send-warning
@@ -44,10 +61,12 @@ export function SendWarningDialog({ warnings, onCancel, onSendAnyway, onMoveToBc
 				<ul className="space-y-2 text-sm text-neutral-800">
 					{lines.map((line, index) => <li key={index} className="break-words rounded-lg bg-neutral-50 px-3 py-2">{line}</li>)}
 				</ul>
-				<div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-					<Button type="button" variant="outline" data-send-warning-back onClick={onCancel}>{t("compose.warn.back")}</Button>
-					{offersBcc && <Button type="button" variant="outline" onClick={onMoveToBcc}>{t("compose.warn.moveToBcc")}</Button>}
-					<Button type="button" onClick={onSendAnyway}>{t("compose.warn.sendAnyway")}</Button>
+				{/* The way back is the filled button and comes first on a phone; sending past a warning is the quiet one.
+				    Three answers do not fit one row in every language, so they stand below each other at any width. */}
+				<div className={offersBcc ? "mt-5 flex flex-col gap-2" : "mt-5 flex flex-col gap-2 sm:flex-row-reverse sm:justify-start"}>
+					<Button type="button" data-send-warning-back onClick={onCancel}>{t("compose.warn.back")}</Button>
+					{offersBcc && <Button type="button" variant="outline" data-send-warning-bcc onClick={onMoveToBcc}>{t(bccAlsoSends ? "compose.warn.moveToBcc" : "compose.warn.moveToBccOnly")}</Button>}
+					<Button type="button" variant="outline" data-send-warning-send onClick={onSendAnyway}>{t("compose.warn.sendAnyway")}</Button>
 				</div>
 			</DialogContent>
 		</Dialog>
