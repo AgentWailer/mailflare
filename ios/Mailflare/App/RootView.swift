@@ -24,12 +24,3 @@ struct RootView: View {
 		}
 	}
 }
-
-/// Placeholder until the mailbox list exists.
-struct MainView: View {
-	let session: AccountSession
-
-	var body: some View {
-		Text(session.account.email)
-	}
-}
