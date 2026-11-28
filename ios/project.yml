@@ -1,0 +1,73 @@
+name: Mailflare
+options:
+  bundleIdPrefix: de.stepo
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  indentWidth: 4
+  tabWidth: 4
+  usesTabs: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Placeholder until the developer account's team is entered; the simulator needs none.
+    DEVELOPMENT_TEAM: ""
+packages:
+  MailflareKit:
+    path: MailflareKit
+targets:
+  Mailflare:
+    type: application
+    platform: iOS
+    sources:
+      - path: Mailflare
+    dependencies:
+      - package: MailflareKit
+    settings:
+      base:
+        # Placeholder until the app identifier from the developer account is known.
+        PRODUCT_BUNDLE_IDENTIFIER: de.stepo.mailflare
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+    info:
+      path: Mailflare/Info.plist
+      properties:
+        CFBundleDisplayName: Mailflare
+        CFBundleLocalizations: [en, de]
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+  MailflareTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MailflareTests
+    dependencies:
+      - target: Mailflare
+      - package: MailflareKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mailflare.app/Mailflare"
+schemes:
+  Mailflare:
+    build:
+      targets:
+        Mailflare: all
+        MailflareTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MailflareTests

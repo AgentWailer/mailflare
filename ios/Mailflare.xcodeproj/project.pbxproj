@@ -1,0 +1,491 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		3FC42D69E207D10C96796FDA /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 86822F3A9CD77C7B3169109C /* Localizable.xcstrings */; };
+		AC0A8BAE8AC246F9D033A372 /* MailflareKit in Frameworks */ = {isa = PBXBuildFile; productRef = 880BED00CC3460A92B912673 /* MailflareKit */; };
+		B15631774AA19BB91D277D74 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1ADA5582B9059D7331DB55B /* Assets.xcassets */; };
+		B64570EAA8E4DAA7DB467710 /* SkeletonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */; };
+		BB58EE7A35C5C2275243C171 /* MailflareKit in Frameworks */ = {isa = PBXBuildFile; productRef = E078B2A6D9628D1A5125CF30 /* MailflareKit */; };
+		D51EF5944D5A4D7B3D3CC0AD /* MailflareApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A2F3FE795DE3A708DCE739 /* MailflareApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2245AA7F480C8406D2F38522 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D79927A4E147808470BC3975 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 09220273765497BC392E2C81;
+			remoteInfo = Mailflare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		40BB452D8179270369E09048 /* MailflareKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MailflareKit; path = MailflareKit; sourceTree = SOURCE_ROOT; };
+		4B4BC912A47D60DB7EC46139 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		4F0AD281A51060AD2B0DB510 /* Mailflare.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mailflare.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		65A2F3FE795DE3A708DCE739 /* MailflareApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailflareApp.swift; sourceTree = "<group>"; };
+		86822F3A9CD77C7B3169109C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonTests.swift; sourceTree = "<group>"; };
+		C1ADA5582B9059D7331DB55B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E20F7E3019D340527018BE40 /* MailflareTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MailflareTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		54F1B27F34E5C380252223E6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB58EE7A35C5C2275243C171 /* MailflareKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D51E061E10052D4B4D2D4ED4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC0A8BAE8AC246F9D033A372 /* MailflareKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		62BE2B3BE826A566D6D3ECE8 = {
+			isa = PBXGroup;
+			children = (
+				B70D246D47AD41B5897A390C /* Mailflare */,
+				D7D468E2F56A3F1DA39FF03A /* MailflareTests */,
+				C44167A2B6AF7AFEE03A8462 /* Packages */,
+				F17A5BAB2A3963F0BD8091D0 /* Products */,
+			);
+			indentWidth = 4;
+			sourceTree = "<group>";
+			tabWidth = 4;
+			usesTabs = 1;
+		};
+		B70D246D47AD41B5897A390C /* Mailflare */ = {
+			isa = PBXGroup;
+			children = (
+				C1ADA5582B9059D7331DB55B /* Assets.xcassets */,
+				4B4BC912A47D60DB7EC46139 /* Info.plist */,
+				86822F3A9CD77C7B3169109C /* Localizable.xcstrings */,
+				F80F5607FF8EBEB403C5139D /* App */,
+			);
+			path = Mailflare;
+			sourceTree = "<group>";
+		};
+		C44167A2B6AF7AFEE03A8462 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				40BB452D8179270369E09048 /* MailflareKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		D7D468E2F56A3F1DA39FF03A /* MailflareTests */ = {
+			isa = PBXGroup;
+			children = (
+				BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */,
+			);
+			path = MailflareTests;
+			sourceTree = "<group>";
+		};
+		F17A5BAB2A3963F0BD8091D0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4F0AD281A51060AD2B0DB510 /* Mailflare.app */,
+				E20F7E3019D340527018BE40 /* MailflareTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F80F5607FF8EBEB403C5139D /* App */ = {
+			isa = PBXGroup;
+			children = (
+				65A2F3FE795DE3A708DCE739 /* MailflareApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		09220273765497BC392E2C81 /* Mailflare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1135792FC1526E93AB3A9CA /* Build configuration list for PBXNativeTarget "Mailflare" */;
+			buildPhases = (
+				DF76ADA5A0D6CADBB98FF44C /* Sources */,
+				9ADF8FAFB9D452F64F5AB4F5 /* Resources */,
+				D51E061E10052D4B4D2D4ED4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Mailflare;
+			packageProductDependencies = (
+				880BED00CC3460A92B912673 /* MailflareKit */,
+			);
+			productName = Mailflare;
+			productReference = 4F0AD281A51060AD2B0DB510 /* Mailflare.app */;
+			productType = "com.apple.product-type.application";
+		};
+		53C3FEE872B4E3AE8EC6F85F /* MailflareTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 34AF566437B571F56E2D47B3 /* Build configuration list for PBXNativeTarget "MailflareTests" */;
+			buildPhases = (
+				0C0999D9A8D45008FEFABA58 /* Sources */,
+				54F1B27F34E5C380252223E6 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				05DEB8210C024005ECCD19C1 /* PBXTargetDependency */,
+			);
+			name = MailflareTests;
+			packageProductDependencies = (
+				E078B2A6D9628D1A5125CF30 /* MailflareKit */,
+			);
+			productName = MailflareTests;
+			productReference = E20F7E3019D340527018BE40 /* MailflareTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D79927A4E147808470BC3975 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					09220273765497BC392E2C81 = {
+						DevelopmentTeam = "";
+					};
+					53C3FEE872B4E3AE8EC6F85F = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 83BFE0DD8657EE5C05BCB99F /* Build configuration list for PBXProject "Mailflare" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 62BE2B3BE826A566D6D3ECE8;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1ECF8E0EF62D84D9CCD478B9 /* XCLocalSwiftPackageReference "MailflareKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F17A5BAB2A3963F0BD8091D0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				09220273765497BC392E2C81 /* Mailflare */,
+				53C3FEE872B4E3AE8EC6F85F /* MailflareTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9ADF8FAFB9D452F64F5AB4F5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B15631774AA19BB91D277D74 /* Assets.xcassets in Resources */,
+				3FC42D69E207D10C96796FDA /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0C0999D9A8D45008FEFABA58 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B64570EAA8E4DAA7DB467710 /* SkeletonTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF76ADA5A0D6CADBB98FF44C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D51EF5944D5A4D7B3D3CC0AD /* MailflareApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		05DEB8210C024005ECCD19C1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 09220273765497BC392E2C81 /* Mailflare */;
+			targetProxy = 2245AA7F480C8406D2F38522 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		06B6B7F3D2173258998DDC27 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Mailflare/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.mailflare;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		0FF2D9A6F742931DAEA2D511 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mailflare.app/Mailflare";
+			};
+			name = Debug;
+		};
+		73DCD3669C0E4A2744E6ED65 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		77AA98B8BD0C71F041A12834 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		7AE12A09C38694D3E6A14EDB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Mailflare/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.mailflare;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		E0AABB2BD210D3A6B12F3B09 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mailflare.app/Mailflare";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		34AF566437B571F56E2D47B3 /* Build configuration list for PBXNativeTarget "MailflareTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0FF2D9A6F742931DAEA2D511 /* Debug */,
+				E0AABB2BD210D3A6B12F3B09 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		83BFE0DD8657EE5C05BCB99F /* Build configuration list for PBXProject "Mailflare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				77AA98B8BD0C71F041A12834 /* Debug */,
+				73DCD3669C0E4A2744E6ED65 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A1135792FC1526E93AB3A9CA /* Build configuration list for PBXNativeTarget "Mailflare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				06B6B7F3D2173258998DDC27 /* Debug */,
+				7AE12A09C38694D3E6A14EDB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		1ECF8E0EF62D84D9CCD478B9 /* XCLocalSwiftPackageReference "MailflareKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MailflareKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		880BED00CC3460A92B912673 /* MailflareKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MailflareKit;
+		};
+		E078B2A6D9628D1A5125CF30 /* MailflareKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MailflareKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = D79927A4E147808470BC3975 /* Project object */;
+}
