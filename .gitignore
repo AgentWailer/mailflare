@@ -66,3 +66,9 @@ skills-lock.json
 __pycache__/
 .recovery-venv/
 mailflare-wiederherstellungsschluessel*.json
+
+# iOS app
+ios/**/xcuserdata/
+ios/**/.build/
+ios/**/.swiftpm/
+ios/DerivedData/

@@ -96,3 +96,28 @@ export async function inspectAccessIdentity(env:CloudflareEnv,request:Request):P
 export async function verifyAccessIdentity(env:CloudflareEnv,request:Request):Promise<AccessIdentity|null> {
  return (await inspectAccessIdentity(env,request)).identity;
 }
+/**
+ * Whether the request came through this installation's Cloudflare Access application, as a
+ * person or as a service token. It proves the path, not who is asking: issuer, audience,
+ * lifetime and signature are checked, the identity claims are not. `audience` names another
+ * Access application of the same team than the one MCP uses.
+ */
+export async function hasSignedAccessAssertion(env:CloudflareEnv,request:Request,audience?:string):Promise<boolean> {
+ const base=mcpAccessConfiguration(env),config=audience===undefined?base:{...base,audience,configured:base.configured && /^[a-f0-9]{64}$/i.test(audience)};
+ if(!config.configured)return false;
+ const assertion=request.headers.get("Cf-Access-Jwt-Assertion") || accessApplicationCookie(request);
+ if(!assertion || assertion.length>MAX_ASSERTION_BYTES)return false;
+ try {
+  const segments=assertion.split(".");if(segments.length!==3)return false;
+  const protectedHeader=parse(segments[0]),claims=parse(segments[1]),now=Math.floor(Date.now()/1000);
+  if(protectedHeader.alg!=="RS256" || typeof protectedHeader.kid!=="string" || !protectedHeader.kid || protectedHeader.kid.length>256 || protectedHeader.crit!==undefined)return false;
+  if(claims.iss!==config.issuer)return false;
+  const audiences=Array.isArray(claims.aud)?claims.aud:[claims.aud];
+  if(!audiences.includes(config.audience))return false;
+  if(typeof claims.exp!=="number" || !Number.isFinite(claims.exp) || typeof claims.iat!=="number" || !Number.isFinite(claims.iat) || claims.iat>=claims.exp)return false;
+  if(claims.exp<=now || claims.iat>now+30 || claims.nbf!==undefined && (typeof claims.nbf!=="number" || !Number.isFinite(claims.nbf) || claims.nbf>now+30))return false;
+  const key=await signingKey(config.issuer,protectedHeader.kid);
+  if(!key)return false;
+  return await crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,decode(segments[2]),new TextEncoder().encode(segments[0]+"."+segments[1]));
+ }catch{return false;}
+}

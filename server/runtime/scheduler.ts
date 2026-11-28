@@ -7,6 +7,7 @@ import { recoverMboxJobs } from "@/lib/import/mbox-jobs";
 import { recoverMboxSortingJobs } from "@/lib/import/mbox-sorting";
 import { recoverContentAudits } from "@/lib/mail-sorting/audit-jobs";
 import { runDriveTrashRetention } from "@/lib/drive/retention";
+import { pruneMailChanges } from "@/lib/app-sync/prune";
 
 import { recoverGmailSentSync } from "@/lib/import/gmail-sent-sync";
 
@@ -29,6 +30,7 @@ export function startScheduler(env: CloudflareEnv) {
 		lastRunDay = day;
 		runScheduledDatabaseBackup(env, now).catch((error) => console.error("Scheduled backup failed", error));
 		runDriveTrashRetention(env, now).catch((error) => console.error("Drive trash retention failed", error));
+		pruneMailChanges(env, now).catch((error) => console.error("Sync log pruning failed", error));
 	}, 60_000);
 	return () => clearInterval(timer);
 }

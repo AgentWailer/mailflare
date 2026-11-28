@@ -1,0 +1,102 @@
+name: Mailflare
+options:
+  bundleIdPrefix: de.steffenvonlindern
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  indentWidth: 4
+  tabWidth: 4
+  usesTabs: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: 4F3M4YYQN3
+    CODE_SIGN_STYLE: Automatic
+packages:
+  MailflareKit:
+    path: MailflareKit
+targets:
+  Mailflare:
+    type: application
+    platform: iOS
+    sources:
+      - path: Mailflare
+    dependencies:
+      - package: MailflareKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.steffenvonlindern.mailflare
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+    info:
+      path: Mailflare/Info.plist
+      properties:
+        CFBundleDisplayName: Mailflare
+        CFBundleLocalizations: [en, de]
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          # Needed to reach a test server on this machine from the simulator. The app itself accepts
+          # plain http only for localhost, and only in a development build (normalizeServerAddress).
+          NSAllowsLocalNetworking: true
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [de.steffenvonlindern.mailflare.refresh]
+        NSCameraUsageDescription: The camera reads the QR code of your access key.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+  MailflareTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MailflareTests
+    dependencies:
+      - target: Mailflare
+      - package: MailflareKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mailflare.app/Mailflare"
+  MailflareUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: MailflareUITests
+    dependencies:
+      - target: Mailflare
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Mailflare
+        # XCTestCase is not bound to the main actor; its test methods ask for it themselves.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+schemes:
+  # The walk-through against a local server; see MailflareUITests/WalkthroughTests.swift.
+  MailflareUI:
+    build:
+      targets:
+        Mailflare: all
+        MailflareUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - MailflareUITests
+  Mailflare:
+    build:
+      targets:
+        Mailflare: all
+        MailflareTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MailflareTests

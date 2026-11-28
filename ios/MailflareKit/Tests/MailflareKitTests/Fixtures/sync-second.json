@@ -1,0 +1,47 @@
+{
+  "cursor": "eyJ2IjoxLCJzZXEiOjUsImRheXMiOjMwLCJiYWNrZmlsbCI6bnVsbH0",
+  "more": true,
+  "reset": false,
+  "mailboxIds": [
+    "box",
+    "shared"
+  ],
+  "messages": [
+    {
+      "id": "m3",
+      "userId": "owner",
+      "mailboxId": "shared",
+      "direction": "inbound",
+      "providerMessageId": null,
+      "folderId": null,
+      "category": "invoices",
+      "sortingDecision": null,
+      "fromAddr": "Stadtwerke <service@stadtwerke.example>",
+      "toAddr": "team@example.test",
+      "ccAddr": null,
+      "bccAddr": null,
+      "replyTo": null,
+      "subject": "Ihre Abrechnung",
+      "snippet": "Anbei Ihre Abrechnung",
+      "status": "received",
+      "read": true,
+      "starred": false,
+      "snoozedUntil": "2026-11-18T13:06:40.000Z",
+      "threadId": null,
+      "inReplyTo": null,
+      "references": null,
+      "spamScore": null,
+      "spamVerdict": null,
+      "spamSignals": null,
+      "spamAnalyzedAt": null,
+      "spamAnalysisError": null,
+      "trashedAt": null,
+      "createdAt": "2026-11-27T07:35:47.000Z",
+      "attachmentCount": 0,
+      "labels": [],
+      "fromContactName": null,
+      "toContactName": null
+    }
+  ],
+  "removed": []
+}

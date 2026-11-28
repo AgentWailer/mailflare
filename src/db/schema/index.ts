@@ -218,6 +218,25 @@ export const jmapMailboxRevisions = sqliteTable("jmap_mailbox_revisions", {
 	revision: integer("revision").notNull().default(0),
 });
 
+/**
+ * Append-only log of message changes, written by triggers (migration 0085) so a
+ * device can ask what changed since its last sync. Pruned after 45 days.
+ */
+export const mailChanges = sqliteTable(
+	"mail_changes",
+	{
+		seq: integer("seq").primaryKey({ autoIncrement: true }),
+		mailboxId: text("mailbox_id").notNull(),
+		messageId: text("message_id").notNull(),
+		kind: text("kind", { enum: ["changed", "removed"] }).notNull(),
+		changedAt: integer("changed_at").notNull(),
+	},
+	(t) => [
+		index("mail_changes_mailbox_seq_idx").on(t.mailboxId, t.seq),
+		index("mail_changes_changed_at_idx").on(t.changedAt),
+	],
+);
+
 export const apiKeys = sqliteTable("api_keys", {
 	id: text("id").primaryKey(),
 	kind: text("kind", { enum: ["legacy", "mcp"] }).notNull().default("legacy"),
@@ -586,6 +605,21 @@ export const sessions = sqliteTable("sessions", {
 		.references(() => users.id, { onDelete: "cascade" }),
 	tokenHash: text("token_hash").notNull().unique(),
 	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+});
+
+/**
+ * The device behind a session of an installed app. Kept apart from `sessions` so the web
+ * sign-in does not depend on this table; a device session is recognised by its `dev_` token.
+ */
+export const deviceSessions = sqliteTable("device_sessions", {
+	sessionId: text("session_id")
+		.primaryKey()
+		.references(() => sessions.id, { onDelete: "cascade" }),
+	deviceName: text("device_name").notNull(),
+	lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),

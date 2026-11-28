@@ -1,0 +1,53 @@
+{
+  "message": {
+    "id": "m1",
+    "userId": "owner",
+    "mailboxId": "box",
+    "direction": "inbound",
+    "providerMessageId": "<one@example.org>",
+    "folderId": null,
+    "category": "primary",
+    "sortingDecision": null,
+    "fromAddr": "Anna Krüger <anna@example.org>",
+    "toAddr": "owner@example.test",
+    "ccAddr": "team@example.test",
+    "bccAddr": null,
+    "replyTo": null,
+    "subject": "Termin am Donnerstag",
+    "snippet": "Passt dir 14 Uhr?",
+    "status": "received",
+    "read": false,
+    "starred": true,
+    "snoozedUntil": null,
+    "threadId": "t1",
+    "inReplyTo": null,
+    "references": null,
+    "spamScore": null,
+    "spamVerdict": null,
+    "spamSignals": null,
+    "spamAnalyzedAt": null,
+    "spamAnalysisError": null,
+    "trashedAt": null,
+    "createdAt": "2026-11-28T07:35:47.000Z",
+    "fromContactName": "Anna Krüger",
+    "toContactName": null,
+    "fromContactHasAvatar": false,
+    "toContactHasAvatar": false
+  },
+  "body": {
+    "textBody": "Passt dir 14 Uhr?\nIch bringe die Unterlagen mit.",
+    "htmlBody": "<p>Passt dir 14 Uhr?</p><p>Ich bringe die Unterlagen mit.</p>"
+  },
+  "attachments": [
+    {
+      "id": "a1",
+      "messageId": "m1",
+      "filename": "Unterlagen.pdf",
+      "type": "application/pdf",
+      "size": 48213,
+      "disposition": "attachment",
+      "contentId": null
+    }
+  ],
+  "unsubscribeUrl": null
+}

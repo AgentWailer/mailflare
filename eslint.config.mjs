@@ -9,6 +9,7 @@ const eslintConfig = [
 			".vinext/**",
 			".wrangler/**",
 			"node_modules/**",
+			"ios/**",
 			"drizzle/**",
 			"dist/**",
 			"data/**",

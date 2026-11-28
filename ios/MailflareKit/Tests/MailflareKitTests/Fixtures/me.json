@@ -1,0 +1,25 @@
+{
+  "user": {
+    "id": "owner",
+    "email": "owner@example.test",
+    "name": "Owner",
+    "timeZone": null,
+    "resetEmail": null,
+    "forwardingEmail": null,
+    "canForwardEmail": true,
+    "role": "admin",
+    "isPrimaryAdmin": false,
+    "canManageMailboxes": false,
+    "canManageDomains": false,
+    "canManageUsers": false,
+    "keyboardShortcutsEnabled": true,
+    "spamProtectionEnabled": true,
+    "showFullRecipientAddresses": false,
+    "hasAvatar": false,
+    "mfaEnabled": false
+  },
+  "runtime": "node",
+  "managesDns": false,
+  "hasMailboxes": true,
+  "isSetup": true
+}
