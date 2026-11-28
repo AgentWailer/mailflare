@@ -65,9 +65,13 @@ export function loadRecipientDirectory(force = false): Promise<RecipientCandidat
 /** Forget the directory, e.g. after a send changed who is written to most. */
 export function invalidateRecipientDirectory() {
 	cached = null;
-	// What was read while a message waited may count it; after a send or an undo it is read anew.
-	lastGood = null;
+	// The last one read is kept for a caller that cannot wait: it counts only sends that went out,
+	// so it cannot make a stranger known.
+	for (const refresh of watchers) refresh();
 }
+
+/** Open readers and composers: they read the address book again when it is known to be out of date. */
+const watchers = new Set<() => void>();
 
 // A send that was taken back (`undo-send-toast.tsx`) says so with this event.
 if (typeof window !== "undefined") window.addEventListener("mailflare:recipients-stale", invalidateRecipientDirectory);
@@ -83,8 +87,10 @@ export function useRecipientDirectoryState(enabled = true): { directory: Recipie
 	useEffect(() => {
 		if (!enabled) return;
 		let active = true;
-		void loadRecipientDirectory().then((directory) => { if (active) setState({ directory, loaded: true }); });
-		return () => { active = false; };
+		const read = () => { void loadRecipientDirectory().then((directory) => { if (active) setState({ directory, loaded: true }); }); };
+		read();
+		watchers.add(read);
+		return () => { active = false; watchers.delete(read); };
 	}, [enabled]);
 	return state;
 }

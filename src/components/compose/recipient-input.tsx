@@ -156,6 +156,11 @@ export function RecipientInput({
 		}
 	}
 
+	/** The chip the menu belonged to is gone from this line: focus goes to the line, not to the page. */
+	function refocus() {
+		setTimeout(() => inputRef.current?.focus(), 0);
+	}
+
 	function edit(entry: string) {
 		const rest = value.filter((item) => item !== entry);
 		const pending = parseRecipientEntries(draft, rest);
@@ -224,7 +229,7 @@ export function RecipientInput({
 										>
 											<DropdownMenu.Label className="truncate px-3 pb-1 pt-2 text-xs font-medium text-neutral-500">{address}</DropdownMenu.Label>
 											{onMove && moveTargets?.map((target) => (
-												<DropdownMenu.Item key={target.field} className={menuItemClassName} onSelect={() => onMove(entry, target.field)}>
+												<DropdownMenu.Item key={target.field} className={menuItemClassName} onSelect={() => { onMove(entry, target.field); refocus(); }}>
 													<ArrowRightLeft className="h-4 w-4 shrink-0 text-neutral-500" />
 													{t("recipient.moveTo", { field: target.label })}
 												</DropdownMenu.Item>
@@ -238,7 +243,7 @@ export function RecipientInput({
 												<Copy className="h-4 w-4 shrink-0 text-neutral-500" />
 												{t("recipient.copy")}
 											</DropdownMenu.Item>
-											<DropdownMenu.Item className={cn(menuItemClassName, "text-red-700")} onSelect={() => onChange(value.filter((item) => item !== entry))}>
+											<DropdownMenu.Item className={cn(menuItemClassName, "text-red-700")} onSelect={() => { onChange(value.filter((item) => item !== entry)); refocus(); }}>
 												<Trash2 className="h-4 w-4 shrink-0" />
 												{t("recipient.removeItem")}
 											</DropdownMenu.Item>

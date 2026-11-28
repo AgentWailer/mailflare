@@ -194,13 +194,19 @@ test("styled signatures are deterministic and editor copies are inert but export
 
 test("in the reader, rules that squeeze a table column to one character are read as their harmless form", () => {
 	// Payment receipts style every cell of the price column this way; as written, "$114.24" is shown one digit per line.
-	const receipt = '<html><head><style>td.amount { word-break: break-word } .note { overflow-wrap: anywhere; word-wrap: anywhere } .code { word-break: break-all }</style></head><body><table><tr><td style="width:100%;word-break:break-word">Sync yearly</td><td class="amount" style="font:15px Arial; word-break : break-word">$114.24</td></tr></table></body></html>';
+	const receipt = '<html><head><style>td.amount { word-break: break-word !important } .note { overflow-wrap: anywhere; word-wrap: anywhere } .code { word-break: break-all } .var { --word-break: break-word; word-break: var(--word-break) } .q::after { content: "word-break: break-word" }</style></head><body><table style="word-break:break-all"><tr><td style="width:100%;word-break:break-word">Sync yearly</td><td class="amount" style="font:15px Arial; word-break : break-word">$114.24</td></tr></table></body></html>';
 	const shown = prepareEmailHtml(receipt, { reader: true }).html;
-	assert.doesNotMatch(shown, /word-break\s*:\s*break-word/i);
-	assert.doesNotMatch(shown, /anywhere/i);
-	assert.equal((shown.match(/overflow-wrap:break-word/g) ?? []).length, 5, "the sheet's three and both cells' own");
-	assert.match(shown, /word-break:break-all/, "what a sender asks for on purpose is kept");
-	assert.match(shown, /font:15px Arial/, "the other declarations of the cell are untouched");
+	assert.match(shown, /td\.amount\{word-break:normal!important;overflow-wrap:break-word!important\}/, "the rule keeps its weight");
+	assert.match(shown, /\.note\{overflow-wrap:break-word;overflow-wrap:break-word\}/);
+	assert.match(shown, /\.code\{word-break:break-all\}/, "what a sender asks for on purpose is kept");
+	// The cell goes on overriding the `break-all` it inherits from its table: `normal`, not nothing.
+	assert.match(shown, /<td style="width:100%;word-break:normal;overflow-wrap:break-word"/);
+	assert.match(shown, /style="font:15px Arial;word-break:normal;overflow-wrap:break-word"/, "the other declarations of the cell are untouched");
+	assert.match(shown, /<table style="word-break:break-all"/);
+	// A name the sender gave to something of their own, and words inside a string, are not rules to rewrite.
+	assert.match(shown, /--word-break:\s*break-word/);
+	assert.match(shown, /content:"word-break: break-word"/);
+	assert.doesNotMatch(shown.replace(/--word-break:\s*break-word/, "").replace(/content:"[^"]*"/, ""), /word-break:\s*break-word|anywhere/i);
 	// Editing and sending pass the message on as it was written.
 	assert.match(prepareEmailHtml(receipt, { forOutgoing: true }).html, /word-break:break-word/);
 	assert.match(sanitizeEditorHtml('<p style="word-break:break-word">x</p>'), /word-break:break-word/);

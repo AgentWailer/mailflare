@@ -3,7 +3,7 @@ import type { ComposeAttachment, ComposeDraft, ComposeThreading, DraftResponse }
 
 export async function fetchDraft(draftId: string, options?: { redirectOnUnauthorized?: boolean }): Promise<ComposeDraft> {
 	const res = await authFetch(`/api/drafts/${draftId}`, options);
-	const json = (await res.json().catch(() => ({}))) as DraftResponse;
+	const json = ((await res.json().catch(() => null)) ?? {}) as DraftResponse;
 
 	if (!res.ok || !json.draft) {
 		// The status travels with the error, so a caller can say "signed out" instead of the server's words.

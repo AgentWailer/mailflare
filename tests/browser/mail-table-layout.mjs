@@ -20,7 +20,11 @@ const mails = {
 	"code": "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"padding:16px;font:15px Arial\"><p>Die Zustellung an den Webhook ist fehlgeschlagen:</p><p><code>https://hooks.production.example.com/v2/webhooks/stripe/whsec_8f2c1a9e7b6d4c3f2a1b0e9d8c7f6a5b4c3d2e1f0a9b8c7d</code></p><p>Bitte prüfen Sie die Adresse.</p></td></tr></table>",
 	"splitlink": "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"padding:16px;font:15px Arial\"><p>Ihr Link: <a href=\"https://example.com/x\"><span>https://example.com/konto/</span><b>bestaetigen/8f2c1a9e7b6d4c3f</b><span>2a1b0e9d8c7f6a5b4c3d2e1f</span></a></p><p>Dieser Absatz soll lesbar bleiben.</p></td></tr></table>",
 	"tracking": "<table width=\"100%\" cellpadding=\"6\" cellspacing=\"0\" style=\"font:14px Arial\"><tr><td width=\"100%\" style=\"width:100%\">Sendungsverfolgung für Ihre Bestellung bei uns</td><td>https://tracking.example.com/sendung/00340434161094042557/status</td></tr><tr><td width=\"100%\" style=\"width:100%\">Rechnungsnummer</td><td>INV-2026-11-27-OBSIDIAN-SYNC-0001</td></tr></table>",
-	"columns": "<table width=\"100%\" cellpadding=\"4\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th>Buchungstag</th><th>Wertstellung</th><th>Verwendungszweck</th><th>Auftraggeber</th><th>Betrag</th><th>Kontostand</th></tr><tr><td>27.11.2026</td><td>27.11.2026</td><td>Lastschrift Stadtwerke</td><td>Stadtwerke Beispielstadt</td><td align=\"right\">-84,20&nbsp;€</td><td align=\"right\">1.264,98&nbsp;€</td></tr><tr><td>26.11.2026</td><td>26.11.2026</td><td>Gehalt November</td><td>Arbeitgeber Beispiel GmbH</td><td align=\"right\">3.210,00&nbsp;€</td><td align=\"right\">1.349,18&nbsp;€</td></tr></table>"
+	"columns": "<table width=\"100%\" cellpadding=\"4\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th>Buchungstag</th><th>Wertstellung</th><th>Verwendungszweck</th><th>Auftraggeber</th><th>Betrag</th><th>Kontostand</th></tr><tr><td>27.11.2026</td><td>27.11.2026</td><td>Lastschrift Stadtwerke</td><td>Stadtwerke Beispielstadt</td><td align=\"right\">-84,20&nbsp;€</td><td align=\"right\">1.264,98&nbsp;€</td></tr><tr><td>26.11.2026</td><td>26.11.2026</td><td>Gehalt November</td><td>Arbeitgeber Beispiel GmbH</td><td align=\"right\">3.210,00&nbsp;€</td><td align=\"right\">1.349,18&nbsp;€</td></tr></table>",
+	"columnsinline": "<table width=\"100%\" cellpadding=\"4\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th style=\"overflow-wrap:anywhere\">Buchungstag</th><th style=\"overflow-wrap:anywhere\">Wertstellung</th><th style=\"overflow-wrap:anywhere\">Verwendungszweck</th><th style=\"overflow-wrap:anywhere\">Auftraggeber</th><th style=\"overflow-wrap:anywhere\">Betrag</th><th style=\"overflow-wrap:anywhere\">Kontostand</th></tr><tr><td style=\"word-break:break-word\">27.11.2026</td><td style=\"word-break:break-word\">27.11.2026</td><td style=\"word-break:break-word\">Lastschrift Stadtwerke</td><td style=\"word-break:break-word\">Stadtwerke Beispielstadt</td><td align=\"right\" style=\"word-break:break-word\">-84,20&nbsp;€</td><td align=\"right\" style=\"word-break:break-word\">1.264,98&nbsp;€</td></tr><tr><td style=\"word-break:break-word\">26.11.2026</td><td style=\"word-break:break-word\">26.11.2026</td><td style=\"word-break:break-word\">Gehalt November</td><td style=\"word-break:break-word\">Arbeitgeber Beispiel GmbH</td><td align=\"right\" style=\"word-break:break-word\">3.210,00&nbsp;€</td><td align=\"right\" style=\"word-break:break-word\">1.349,18&nbsp;€</td></tr></table>",
+	"orderwide": "<table width=\"100%\" cellpadding=\"4\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th>Pos.</th><th>Artikelnummer</th><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>Einzelpreis</th><th>Rabatt</th><th>Gesamtpreis</th></tr><tr><td>1</td><td>4711-0815</td><td width=\"100%\" style=\"width:100%\">Fahrradschlauch 28 Zoll mit Autoventil</td><td align=\"right\">2</td><td>Stück</td><td align=\"right\">7,99&nbsp;€</td><td align=\"right\">0&nbsp;%</td><td align=\"right\">15,98&nbsp;€</td></tr><tr><td>2</td><td>4711-0816</td><td width=\"100%\" style=\"width:100%\">Kettenschloss mit Versicherungsbedingungen</td><td align=\"right\">1</td><td>Stück</td><td align=\"right\">1.249,00&nbsp;€</td><td align=\"right\">0&nbsp;%</td><td align=\"right\">1.249,00&nbsp;€</td></tr></table>",
+	"prose": "<table width=\"100%\"><tr><td style=\"padding:16px;font:15px Arial\"><p>Ihre Berufsunfähigkeitsversicherung und die Arbeitsunfähigkeitsbescheinigung liegen uns vor. Die Rechtsschutzversicherungsgesellschaften wurden informiert.</p></td></tr></table>",
+	"wideprint": "<table cellpadding=\"6\" cellspacing=\"0\" style=\"min-width:1280px;width:1280px;font:14px Arial\"><tr><td style=\"width:1000px\">Jahresabrechnung für den Zeitraum Januar bis Dezember</td><td align=\"right\">TOTAL $114.24</td></tr></table>"
 };
 writeFileSync(join(dir, 'entry.tsx'), `import React from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {EmailHtmlRenderer} from '@/components/messages/email-html-renderer';import {printMessage} from '@/components/messages/print-message';import {LanguageProvider} from '@/components/language-provider';import de from '../../public/locales/de.json';
 const mails=${JSON.stringify(mails)};const params=new URLSearchParams(location.search),name=params.get('mail')!;
@@ -78,12 +82,18 @@ try {
 		splitlink: ['lesbar'],
 		// A long link and a long number beside a column that claims the whole width: pieces, never single characters.
 		tracking: ['https://', 'tracking.', 'OBSIDIAN-', 'Rechnungsnummer'],
-		columns: [],
+		// A statement that only fits a phone with its longer words broken: the amounts and dates still stand whole.
+		columns: ['1.264,98', '-84,20', '3.210,00', '27.11.2026', 'Betrag'],
+		columnsinline: ['1.264,98', '-84,20', '3.210,00', '27.11.2026', 'Betrag'],
+		orderwide: ['7,99', '15,98', '1.249,00', 'Menge', 'Stück'],
+		// Long German words in running text are not cut in the middle of a line.
+		prose: ['Berufsunfähigkeitsversicherung', 'Arbeitsunfähigkeitsbescheinigung', 'Rechtsschutzversicherungsgesellschaften'],
+		wideprint: [],
 	};
 	// How small a message may get. Most must be shown at full size from 390 px on; a statement with six
-	// columns cannot be, but must stay readable.
-	const smallest = { columns: 0.6, splitlink: 0.6 };
-	const fullFrom = { columns: 1440, splitlink: 820 };
+	// or eight columns cannot be, but must stay readable or at least keep every amount whole.
+	const smallest = { columns: 0.6, columnsinline: 0.6, splitlink: 0.6, orderwide: 0.45, wideprint: 0 };
+	const fullFrom = { columns: 1440, columnsinline: 1440, splitlink: 820, orderwide: 1440, wideprint: 1440 };
 	// The amount stands three times on a receipt, and each of them counts.
 	const occurrences = { stripe: { '$114.24': 3 }, stripe100: { '$114.24': 3 }, stripebreak: { '$114.24': 3 } };
 	for (const { width, height, dark } of [{ width: 320, height: 700 }, { width: 390, height: 844 }, { width: 390, height: 844, dark: true }, { width: 820, height: 1180 }, { width: 1440, height: 900 }]) {
@@ -123,6 +133,11 @@ try {
 				await page.evaluate(() => window.printMail());
 				await page.emulateMedia({ media: 'print' });
 				await page.waitForTimeout(150);
+				if (name === 'wideprint') {
+					// A table wider than the paper must not lose its last column off the edge.
+					const [total] = await measure(page, ['TOTAL $114.24'], true);
+					assert(total.lines >= 1 && total.right <= width + 0.5 && total.left >= 0, `${tag}: on paper the total stays on the page: ${JSON.stringify(total)}`);
+				}
 				for (const result of await measure(page, (whole[name] ?? []).filter(text => name !== 'tracking' || text === 'Rechnungsnummer'), true)) assert.equal(result.lines, 1, `${tag} ${name}: on paper "${result.text}" stands on one line: ${JSON.stringify(result)}`);
 			}
 			assert.deepEqual(errors, [], `${tag} ${name}: page errors`);

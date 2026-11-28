@@ -6,7 +6,7 @@ import { JSDOM } from "jsdom";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 const bundle = await build({ entryPoints: ["src/components/messages/long-tokens.ts"], bundle: true, write: false, platform: "browser", format: "esm", tsconfig: "tsconfig.json" });
-const { wrapLongTokens, splitLongToken, LONG_TOKEN_LENGTH, LONG_TOKEN_PIECE } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
+const { wrapLongTokens, addRelaxedBreaks, splitLongToken, LONG_TOKEN_LENGTH, LONG_WORD_LENGTH, LONG_TOKEN_PIECE, RELAXED_BREAK } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
 
 function wrap(html) {
 	const template = dom.window.document.createElement("template");
@@ -52,11 +52,51 @@ test("no piece between two break points is longer than a column should have to b
 });
 
 test("the limit is a length no ordinary word reaches, counted between spaces of any kind", () => {
-	const just = "x".repeat(LONG_TOKEN_LENGTH), under = "x".repeat(LONG_TOKEN_LENGTH - 1);
+	const just = "x1".repeat(LONG_TOKEN_LENGTH / 2), under = just.slice(1);
 	assert.equal(breaks(wrap(`<p>${under}</p>`).content), 0);
 	assert(breaks(wrap(`<p>${just}</p>`).content) > 0);
 	assert.equal(breaks(wrap("<p>Versicherungsbedingungen und Rechtsschutzversicherung 1.264,98&nbsp;€</p>").content), 0, "ordinary long words and amounts stay whole");
-	assert.equal(breaks(wrap(`<p>${under} ${under}​${under}­${under}</p>`).content), 0, "a no-break space, a zero-width space and a soft hyphen end a string");
+	assert.equal(breaks(wrap(`<p>${under}\u00a0${under}\u200b${under}\u00ad${under}</p>`).content), 0, "a no-break space, a zero-width space and a soft hyphen end a string");
+});
+
+test("a word made of letters is left whole far longer than a link or a number", () => {
+	// A break point is where a line does break, also when the word would have fitted on the next line.
+	for (const word of ["Berufsunfähigkeitsversicherung", "Arbeitsunfähigkeitsbescheinigung", "Donaudampfschifffahrtsgesellschaft", "(Rechtsschutzversicherungsgesellschaften),"]) {
+		assert(Array.from(word).length >= LONG_TOKEN_LENGTH && Array.from(word).length < LONG_WORD_LENGTH);
+		assert.equal(breaks(wrap(`<p>Die ${word} zahlt.</p>`).content), 0, word);
+	}
+	assert(breaks(wrap(`<p>${"Rindfleischetikettierungsüberwachungsaufgabenübertragungsgesetz"}</p>`).content) > 0, "a word no line can hold still breaks");
+	assert(breaks(wrap("<p>Berufsunfaehigkeitsversicherung-2026-11</p>").content) > 0, "with digits in it, it is an identifier");
+});
+
+test("what the reader sees as one character is never cut: accents written apart, emoji with a skin tone or a family", () => {
+	assert.deepEqual(splitLongToken("aaaaaaaaaaaa\u0301bbbbbbbbbbbbbbbbbb").some((piece) => /^\p{M}/u.test(piece)), false, "no piece starts with a detached accent");
+	const thumbs = "👍🏽".repeat(19), families = "👨‍👩‍👧‍👦".repeat(8);
+	for (const piece of [...splitLongToken(`${thumbs}1`), ...splitLongToken(`${families}1`)]) {
+		assert.doesNotMatch(piece, /^[\u{1F3FB}-\u{1F3FF}\u200d]/u, "no piece starts with a skin tone or a joiner");
+		assert.doesNotMatch(piece, /\u200d$/u);
+	}
+	assert.equal(splitLongToken(`${thumbs}1`).join(""), `${thumbs}1`);
+});
+
+test("the extra break points for a message too small to read are for longer words, never for amounts, dates or short words", () => {
+	const statement = '<table><tr><th>Buchungstag</th><th>Wertstellung</th><th>Verwendungszweck</th><th>Betrag</th></tr><tr><td>27.11.2026</td><td>27.11.2026</td><td>Lastschrift Stadtwerke Beispielstadt</td><td>1.264,98&nbsp;€</td><td>-84,20 €</td><td>INV-2026-0001</td><td>DE89370400440532013000</td></tr></table>';
+	const template = wrap(statement);
+	assert.equal(breaks(template.content), 0, "nothing here is a long string");
+	addRelaxedBreaks(template.content);
+	const cells = [...template.content.querySelectorAll("th,td")];
+	const broken = cells.filter((cell) => breaks(cell) > 0).map((cell) => cell.textContent);
+	// Longer words and long identifiers (an invoice number, an IBAN); the dates and both amounts stay whole.
+	assert.deepEqual(broken, ["Buchungstag", "Wertstellung", "Verwendungszweck", "Lastschrift Stadtwerke Beispielstadt", "INV-2026-0001", "DE89370400440532013000"]);
+	for (const whole of ["27.11.2026", "1.264,98\u00a0€", "-84,20 €"]) assert.equal(breaks(cells.find((cell) => cell.textContent === whole)), 0, whole);
+	assert([...template.content.querySelectorAll("wbr")].every((point) => point.hasAttribute(RELAXED_BREAK)), "each is marked, so it counts only while the message is relaxed");
+	assert.equal(template.content.textContent, wrap(statement).content.textContent, "the text reads the same");
+	// Applied to a message that already has break points in a link, the link keeps its own and gets no second set.
+	const mixed = wrap(`<p>${link} Verwendungszweck</p>`);
+	const before = breaks(mixed.content);
+	addRelaxedBreaks(mixed.content);
+	assert.equal(mixed.content.querySelectorAll(`wbr:not([${RELAXED_BREAK}])`).length, before);
+	assert.equal(mixed.content.querySelectorAll(`wbr[${RELAXED_BREAK}]`).length, 2);
 });
 
 test("writing without spaces between words is left to break as that script breaks", () => {

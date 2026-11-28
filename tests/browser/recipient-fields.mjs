@@ -18,11 +18,12 @@ import {ComposeProvider,useCompose} from '@/components/compose/compose-context';
 import {FloatingComposer} from '@/components/compose/floating-composer';
 import {parseMailto} from '@/components/compose/mailto-utils';
 import {LanguageProvider} from '@/components/language-provider';
+import {StatusToastHost} from '@/components/status-toast-host';
 import de from '../../public/locales/de.json';
 const params=new URLSearchParams(location.search);
 if(params.has('dark'))document.documentElement.classList.add('dark');
-function Open(){const compose=useCompose();useEffect(()=>{const link=parseMailto(params.get('mailto'));if(link)compose.openComposerWith(link);else if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
-createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><ComposeProvider><Open/><FloatingComposer/></ComposeProvider></LanguageProvider>);`);
+function Open(){const compose=useCompose();(window as never as {compose:unknown}).compose=compose;useEffect(()=>{const link=parseMailto(params.get('mailto'));if(link)compose.openComposerWith(link);else if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
+createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><ComposeProvider><Open/><FloatingComposer/></ComposeProvider><StatusToastHost/></LanguageProvider>);`);
 const de = JSON.parse(readFileSync(join(root, 'public/locales/de.json'), 'utf8'));
 const label = (key, vars = {}) => Object.entries(vars).reduce((text, [name, value]) => text.replace(`{${name}}`, value), de[key]);
 
@@ -57,7 +58,7 @@ try {
 		const tag = `${width}${dark ? '-dark' : ''}`;
 
 		/** A fresh page with its own record of what the composer asked the server. */
-		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null, undoRemainingMs = null, reply = false, sendStatus = 200, sendBody = null, directoryDelay = 0, directoryStatus = 200 } = {}) {
+		async function open({ withDraft = false, undoSeconds = 0, cancelStatus = 200, mailto = null, undoRemainingMs = null, reply = false, sendStatus = 200, sendBody = null, sendDelay = 0, directoryDelay = 0, directoryStatus = 200 } = {}) {
 			const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, permissions: ['clipboard-read', 'clipboard-write'] });
 			const page = await context.newPage();
 			page.setDefaultTimeout(10000);
@@ -70,7 +71,8 @@ try {
 				if (path === '/api/send') {
 					const body = request.postData() ?? '';
 					calls.sends.push({ to: field(body, 'to'), cc: field(body, 'cc'), bcc: field(body, 'bcc'), subject: field(body, 'subject'), undoSeconds: field(body, 'undoSeconds') });
-					if (sendStatus !== 200) return json({ error: sendStatus === 401 ? 'Unauthorized' : 'Mailbox not found' }, sendStatus);
+					if (sendDelay) await new Promise(resolve => setTimeout(resolve, sendDelay));
+					if (sendStatus !== 200) return json({ error: sendStatus === 401 ? 'Unauthorized' : sendStatus >= 500 ? 'Queue write failed' : 'Mailbox not found' }, sendStatus);
 					if (sendBody !== null) return route.fulfill({ status: 200, contentType: 'application/json', body: sendBody });
 					const messageId = 'sent-' + calls.sends.length;
 					return json(field(body, 'undoSeconds') ? { messageId, scheduled: true, undoUntil: new Date(Date.now() + 10000).toISOString(), ...(undoRemainingMs === null ? {} : { undoRemainingMs }) } : { messageId });
@@ -224,6 +226,8 @@ try {
 			await t.page.keyboard.press('Enter');
 			assert.deepEqual(await t.chips('bcc'), [MAYA]);
 			assert.deepEqual(await t.chips('cc'), []);
+			// The chip left its line with the menu still open on it: focus goes to that line, not to the page.
+			await t.page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
 
 			// Edit pulls the address back into the line; Remove takes it off; the x still works.
 			await t.chip('to', 'max@partner.test').locator('button').first().click();
@@ -235,6 +239,7 @@ try {
 			assert.deepEqual(await t.chips('to'), ['lin@harborworks.test', 'maxine@partner.test']);
 			await t.chip('to', 'maxine@partner.test').locator('button').first().click();
 			await menu.getByRole('menuitem', { name: de['recipient.removeItem'], exact: true }).click();
+			await t.page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
 			await t.chip('to', 'lin@harborworks.test').getByRole('button', { name: label('recipient.remove', { address: 'lin@harborworks.test' }), exact: true }).click();
 			assert.deepEqual(await t.chips('to'), []);
 			await t.noOverflow('after moving chips');
@@ -624,6 +629,29 @@ try {
 			assert.equal(await t.page.getByText(de['compose.sent'], { exact: true }).count(), 0, `${tag}: not reported as sent`);
 			assert.deepEqual(await t.chips('to'), ['maya.chen@lumen.test'], `${tag}: the message is still there`);
 			await t.editor.getByText('Hallo Maya').waitFor();
+			await t.close();
+		}
+		// The window is closed while its message is on the way. Until the send has answered, the same
+		// draft cannot be opened and sent a second time, and a refusal is said although the window is gone.
+		for (const sendStatus of [500, 200]) {
+			const t = await open({ sendStatus, sendDelay: 1500 });
+			await t.input('to').fill('maya.chen@lumen.test');
+			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Kurze Frage');
+			await t.editor.click();
+			await t.page.keyboard.type('Hallo Maya');
+			await t.send.click();
+			await t.page.waitForFunction(() => document.querySelector('form [aria-busy="true"]'));
+			assert.equal(await t.page.locator('form [role="status"].sr-only').first().evaluate(node => node.textContent), de['compose.preparing'], `${tag}: that a send runs is said outside the locked part`);
+			await t.form.getByRole('button', { name: de['compose.close'], exact: true }).click();
+			await t.page.waitForFunction(() => !document.querySelector('form'));
+			await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
+			await t.page.locator('[data-status-toast]').getByText(de['compose.sendingBusy'], { exact: true }).waitFor();
+			assert.equal(await t.page.locator('form').count(), 0, `${tag}: no second window for a message that is being sent`);
+			await t.page.locator('[data-status-toast]').getByText(sendStatus === 200 ? de['compose.sent'] : de['compose.error.closedSendFailed'], { exact: true }).waitFor();
+			assert.equal(t.calls.sends.length, 1, `${tag}: sent once`);
+			// Once it has answered, messages open again.
+			await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
+			await t.page.locator('form').waitFor();
 			await t.close();
 		}
 		// A slow address book: Send waits for it instead of skipping the comparison.

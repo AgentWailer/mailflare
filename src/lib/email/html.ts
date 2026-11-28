@@ -56,10 +56,31 @@ const SAFE_AT_RULES = new Set([
  * breaks a word only when it does not fit and leaves a column its width. `break-all` is left alone:
  * that is asked for on purpose.
  */
-function keepWordsWhole(styles: string): string {
-	return styles
-		.replace(/\bword-break\s*:\s*break-word\b/gi, "overflow-wrap:break-word")
-		.replace(/\b(?:overflow-wrap|word-wrap)\s*:\s*anywhere\b/gi, "overflow-wrap:break-word");
+function keepWordsWhole(styles: string, inline: boolean): string {
+	try {
+		const ast = css.parse(styles, { context: inline ? "declarationList" : "stylesheet" });
+		const value = (text: string) => css.parse(text, { context: "value" }) as css.Declaration["value"];
+		css.walk(ast, {
+			visit: "Declaration",
+			enter(node, item, list) {
+				const name = nameOf(node.property);
+				// A custom property is the sender's own name for something, whatever it is called.
+				if (name.startsWith("--") || node.value.type !== "Value") return;
+				const said = css.generate(node.value).trim().toLowerCase();
+				if (name === "word-break" && said === "break-word") {
+					// `normal`, not nothing: the cell must go on overriding a `break-all` it inherits.
+					node.value = value("normal");
+					if (item && list) list.insert(list.createItem({ type: "Declaration", important: node.important, property: "overflow-wrap", value: value("break-word") }), item.next);
+				} else if ((name === "overflow-wrap" || name === "word-wrap") && said === "anywhere") {
+					node.property = "overflow-wrap";
+					node.value = value("break-word");
+				}
+			},
+		});
+		return css.generate(ast);
+	} catch {
+		return styles;
+	}
 }
 
 /** Only remove unsupported syntax at its declaration/rule boundary, not an entire sheet. */
@@ -281,7 +302,7 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 			}
 			if (!options.reader && !options.forOutgoing) { element.remove(); continue; }
 			const sheet = transformCss(element.textContent ?? "", false, resource, options.reader || outgoing ? doc : undefined, outgoing, allowIndirect, markIndirect);
-			element.textContent = options.reader && !options.editor ? keepWordsWhole(sheet) : sheet;
+			element.textContent = options.reader && !options.editor ? keepWordsWhole(sheet, false) : sheet;
 		}
 		// Editor placeholders preserve source addresses without loading them. Validate again on send.
 		for (const attr of [...RESOURCE_ATTRIBUTES, "srcset", "style"]) {
@@ -296,7 +317,7 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 				try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) ? url.href : resource(value); }
 				catch { return resource(value); }
 			}, undefined, false, true)));
-			element.setAttribute("style", options.reader && !options.editor ? keepWordsWhole(safe) : safe);
+			element.setAttribute("style", options.reader && !options.editor ? keepWordsWhole(safe, true) : safe);
 		}
 		for (const attr of RESOURCE_ATTRIBUTES) {
 			if (!element.hasAttribute(attr)) continue;

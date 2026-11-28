@@ -5,6 +5,8 @@ import type { DragEvent } from "react";
 import { ChevronDown, ChevronUp, FileText, Forward, Maximize2, Minimize2, Minus, Paperclip, Reply, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
+import { announceStatus } from "@/lib/status-announcer";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -463,6 +465,12 @@ export function ComposeForm({
 			finally { setLoading(false); }
 			return;
 		}
+		// The outcome is said where the writer is: in this window, or, when it was closed meanwhile,
+		// in the application's own notice, so a refusal is never lost with the window.
+		const say = (type: "success" | "error", message: string, closed: TranslationKey) => {
+			if (mounted.current) setToast({ type, message }); else announceStatus(closed);
+		};
+		compose?.setSending(true);
 		try {
 			const res = await authFetch("/api/send", {
 				method: "POST",
@@ -490,13 +498,13 @@ export function ComposeForm({
 			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; undoUntil?: string; undoRemainingMs?: number; error?: unknown; code?: string; filename?: string } | null;
 
 			if (!res.ok) {
-				setToast({ type: "error", message: composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
+				say("error", composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }), "compose.error.closedSendFailed");
 				return;
 			}
 			// Only an answer that names the message is a send. Anything else that came back as a success
 			// (a cut-off body, a page from something in between) leaves the outcome open and the message here.
 			if (!data || typeof data.messageId !== "string" || !data.messageId) {
-				setToast({ type: "error", message: composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray") }) });
+				say("error", composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray") }), "compose.error.closedSendFailed");
 				return;
 			}
 
@@ -532,13 +540,15 @@ export function ComposeForm({
 				: 0;
 			if (compose && data.messageId && undoMs > UNDO_MIN_OFFER_MS) compose.offerUndoSend(data.messageId, undoMs, getEmailAddress(to[0] ?? ""), subject.trim());
 			// A message held only for an undo window that is as good as over is on its way, not "scheduled".
-			else setToast({ type: "success", message: data.scheduled && !data.undoUntil ? t("compose.scheduled") : t("compose.sent") });
+			else say("success", data.scheduled && !data.undoUntil ? t("compose.scheduled") : t("compose.sent"), data.scheduled && !data.undoUntil ? "compose.scheduled" : "compose.sent");
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
 		} catch (cause) {
 			// A failed fetch is a lost connection, said in the interface language; anything else keeps its own words.
-			const detail = cause instanceof Error && !(cause instanceof TypeError) && cause.name !== "TimeoutError" && cause.name !== "AbortError" ? cause.message.trim() : "";
-			setToast({ type: "error", message: composeSendError(null, t, { network: true, detail }) });
+			const timedOut = cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError");
+			const detail = timedOut ? t("compose.error.sendNoAnswer") : cause instanceof Error && !(cause instanceof TypeError) ? cause.message.trim() : "";
+			say("error", composeSendError(null, t, { network: true, detail }), "compose.error.closedSendFailed");
 		} finally {
+			compose?.setSending(false);
 			setLoading(false);
 		}
 	}
@@ -756,7 +766,7 @@ export function ComposeForm({
 				<div
 					role={toast.type === "error" ? "alert" : "status"}
 					className={cn(
-						"fixed right-4 top-6 z-[60] flex max-w-[calc(100vw-32px)] items-start gap-3 rounded-lg px-4 py-3 text-sm font-medium shadow-lg",
+						"fixed right-4 top-6 z-[60] flex max-w-[min(34rem,calc(100vw-32px))] items-start gap-3 rounded-lg px-4 py-3 text-sm font-medium shadow-lg",
 						toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white",
 					)}
 				>
@@ -774,7 +784,9 @@ export function ComposeForm({
 					<span className="flex min-w-0 items-center gap-2 truncate  dark:text-neutral-900">
 						{threading?.inReplyTo && <Reply className="h-3.5 w-3.5 text-neutral-600" />}
 						{!threading?.inReplyTo && /^fwd?:/i.test(subject) && <Forward className="h-3.5 w-3.5 text-neutral-600" />}
-						{loadingDraft
+						{loading
+							? t("compose.preparing")
+							: loadingDraft
 							? t("compose.title.loading")
 							: threading?.inReplyTo
 								? t("compose.title.reply")
@@ -798,6 +810,8 @@ export function ComposeForm({
 						</div>
 					)}
 				</div>
+				{/* Read out while a send runs: the Send button that shows it is inside the locked part. */}
+				<span role="status" className="sr-only">{loading ? t("compose.preparing") : ""}</span>
 				{/* While a send is prepared or under way the message itself cannot be changed, so what was
 				    checked is what goes out. The header stays usable: the window can be minimised or closed. */}
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")} inert={loading} aria-busy={loading}>

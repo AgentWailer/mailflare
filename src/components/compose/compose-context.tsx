@@ -3,6 +3,7 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
+import { announceStatus } from "@/lib/status-announcer";
 import type { ComposePrefill } from "./mailto-utils";
 
 // Only ever shown after a message was sent with an undo window: kept out of the startup bundle.
@@ -34,6 +35,11 @@ type ComposeContextValue = {
 	/** A composer says whether it holds anything worth keeping (text, recipients, files). */
 	reportOccupied: (composer: string, occupied: boolean) => void;
 	isOccupied: () => boolean;
+	/**
+	 * A composer says that its message is on its way to the server. Until that send has answered, no
+	 * other message is opened: the same draft opened again could be sent a second time.
+	 */
+	setSending: (sending: boolean) => void;
 	/** The page composer, while it is shown, opens a message taken back with Undo instead of the floating one. */
 	setRestoreTarget: (target: ((draftId: string) => void) | null) => void;
 };
@@ -60,15 +66,23 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 	const [composeId, setComposeId] = useState(0);
 	const [freshReply, setFreshReply] = useState(false);
 	const occupied = useRef(new Set<string>());
+	const sending = useRef(false);
+	const setSending = useCallback((value: boolean) => { sending.current = value; }, []);
+	/** True, and says so, while a send is under way: opening another message has to wait for its answer. */
+	const waitsForSend = useCallback(() => {
+		if (sending.current) announceStatus("compose.sendingBusy");
+		return sending.current;
+	}, []);
 	const restoreTarget = useRef<((draftId: string) => void) | null>(null);
 	const setRestoreTarget = useCallback((target: ((draftId: string) => void) | null) => { restoreTarget.current = target; }, []);
 
 	const openDraftComposer = useCallback((nextDraftId: string, options?: { freshReply?: boolean }) => {
+		if (waitsForSend()) return;
 		setPrefill(null);
 		setFreshReply(!!options?.freshReply);
 		setDraftId(nextDraftId);
 		setOpen(true);
-	}, []);
+	}, [waitsForSend]);
 	const reportOccupied = useCallback((composer: string, value: boolean) => {
 		if (value) occupied.current.add(composer); else occupied.current.delete(composer);
 	}, []);
@@ -89,6 +103,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 		freshReply,
 		// Takes no argument on purpose: it is used directly as a click handler.
 		openComposer: () => {
+			if (waitsForSend()) return;
 			setPrefill(null);
 			setFreshReply(false);
 			setDraftId(null);
@@ -96,6 +111,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 		},
 		openComposerWith: (next) => {
 			if (occupied.current.size > 0) return false;
+			if (waitsForSend()) return true;
 			setPrefill(next);
 			setComposeId((current) => current + 1);
 			setFreshReply(false);
@@ -114,7 +130,8 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 		reportOccupied,
 		isOccupied,
 		setRestoreTarget,
-	}), [setRestoreTarget, composeId, draftId, freshReply, isOccupied, open, openDraftComposer, prefill, reportOccupied]);
+		setSending,
+	}), [setRestoreTarget, setSending, waitsForSend, composeId, draftId, freshReply, isOccupied, open, openDraftComposer, prefill, reportOccupied]);
 
 	return (
 		<ComposeContext.Provider value={value}>
