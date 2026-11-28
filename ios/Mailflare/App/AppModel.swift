@@ -33,6 +33,8 @@ enum SettingKey {
 	static let autoAttachments = "attachments.auto"
 	static let attachmentsWiFiOnly = "attachments.wifiOnly"
 	static let lastScope = "list.lastScope"
+	/// The address book the composer suggests from, as last fetched.
+	static let recipientBook = "recipients.book"
 	/// The account's own setting for pictures from the internet, as last fetched from the server.
 	static let externalContent = "externalContent"
 }

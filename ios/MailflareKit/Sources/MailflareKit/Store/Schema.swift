@@ -90,6 +90,16 @@ enum Schema {
 				t.column("createdAt", .datetime).notNull()
 			}
 		}
+		migrator.registerMigration("v3") { db in
+			// Messages the user wrote on this device: being written, waiting to be sent, or refused.
+			// Not synced mail, so a reset of the synced mail leaves it alone.
+			try db.create(table: "outgoing") { t in
+				t.primaryKey("id", .text)
+				t.column("json", .text).notNull()
+				t.column("state", .text).notNull()
+				t.column("createdAt", .datetime).notNull()
+			}
+		}
 		return migrator
 	}
 }

@@ -98,6 +98,55 @@ public actor SyncEngine {
 
 	private func removeFailureObserver(_ id: UUID) { failureObservers[id] = nil }
 
+	// MARK: Sending mail
+
+	/// Sends the messages that wait to go out, oldest first. Each one becomes a draft on the
+	/// server and is sent from it: the draft goes with the send, so trying again after a lost
+	/// answer finds no draft and sends nothing a second time.
+	private func sendOutgoing() async throws {
+		for var message in try store.outgoingMessages(in: [.queued]) {
+			try Task.checkCancellation()
+			if let missing = message.attachments.first(where: { !FileManager.default.fileExists(atPath: $0.file.path) }) {
+				message.state = .failed(reason: "attachment missing: \(missing.filename)")
+				try store.saveOutgoing(message)
+				continue
+			}
+			do {
+				if let draftId = message.serverDraftId {
+					// The draft exists from an earlier try or was opened from the server: bring it up to date.
+					try await api.updateDraft(id: draftId, message.payload)
+				} else {
+					message.serverDraftId = try await api.createDraft(message.payload, requestId: message.id)
+					try store.saveOutgoing(message)
+				}
+				try await api.send(message.payload, draftId: message.serverDraftId ?? "", attachments: message.attachments)
+				try finishOutgoing(message)
+			} catch {
+				switch error {
+				case APIError.offline, APIError.accessDenied, APIError.signedOut, is CancellationError:
+					throw error
+				case APIError.notFound:
+					// The draft is gone: this message went out on an earlier try whose answer never arrived.
+					try finishOutgoing(message)
+				case APIError.server(let status, _) where (400..<500).contains(status) && status != 408:
+					message.state = .failed(reason: Self.reason(for: error))
+					try store.saveOutgoing(message)
+				default:
+					// A server error leaves the message waiting; the next run tries again, safely.
+					// A server that keeps failing is not tried for ever: the user is told instead.
+					message.attempts += 1
+					if message.attempts >= Self.maxAttempts { message.state = .failed(reason: Self.reason(for: error)) }
+					try store.saveOutgoing(message)
+				}
+			}
+		}
+	}
+
+	private func finishOutgoing(_ message: OutgoingMessage) throws {
+		try store.deleteOutgoing(id: message.id)
+		for attachment in message.attachments { try? FileManager.default.removeItem(at: attachment.file) }
+	}
+
 	/// Sends what waits in the outbox, oldest first, before anything is pulled: the server must
 	/// know what the user did before the device asks what changed.
 	private func flushOutbox() async throws {
@@ -162,6 +211,7 @@ public actor SyncEngine {
 		set(.syncing(firstRun: firstRun))
 		hasLocalChanges = false
 		do {
+			try await sendOutgoing()
 			try await flushOutbox()
 			try await pullChanges()
 			try await refreshMailboxes()

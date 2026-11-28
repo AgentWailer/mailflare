@@ -49,6 +49,22 @@
         }
       }
     },
+    "%@, remove": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, remove"
+          }
+        }
+      }
+    },
     "%lld days": {
       "localizations": {
         "de": {
@@ -93,6 +109,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "(No subject)"
+          }
+        }
+      }
+    },
+    "A message can carry ten attachments at most.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Mail kann höchstens zehn Anhänge tragen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A message can carry ten attachments at most."
           }
         }
       }
@@ -289,6 +321,22 @@
         }
       }
     },
+    "Attach": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anhängen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attach"
+          }
+        }
+      }
+    },
     "Attachment": {
       "localizations": {
         "de": {
@@ -333,6 +381,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Back"
+          }
+        }
+      }
+    },
+    "Bcc": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bcc"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bcc"
           }
         }
       }
@@ -413,6 +477,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cc"
+          }
+        }
+      }
+    },
+    "Cc/Bcc": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cc/Bcc"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cc/Bcc"
           }
         }
       }
@@ -561,6 +641,22 @@
         }
       }
     },
+    "Discard": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verwerfen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "de": {
@@ -573,6 +669,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Done"
+          }
+        }
+      }
+    },
+    "Draft": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entwurf"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draft"
           }
         }
       }
@@ -721,6 +833,22 @@
         }
       }
     },
+    "File": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        }
+      }
+    },
     "Filter": {
       "localizations": {
         "de": {
@@ -765,6 +893,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Folders"
+          }
+        }
+      }
+    },
+    "Forward": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiterleiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward"
           }
         }
       }
@@ -897,6 +1041,22 @@
         }
       }
     },
+    "Include the earlier message": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frühere Nachricht mitsenden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include the earlier message"
+          }
+        }
+      }
+    },
     "Invoices": {
       "localizations": {
         "de": {
@@ -925,6 +1085,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep mail offline"
+          }
+        }
+      }
+    },
+    "Keep this message?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Mail behalten?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep this message?"
           }
         }
       }
@@ -1121,6 +1297,22 @@
         }
       }
     },
+    "New message": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Mail"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New message"
+          }
+        }
+      }
+    },
     "Next week": {
       "localizations": {
         "de": {
@@ -1201,6 +1393,38 @@
         }
       }
     },
+    "Not sent": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht gesendet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sent"
+          }
+        }
+      }
+    },
+    "Not sent: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht gesendet: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sent: %@"
+          }
+        }
+      }
+    },
     "Not synced yet": {
       "localizations": {
         "de": {
@@ -1229,6 +1453,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing unread"
+          }
+        }
+      }
+    },
+    "Nothing waiting": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts im Ausgang"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing waiting"
           }
         }
       }
@@ -1361,6 +1601,22 @@
         }
       }
     },
+    "Outbox": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgang"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outbox"
+          }
+        }
+      }
+    },
     "Password": {
       "localizations": {
         "de": {
@@ -1393,6 +1649,38 @@
         }
       }
     },
+    "Photo": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo"
+          }
+        }
+      }
+    },
+    "Photo or video": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto oder Video"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo or video"
+          }
+        }
+      }
+    },
     "Promotions": {
       "localizations": {
         "de": {
@@ -1421,6 +1709,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reading"
+          }
+        }
+      }
+    },
+    "Remove %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@"
           }
         }
       }
@@ -1473,6 +1777,38 @@
         }
       }
     },
+    "Reply": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antworten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply"
+          }
+        }
+      }
+    },
+    "Reply all": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allen antworten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply all"
+          }
+        }
+      }
+    },
     "Reply to": {
       "localizations": {
         "de": {
@@ -1485,6 +1821,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reply to"
+          }
+        }
+      }
+    },
+    "Save as draft": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Entwurf sichern"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save as draft"
           }
         }
       }
@@ -1549,6 +1901,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select"
+          }
+        }
+      }
+    },
+    "Send": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send"
           }
         }
       }
@@ -1953,6 +2321,22 @@
         }
       }
     },
+    "Subject": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Betreff"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subject"
+          }
+        }
+      }
+    },
     "Sync failed": {
       "localizations": {
         "de": {
@@ -1997,6 +2381,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "That is not a server address. Enter it like mail.example.com."
+          }
+        }
+      }
+    },
+    "The attachments of the original are sent along.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Anhänge der ursprünglichen Mail werden mitgesendet."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The attachments of the original are sent along."
           }
         }
       }
@@ -2173,6 +2573,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "This evening"
+          }
+        }
+      }
+    },
+    "This file could not be read.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei konnte nicht gelesen werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file could not be read."
+          }
+        }
+      }
+    },
+    "This file is larger than 10 MB and cannot be attached.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei ist größer als 10 MB und kann nicht angehängt werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file is larger than 10 MB and cannot be attached."
           }
         }
       }
@@ -2429,6 +2861,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Version"
+          }
+        }
+      }
+    },
+    "Waiting to send": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet auf Versand"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to send"
           }
         }
       }

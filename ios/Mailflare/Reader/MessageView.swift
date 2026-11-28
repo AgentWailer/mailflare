@@ -12,6 +12,7 @@ struct MessageView: View {
 	@State private var tree = MailboxTree()
 	@Environment(\.openURL) private var openURL
 	@Environment(\.dismiss) private var dismiss
+	@Environment(ComposeCoordinator.self) private var composer
 
 	/// Actions after which there is nothing left to read here.
 	private static let leavesReader: Set<RowAction> = [.archive, .trash, .spam, .moveToInbox]
@@ -54,6 +55,20 @@ struct MessageView: View {
 				// The two things done most are one tap away; everything else is in the menu.
 				let quick = Array((offer.leading.filter { $0 != .markRead && $0 != .markUnread } + offer.trailing).prefix(2))
 				ToolbarItemGroup(placement: .bottomBar) {
+					if row.status != "draft" {
+						Menu {
+							Button("Reply", systemImage: "arrowshape.turn.up.left") { composer.intent = .reply(messageId: row.id, all: false) }
+							if ReplyBuilder.hasAdditionalRecipients(row, ownAddresses: ownAddresses(for: row)) {
+								Button("Reply all", systemImage: "arrowshape.turn.up.left.2") { composer.intent = .reply(messageId: row.id, all: true) }
+							}
+							Button("Forward", systemImage: "arrowshape.turn.up.right") { composer.intent = .forward(messageId: row.id) }
+						} label: {
+							Label("Reply", systemImage: "arrowshape.turn.up.left")
+						} primaryAction: {
+							composer.intent = .reply(messageId: row.id, all: false)
+						}
+						Spacer()
+					}
 					ForEach(quick, id: \.self) { action in
 						RowActionButton(action: action) { run(action) }
 						Spacer()
@@ -80,6 +95,18 @@ struct MessageView: View {
 		}
 		.onAppear { model.start() }
 		.onDisappear { model.stop() }
+	}
+
+	private func ownAddresses(for row: MessageRow) -> [String] {
+		tree.mailboxes.first { $0.id == row.mailboxId }.flatMap { $0.senderAddresses ?? [$0.address] } ?? [session.account.email]
+	}
+
+	/// What a `mailto:` link asks for. Only addresses, subject and text are taken from it.
+	static func compose(fromMailLink url: URL) -> ComposeIntent {
+		let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+		let query = Dictionary((components?.queryItems ?? []).map { ($0.name.lowercased(), $0.value ?? "") }, uniquingKeysWith: { first, _ in first })
+		let addresses = MailAddress.list((components?.path ?? "") + (query["to"].map { ",\($0)" } ?? "")).map(\.address).filter(ComposeModel.isValid)
+		return .new(to: addresses, subject: query["subject"] ?? "", body: query["body"] ?? "")
 	}
 
 	// MARK: Head
@@ -187,7 +214,10 @@ struct MessageView: View {
 					.padding(.top, 12)
 				}
 				MailBodyView(html: document.html, height: $bodyHeight) { url in
-					if ["https", "http", "tel"].contains(url.scheme?.lowercased() ?? "") { openURL(url) }
+					let scheme = url.scheme?.lowercased() ?? ""
+					if ["https", "http", "tel"].contains(scheme) { openURL(url) }
+					// A mail link starts a message here instead of leaving for another app.
+					if scheme == "mailto" { composer.intent = Self.compose(fromMailLink: url) }
 				}
 				.frame(height: bodyHeight)
 				.padding(.top, 12)

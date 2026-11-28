@@ -112,6 +112,38 @@ GERMAN = {
     "No mail here": "Hier ist keine Mail",
     "Has attachments": "Mit Anhang",
     "%lld messages": "%lld Nachrichten",
+    # Composing
+    "To": "An",
+    "Cc": "Cc",
+    "Bcc": "Bcc",
+    "From": "Von",
+    "Cc/Bcc": "Cc/Bcc",
+    "Subject": "Betreff",
+    "New message": "Neue Mail",
+    "Attach": "Anhängen",
+    "Photo or video": "Foto oder Video",
+    "File": "Datei",
+    "Send": "Senden",
+    "Keep this message?": "Diese Mail behalten?",
+    "Save as draft": "Als Entwurf sichern",
+    "Discard": "Verwerfen",
+    "Include the earlier message": "Frühere Nachricht mitsenden",
+    "This file is larger than 10 MB and cannot be attached.": "Diese Datei ist größer als 10 MB und kann nicht angehängt werden.",
+    "A message can carry ten attachments at most.": "Eine Mail kann höchstens zehn Anhänge tragen.",
+    "This file could not be read.": "Diese Datei konnte nicht gelesen werden.",
+    "Photo": "Foto",
+    "Remove %@": "%@ entfernen",
+    "%@, remove": "%@, entfernen",
+    "The attachments of the original are sent along.": "Die Anhänge der ursprünglichen Mail werden mitgesendet.",
+    "Outbox": "Ausgang",
+    "Nothing waiting": "Nichts im Ausgang",
+    "Not sent: %@": "Nicht gesendet: %@",
+    "Not sent": "Nicht gesendet",
+    "Draft": "Entwurf",
+    "Waiting to send": "Wartet auf Versand",
+    "Reply": "Antworten",
+    "Reply all": "Allen antworten",
+    "Forward": "Weiterleiten",
     # Actions
     "Archive": "Archivieren",
     # The folder, as opposed to the action above. A key of its own with its English text.
@@ -142,9 +174,6 @@ GERMAN = {
     "Attachment": "Anhang",
     "Attachments": "Anhänge",
     "To: %@ and %lld more": "An: %@ und %lld weitere",
-    "From": "Von",
-    "To": "An",
-    "Cc": "Cc",
     "Reply to": "Antwort an",
     "Not on this device yet": "Noch nicht auf diesem Gerät",
     "This message loads as soon as you are online again.": "Diese Nachricht wird geladen, sobald du wieder online bist.",
@@ -204,7 +233,8 @@ def check(derived_data):
         with open(path) as handle:
             for entries in json.load(handle).get("tables", {}).values():
                 found.update(entry["key"] for entry in entries)
-    missing = sorted(found - set(GERMAN))
+    # An empty text, as a field without a placeholder has, needs no translation.
+    missing = sorted(key for key in found - set(GERMAN) if key.strip())
     for key in missing:
         print("no German text for:", json.dumps(key, ensure_ascii=False))
     return 1 if missing else 0

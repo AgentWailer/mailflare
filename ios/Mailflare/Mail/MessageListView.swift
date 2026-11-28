@@ -39,6 +39,7 @@ private struct MessageListContent: View {
 	@State private var tree = MailboxTree()
 	@State private var selection = Set<String>()
 	@State private var editMode: EditMode = .inactive
+	@Environment(ComposeCoordinator.self) private var composer
 	private let words = Presentation.current
 
 	private var isSelecting: Bool { editMode == .active }
@@ -84,10 +85,18 @@ private struct MessageListContent: View {
 		List(selection: isSelecting ? $selection : .constant([])) {
 			ForEach(model.items) { item in
 				let offer = MailActions.offered(for: item.message, canManage: MailActions.canManage(mailboxId: item.message.mailboxId, in: tree))
-				NavigationLink(value: Route.message(item.id)) {
-					MessageRowView(item: item, showsThread: model.conversations)
+				Group {
+					if item.message.status == "draft" {
+						// A draft is opened to go on writing, not to be read.
+						Button { composer.intent = .serverDraft(id: item.id) } label: { MessageRowView(item: item, showsThread: false) }
+							.buttonStyle(.plain)
+					} else {
+						NavigationLink(value: Route.message(item.id)) {
+							MessageRowView(item: item, showsThread: model.conversations)
+						}
+						.navigationLinkIndicatorVisibility(.hidden)
+					}
 				}
-				.navigationLinkIndicatorVisibility(.hidden)
 				.listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 12))
 				.swipeActions(edge: .leading, allowsFullSwipe: true) {
 					ForEach(offer.leading, id: \.self) { action in
@@ -148,6 +157,11 @@ private struct MessageListContent: View {
 			}
 			ToolbarItem(placement: .status) {
 				if !isSelecting { SyncStatusLabel(status: model.status) }
+			}
+			ToolbarItem(placement: .bottomBar) {
+				if !isSelecting {
+					Button { composer.intent = .new() } label: { Label("New message", systemImage: "square.and.pencil") }
+				}
 			}
 		}
 		.refreshable {

@@ -7,6 +7,7 @@ struct MainView: View {
 	@State private var path: [Route]
 	@Environment(\.scenePhase) private var scenePhase
 	@Environment(AppModel.self) private var model
+	@State private var composer = ComposeCoordinator()
 
 	init(session: AccountSession) {
 		self.session = session
@@ -24,8 +25,13 @@ struct MainView: View {
 					case .message(let id): MessageView(messageId: id, session: session)
 					case .web(let area): WebAreaView(area: area, session: session)
 					case .appSettings: AppSettingsView(session: session)
+					case .outbox: OutboxView(session: session)
 					}
 				}
+		}
+		.environment(composer)
+		.sheet(item: $composer.intent) { intent in
+			ComposeView(intent: intent, session: session)
 		}
 		// An action the server refused is back as it was; say so, or it looks like it never happened.
 		.task {
