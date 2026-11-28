@@ -6,6 +6,7 @@ import type { NewMessageNotification } from "@/lib/realtime/types";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { buildMailPushContent } from "./notification-content";
 import { getUnreadBadgeCount } from "./badge";
+import { sendAppNotifications } from "./apns";
 
 type VapidConfig = {
 	publicKey: string;
@@ -251,7 +252,11 @@ export async function sendPushNotifications(
 	userIds: string[],
 	payload: NewMessageNotification,
 ): Promise<void> {
-	await deliverPushNotifications(env, userIds, payload);
+	// The installed apps are told through Apple, next to the browsers; neither waits for or fails the other.
+	await Promise.allSettled([
+		deliverPushNotifications(env, userIds, payload),
+		sendAppNotifications(env, userIds, payload),
+	]);
 }
 
 export async function sendPushTestNotification(env: CloudflareEnv, userId: string, endpoint: string) {

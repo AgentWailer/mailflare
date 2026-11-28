@@ -625,6 +625,31 @@ export const deviceSessions = sqliteTable("device_sessions", {
 		.$defaultFn(() => new Date()),
 });
 
+/** The address Apple gave the app behind a device session, for notifications. */
+export const appDevices = sqliteTable(
+	"app_devices",
+	{
+		sessionId: text("session_id")
+			.primaryKey()
+			.references(() => sessions.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		token: text("token").notNull(),
+		environment: text("environment").notNull(),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: integer("updated_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(t) => [
+		index("app_devices_user_idx").on(t.userId),
+		index("app_devices_token_idx").on(t.token),
+	],
+);
+
 export const pushSubscriptions = sqliteTable(
 	"push_subscriptions",
 	{

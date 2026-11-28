@@ -72,6 +72,15 @@ import Testing
 		#expect(try found(store, "treffen", mailbox: "other") == ["elsewhere"])
 	}
 
+	@Test func `the number at the icon counts unread mail of the inbox only`() throws {
+		let store = try store([
+			mail("a"), mail("b", category: "invoices"), mail("elsewhere", mailbox: "other"), mail("read", read: true),
+			mail("promo", category: "promotions"), mail("spam", status: "spam"), mail("archived", status: "archived"),
+			mail("snoozed", snoozedUntil: testNow.addingTimeInterval(3600)), mail("sent", direction: "outbound", status: "sent"), mail("filed", folder: "f1"),
+		])
+		#expect(try store.unreadInboxCount(now: testNow) == 3)
+	}
+
 	@Test func `signs that mean something to the index are taken as text`() throws {
 		let store = try store([mail("a", subject: "Re: \"Angebot\" (Dach) - 50% AND mehr*")])
 		for text in ["\"angebot\"", "(dach)", "50%", "AND", "mehr*", "angebot OR", "re:", "-", "\"", "  "] {

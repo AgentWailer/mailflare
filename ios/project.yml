@@ -14,7 +14,7 @@ settings:
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "5"
+    CURRENT_PROJECT_VERSION: "6"
     DEVELOPMENT_TEAM: 4F3M4YYQN3
     CODE_SIGN_STYLE: Automatic
 packages:
@@ -36,6 +36,11 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_EMIT_LOC_STRINGS: YES
+    entitlements:
+      path: Mailflare/Mailflare.entitlements
+      properties:
+        # Xcode replaces this with "production" when it signs a build for TestFlight or the App Store.
+        aps-environment: development
     info:
       path: Mailflare/Info.plist
       properties:
@@ -46,7 +51,7 @@ targets:
           # Needed to reach a test server on this machine from the simulator. The app itself accepts
           # plain http only for localhost, and only in a development build (normalizeServerAddress).
           NSAllowsLocalNetworking: true
-        UIBackgroundModes: [fetch]
+        UIBackgroundModes: [fetch, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [de.steffenvonlindern.mailflare.refresh]
         NSCameraUsageDescription: The camera reads the QR code of your access key.
         UILaunchScreen: {}

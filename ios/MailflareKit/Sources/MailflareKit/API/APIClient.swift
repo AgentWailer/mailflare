@@ -75,6 +75,19 @@ public struct APIClient: Sendable {
 		_ = try await data(.delete, "/api/app/devices/\(Self.segment(id))")
 	}
 
+	/// Hands the server the address Apple gave this app, so new mail is announced on this device.
+	/// Returns whether the server is set up to reach Apple at all.
+	@discardableResult
+	public func registerPush(token: String, environment: String) async throws -> Bool {
+		struct Answer: Decodable { let configured: Bool? }
+		let body = try JSONSerialization.data(withJSONObject: ["token": token, "environment": environment])
+		return try await decode(Answer.self, .post, "/api/app/push", body: body).configured ?? false
+	}
+
+	public func unregisterPush() async throws {
+		_ = try await data(.delete, "/api/app/push")
+	}
+
 	// MARK: Composing
 
 	private func fields(_ draft: DraftPayload) -> [String: Any] {

@@ -129,6 +129,22 @@
         }
       }
     },
+    "A notification shows sender, subject and the first lines. Archive, mark as read and delete work from the notification itself.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Mitteilung zeigt Absender, Betreff und die ersten Zeilen. Archivieren, als gelesen markieren und löschen gehen direkt in der Mitteilung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A notification shows sender, subject and the first lines. Archive, mark as read and delete work from the notification itself."
+          }
+        }
+      }
+    },
     "Access": {
       "localizations": {
         "de": {
@@ -301,6 +317,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "All mailboxes"
+          }
+        }
+      }
+    },
+    "Allow notifications": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitteilungen erlauben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow notifications"
+          }
+        }
+      }
+    },
+    "Allowed": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erlaubt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed"
           }
         }
       }
@@ -1297,6 +1345,22 @@
         }
       }
     },
+    "New mail": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Mails"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New mail"
+          }
+        }
+      }
+    },
     "New message": {
       "localizations": {
         "de": {
@@ -1373,6 +1437,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No recipient"
+          }
+        }
+      }
+    },
+    "Not asked yet": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nicht gefragt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not asked yet"
           }
         }
       }
@@ -1489,6 +1569,22 @@
         }
       }
     },
+    "Notifications": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitteilungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications"
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "de": {
@@ -1597,6 +1693,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Only on Wi-Fi"
+          }
+        }
+      }
+    },
+    "Open the notification settings of iOS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitteilungen in den iOS-Einstellungen öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the notification settings of iOS"
           }
         }
       }
@@ -2397,6 +2509,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Subject"
+          }
+        }
+      }
+    },
+    "Switched off": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgeschaltet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switched off"
           }
         }
       }
