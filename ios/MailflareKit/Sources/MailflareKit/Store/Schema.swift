@@ -100,6 +100,41 @@ enum Schema {
 				t.column("createdAt", .datetime).notNull()
 			}
 		}
+		migrator.registerMigration("v4") { db in
+			// The search index: one row per message, under the message's rowid. Triggers keep the
+			// head in step; the content is written where a body is stored, because mail that has
+			// only HTML needs its text taken out first.
+			try db.execute(sql: """
+				CREATE VIRTUAL TABLE message_search USING fts5(subject, sender, recipients, snippet, body, tokenize = "unicode61 remove_diacritics 2");
+				CREATE TRIGGER message_search_ai AFTER INSERT ON message BEGIN
+					INSERT INTO message_search(rowid, subject, sender, recipients, snippet, body)
+					VALUES (new.rowid, coalesce(new.subject, ''), new.fromAddr || ' ' || coalesce(new.fromContactName, ''),
+						new.toAddr || ' ' || coalesce(new.ccAddr, '') || ' ' || coalesce(new.toContactName, ''), coalesce(new.snippet, ''), '');
+				END;
+				CREATE TRIGGER message_search_au AFTER UPDATE OF subject, fromAddr, fromContactName, toAddr, ccAddr, toContactName, snippet ON message
+				WHEN old.subject IS NOT new.subject OR old.fromAddr IS NOT new.fromAddr OR old.fromContactName IS NOT new.fromContactName
+					OR old.toAddr IS NOT new.toAddr OR old.ccAddr IS NOT new.ccAddr OR old.toContactName IS NOT new.toContactName OR old.snippet IS NOT new.snippet
+				BEGIN
+					UPDATE message_search SET subject = coalesce(new.subject, ''), sender = new.fromAddr || ' ' || coalesce(new.fromContactName, ''),
+						recipients = new.toAddr || ' ' || coalesce(new.ccAddr, '') || ' ' || coalesce(new.toContactName, ''), snippet = coalesce(new.snippet, '')
+					WHERE rowid = new.rowid;
+				END;
+				CREATE TRIGGER message_search_ad AFTER DELETE ON message BEGIN
+					DELETE FROM message_search WHERE rowid = old.rowid;
+				END;
+				INSERT INTO message_search(rowid, subject, sender, recipients, snippet, body)
+				SELECT rowid, coalesce(subject, ''), fromAddr || ' ' || coalesce(fromContactName, ''),
+					toAddr || ' ' || coalesce(ccAddr, '') || ' ' || coalesce(toContactName, ''), coalesce(snippet, ''), '' FROM message;
+				""")
+			let bodies = try Row.fetchCursor(db, sql: "SELECT m.rowid AS position, b.textBody, b.htmlBody FROM message_body b JOIN message m ON m.id = b.messageId")
+			var texts: [(Int64, String)] = []
+			while let row = try bodies.next() {
+				texts.append((row["position"], SearchText.body(text: row["textBody"], html: row["htmlBody"])))
+			}
+			for (position, text) in texts where !text.isEmpty {
+				try db.execute(sql: "UPDATE message_search SET body = ? WHERE rowid = ?", arguments: [text, position])
+			}
+		}
 		return migrator
 	}
 }

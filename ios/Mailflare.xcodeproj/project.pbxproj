@@ -17,10 +17,12 @@
 		20D4B9F05A813105E371E320 /* MessageModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D5AF6CF6308E752ECD958B /* MessageModelTests.swift */; };
 		216E77B5EDA4CF21BAD4B36F /* WalkthroughTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14E33281AC96185B9E26081 /* WalkthroughTests.swift */; };
 		26AB9DA803B67AE49E435DCD /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DB6265D72B7B99DCA65E03 /* AppModel.swift */; };
+		31AF4807560B22CB624FB970 /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFDB6EF54512B96C48BB13E /* SearchResultsView.swift */; };
 		348F83C124418A28BE18862B /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2FE52762FB1DF0BD379050 /* Messages.swift */; };
 		3B660CE08B174F06BECD9196 /* AccessKeyParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76FA1160FD014E61AD363079 /* AccessKeyParsingTests.swift */; };
 		3BBD2F07BCB6EB86B6301292 /* RichTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C96E13C1EE2DD75FDE0605C /* RichTextEditor.swift */; };
 		3FC42D69E207D10C96796FDA /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 86822F3A9CD77C7B3169109C /* Localizable.xcstrings */; };
+		3FC9C004310159D8E88312B1 /* SearchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE717879FFFC48716AEB02D /* SearchModel.swift */; };
 		40B61A0271483164D624888B /* WebSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC8D69BD3CDF11AA463B81F /* WebSession.swift */; };
 		40C31BFB088EA64D56EB4A80 /* MailActionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB6BADA1416C95388593FB0A /* MailActionsTests.swift */; };
 		424848952E4702263AB1D186 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 211D844A89586F7781DFD929 /* RootView.swift */; };
@@ -28,6 +30,7 @@
 		43CAD425F28DF5930F17D692 /* Connectivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62DDAFC8291B4F60C39ACF8E /* Connectivity.swift */; };
 		4E0C629CE35CB03A141F5851 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2D23399A2D0B17FD320EAC /* TestSupport.swift */; };
 		6313347BCC1B9BDF21D6A0A6 /* Routes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF215A2A868D1ABBA1C1A2B /* Routes.swift */; };
+		6730705DAC7CE65761073BE9 /* SearchModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 315A3E5956761FB30C6F3953 /* SearchModelTests.swift */; };
 		77809147C36411CA278C5CEB /* AccessKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9295BB1CE820F1828A07E7E /* AccessKey.swift */; };
 		79FA21D877C2F43731FEAB84 /* MessageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6FAB48BECB1D238D54CE8E /* MessageModel.swift */; };
 		84105ACEBD278DC860888EFF /* WebAreaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7818EE14A4EB112A1112DB5 /* WebAreaView.swift */; };
@@ -79,9 +82,12 @@
 		0655C30FAB3D4ADF778EC43D /* MailActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailActions.swift; sourceTree = "<group>"; };
 		08B4DB0154FD3AD1C37DC2FB /* MessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageView.swift; sourceTree = "<group>"; };
 		0F6FAB48BECB1D238D54CE8E /* MessageModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageModel.swift; sourceTree = "<group>"; };
+		0FFDB6EF54512B96C48BB13E /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		211D844A89586F7781DFD929 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		2ACAD72910ED4FCF4849B426 /* MailboxListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailboxListView.swift; sourceTree = "<group>"; };
 		2E06CF763FDF8B283FCF0697 /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
+		2EE717879FFFC48716AEB02D /* SearchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchModel.swift; sourceTree = "<group>"; };
+		315A3E5956761FB30C6F3953 /* SearchModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchModelTests.swift; sourceTree = "<group>"; };
 		3EF10FA018326DC32EED258D /* Presentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Presentation.swift; sourceTree = "<group>"; };
 		3EF215A2A868D1ABBA1C1A2B /* Routes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Routes.swift; sourceTree = "<group>"; };
 		40BB452D8179270369E09048 /* MailflareKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MailflareKit; path = MailflareKit; sourceTree = SOURCE_ROOT; };
@@ -255,6 +261,8 @@
 				60854C2D14D6C727E1464F32 /* MessageListView.swift */,
 				AB559F2089FCDFCACB6C7873 /* MessageRowView.swift */,
 				3EF215A2A868D1ABBA1C1A2B /* Routes.swift */,
+				2EE717879FFFC48716AEB02D /* SearchModel.swift */,
+				0FFDB6EF54512B96C48BB13E /* SearchResultsView.swift */,
 			);
 			path = Mail;
 			sourceTree = "<group>";
@@ -269,6 +277,7 @@
 				AB6BADA1416C95388593FB0A /* MailActionsTests.swift */,
 				052E305D9BF3F7D296F10BA0 /* MessageListModelTests.swift */,
 				62D5AF6CF6308E752ECD958B /* MessageModelTests.swift */,
+				315A3E5956761FB30C6F3953 /* SearchModelTests.swift */,
 				BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */,
 				9E03CB149725E1C88FFCD715 /* WebSessionTests.swift */,
 				E2F2FCA991E582239B1CCC89 /* Support */,
@@ -449,6 +458,7 @@
 				40C31BFB088EA64D56EB4A80 /* MailActionsTests.swift in Sources */,
 				9E48435D861292DAA2B343BA /* MessageListModelTests.swift in Sources */,
 				20D4B9F05A813105E371E320 /* MessageModelTests.swift in Sources */,
+				6730705DAC7CE65761073BE9 /* SearchModelTests.swift in Sources */,
 				B64570EAA8E4DAA7DB467710 /* SkeletonTests.swift in Sources */,
 				4E0C629CE35CB03A141F5851 /* TestSupport.swift in Sources */,
 				122CB5FB0535DD5A0B7657FE /* WebSessionTests.swift in Sources */,
@@ -494,6 +504,8 @@
 				E0E539A9725E31D3686C7DEB /* RichTextHTML.swift in Sources */,
 				424848952E4702263AB1D186 /* RootView.swift in Sources */,
 				6313347BCC1B9BDF21D6A0A6 /* Routes.swift in Sources */,
+				3FC9C004310159D8E88312B1 /* SearchModel.swift in Sources */,
+				31AF4807560B22CB624FB970 /* SearchResultsView.swift in Sources */,
 				05A5E68B0087D758A5249D76 /* SetupViews.swift in Sources */,
 				84105ACEBD278DC860888EFF /* WebAreaView.swift in Sources */,
 				40B61A0271483164D624888B /* WebSession.swift in Sources */,
@@ -605,7 +617,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 4F3M4YYQN3;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -667,7 +679,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 4F3M4YYQN3;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

@@ -1553,6 +1553,38 @@
         }
       }
     },
+    "Older mail on the server": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ältere Mails am Server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Older mail on the server"
+          }
+        }
+      }
+    },
+    "On this device": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf diesem Gerät"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On this device"
+          }
+        }
+      }
+    },
     "Only on Wi-Fi": {
       "localizations": {
         "de": {
@@ -1869,6 +1901,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scheduled"
+          }
+        }
+      }
+    },
+    "Search mail": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mails durchsuchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search mail"
+          }
+        }
+      }
+    },
+    "Searching the server…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche am Server …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching the server…"
           }
         }
       }
@@ -2497,6 +2561,22 @@
         }
       }
     },
+    "The server could not be searched.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am Server konnte nicht gesucht werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server could not be searched."
+          }
+        }
+      }
+    },
     "The server did not accept the last change (%@). The mail is back as it was.": {
       "localizations": {
         "de": {
@@ -2893,6 +2973,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wake now"
+          }
+        }
+      }
+    },
+    "Without a connection only the mail on this device is searched.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne Verbindung wird nur in den Mails auf diesem Gerät gesucht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Without a connection only the mail on this device is searched."
           }
         }
       }
