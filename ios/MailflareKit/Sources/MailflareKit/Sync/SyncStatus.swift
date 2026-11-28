@@ -36,6 +36,8 @@ public protocol MailAPI: Sendable {
 	func mailboxes() async throws -> [MailboxInfo]
 	func folders(mailboxId: String) async throws -> [FolderInfo]
 	func counts(mailboxId: String?) async throws -> MailCounts
+	/// Downloads an attachment to a temporary file and returns it.
+	func attachment(messageId: String, attachmentId: String, filename: String) async throws -> URL
 }
 
 extension APIClient: MailAPI {}

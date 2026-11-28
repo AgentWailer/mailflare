@@ -147,6 +147,28 @@ public final class MailStore: Sendable {
 		}
 	}
 
+	// MARK: Attachments
+
+	/// Attachments of mail inside the offline window that are small enough to fetch unasked, newest mail first.
+	public func attachments(newerThan date: Date, maxBytes: Int) throws -> [AttachmentInfo] {
+		try writer.read { db in
+			try AttachmentInfo.fetchAll(db, sql: """
+				SELECT a.* FROM attachment a JOIN message m ON m.id = a.messageId
+				WHERE m.createdAt >= ? AND a.size <= ? ORDER BY m.createdAt DESC, a.rowid
+				""", arguments: [date, maxBytes])
+		}
+	}
+
+	public func attachmentIds() throws -> Set<String> {
+		try writer.read { Set(try String.fetchAll($0, sql: "SELECT id FROM attachment")) }
+	}
+
+	/// Where this account's files live next to its database. Nil for a store that is only in memory.
+	public var directory: URL? {
+		let path = writer.path
+		return path.isEmpty || path == ":memory:" ? nil : URL(filePath: path).deletingLastPathComponent()
+	}
+
 	// MARK: Reading
 
 	public func list(_ scope: ListScope, limit: Int, now: Date = Date()) throws -> [ListItem] {

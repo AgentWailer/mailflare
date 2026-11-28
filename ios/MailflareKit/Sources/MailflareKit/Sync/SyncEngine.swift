@@ -7,6 +7,8 @@ public actor SyncEngine {
 	private let store: MailStore
 	private let settings: SyncSettings
 	private let now: @Sendable () -> Date
+	private let attachments: AttachmentCache?
+	private let isOnWiFi: @Sendable () -> Bool
 
 	private var running: Task<Void, Never>?
 	private var observers: [UUID: AsyncStream<SyncStatus>.Continuation] = [:]
@@ -17,7 +19,12 @@ public actor SyncEngine {
 	/// More pages than any mailbox needs; a server that never stops saying "more" ends here.
 	private static let pageCap = 5_000
 
-	public init(api: any MailAPI, store: MailStore, settings: SyncSettings = SyncSettings(), now: @escaping @Sendable () -> Date = { Date() }) {
+	public init(
+		api: any MailAPI, store: MailStore, settings: SyncSettings = SyncSettings(), attachments: AttachmentCache? = nil,
+		isOnWiFi: @escaping @Sendable () -> Bool = { false }, now: @escaping @Sendable () -> Date = { Date() }
+	) {
+		self.attachments = attachments
+		self.isOnWiFi = isOnWiFi
 		self.api = api
 		self.store = store
 		self.settings = settings
@@ -64,6 +71,8 @@ public actor SyncEngine {
 			let windowStart = now().addingTimeInterval(-Double(settings.days) * 86_400)
 			try await fetchBodies(newerThan: windowStart)
 			try store.trimBodies(olderThan: windowStart)
+			try await fetchAttachments(newerThan: windowStart)
+			try attachments?.prune(keeping: try store.attachmentIds())
 			try store.markSynced(at: now())
 			set(.idle(last: now()))
 		} catch APIError.offline {
@@ -151,6 +160,42 @@ public actor SyncEngine {
 			}
 			failed.formUnion(failures)
 		}
+	}
+
+	/// Fetches the smaller attachments of the mail inside the window so they open offline.
+	/// Skipped off Wi-Fi unless the user allowed mobile data. One that fails waits for the next run.
+	private func fetchAttachments(newerThan windowStart: Date) async throws {
+		guard let attachments, settings.autoAttachmentBytes > 0, isOnWiFi() || !settings.attachmentsOnWiFiOnly else { return }
+		for attachment in try store.attachments(newerThan: windowStart, maxBytes: settings.autoAttachmentBytes) where attachments.file(for: attachment) == nil {
+			try Task.checkCancellation()
+			do {
+				_ = try await download(attachment, into: attachments)
+			} catch APIError.offline {
+				throw APIError.offline
+			} catch APIError.accessDenied {
+				throw APIError.accessDenied
+			} catch APIError.signedOut {
+				throw APIError.signedOut
+			} catch is CancellationError {
+				throw CancellationError()
+			} catch {
+				continue
+			}
+		}
+	}
+
+	private func download(_ attachment: AttachmentInfo, into cache: AttachmentCache) async throws -> URL {
+		let downloaded = try await api.attachment(messageId: attachment.messageId, attachmentId: attachment.id, filename: attachment.filename)
+		return try cache.store(downloaded, for: attachment)
+	}
+
+	/// The attachment as a file, from the device when it is there and from the server otherwise.
+	public func attachmentFile(_ attachment: AttachmentInfo) async throws -> URL {
+		if let file = attachments?.file(for: attachment) { return file }
+		guard let attachments else {
+			return try await api.attachment(messageId: attachment.messageId, attachmentId: attachment.id, filename: attachment.filename)
+		}
+		return try await download(attachment, into: attachments)
 	}
 
 	/// The message with its content, fetching the content when the device does not hold it yet.

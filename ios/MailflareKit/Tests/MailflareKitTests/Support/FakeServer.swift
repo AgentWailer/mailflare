@@ -22,6 +22,10 @@ actor FakeServer: MailAPI {
 	// What a test can check afterwards.
 	private(set) var syncCursors: [String?] = []
 	private(set) var bodyRequests: [String] = []
+	private(set) var attachmentRequests: [String] = []
+	var attachments: [String: [AttachmentInfo]] = [:]
+
+	func attach(_ attachment: AttachmentInfo) { attachments[attachment.messageId, default: []].append(attachment) }
 	private(set) var maxConcurrentBodies = 0
 	private var concurrentBodies = 0
 
@@ -33,7 +37,7 @@ actor FakeServer: MailAPI {
 	func onSyncAnswer(_ hook: (@Sendable (Int) async -> Void)?) { beforeSyncAnswer = hook }
 	func setReadable(_ ids: Set<String>) { readable = ids }
 	func prune() { prunedBelow = nextSeq; log.removeAll() }
-	func forgetCalls() { syncCursors = []; bodyRequests = [] }
+	func forgetCalls() { syncCursors = []; bodyRequests = []; attachmentRequests = [] }
 
 	func put(_ row: MessageRow) {
 		messages[row.id] = row
@@ -104,7 +108,15 @@ actor FakeServer: MailAPI {
 		if let failure { throw failure }
 		if failingBodies.contains(id) { throw APIError.server(status: 500, message: nil) }
 		guard let row = messages[id], readable.contains(row.mailboxId ?? "") else { throw APIError.notFound }
-		return MessageDetail(message: row, body: MessageBody(textBody: "Body of \(id)", htmlBody: nil))
+		return MessageDetail(message: row, body: MessageBody(textBody: "Body of \(id)", htmlBody: nil), attachments: attachments[id] ?? [])
+	}
+
+	func attachment(messageId: String, attachmentId: String, filename: String) async throws -> URL {
+		attachmentRequests.append(attachmentId)
+		if let failure { throw failure }
+		let url = FileManager.default.temporaryDirectory.appending(path: "fake-\(UUID().uuidString)")
+		try Data("bytes of \(attachmentId)".utf8).write(to: url)
+		return url
 	}
 
 	func mailboxes() async throws -> [MailboxInfo] {

@@ -19,8 +19,16 @@ public struct MailAddress: Equatable, Hashable, Sendable {
 			written = String(written.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
 		}
 		written = written.replacing(/\s+/, with: " ")
-		// A "name" that is itself an address says nothing, or pretends to be someone else.
-		name = written.isEmpty || written.contains("@") ? nil : written
+		name = written.isEmpty || Self.looksLikeAddress(written) ? nil : written
+	}
+
+	/// A "name" that is itself an address or a host name says nothing, or pretends to be someone
+	/// else's address. Compatibility forms such as the full-width @ are folded first.
+	static func looksLikeAddress(_ name: String) -> Bool {
+		let folded = name.precomposedStringWithCompatibilityMapping.lowercased()
+		if folded.contains("@") { return true }
+		// A dot between two letter runs, the last at least two long: "bank.example", not "Dr. Anna".
+		return folded.contains(/[\p{L}\p{N}-]+\.[\p{L}]{2,}(?![\p{L}\p{N}])/)
 	}
 
 	/// What to show for this address: its name, or the address when it has none.

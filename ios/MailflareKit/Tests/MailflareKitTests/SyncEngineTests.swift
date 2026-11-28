@@ -204,4 +204,56 @@ import Testing
 		await engine(server, store, settings: SyncSettings(days: 7)).syncNow()
 		#expect(try ids(store) == ["recent"])
 	}
+
+	private func attachmentSetup() async throws -> (FakeServer, MailStore, AttachmentCache, URL) {
+		let server = FakeServer()
+		let store = try MailStore.inMemory()
+		let directory = FileManager.default.temporaryDirectory.appending(path: "mailflare-engine-cache-\(UUID().uuidString)")
+		await server.put([mail("small", age: 10, attachments: 1), mail("big", age: 20, attachments: 1), mail("old", age: 40 * 86_400, attachments: 1)])
+		await server.attach(AttachmentInfo(id: "a-small", messageId: "small", filename: "small.pdf", type: "application/pdf", size: 4_000_000))
+		await server.attach(AttachmentInfo(id: "a-inline", messageId: "small", filename: "logo.png", type: "image/png", size: 2_000, disposition: "inline", contentId: "logo"))
+		await server.attach(AttachmentInfo(id: "a-big", messageId: "big", filename: "big.zip", type: "application/zip", size: 6_000_000))
+		return (server, store, AttachmentCache(directory: directory), directory)
+	}
+
+	@Test func `attachments up to the limit are fetched on Wi-Fi and larger ones wait for a tap`() async throws {
+		let (server, store, cache, directory) = try await attachmentSetup()
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let engine = SyncEngine(api: server, store: store, settings: SyncSettings(), attachments: cache, isOnWiFi: { true }, now: { testNow })
+		await engine.syncNow()
+		#expect(Set(await server.attachmentRequests) == ["a-small", "a-inline"])
+		let stored = try #require(try store.message(id: "small"))
+		#expect(stored.attachments.allSatisfy { cache.file(for: $0) != nil })
+		await engine.syncNow()
+		#expect(await server.attachmentRequests.count == 2, "what is on the device is not fetched again")
+
+		let big = try #require(try store.message(id: "big")?.attachments.first)
+		let file = try await engine.attachmentFile(big)
+		#expect(cache.file(for: big) == file)
+		#expect(await server.attachmentRequests.last == "a-big")
+	}
+
+	@Test func `attachments wait when the device is not on Wi-Fi, unless the user allowed mobile data`() async throws {
+		let (server, store, cache, directory) = try await attachmentSetup()
+		defer { try? FileManager.default.removeItem(at: directory) }
+		await SyncEngine(api: server, store: store, settings: SyncSettings(), attachments: cache, isOnWiFi: { false }, now: { testNow }).syncNow()
+		#expect(await server.attachmentRequests.isEmpty)
+		await SyncEngine(api: server, store: store, settings: SyncSettings(attachmentsOnWiFiOnly: false), attachments: cache, isOnWiFi: { false }, now: { testNow }).syncNow()
+		#expect(Set(await server.attachmentRequests) == ["a-small", "a-inline"])
+		await server.forgetCalls()
+		await SyncEngine(api: server, store: store, settings: SyncSettings(autoAttachmentBytes: 0), attachments: AttachmentCache(directory: directory.appending(path: "other")), isOnWiFi: { true }, now: { testNow }).syncNow()
+		#expect(await server.attachmentRequests.isEmpty, "switched off means none")
+	}
+
+	@Test func `cached attachments of mail that left the device are removed`() async throws {
+		let (server, store, cache, directory) = try await attachmentSetup()
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let engine = SyncEngine(api: server, store: store, settings: SyncSettings(), attachments: cache, isOnWiFi: { true }, now: { testNow })
+		await engine.syncNow()
+		let small = try #require(try store.message(id: "small")?.attachments.first { $0.id == "a-small" })
+		#expect(cache.file(for: small) != nil)
+		await server.remove("small")
+		await engine.syncNow()
+		#expect(cache.file(for: small) == nil)
+	}
 }
