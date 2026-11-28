@@ -88,9 +88,14 @@ export function splitLongToken(token: string, longest = LONG_TOKEN_PIECE, shorte
 	return pieces;
 }
 
+/** An IBAN written without spaces: country, check digits, up to 30 letters and digits. */
+const IBAN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/;
+
 function breakable(token: string, relaxed: boolean): boolean {
 	const length = graphemes(token).length;
 	const word = WORD.test(token);
+	// An account number is read digit by digit against another copy: it stays in one piece, however long.
+	if (IBAN.test(token.replace(/^[(\[]+|[.,;:!?)\]]+$/g, ""))) return false;
 	if (!relaxed) return length >= (word ? LONG_WORD_LENGTH : LONG_TOKEN_LENGTH);
 	// What the first pass already broke is left alone; a number (an amount, a date) is never broken here.
 	if (length >= (word ? LONG_WORD_LENGTH : LONG_TOKEN_LENGTH)) return false;

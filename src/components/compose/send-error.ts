@@ -8,6 +8,8 @@ export type ComposeSendErrorContext = {
 	network?: boolean;
 	/** What the failure said, when it was not a plain lost connection. */
 	detail?: string | null;
+	/** The window the message was sent from is gone: the advice points to Drafts, not to "here". */
+	closed?: boolean;
 };
 
 function firstValidationError(error: unknown): string | null {
@@ -59,9 +61,11 @@ function formatFallbackSendError(base: string, context?: ComposeSendErrorContext
  * twice, so the writer is sent to look first. A refusal (4xx) changed nothing; trying again is safe.
  */
 function nextStep(t: (key: TranslationKey) => string, context?: ComposeSendErrorContext): string | null {
-	if (context?.status === undefined) return context?.network ? t("compose.error.sendCheckFirst") : null;
+	const retry = context?.closed ? "compose.error.sendRetryClosed" : "compose.error.sendRetry";
+	const check = context?.closed ? "compose.error.sendCheckFirstClosed" : "compose.error.sendCheckFirst";
+	if (context?.status === undefined) return context?.network ? t(check) : null;
 	// Only a refusal is known to have changed nothing. A success that could not be read counts as open too.
-	return context.status >= 400 && context.status < 500 ? t("compose.error.sendRetry") : t("compose.error.sendCheckFirst");
+	return context.status >= 400 && context.status < 500 ? t(retry) : t(check);
 }
 
 function withNextStep(message: string, t: (key: TranslationKey) => string, context?: ComposeSendErrorContext): string {
@@ -76,7 +80,8 @@ function knownRefusal(error: string): TranslationKey | null {
 	if (error === "At least one recipient is required") return "compose.error.noRecipient";
 	if (error.startsWith("A message can have at most") || error.startsWith("Too many recipients")) return "compose.error.sendTooManyRecipients";
 	if (error.startsWith("Subject exceeds") || error.startsWith("Headers exceed")) return "compose.error.sendSubjectTooLong";
-	if (error === "Draft not found" || error === "Invalid send request") return "compose.error.sendDraftGone";
+	// Since a sent message's draft goes with the send, a draft that is not there was most likely sent.
+	if (error === "Draft not found") return "compose.error.sendDraftGone";
 	return null;
 }
 
@@ -91,15 +96,17 @@ export function composeSendError(
 	// The answers the writer can act on are said in the interface language, whoever worded them.
 	// Whoever refused it: the status and Ray ID stay beside the advice, because that is what support asks for.
 	if (context?.status === 413) return context.rayId || !data || typeof data !== "object" ? `${t("compose.error.sendTooLarge")} (${diagnostics(context)})` : t("compose.error.sendTooLarge");
-	if (context?.status === 401) return t("compose.error.sendSignedOut");
+	if (context?.status === 401) return t(context.closed ? "compose.error.sendSignedOutClosed" : "compose.error.sendSignedOut");
 	if (!data || typeof data !== "object") return withNextStep(fallback, t, context);
 	const result = data as { code?: unknown; filename?: unknown; error?: unknown };
 	if (result.code === "attachment_unavailable" && typeof result.filename === "string") {
 		return t("compose.error.attachmentUnavailable", { filename: result.filename });
 	}
 	if (result.code === "draft_changed" || result.code === "draft_locked") return t("compose.error.draftChanged");
-	if (result.code === "delivery_unknown") return t("compose.error.deliveryUnknown");
-	if (result.code === "delivery_status_pending") return t("compose.error.deliveryStatusPending");
+	// These two say themselves what to do; the status and Ray ID stay beside them for support.
+	const trace = diagnostics(context);
+	if (result.code === "delivery_unknown") return t("compose.error.deliveryUnknown") + (trace ? ` (${trace})` : "");
+	if (result.code === "delivery_status_pending") return t("compose.error.deliveryStatusPending") + (trace ? ` (${trace})` : "");
 	// A refused field is named in the interface language; the validator's own wording is English.
 	const field = refusedField(result.error);
 	// "Too small" is an empty field, "too big" a long one: the validator says which.

@@ -21,6 +21,13 @@ test('a failure the server words itself keeps its status and Ray ID',()=>{
  assert.equal(composeSendError({error:'Upstream provider unavailable.'},t,{status:502,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']}: Upstream provider unavailable (HTTP 502, Ray a5e2e7ef1e481496). ${de['compose.error.sendCheckFirst']}`);
  assert.equal(composeSendError({error:'Quota reached'},t,{status:429,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']}: Quota reached. ${de['compose.error.sendRetry']}`,'a refusal is explained by its own words');
 });
+test('a failure said after the window was closed points to Drafts, never to a window that is gone',()=>{
+ const closed=[composeSendError({error:'Queue write failed.'},t,{status:500,closed:true}),composeSendError(null,t,{status:403,closed:true}),composeSendError(null,t,{network:true,closed:true}),composeSendError(null,t,{status:401,closed:true})];
+ for(const text of closed){assert.match(text,/Entwürfe/);assert.doesNotMatch(text,/hier noch geöffnet|dieses Fenster/);}
+ assert.match(closed[0],/HTTP 500/);assert.match(closed[0],/Gesendet/,'an open outcome still says to look before sending again');
+ assert.equal(composeSendError({code:'delivery_status_pending',error:'x'},t,{status:500,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.deliveryStatusPending']} (HTTP 500, Ray a5e2e7ef1e481496)`);
+ assert.equal(composeSendError({code:'delivery_unknown',error:'x'},t,{status:502}),`${de['compose.error.deliveryUnknown']} (HTTP 502)`);
+});
 test('structured validation payloads and absent bodies never become React children',()=>{
  for(const value of [{error:{fieldErrors:{body:['Invalid']}}},{error:{formErrors:['Invalid']}},null,{},'proxy error'])assert.equal(composeSendError(value,t),de['compose.error.sendFailed']);
 });
@@ -47,7 +54,9 @@ test('the server\'s fixed refusals are said in the interface language',()=>{
  assert.equal(composeSendError({error:{fieldErrors:{bcc:['Too big: expected array to have <=50 items']}}},t,{status:400}),de['compose.error.sendRecipientsRefused']);
  assert.equal(composeSendError({error:'A message can have at most 50 recipients'},t,{status:400}),de['compose.error.sendTooManyRecipients']);
  assert.equal(composeSendError({error:"Subject exceeds Cloudflare's 998-character limit"},t,{status:400}),de['compose.error.sendSubjectTooLong']);
- for(const error of ['Draft not found','Invalid send request'])assert.equal(composeSendError({error},t,{status:404}),de['compose.error.sendDraftGone']);
+ assert.equal(composeSendError({error:'Draft not found'},t,{status:404}),de['compose.error.sendDraftGone']);
+ assert.match(de['compose.error.sendDraftGone'],/Gesendet/,'a draft that is gone was most likely sent: the advice is to look, not to send again');
+ assert.equal(composeSendError({error:'Invalid send request'},t,{status:400}),`${de['compose.error.sendFailed']}: Invalid send request. ${de['compose.error.sendRetry']}`);
 });
 test('a message that is too large and a lost sign-in are said in the interface language with what to do',()=>{
  assert.equal(composeSendError({error:'Request body is too large'},t,{status:413}),de['compose.error.sendTooLarge']);

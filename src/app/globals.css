@@ -256,7 +256,8 @@ html.dark [data-compose-ai-bar] > div:last-child {
 	.compose-toast-close { min-width: 44px; min-height: 44px; margin-block: -10px; }
 	/* The composer fills the screen here, with its send bar along the bottom. */
 	[data-undo-send-stack] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); align-items: center; }
-	html[data-undo-offers] .status-stack { bottom: calc(env(safe-area-inset-bottom) + 9rem + var(--undo-stack-space, 0px)); }
+	/* A composer that fills the screen has its send bar where notices otherwise stand: they stand above it. */
+	:is(html[data-undo-offers], body:has(.compose-popup:not(.compose-minimized))) .status-stack { bottom: calc(env(safe-area-inset-bottom) + 9rem + var(--undo-stack-space, 0px)); }
 	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 

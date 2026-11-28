@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { announceStatus, clearFailure, clearStatus, getFailure, getStatus, subscribeStatus } from "@/lib/status-announcer";
 
@@ -31,10 +32,10 @@ export function StatusToastHost() {
 			<div role="alert">
 				{failure && <div key={failure.id} data-status-failure className="status-toast-enter pointer-events-auto flex max-w-[min(32rem,calc(100vw-32px))] items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-lg">
 					<p className="min-w-0 flex-1 break-words"><span className="block font-semibold">{t(failure.key)}</span>{failure.detail}</p>
-					<button type="button" aria-label={t("notification.dismiss")} className="compose-toast-close -my-1 -mr-2 flex size-8 shrink-0 items-center justify-center rounded text-lg leading-none hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-700" onClick={() => {
+					<button type="button" aria-label={t("notification.dismiss")} className="compose-toast-close -my-1 -mr-2 flex size-8 shrink-0 items-center justify-center rounded hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-700" onClick={() => {
 						document.getElementById("main-content")?.focus({ preventScroll: true });
 						clearFailure(failure.id);
-					}}><span aria-hidden="true">×</span></button>
+					}}><X aria-hidden="true" className="h-4 w-4" /></button>
 				</div>}
 			</div>
 			<div role="status" aria-live="polite">

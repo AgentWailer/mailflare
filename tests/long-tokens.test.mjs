@@ -88,6 +88,11 @@ test("the extra break points for a message too small to read are for longer word
 	const broken = cells.filter((cell) => breaks(cell) > 0).map((cell) => cell.textContent);
 	// Longer words only. What is mostly digits (an invoice number, an IBAN) is a number and stays whole, like the dates and both amounts.
 	assert.deepEqual(broken, ["Buchungstag", "Wertstellung", "Verwendungszweck", "Lastschrift Stadtwerke Beispielstadt"]);
+	// An IBAN is compared digit by digit and stays in one piece, also one long enough to count as a long string.
+	const iban = wrap("<p>IBAN MT84MALT011000012345MTLCAST001S, Verwendungszweck</p>");
+	assert.equal(breaks(iban.content), 0);
+	addRelaxedBreaks(iban.content);
+	assert.equal(iban.content.querySelector("p").innerHTML.includes("MT84MALT011000012345MTLCAST001S"), true);
 	// An amount glued to its currency and a timestamp carry letters and are numbers all the same; a name with a few digits is not.
 	const glued = wrap("<table><tr><td>USD1,234,567.89</td><td>1.234.567,89EUR</td><td>CHF1'234'567.89</td><td>2026-11-27T17:52:31Z</td><td>Kundenportal-Zugang2026</td></tr></table>");
 	addRelaxedBreaks(glued.content);

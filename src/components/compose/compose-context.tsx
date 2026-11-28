@@ -67,21 +67,22 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 	const [composeId, setComposeId] = useState(0);
 	const [freshReply, setFreshReply] = useState(false);
 	const occupied = useRef(new Set<string>());
-	const sending = useRef(false);
+	// Counted, not a flag: a first send's draft may still be on its way out while the next message is sent.
+	const sending = useRef(0);
 	// The message asked for while a send was under way. It opens once that send has answered, unless
 	// the sending window is still there with its message (a send that failed).
-	const blockedOpen = useRef<{ draftId: string; open: () => void } | null>(null);
+	const blockedOpen = useRef<{ draftId: string | null; open: () => void } | null>(null);
 	const setSending = useCallback((value: boolean, sentDraftId?: string | null) => {
-		sending.current = value;
-		if (value) return;
+		sending.current = Math.max(0, sending.current + (value ? 1 : -1));
+		if (sending.current > 0) return;
 		const blocked = blockedOpen.current;
 		blockedOpen.current = null;
-		if (blocked && blocked.draftId !== sentDraftId && occupied.current.size === 0) blocked.open();
+		if (blocked && (blocked.draftId === null || blocked.draftId !== sentDraftId) && occupied.current.size === 0) blocked.open();
 	}, []);
 	/** True, and says so, while a send is under way: opening another message has to wait for its answer. */
 	const waitsForSend = useCallback(() => {
-		if (sending.current) announceStatus("compose.sendingBusy");
-		return sending.current;
+		if (sending.current > 0) announceStatus("compose.sendingBusy");
+		return sending.current > 0;
 	}, []);
 	const restoreTarget = useRef<((draftId: string) => void) | null>(null);
 	const setRestoreTarget = useCallback((target: ((draftId: string) => void) | null) => { restoreTarget.current = target; }, []);
@@ -109,7 +110,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 	/** The restored message opens where nothing is lost by it; otherwise it waits under Drafts. */
 	const openRestored = useCallback((restoredId: string) => {
 		// Nor while another message is on its way: the offer then says "under Drafts", which is true.
-		if (occupied.current.size > 0 || sending.current) return false;
+		if (occupied.current.size > 0 || sending.current > 0) return false;
 		// The page composer takes its message back itself; a second window on top of it would be one too many.
 		if (restoreTarget.current) restoreTarget.current(restoredId); else openDraftComposer(restoredId);
 		return true;
@@ -141,15 +142,17 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 		freshReply,
 		// Takes no argument on purpose: it is used directly as a click handler.
 		openComposer: () => {
-			if (waitsForSend()) return;
-			setPrefill(null);
-			setFreshReply(false);
-			setDraftId(null);
-			setOpen(true);
+			const fresh = () => {
+				setPrefill(null);
+				setFreshReply(false);
+				setDraftId(null);
+				setOpen(true);
+			};
+			if (waitsForSend()) blockedOpen.current = { draftId: null, open: fresh }; else fresh();
 		},
 		openComposerWith: (next) => {
-			if (occupied.current.size > 0) return false;
-			if (waitsForSend()) return true;
+			// Nor while a message is on its way: the caller then opens the link in a tab of its own.
+			if (occupied.current.size > 0 || sending.current > 0) return false;
 			setPrefill(next);
 			setComposeId((current) => current + 1);
 			setFreshReply(false);

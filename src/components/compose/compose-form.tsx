@@ -473,9 +473,14 @@ export function ComposeForm({
 		// in the application's own notice, so a refusal is never lost with the window.
 		const say = (type: "success" | "error", message: string, closed?: TranslationKey) => {
 			if (mounted.current) setToast({ type, message });
+			// Somebody else is signed in by now: what happened to the earlier reader's message is not theirs to read.
+			else if (getClientSessionToken() !== sendingSession) return;
 			else if (type === "error") announceFailure("compose.error.closedSend", message);
 			else announceStatus(closed!);
 		};
+		const sendingSession = getClientSessionToken();
+		// Said for where the writer is: a window that was closed is not "still open here".
+		const closed = () => !mounted.current;
 		compose?.setSending(true);
 		setTransfer(true);
 		// The lock on other messages ends with the send, or, once it went out, with its draft's removal.
@@ -507,13 +512,13 @@ export function ComposeForm({
 			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; undoUntil?: string; undoRemainingMs?: number; error?: unknown; code?: string; filename?: string } | null;
 
 			if (!res.ok) {
-				say("error", composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }));
+				say("error", composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray"), closed: closed() }));
 				return;
 			}
 			// Only an answer that names the message is a send. Anything else that came back as a success
 			// (a cut-off body, a page from something in between) leaves the outcome open and the message here.
 			if (!data || typeof data.messageId !== "string" || !data.messageId) {
-				say("error", composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray") }));
+				say("error", composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray"), closed: closed() }));
 				return;
 			}
 
@@ -559,7 +564,7 @@ export function ComposeForm({
 			// A failed fetch is a lost connection, said in the interface language; anything else keeps its own words.
 			const timedOut = cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError");
 			const detail = timedOut ? t("compose.error.sendNoAnswer") : cause instanceof Error && !(cause instanceof TypeError) ? cause.message.trim() : "";
-			say("error", composeSendError(null, t, { network: true, detail }));
+			say("error", composeSendError(null, t, { network: true, detail, closed: closed() }));
 		} finally {
 			if (release) compose?.setSending(false);
 			setTransfer(false);
@@ -594,7 +599,8 @@ export function ComposeForm({
 		try {
 			if (id) {
 				const res = await authFetch(`/api/drafts/${id}`, { method: "DELETE", redirectOnUnauthorized: false, signal: AbortSignal.timeout(15000) });
-				if (!res.ok) throw new Error("Draft deletion failed");
+				// Not there any more (sent meanwhile, removed elsewhere) is what was asked for.
+				if (!res.ok && res.status !== 404) throw new Error("Draft deletion failed");
 			}
 		} catch {
 			setDeletingDraft(false);

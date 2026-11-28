@@ -46,6 +46,15 @@ export function clearFailure(id: number) {
 
 export const getFailure = () => failure;
 
+// A notice is about one reader's mail (a file name, a server's words): signing out or in as
+// somebody else takes it away, as it takes the confirmation of the action before it.
+if (typeof window !== "undefined") window.addEventListener("mailflare:auth-session-changed", () => {
+	if (!failure && !current) return;
+	failure = null;
+	current = null;
+	listeners.forEach((listener) => listener());
+});
+
 /**
  * Confirmation for actions that move mail out of the current view; read/unread stay silent.
  * `undo` (when the caller knows the inverse) adds a "Rückgängig" button to the confirmation.

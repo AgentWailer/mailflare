@@ -49,7 +49,9 @@ export function loadRecipientDirectoryAnswer(force = false): Promise<RecipientDi
 			const directory = Array.isArray(data.recipients) ? data.recipients.filter(isCandidate) : EMPTY;
 			// A slower, earlier read must not undo what a later one found: the later one answers for both.
 			if (read !== reads && cached && cached.promise !== promise && cached.session === session) return cached.promise;
-			lastGood = { session, directory };
+			// Read before the address book was known to be out of date, or for a reader who has left:
+			// it answers its caller and is not kept.
+			if (read === reads && session === getClientSessionToken()) lastGood = { session, directory };
 			return { directory, ok: true };
 		})
 		.catch(() => {
@@ -70,6 +72,7 @@ export function loadRecipientDirectory(force = false): Promise<RecipientCandidat
 /** Forget the directory, e.g. after a send changed who is written to most. */
 export function invalidateRecipientDirectory() {
 	cached = null;
+	reads += 1;
 	// The last one read is kept for a caller that cannot wait: it counts only sends that went out,
 	// so it cannot make a stranger known.
 	for (const refresh of watchers) refresh();

@@ -658,6 +658,8 @@ try {
 			await t.page.waitForFunction(() => !document.querySelector('form'));
 			await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
 			await t.page.locator('[data-status-toast]').getByText(de['compose.sendingBusy'], { exact: true }).waitFor();
+			// A mail link is not put off: its caller is told to open it in a tab of its own.
+			assert.equal(await t.page.evaluate(() => window.compose.openComposerWith({ to: ['lin@harborworks.test'] })), false, `${tag}: a mail link during a send goes to a new tab`);
 			assert.equal(await t.page.locator('form').count(), 0, `${tag}: no second window for a message that is being sent`);
 			if (sendStatus === 200) {
 				await t.page.locator('[data-status-toast]').getByText(de['compose.sent'], { exact: true }).waitFor();
@@ -670,6 +672,8 @@ try {
 				const failure = t.page.locator('[role="alert"] [data-status-failure]');
 				await failure.getByText(de['compose.error.closedSend'], { exact: true }).waitFor();
 				assert.match(await failure.innerText(), /HTTP 500/, `${tag}: the notice keeps the reason`);
+				assert.match(await failure.innerText(), /Entwürfe/, `${tag}: and says where the message is`);
+				assert.doesNotMatch(await failure.innerText(), /hier noch geöffnet/, `${tag}: a closed window is not "still open here"`);
 				await t.page.waitForTimeout(5600);
 				assert.equal(await failure.count(), 1, `${tag}: the refusal does not fade like a confirmation`);
 				// The message asked for while the send ran opens now by itself.

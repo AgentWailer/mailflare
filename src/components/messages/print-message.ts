@@ -7,6 +7,8 @@ export type PrintableMessage = {
 	headers: readonly { label: string; value: string }[];
 	html?: string | null;
 	text?: string | null;
+	/** Said at the top of a printout that is cut off although it was made as small as is still read. */
+	tooWide?: string;
 };
 
 const ROOT_ID = "mailflare-print-root";
@@ -48,6 +50,10 @@ export function printMessage(message: PrintableMessage): void {
 		list.appendChild(detail);
 	}
 	header.appendChild(list);
+	const note = document.createElement("p");
+	note.textContent = message.tooWide ?? "";
+	note.hidden = true;
+	header.appendChild(note);
 
 	const body = document.createElement("main");
 	let mailBody: HTMLElement | null = null;
@@ -79,7 +85,7 @@ export function printMessage(message: PrintableMessage): void {
 header{border-bottom:1px solid #999;margin:0 0 14pt;padding:0 0 8pt}
 h1{font-size:15pt;margin:0 0 8pt;overflow-wrap:anywhere}
 dl{display:grid;grid-template-columns:max-content 1fr;gap:2pt 10pt;margin:0;font-size:10pt}
-dt{color:#444}dd{margin:0;overflow-wrap:anywhere}
+dt{color:#444}dd{margin:0;overflow-wrap:anywhere}header p{margin:8pt 0 0;font-size:10pt;font-weight:bold}
 main{overflow-wrap:anywhere}pre{white-space:pre-wrap;font:inherit;margin:0}`;
 	root.replaceChildren(style, header, body);
 
@@ -101,7 +107,10 @@ main{overflow-wrap:anywhere}pre{white-space:pre-wrap;font:inherit;margin:0}`;
 		if (!mailBody || !(paper > 0)) return;
 		mailBody.style.removeProperty("zoom");
 		const needed = mailBody.scrollWidth;
-		if (needed > paper + 1) mailBody.style.setProperty("zoom", String(Math.max(SMALLEST_PRINT_SCALE, Math.floor((paper / needed) * 1000) / 1000)));
+		const scale = needed > paper + 1 ? Math.floor((paper / needed) * 1000) / 1000 : 1;
+		if (scale < 1) mailBody.style.setProperty("zoom", String(Math.max(SMALLEST_PRINT_SCALE, scale)));
+		// Smaller than that nobody reads: the page then says that it is cut off and what helps.
+		note.hidden = !(message.tooWide && scale < SMALLEST_PRINT_SCALE);
 	};
 	/** Fitted before printing, to the usual paper: the printout is not laid out on screen, so it is measured aside. */
 	const fitToUsualPaper = () => {

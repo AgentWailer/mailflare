@@ -125,6 +125,7 @@ export function MessageActions({
 			{ label: t("compose.cc"), value: message?.ccAddr ?? "" },
 			{ label: t("message.printDate"), value: messageMeta?.createdAt ? formatUserDate(messageMeta.createdAt, { dateStyle: "full", timeStyle: "short" }) : "" },
 		],
+		tooWide: t("message.printTooWide"),
 		html: printHtml ?? bodyHtml,
 		text: bodyText,
 	})).catch(() => setError(t("actions.error.update")));

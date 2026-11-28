@@ -68,8 +68,14 @@ export async function POST(request: Request) {
 		// asks afterwards. A second request for the same draft then finds none ("Draft not found")
 		// instead of sending the message again. A removal that fails is left to the browser's own.
 		if (sourceDraft) {
-			await deleteMessageWithObjects(env, getDb(env), sourceDraft.id, sourceDraft.rawR2Key).catch((error: unknown) => {
-				console.warn("Sent message's draft could not be removed", error instanceof Error ? error.message : error);
+			const db = getDb(env);
+			await deleteMessageWithObjects(env, db, sourceDraft.id, sourceDraft.rawR2Key).catch(async (error: unknown) => {
+				// Storage refused one of its files. What must not stay is the draft itself: a draft that
+				// can still be read can still be sent. Its row goes; a stray file is the lesser harm.
+				console.warn("Sent message's draft files could not be removed", error instanceof Error ? error.message : error);
+				await db.delete(messages).where(eq(messages.id, sourceDraft!.id)).catch((failure: unknown) => {
+					console.error("Sent message's draft could not be removed", failure instanceof Error ? failure.message : failure);
+				});
 			});
 		}
 		return NextResponse.json(result.undoUntil
