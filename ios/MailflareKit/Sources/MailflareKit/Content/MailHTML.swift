@@ -67,16 +67,33 @@ public enum MailHTML {
 			"""
 	}
 
-	/// Elements dropped together with what they contain.
-	private static let removedWithContent: Set<String> = ["script", "iframe", "object", "noscript", "title", "applet", "frameset", "audio", "video", "textarea", "select", "button"]
+	/// Elements dropped together with what they contain. Drawings and formulas are among them:
+	/// a browser reads what is inside them by rules of their own.
+	private static let removedWithContent: Set<String> = ["script", "iframe", "object", "noscript", "title", "applet", "frameset", "audio", "video", "textarea", "select", "button", "svg", "math", "template", "xmp", "plaintext", "noembed", "noframes"]
 	/// Elements whose tags are dropped while their content stays.
 	private static let removedTags: Set<String> = ["form", "input", "meta", "link", "base", "html", "head", "body", "option", "source", "track", "embed", "frame", "param"]
+	/// The only elements whose `href` leads somewhere when tapped. Anywhere else it would load something.
+	private static let linkElements: Set<String> = ["a", "area"]
 
-	/// Walks the markup tag by tag, the way a browser splits it, and writes back only what is
-	/// harmless. Text between tags is never touched, so a sentence that merely looks like an
-	/// attribute stays as it was written.
+	private typealias Scalar = Unicode.Scalar
+
+	private static func isSpace(_ scalar: Scalar) -> Bool {
+		scalar == " " || scalar == "\t" || scalar == "\n" || scalar == "\r" || scalar == "\u{0C}"
+	}
+
+	private static func isASCIILetter(_ scalar: Scalar) -> Bool {
+		(scalar >= "a" && scalar <= "z") || (scalar >= "A" && scalar <= "Z")
+	}
+
+	private static func text(_ scalars: ArraySlice<Scalar>) -> String {
+		String(String.UnicodeScalarView(scalars))
+	}
+
+	/// Walks the markup tag by tag and writes back only what is harmless. It reads code points,
+	/// as a browser's tokenizer does, so an accent placed after a quote or a bracket cannot hide
+	/// it. Text between tags is never touched.
 	static func sanitize(_ source: String, allowRemote: Bool, inlineImages: [String: String], blocked: inout Bool) -> String {
-		let characters = Array(source)
+		let scalars = Array(source.unicodeScalars)
 		var output = ""
 		var index = 0
 		var skipping: String?
@@ -94,7 +111,8 @@ public enum MailHTML {
 			return nil
 		}
 
-		// Style sheets may not pull in others, and their pictures follow the same rule as any picture.
+		// Style sheets may not pull in others, their pictures follow the same rule as any picture,
+		// and whatever they contain cannot be read as markup.
 		func css(_ text: String) -> String {
 			var css = text.replacing(/@import[^;]*;?/.ignoresCase(), with: "")
 			css = css.replacing(/url\(\s*(?:"[^"]*"|'[^']*'|[^)]*)\)/.ignoresCase()) { match in
@@ -102,10 +120,12 @@ public enum MailHTML {
 				guard let allowed = resource(inner) else { return "none" }
 				return "url(\"\(allowed.replacingOccurrences(of: "\"", with: "%22"))\")"
 			}
-			return css.replacing(/expression\s*\(/.ignoresCase(), with: "(").replacingOccurrences(of: "</", with: "<\\/")
+			return css.replacing(/expression\s*\(/.ignoresCase(), with: "(")
+				.replacingOccurrences(of: "<", with: "\\3C ")
+				.replacingOccurrences(of: ">", with: "\\3E ")
 		}
 
-		func filtered(_ name: String, _ value: String?) -> String? {
+		func filtered(_ element: String, _ name: String, _ value: String?) -> String? {
 			guard name.wholeMatch(of: /[a-z_:][a-z0-9_:.\-]*/) != nil, !name.hasPrefix("on") else { return nil }
 			guard let value else { return name }
 			switch name {
@@ -114,7 +134,8 @@ public enum MailHTML {
 				return nil
 			case "href", "xlink:href":
 				// Links may lead to web pages, mail addresses, phone numbers and places in the mail itself.
-				let scheme = String(value.lowercased().unicodeScalars.filter { $0.value > 32 && $0.properties.generalCategory != .format })
+				guard linkElements.contains(element) else { return nil }
+				let scheme = String(String.UnicodeScalarView(value.lowercased().unicodeScalars.filter { $0.value > 32 && $0.properties.generalCategory != .format }))
 				let allowed = ["https://", "http://", "mailto:", "tel:", "#"].contains { scheme.hasPrefix($0) }
 				return "\(name)=\"\(allowed ? attribute(value) : "#")\""
 			case "src", "background", "poster":
@@ -126,61 +147,61 @@ public enum MailHTML {
 			}
 		}
 
-		while index < characters.count {
-			guard characters[index] == "<" else {
+		while index < scalars.count {
+			guard scalars[index] == "<" else {
 				let start = index
-				while index < characters.count, characters[index] != "<" { index += 1 }
-				if skipping == nil { output.append(contentsOf: characters[start..<index]) }
+				while index < scalars.count, scalars[index] != "<" { index += 1 }
+				if skipping == nil { output.append(text(scalars[start..<index])) }
 				continue
 			}
 			// A comment is dropped whole; one that never ends takes the rest with it.
-			if characters[index...].starts(with: Array("<!--")) {
-				index = end(of: Array("-->"), in: characters, from: index + 4) ?? characters.count
+			if scalars[index...].starts(with: Array("<!--".unicodeScalars)) {
+				index = end(of: "-->", in: scalars, from: index + 4) ?? scalars.count
 				continue
 			}
-			guard index + 1 < characters.count, characters[index + 1].isLetter || "/!?".contains(characters[index + 1]) else {
+			guard index + 1 < scalars.count, isASCIILetter(scalars[index + 1]) || scalars[index + 1] == "/" || scalars[index + 1] == "!" || scalars[index + 1] == "?" else {
 				if skipping == nil { output.append("&lt;") }
 				index += 1
 				continue
 			}
 			// Read the tag as a browser does: a name, then attributes whose values may be quoted.
 			var cursor = index + 1
-			let closing = characters[cursor] == "/"
+			let closing = scalars[cursor] == "/"
 			if closing { cursor += 1 }
 			let nameStart = cursor
-			while cursor < characters.count, !characters[cursor].isWhitespace, characters[cursor] != ">", characters[cursor] != "/" { cursor += 1 }
-			let name = String(characters[nameStart..<cursor]).lowercased()
-			var attributes: [String] = []
+			while cursor < scalars.count, !isSpace(scalars[cursor]), scalars[cursor] != ">", scalars[cursor] != "/" { cursor += 1 }
+			let name = text(scalars[nameStart..<cursor]).lowercased()
+			var attributes: [(name: String, value: String?)] = []
 			var terminated = false
-			while cursor < characters.count {
-				let character = characters[cursor]
-				if character == ">" { terminated = true; cursor += 1; break }
-				if character.isWhitespace || character == "/" { cursor += 1; continue }
+			while cursor < scalars.count {
+				let scalar = scalars[cursor]
+				if scalar == ">" { terminated = true; cursor += 1; break }
+				if isSpace(scalar) || scalar == "/" { cursor += 1; continue }
 				let attributeStart = cursor
-				while cursor < characters.count, !characters[cursor].isWhitespace, !"=>/".contains(characters[cursor]) { cursor += 1 }
+				while cursor < scalars.count, !isSpace(scalars[cursor]), scalars[cursor] != "=", scalars[cursor] != ">", scalars[cursor] != "/" { cursor += 1 }
 				// A stray "=" would otherwise never be consumed.
 				if cursor == attributeStart { cursor += 1; continue }
-				let attributeName = String(characters[attributeStart..<cursor]).lowercased()
+				let attributeName = text(scalars[attributeStart..<cursor]).lowercased()
 				var lookahead = cursor
-				while lookahead < characters.count, characters[lookahead].isWhitespace { lookahead += 1 }
+				while lookahead < scalars.count, isSpace(scalars[lookahead]) { lookahead += 1 }
 				var value: String?
-				if lookahead < characters.count, characters[lookahead] == "=" {
+				if lookahead < scalars.count, scalars[lookahead] == "=" {
 					cursor = lookahead + 1
-					while cursor < characters.count, characters[cursor].isWhitespace { cursor += 1 }
-					if cursor < characters.count, characters[cursor] == "\"" || characters[cursor] == "'" {
-						let quote = characters[cursor]
+					while cursor < scalars.count, isSpace(scalars[cursor]) { cursor += 1 }
+					if cursor < scalars.count, scalars[cursor] == "\"" || scalars[cursor] == "'" {
+						let quote = scalars[cursor]
 						let valueStart = cursor + 1
 						cursor = valueStart
-						while cursor < characters.count, characters[cursor] != quote { cursor += 1 }
-						value = String(characters[valueStart..<min(cursor, characters.count)])
-						cursor = min(cursor + 1, characters.count)
+						while cursor < scalars.count, scalars[cursor] != quote { cursor += 1 }
+						value = text(scalars[valueStart..<min(cursor, scalars.count)])
+						cursor = min(cursor + 1, scalars.count)
 					} else {
 						let valueStart = cursor
-						while cursor < characters.count, !characters[cursor].isWhitespace, characters[cursor] != ">" { cursor += 1 }
-						value = String(characters[valueStart..<cursor])
+						while cursor < scalars.count, !isSpace(scalars[cursor]), scalars[cursor] != ">" { cursor += 1 }
+						value = text(scalars[valueStart..<cursor])
 					}
 				}
-				if let kept = filtered(attributeName, value) { attributes.append(kept) }
+				attributes.append((attributeName, value))
 			}
 			index = cursor
 			// A tag that never closes is not markup a mail client should guess at.
@@ -198,29 +219,37 @@ public enum MailHTML {
 			if removedTags.contains(name) { continue }
 			if name == "style", !closing {
 				// The sheet is text up to its closing tag, not markup.
-				let close = start(of: Array("</style"), in: characters, from: index) ?? characters.count
-				output.append("<style>\(css(String(characters[index..<close])))</style>")
-				index = end(of: Array(">"), in: characters, from: close) ?? characters.count
+				let close = start(of: "</style", in: scalars, from: index) ?? scalars.count
+				output.append("<style>\(css(text(scalars[index..<close])))</style>")
+				index = end(of: ">", in: scalars, from: close) ?? scalars.count
 				continue
 			}
-			output.append(closing ? "</\(name)>" : "<\(([name] + attributes).joined(separator: " "))>")
+			let kept = attributes.compactMap { filtered(name, $0.name, $0.value) }
+			output.append(closing ? "</\(name)>" : "<\(([name] + kept).joined(separator: " "))>")
 		}
 		return output
 	}
 
-	/// Where `needle` begins at or after `from`, compared without regard to case.
-	private static func start(of needle: [Character], in characters: [Character], from: Int) -> Int? {
-		guard !needle.isEmpty, characters.count >= needle.count, from <= characters.count - needle.count else { return nil }
+	/// Where `needle` (ASCII) begins at or after `from`, compared without regard to case.
+	private static func start(of needle: String, in scalars: [Scalar], from: Int) -> Int? {
+		let wanted = Array(needle.lowercased().unicodeScalars)
+		guard !wanted.isEmpty, scalars.count >= wanted.count, from <= scalars.count - wanted.count else { return nil }
 		var index = from
-		while index <= characters.count - needle.count {
-			if zip(needle, characters[index..<index + needle.count]).allSatisfy({ $0.lowercased() == $1.lowercased() }) { return index }
+		while index <= scalars.count - wanted.count {
+			var matches = true
+			for offset in 0..<wanted.count {
+				let scalar = scalars[index + offset]
+				let lowered = (scalar >= "A" && scalar <= "Z") ? Scalar(scalar.value + 32)! : scalar
+				if lowered != wanted[offset] { matches = false; break }
+			}
+			if matches { return index }
 			index += 1
 		}
 		return nil
 	}
 
-	private static func end(of needle: [Character], in characters: [Character], from: Int) -> Int? {
-		start(of: needle, in: characters, from: from).map { $0 + needle.count }
+	private static func end(of needle: String, in scalars: [Scalar], from: Int) -> Int? {
+		start(of: needle, in: scalars, from: from).map { $0 + needle.unicodeScalars.count }
 	}
 
 	private static func unquote(_ value: String) -> String {

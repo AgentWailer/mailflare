@@ -214,6 +214,12 @@ final class AppModel {
 		}
 	}
 
+	/// A sync started by iOS while the app is not on screen.
+	func backgroundSync() async {
+		if phase == .loading { await start() }
+		await session?.engine.syncNow()
+	}
+
 	// MARK: Session
 
 	private func client(_ access: ServerAccess, token: String?) -> APIClient {

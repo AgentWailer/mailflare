@@ -24,6 +24,20 @@ public struct APIClient: Sendable {
 		}
 	}
 
+	/// The cookie Cloudflare Access hands out for this device's key, for the in-app web pages:
+	/// a page loads images, scripts and more, and only a cookie reaches all of those requests.
+	public func accessCookies() async throws -> [HTTPCookie] {
+		let request = try request(.get, "/api/auth/me", query: [], body: nil)
+		let response: HTTPURLResponse
+		do {
+			(_, response) = try await transport.send(request)
+		} catch {
+			throw APIError.offline
+		}
+		guard let url = request.url, let fields = response.allHeaderFields as? [String: String] else { return [] }
+		return HTTPCookie.cookies(withResponseHeaderFields: fields, for: url).filter { $0.name == "CF_Authorization" }
+	}
+
 	public func signIn(email: String, password: String, deviceName: String) async throws -> SignInResult {
 		let answer: SignInAnswer = try await credentialRequest("/api/app/login", ["email": email, "password": password, "deviceName": deviceName])
 		if answer.mfaRequired == true, let challenge = answer.challengeToken { return .secondFactor(challengeToken: challenge) }

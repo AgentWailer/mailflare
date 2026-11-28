@@ -17,5 +17,9 @@ struct MailflareApp: App {
 				.environment(model)
 				.task { await model.start() }
 		}
+		.backgroundTask(.appRefresh(BackgroundRefresh.identifier)) {
+			BackgroundRefresh.schedule()
+			await model.backgroundSync()
+		}
 	}
 }

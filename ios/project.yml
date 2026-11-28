@@ -43,6 +43,8 @@ targets:
         CFBundleDisplayName: Mailflare
         CFBundleLocalizations: [en, de]
         ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [de.stepo.mailflare.refresh]
         NSCameraUsageDescription: The camera reads the QR code of your access key.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

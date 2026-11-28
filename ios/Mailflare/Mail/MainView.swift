@@ -28,6 +28,15 @@ struct MainView: View {
 		}
 		.onChange(of: scenePhase) { _, phase in
 			if phase == .active { Task { await session.engine.syncNow() } }
+			if phase == .background { BackgroundRefresh.schedule() }
+		}
+		// While the app is on screen, the server says when something changed; nobody has to pull.
+		.task(id: scenePhase == .active) {
+			guard scenePhase == .active else { return }
+			let engine = session.engine
+			await RealtimeListener(access: session.api.access, sessionToken: session.account.sessionToken).run {
+				await engine.syncNow()
+			}
 		}
 	}
 }

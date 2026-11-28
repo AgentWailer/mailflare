@@ -33,6 +33,22 @@
         }
       }
     },
+    "%lld days": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days"
+          }
+        }
+      }
+    },
     "%lld messages": {
       "localizations": {
         "de": {
@@ -61,6 +77,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "(No subject)"
+          }
+        }
+      }
+    },
+    "Access": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugang"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access"
           }
         }
       }
@@ -125,6 +157,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Account: %@"
+          }
+        }
+      }
+    },
+    "Accounts": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
           }
         }
       }
@@ -225,6 +273,38 @@
         }
       }
     },
+    "Attachment": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anhang"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attachment"
+          }
+        }
+      }
+    },
+    "Attachments": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anhänge"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attachments"
+          }
+        }
+      }
+    },
     "Back": {
       "localizations": {
         "de": {
@@ -269,6 +349,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Cannot open this page": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Seite kann nicht geöffnet werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot open this page"
+          }
+        }
+      }
+    },
+    "Cannot show this message": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Nachricht kann nicht angezeigt werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot show this message"
+          }
+        }
+      }
+    },
+    "Cc": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cc"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cc"
           }
         }
       }
@@ -481,6 +609,22 @@
         }
       }
     },
+    "Fetch attachments up to 5 MB": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anhänge bis 5 MB laden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetch attachments up to 5 MB"
+          }
+        }
+      }
+    },
     "Fetching your mail": {
       "localizations": {
         "de": {
@@ -545,6 +689,22 @@
         }
       }
     },
+    "From": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Von"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From"
+          }
+        }
+      }
+    },
     "General": {
       "localizations": {
         "de": {
@@ -577,6 +737,22 @@
         }
       }
     },
+    "Haptic feedback": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haptik"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haptic feedback"
+          }
+        }
+      }
+    },
     "Has attachments": {
       "localizations": {
         "de": {
@@ -589,6 +765,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Has attachments"
+          }
+        }
+      }
+    },
+    "Hide quoted text": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zitierten Text ausblenden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide quoted text"
+          }
+        }
+      }
+    },
+    "If a key was revoked in Cloudflare, enter this device's new one here. Accounts and mail stay.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wurde ein Schlüssel in Cloudflare widerrufen, gib hier den neuen dieses Geräts ein. Konten und Mails bleiben erhalten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If a key was revoked in Cloudflare, enter this device's new one here. Accounts and mail stay."
           }
         }
       }
@@ -625,6 +833,38 @@
         }
       }
     },
+    "Keep mail offline": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mails offline behalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep mail offline"
+          }
+        }
+      }
+    },
+    "Load pictures from the internet": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilder aus dem Internet laden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load pictures from the internet"
+          }
+        }
+      }
+    },
     "Mail": {
       "localizations": {
         "de": {
@@ -641,6 +881,22 @@
         }
       }
     },
+    "Mail from this period is on the device with its content. Older mail and larger attachments load when you open them.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mails aus diesem Zeitraum liegen mit Inhalt auf dem Gerät. Ältere Mails und größere Anhänge werden geladen, wenn du sie öffnest."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mail from this period is on the device with its content. Older mail and larger attachments load when you open them."
+          }
+        }
+      }
+    },
     "Mailboxes": {
       "localizations": {
         "de": {
@@ -653,6 +909,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mailboxes"
+          }
+        }
+      }
+    },
+    "Mailflare settings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mailflare-Einstellungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mailflare settings"
           }
         }
       }
@@ -717,6 +989,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No recipient"
+          }
+        }
+      }
+    },
+    "Not on this device yet": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nicht auf diesem Gerät"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not on this device yet"
           }
         }
       }
@@ -833,6 +1121,22 @@
         }
       }
     },
+    "Only on Wi-Fi": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur im WLAN"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only on Wi-Fi"
+          }
+        }
+      }
+    },
     "Orders": {
       "localizations": {
         "de": {
@@ -845,6 +1149,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Orders"
+          }
+        }
+      }
+    },
+    "Other messages of this conversation": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weitere Nachrichten dieser Unterhaltung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other messages of this conversation"
           }
         }
       }
@@ -897,6 +1217,38 @@
         }
       }
     },
+    "Reading": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lesen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading"
+          }
+        }
+      }
+    },
+    "Replace access key": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugangsschlüssel ersetzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace access key"
+          }
+        }
+      }
+    },
     "Replace key": {
       "localizations": {
         "de": {
@@ -909,6 +1261,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Replace key"
+          }
+        }
+      }
+    },
+    "Reply to": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antwort an"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply to"
           }
         }
       }
@@ -977,6 +1345,22 @@
         }
       }
     },
+    "Server": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        }
+      }
+    },
     "Server address": {
       "localizations": {
         "de": {
@@ -1025,6 +1409,22 @@
         }
       }
     },
+    "Show quoted text": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zitierten Text anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show quoted text"
+          }
+        }
+      }
+    },
     "Sign in": {
       "localizations": {
         "de": {
@@ -1053,6 +1453,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign in with your Mailflare account. You stay signed in on this device while you use it."
+          }
+        }
+      }
+    },
+    "Sign out": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abmelden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out"
+          }
+        }
+      }
+    },
+    "Sign out and remove mail": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abmelden und Mails entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out and remove mail"
+          }
+        }
+      }
+    },
+    "Sign out?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abmelden?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out?"
+          }
+        }
+      }
+    },
+    "Signature, rules, security and everything else that belongs to your account opens as the web page for now.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signatur, Regeln, Sicherheit und alles Weitere zu deinem Konto öffnet sich vorerst als Webseite."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signature, rules, security and everything else that belongs to your account opens as the web page for now."
           }
         }
       }
@@ -1201,6 +1665,22 @@
         }
       }
     },
+    "The mail of %@ is removed from this device. It stays on the server.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Mails von %@ werden von diesem Gerät entfernt. Auf dem Server bleiben sie erhalten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The mail of %@ is removed from this device. It stays on the server."
+          }
+        }
+      }
+    },
     "The mail on this device could not be opened.": {
       "localizations": {
         "de": {
@@ -1281,6 +1761,22 @@
         }
       }
     },
+    "This message loads as soon as you are online again.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Nachricht wird geladen, sobald du wieder online bist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This message loads as soon as you are online again."
+          }
+        }
+      }
+    },
     "This no longer exists on the server.": {
       "localizations": {
         "de": {
@@ -1297,6 +1793,22 @@
         }
       }
     },
+    "To": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To"
+          }
+        }
+      }
+    },
     "To: %@": {
       "localizations": {
         "de": {
@@ -1309,6 +1821,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "To: %@"
+          }
+        }
+      }
+    },
+    "To: %@ and %lld more": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An: %@ und %lld weitere"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To: %@ and %lld more"
           }
         }
       }
@@ -1341,6 +1869,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trash"
+          }
+        }
+      }
+    },
+    "Try again": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut versuchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
           }
         }
       }
@@ -1437,6 +1981,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Updating …"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
           }
         }
       }

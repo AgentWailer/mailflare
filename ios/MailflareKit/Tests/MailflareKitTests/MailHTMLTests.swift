@@ -33,6 +33,35 @@ import Testing
 		}
 	}
 
+	@Test func `drawings and formulas, whose content a browser reads by other rules, are dropped whole`() {
+		let page = render("""
+			<p>Before</p><svg><style><img src=x onerror=alert(1)></style><image href="https://track.example/p.gif"/><use xlink:href="https://track.example/s.svg#a"/></svg>
+			<math><style><img src=https://track.example/m.gif></style></math><p>After</p>
+			""").html.lowercased()
+		for forbidden in ["<svg", "<math", "<img", "<image", "<use", "onerror", "track.example"] {
+			#expect(!page.contains(forbidden), "\(forbidden) survived")
+		}
+		#expect(page.contains("before") && page.contains("after"))
+	}
+
+	@Test func `a style sheet cannot carry markup and only links may point somewhere`() {
+		let sheet = render("<style>a{content:\"<img src=https://track.example/a.gif onerror=alert(1)>\"}</style><p>x</p>").html
+		#expect(!sheet.contains("<img"))
+		let pointers = render("<img href=\"https://track.example/a\" src=\"data:image/png;base64,AAAA\"><div href=\"https://track.example/b\">d</div><a href=\"https://example.org/\">ok</a><area href=\"https://example.org/map\">").html
+		#expect(!pointers.contains("track.example"))
+		#expect(pointers.contains("<a href=\"https://example.org/\">"))
+		#expect(pointers.contains("https://example.org/map"))
+	}
+
+	@Test func `marks that attach to the character before them do not hide where a value ends`() {
+		// A browser ends the title at the quote; the accent that follows starts a new attribute.
+		let page = render("<p title=\"safe\"\u{0301} onclick=\"alert(1)\">x</p><p title='a'\u{0338}onmouseover='alert(2)'>y</p><b\u{0301}>z</b>").html.lowercased()
+		#expect(!page.contains("onclick"))
+		#expect(!page.contains("onmouseover"))
+		#expect(!page.contains("alert("))
+		#expect(page.contains("title=\"safe\""))
+	}
+
 	@Test func `text that only mentions an event handler is left alone`() {
 		let page = render("<p>Set font=bold and price on sale=yes, see online=1</p>").html
 		#expect(page.contains("price on sale=yes, see online=1"))
