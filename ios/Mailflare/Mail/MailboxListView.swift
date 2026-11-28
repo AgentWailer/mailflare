@@ -6,6 +6,8 @@ struct MailboxListView: View {
 	let session: AccountSession
 	@Environment(AppModel.self) private var model
 	@State private var tree = MailboxTree()
+	@State private var waiting: [OutgoingMessage] = []
+	@Environment(ComposeCoordinator.self) private var composer
 	@AppStorage("list.conversations") private var conversations = true
 	private let words = Presentation.current
 
@@ -31,6 +33,14 @@ struct MailboxListView: View {
 							          symbol: mailbox.isShared ? "person.2.crop.square.stack" : "envelope",
 							          count: tree.counts.mailboxes.first { $0.mailboxId == mailbox.id }?.unread ?? 0)
 						}
+					}
+				}
+			}
+			if !waiting.isEmpty {
+				Section {
+					NavigationLink(value: Route.outbox) {
+						FolderRow(title: Presentation.current.text("Outbox"), symbol: waiting.contains { $0.state.kind == .failed } ? "exclamationmark.circle" : "arrow.up.circle",
+						          tint: waiting.contains { $0.state.kind == .failed } ? .red : nil, count: waiting.count)
 					}
 				}
 			}
@@ -63,6 +73,10 @@ struct MailboxListView: View {
 		.navigationTitle("Mailboxes")
 		.toolbar {
 			ToolbarItem(placement: .topBarTrailing) { AccountSwitcher(session: session) }
+			ToolbarItem(placement: .bottomBar) { Spacer() }
+			ToolbarItem(placement: .bottomBar) {
+				Button { composer.intent = .new() } label: { Label("New message", systemImage: "square.and.pencil") }
+			}
 		}
 		.refreshable {
 			Haptics.play(.impact)
@@ -70,6 +84,9 @@ struct MailboxListView: View {
 		}
 		.task {
 			for await tree in session.store.observeMailboxes() { self.tree = tree }
+		}
+		.task {
+			for await waiting in session.store.observeOutgoing() { self.waiting = waiting }
 		}
 	}
 }

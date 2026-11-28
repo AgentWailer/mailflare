@@ -127,6 +127,18 @@ import MailflareKit
 		#expect(queued.text.hasPrefix("Ja, passt."))
 	}
 
+	@Test func `a reply nobody wrote in is nothing to keep, and one that was touched is`() async throws {
+		let model = ComposeModel(intent: .reply(messageId: "m1", all: false), session: try session(), filesDirectory: files)
+		await model.load()
+		#expect(!model.hasContent, "what the composer filled in by itself is not the user's work")
+		model.cc = ["ben@example.org"]
+		#expect(model.hasContent)
+		model.cc = []
+		#expect(!model.hasContent)
+		model.body = NSAttributedString(string: "Ja.")
+		#expect(model.hasContent)
+	}
+
 	@Test func `reply-all keeps the others and the quote can be left out`() async throws {
 		let session = try session()
 		let model = ComposeModel(intent: .reply(messageId: "m1", all: true), session: session, filesDirectory: files)

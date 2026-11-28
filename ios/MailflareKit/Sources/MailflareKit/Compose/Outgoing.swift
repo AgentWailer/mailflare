@@ -67,6 +67,34 @@ public struct OutgoingMessage: Codable, Equatable, Identifiable, Sendable {
 	public var attachments: [OutgoingAttachment]
 	public var state: State
 	public var createdAt: Date
+	/// How often sending ran into a server error. Not part of what is sent.
+	public var attempts = 0
+
+	enum CodingKeys: String, CodingKey {
+		case id, mailboxId, from, to, cc, bcc, subject, html, text, inReplyTo, references, threadId, forwardOfMessageId, serverDraftId, attachments, state, createdAt, attempts
+	}
+
+	public init(from decoder: any Decoder) throws {
+		let c = try decoder.container(keyedBy: CodingKeys.self)
+		id = try c.decode(String.self, forKey: .id)
+		mailboxId = try c.decode(String.self, forKey: .mailboxId)
+		from = try c.decode(String.self, forKey: .from)
+		to = try c.decode([String].self, forKey: .to)
+		cc = try c.decode([String].self, forKey: .cc)
+		bcc = try c.decode([String].self, forKey: .bcc)
+		subject = try c.decode(String.self, forKey: .subject)
+		html = try c.decode(String.self, forKey: .html)
+		text = try c.decode(String.self, forKey: .text)
+		inReplyTo = try c.decodeIfPresent(String.self, forKey: .inReplyTo)
+		references = try c.decodeIfPresent(String.self, forKey: .references)
+		threadId = try c.decodeIfPresent(String.self, forKey: .threadId)
+		forwardOfMessageId = try c.decodeIfPresent(String.self, forKey: .forwardOfMessageId)
+		serverDraftId = try c.decodeIfPresent(String.self, forKey: .serverDraftId)
+		attachments = try c.decode([OutgoingAttachment].self, forKey: .attachments)
+		state = try c.decode(State.self, forKey: .state)
+		createdAt = try c.decode(Date.self, forKey: .createdAt)
+		attempts = try c.decodeIfPresent(Int.self, forKey: .attempts) ?? 0
+	}
 
 	public init(id: String, mailboxId: String, from: String, to: [String], cc: [String], bcc: [String], subject: String, html: String, text: String,
 	            inReplyTo: String?, references: String?, threadId: String?, forwardOfMessageId: String?, serverDraftId: String?,

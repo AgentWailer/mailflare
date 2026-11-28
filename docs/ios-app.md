@@ -2,7 +2,8 @@
 
 The native iPhone app lives in `ios/`. Its design is in
 [superpowers/specs/2026-11-28-ios-app-design.md](superpowers/specs/2026-11-28-ios-app-design.md).
-This page describes what exists after stage 1 (the foundation) and how to set it up.
+This page describes what exists after stage 3 (reading, acting on mail, writing) and how to
+set it up.
 
 ## What the app does today
 
@@ -20,8 +21,19 @@ This page describes what exists after stage 1 (the foundation) and how to set it
   rows at once, and from the reader. Every change shows at once and is sent by the next sync,
   also when it was made without a network. A change the server refuses is put back and said.
 
-Not built yet, each with its own stage: writing mail (stage 3), notifications from Apple
-(stage 4), search (stage 5).
+- Mail can be written, answered (to the sender or to all) and forwarded: recipients with
+  suggestions from the address book, bold, italic, underline, lists and links, attachments
+  from Files and Photos, the sender chosen from the mailboxes that may send. A message is
+  kept on the phone the moment **Send** is tapped and goes out with the next sync, so it
+  can be written without a network. It waits under **Outbox**, where a message put aside
+  as a draft also stays. Sending is safe to repeat: the server keeps one draft per message
+  and a message that already went is not sent again. A message the server refuses, or
+  fails on five times, is marked there with the reason and can be opened and sent again.
+
+Not built yet: notifications from Apple (stage 4) and search (stage 5). Writing still
+lacks the web's warnings before sending (lookalike address, many visible recipients,
+missing attachment), undo send, scanning a document with the camera, and drafts that
+show on other devices: a draft put aside in the app stays on this phone.
 
 ## Before the first start: Cloudflare Access
 
@@ -168,6 +180,10 @@ Taken by the walk-through in the simulator, with made-up mail:
 | --- | --- | --- |
 | ![Archive and mark](screenshots/ios/21b-swipe-leading.png) | ![Move, snooze, delete](screenshots/ios/22-swipe-actions.png) | ![Several rows selected](screenshots/ios/24-selection.png) |
 
+| Writing | Answering | Outbox |
+| --- | --- | --- |
+| ![A new message](screenshots/ios/31-compose-written.png) | ![A reply with the original folded](screenshots/ios/32-compose-reply.png) | ![A message waiting to be sent](screenshots/ios/33-outbox.png) |
+
 ## What only a real iPhone can show
 
 The simulator and the tests cannot prove these, and none of them has been tried on a device:
@@ -179,3 +195,5 @@ The simulator and the tests cannot prove these, and none of them has been tried 
 - Background refresh, which iOS grants as it sees fit.
 - Fetching attachments only on Wi-Fi.
 - The camera for the QR code.
+- Sending a message for real. The local test server has no way to deliver mail, so the
+  tests prove the requests and their order, not a delivery.

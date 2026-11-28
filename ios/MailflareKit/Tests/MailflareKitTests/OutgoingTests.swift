@@ -112,6 +112,20 @@ func outgoing(_ id: String = "11111111-1111-4111-8111-111111111111", to: [String
 		#expect(await server.composeCalls.filter { $0.hasPrefix("send") }.count == 2, "a failed message is not retried by itself")
 	}
 
+	@Test func `a server that keeps failing is tried five times, then the message says so instead of waiting for ever`() async throws {
+		let (server, store, engine) = try await setup()
+		try store.saveOutgoing(outgoing())
+		await server.refuseSend(subject: "Hallo", with: .server(status: 500, message: "Send failed"))
+		for attempt in 1...4 {
+			await engine.syncNow()
+			#expect(try store.outgoingMessages().first?.state == .queued, "try \(attempt) leaves it waiting")
+			#expect(try store.outgoingMessages().first?.attempts == attempt)
+		}
+		await engine.syncNow()
+		#expect(try store.outgoingMessages().first?.state == .failed(reason: "500 Send failed"))
+		#expect(await server.sent.isEmpty)
+	}
+
 	@Test func `drafts and messages being written are not sent`() async throws {
 		let (server, store, engine) = try await setup()
 		try store.saveOutgoing(outgoing(state: .draft))

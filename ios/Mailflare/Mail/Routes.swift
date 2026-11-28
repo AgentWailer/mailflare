@@ -20,4 +20,5 @@ enum Route: Hashable {
 	case message(String)
 	case web(WebArea)
 	case appSettings
+	case outbox
 }

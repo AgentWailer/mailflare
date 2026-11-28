@@ -102,8 +102,26 @@ final class WalkthroughTests: XCTestCase {
 		passwordField.typeText(password)
 		if capturing { capture("03-sign-in") }
 		app.buttons["Anmelden"].firstMatch.tap()
+		declinePasswordOffer(in: app)
 
 		return app
+	}
+
+	/// The offer to save the password comes seconds after the sign-in, over whatever is on screen by
+	/// then. The interruption monitor only answers it at the next tap, which is then lost; so it is
+	/// waited for here and declined before the walk-through goes on.
+	@MainActor private func declinePasswordOffer(in app: XCUIApplication) {
+		let hosts = [app, XCUIApplication(bundleIdentifier: "com.apple.springboard")]
+		let deadline = Date().addingTimeInterval(8)
+		while Date() < deadline {
+			for host in hosts {
+				for title in ["Später", "Not Now", "Jetzt nicht"] where host.buttons[title].exists {
+					host.buttons[title].tap()
+					return
+				}
+			}
+			Thread.sleep(forTimeInterval: 0.5)
+		}
 	}
 
 	@MainActor func testSetupReadingAndOffline() throws {
@@ -325,5 +343,56 @@ final class WalkthroughTests: XCTestCase {
 		expect(app.staticTexts["Ihre Abrechnung für November"].firstMatch, "The inbox online again")
 		expect(app.staticTexts["Gerade aktualisiert"], "A sync after coming back", timeout: 60)
 		XCTAssertFalse(app.staticTexts["Ihre Buchung nach Hamburg"].exists, "The message archived offline is still archived after the sync")
+	}
+
+	/// Writing a new message with a suggested recipient, and answering one: both end up waiting to be sent.
+	@MainActor func testCompose() throws {
+		let app = signInFresh(capturing: false)
+		expect(app.navigationBars["Posteingang"], "The inbox")
+		expect(app.staticTexts["Gerade aktualisiert"], "A finished first sync", timeout: 60)
+
+		// A new message.
+		app.buttons["Neue Mail"].firstMatch.tap()
+		let to = app.textFields["compose.to"]
+		expect(to, "The recipient line")
+		to.tap()
+		to.typeText("ann")
+		let suggestion = app.staticTexts["anna.krueger@example.org"].firstMatch
+		expect(suggestion, "A suggestion from the address book")
+		capture("30-compose-suggestion")
+		suggestion.tap()
+		let subject = app.textFields["compose.subject"]
+		subject.tap()
+		subject.typeText("Gruß aus dem Simulator")
+		let body = app.textViews["compose.body"]
+		body.tap()
+		body.typeText("Hallo Anna,\ndas ist ein Test.")
+		capture("31-compose-written")
+		app.buttons["Senden"].firstMatch.tap()
+		XCTAssertTrue(to.waitForNonExistence(timeout: 10), "The composer closes after sending")
+
+		// An answer from the reader.
+		let invoice = app.staticTexts["Ihre Abrechnung für November"].firstMatch
+		expect(invoice, "A message to answer")
+		invoice.tap()
+		app.buttons["Antworten"].firstMatch.tap()
+		expect(app.textFields["compose.subject"], "The composer for the reply")
+		XCTAssertEqual(app.textFields["compose.subject"].value as? String, "Re: Ihre Abrechnung für November")
+		expect(app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'service@stadtwerke.example'")).firstMatch, "The sender as the recipient of the reply")
+		expect(app.switches.firstMatch, "The switch for the earlier message")
+		capture("32-compose-reply")
+		app.buttons["Abbrechen"].firstMatch.tap()
+		XCTAssertTrue(app.textFields["compose.subject"].waitForNonExistence(timeout: 10), "A reply nothing was written in closes without asking")
+
+		// The local test server cannot deliver mail. What was sent must not vanish: it waits in the outbox, or says why it was refused.
+		back(app)
+		back(app)
+		expect(app.navigationBars["Postfächer"], "The mailbox list")
+		let outbox = app.staticTexts["Ausgang"].firstMatch
+		expect(outbox, "The outbox with the message that could not go out", timeout: 30)
+		outbox.tap()
+		expect(app.staticTexts["Gruß aus dem Simulator"].firstMatch, "The written message in the outbox")
+		sleep(2)
+		capture("33-outbox")
 	}
 }

@@ -133,7 +133,10 @@ public actor SyncEngine {
 					try store.saveOutgoing(message)
 				default:
 					// A server error leaves the message waiting; the next run tries again, safely.
-					continue
+					// A server that keeps failing is not tried for ever: the user is told instead.
+					message.attempts += 1
+					if message.attempts >= Self.maxAttempts { message.state = .failed(reason: Self.reason(for: error)) }
+					try store.saveOutgoing(message)
 				}
 			}
 		}

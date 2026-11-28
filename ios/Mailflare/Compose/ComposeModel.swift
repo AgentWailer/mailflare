@@ -57,7 +57,6 @@ final class ComposeModel {
 	private var forwardOfMessageId: String?
 	private var serverDraftId: String?
 	private var book: [RecipientCandidate] = []
-	private var initialBody = ""
 	private var createdAt = Date()
 
 	init(intent: ComposeIntent, session: AccountSession, filesDirectory: URL? = nil) {
@@ -78,11 +77,19 @@ final class ComposeModel {
 
 	var canSend: Bool { !to.isEmpty && invalidRecipients.isEmpty && !from.isEmpty && !isLoading }
 
-	/// True once there is something worth keeping when the composer is closed.
-	var hasContent: Bool {
-		!to.isEmpty || !cc.isEmpty || !bcc.isEmpty || !subject.trimmingCharacters(in: .whitespaces).isEmpty || !attachments.isEmpty
-			|| body.string.trimmingCharacters(in: .whitespacesAndNewlines) != initialBody.trimmingCharacters(in: .whitespacesAndNewlines)
+	/// What the composer filled in by itself when it opened: recipients and subject of a reply, the signature.
+	private struct Baseline: Equatable { var to: [String] = []; var cc: [String] = []; var bcc: [String] = []; var subject = ""; var body = "" }
+	private var baseline = Baseline()
+
+	private var written: Baseline {
+		Baseline(to: to, cc: cc, bcc: bcc, subject: subject.trimmingCharacters(in: .whitespaces), body: body.string.trimmingCharacters(in: .whitespacesAndNewlines))
 	}
+
+	/// True once the user has put something of their own into the message.
+	var hasContent: Bool { !attachments.isEmpty || written != baseline }
+
+	/// The kind of message, for the composer's title.
+	var kind: ComposeIntent { intent }
 
 	// MARK: Loading
 
@@ -147,6 +154,8 @@ final class ComposeModel {
 		} catch {
 			loadError = String(localized: "That did not work. Try again.")
 		}
+		// A message that was put aside before is the user's work from the start.
+		if case .outgoing = intent { baseline = Baseline() } else { baseline = written }
 	}
 
 	private var phrases: ReplyBuilder.Phrases {
@@ -155,7 +164,6 @@ final class ComposeModel {
 
 	private func setBody(_ text: String) {
 		body = NSAttributedString(string: text, attributes: [.font: UIFont.preferredFont(forTextStyle: .body), .foregroundColor: UIColor.label])
-		initialBody = text
 	}
 
 	/// The mailbox's signature as text, two lines below where the writing starts.
@@ -285,7 +293,6 @@ final class ComposeModel {
 			quotedHTML = split.quoted.map { "\(QuoteSplitter.marker)\($0)</div>" }
 			setBody(ReplyBuilder.plainText(fromHTML: split.visible))
 		}
-		initialBody = ""
 	}
 
 	/// Queues the message. It goes out with the sync that follows, or when there is a network again.
