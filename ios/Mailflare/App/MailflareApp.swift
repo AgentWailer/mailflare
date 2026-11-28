@@ -1,11 +1,21 @@
 import SwiftUI
+import MailflareKit
 
 @main
 struct MailflareApp: App {
+	@State private var model = AppModel(dependencies: AppDependencies(
+		credentials: KeychainCredentialStore(),
+		storeDirectory: URL.applicationSupportDirectory,
+		transport: URLSessionTransport(),
+		defaults: .standard,
+		deviceName: UIDevice.current.name
+	))
+
 	var body: some Scene {
 		WindowGroup {
-			Text("Mailflare")
-				.font(.largeTitle.bold())
+			RootView()
+				.environment(model)
+				.task { await model.start() }
 		}
 	}
 }

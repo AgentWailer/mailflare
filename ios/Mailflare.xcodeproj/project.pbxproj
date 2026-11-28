@@ -7,12 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		05A5E68B0087D758A5249D76 /* SetupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C84278AE964BA8C9AEE26D /* SetupViews.swift */; };
+		08A135FD614F243A2C4977C1 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060BA86142822C2062D52090 /* Haptics.swift */; };
+		0FF6775BAF2623320A16B685 /* AccessKeyScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2054584C8B4ED4D27BA6499 /* AccessKeyScanner.swift */; };
+		26AB9DA803B67AE49E435DCD /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DB6265D72B7B99DCA65E03 /* AppModel.swift */; };
+		348F83C124418A28BE18862B /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2FE52762FB1DF0BD379050 /* Messages.swift */; };
+		3B660CE08B174F06BECD9196 /* AccessKeyParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76FA1160FD014E61AD363079 /* AccessKeyParsingTests.swift */; };
 		3FC42D69E207D10C96796FDA /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 86822F3A9CD77C7B3169109C /* Localizable.xcstrings */; };
+		424848952E4702263AB1D186 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 211D844A89586F7781DFD929 /* RootView.swift */; };
+		4E0C629CE35CB03A141F5851 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2D23399A2D0B17FD320EAC /* TestSupport.swift */; };
+		77809147C36411CA278C5CEB /* AccessKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9295BB1CE820F1828A07E7E /* AccessKey.swift */; };
 		AC0A8BAE8AC246F9D033A372 /* MailflareKit in Frameworks */ = {isa = PBXBuildFile; productRef = 880BED00CC3460A92B912673 /* MailflareKit */; };
 		B15631774AA19BB91D277D74 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1ADA5582B9059D7331DB55B /* Assets.xcassets */; };
 		B64570EAA8E4DAA7DB467710 /* SkeletonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */; };
 		BB58EE7A35C5C2275243C171 /* MailflareKit in Frameworks */ = {isa = PBXBuildFile; productRef = E078B2A6D9628D1A5125CF30 /* MailflareKit */; };
 		D51EF5944D5A4D7B3D3CC0AD /* MailflareApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A2F3FE795DE3A708DCE739 /* MailflareApp.swift */; };
+		D8BBB37D0BADE0B2A2F5CDDB /* AppModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E06CF763FDF8B283FCF0697 /* AppModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,14 +36,24 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		060BA86142822C2062D52090 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		211D844A89586F7781DFD929 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		2E06CF763FDF8B283FCF0697 /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
 		40BB452D8179270369E09048 /* MailflareKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MailflareKit; path = MailflareKit; sourceTree = SOURCE_ROOT; };
 		4B4BC912A47D60DB7EC46139 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4F0AD281A51060AD2B0DB510 /* Mailflare.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mailflare.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		65A2F3FE795DE3A708DCE739 /* MailflareApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailflareApp.swift; sourceTree = "<group>"; };
+		76FA1160FD014E61AD363079 /* AccessKeyParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessKeyParsingTests.swift; sourceTree = "<group>"; };
+		7C2D23399A2D0B17FD320EAC /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
 		86822F3A9CD77C7B3169109C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		AC2FE52762FB1DF0BD379050 /* Messages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Messages.swift; sourceTree = "<group>"; };
+		B8C84278AE964BA8C9AEE26D /* SetupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupViews.swift; sourceTree = "<group>"; };
+		B9295BB1CE820F1828A07E7E /* AccessKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessKey.swift; sourceTree = "<group>"; };
 		BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonTests.swift; sourceTree = "<group>"; };
 		C1ADA5582B9059D7331DB55B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D2054584C8B4ED4D27BA6499 /* AccessKeyScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessKeyScanner.swift; sourceTree = "<group>"; };
 		E20F7E3019D340527018BE40 /* MailflareTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MailflareTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5DB6265D72B7B99DCA65E03 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +89,15 @@
 			tabWidth = 4;
 			usesTabs = 1;
 		};
+		8B59C7FEB41430B97A0C261E /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				060BA86142822C2062D52090 /* Haptics.swift */,
+				AC2FE52762FB1DF0BD379050 /* Messages.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
 		B70D246D47AD41B5897A390C /* Mailflare */ = {
 			isa = PBXGroup;
 			children = (
@@ -76,8 +105,20 @@
 				4B4BC912A47D60DB7EC46139 /* Info.plist */,
 				86822F3A9CD77C7B3169109C /* Localizable.xcstrings */,
 				F80F5607FF8EBEB403C5139D /* App */,
+				B76AF97DD73E35C8D38AE466 /* Setup */,
+				8B59C7FEB41430B97A0C261E /* Support */,
 			);
 			path = Mailflare;
+			sourceTree = "<group>";
+		};
+		B76AF97DD73E35C8D38AE466 /* Setup */ = {
+			isa = PBXGroup;
+			children = (
+				B9295BB1CE820F1828A07E7E /* AccessKey.swift */,
+				D2054584C8B4ED4D27BA6499 /* AccessKeyScanner.swift */,
+				B8C84278AE964BA8C9AEE26D /* SetupViews.swift */,
+			);
+			path = Setup;
 			sourceTree = "<group>";
 		};
 		C44167A2B6AF7AFEE03A8462 /* Packages */ = {
@@ -91,9 +132,20 @@
 		D7D468E2F56A3F1DA39FF03A /* MailflareTests */ = {
 			isa = PBXGroup;
 			children = (
+				76FA1160FD014E61AD363079 /* AccessKeyParsingTests.swift */,
+				2E06CF763FDF8B283FCF0697 /* AppModelTests.swift */,
 				BB6348CD9CCCAD1EBF76F5CA /* SkeletonTests.swift */,
+				E2F2FCA991E582239B1CCC89 /* Support */,
 			);
 			path = MailflareTests;
+			sourceTree = "<group>";
+		};
+		E2F2FCA991E582239B1CCC89 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				7C2D23399A2D0B17FD320EAC /* TestSupport.swift */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 		F17A5BAB2A3963F0BD8091D0 /* Products */ = {
@@ -108,7 +160,9 @@
 		F80F5607FF8EBEB403C5139D /* App */ = {
 			isa = PBXGroup;
 			children = (
+				E5DB6265D72B7B99DCA65E03 /* AppModel.swift */,
 				65A2F3FE795DE3A708DCE739 /* MailflareApp.swift */,
+				211D844A89586F7781DFD929 /* RootView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -213,7 +267,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3B660CE08B174F06BECD9196 /* AccessKeyParsingTests.swift in Sources */,
+				D8BBB37D0BADE0B2A2F5CDDB /* AppModelTests.swift in Sources */,
 				B64570EAA8E4DAA7DB467710 /* SkeletonTests.swift in Sources */,
+				4E0C629CE35CB03A141F5851 /* TestSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,7 +278,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				77809147C36411CA278C5CEB /* AccessKey.swift in Sources */,
+				0FF6775BAF2623320A16B685 /* AccessKeyScanner.swift in Sources */,
+				26AB9DA803B67AE49E435DCD /* AppModel.swift in Sources */,
+				08A135FD614F243A2C4977C1 /* Haptics.swift in Sources */,
 				D51EF5944D5A4D7B3D3CC0AD /* MailflareApp.swift in Sources */,
+				348F83C124418A28BE18862B /* Messages.swift in Sources */,
+				424848952E4702263AB1D186 /* RootView.swift in Sources */,
+				05A5E68B0087D758A5249D76 /* SetupViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

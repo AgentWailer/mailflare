@@ -43,6 +43,7 @@ targets:
         CFBundleDisplayName: Mailflare
         CFBundleLocalizations: [en, de]
         ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: The camera reads the QR code of your access key.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
