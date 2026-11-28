@@ -94,7 +94,11 @@ function breakable(token: string, relaxed: boolean): boolean {
 	if (!relaxed) return length >= (word ? LONG_WORD_LENGTH : LONG_TOKEN_LENGTH);
 	// What the first pass already broke is left alone; a number (an amount, a date) is never broken here.
 	if (length >= (word ? LONG_WORD_LENGTH : LONG_TOKEN_LENGTH)) return false;
-	return word ? length >= RELAXED_WORD_LENGTH : length >= RELAXED_TOKEN_LENGTH && /\p{L}/u.test(token);
+	if (word) return length >= RELAXED_WORD_LENGTH;
+	// An amount with its currency (`USD1,234,567.89`, `1.234,56EUR`) and a timestamp (`2026-11-27T17:52:31Z`)
+	// carry letters too: what is mostly digits is a number and stays whole.
+	const letters = token.match(/\p{L}/gu)?.length ?? 0, digits = token.match(/\p{Nd}/gu)?.length ?? 0;
+	return length >= RELAXED_TOKEN_LENGTH && letters > digits;
 }
 
 function insertBreaks(root: DocumentFragment | Element, relaxed: boolean): void {

@@ -13,6 +13,10 @@ const ROOT_ID = "mailflare-print-root";
 const ACTIVE_CLASS = "mailflare-printing";
 /** How long a printout waits for the pictures attached to the message. */
 const PICTURE_WAIT_MS = 3000;
+/** The width a message is fitted to before the paper is known: what A4 and Letter leave inside ordinary margins. */
+const PAPER_WIDTH_PX = 680;
+/** Below this a printout is no longer read; a table wider still keeps this size and runs off the edge. */
+const SMALLEST_PRINT_SCALE = 0.3;
 
 /**
  * Prints one message: its subject, who it is from and to, and its body, without
@@ -46,6 +50,7 @@ export function printMessage(message: PrintableMessage): void {
 	header.appendChild(list);
 
 	const body = document.createElement("main");
+	let mailBody: HTMLElement | null = null;
 	const pictures: HTMLImageElement[] = [];
 	if (message.html) {
 		const prepared = prepareEmailHtml(message.html, { reader: true, allowRemote: false });
@@ -64,6 +69,7 @@ export function printMessage(message: PrintableMessage): void {
 		mailStyle.textContent = `:host{display:block;color-scheme:light;overflow-wrap:break-word}img,table{max-width:100%!important}table{min-width:0!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
 		mail.attachShadow({ mode: "open" }).replaceChildren(mailStyle, content.content);
 		body.appendChild(mail);
+		mailBody = mail;
 	} else {
 		const text = document.createElement("pre");
 		text.textContent = message.text ?? "";
@@ -79,14 +85,37 @@ main{overflow-wrap:anywhere}pre{white-space:pre-wrap;font:inherit;margin:0}`;
 
 	const finish = () => {
 		window.removeEventListener("afterprint", finish);
+		media?.removeEventListener?.("change", onPaper);
 		document.documentElement.classList.remove(ACTIVE_CLASS);
 		host.remove();
 	};
 	document.body.appendChild(host);
 	document.documentElement.classList.add(ACTIVE_CLASS);
 	window.addEventListener("afterprint", finish);
+	/**
+	 * A table whose columns cannot get narrower (ten headings that do not wrap) is wider than the paper
+	 * whatever its width says, and paper cannot be scrolled: the message is made smaller until its last
+	 * column, usually the total, is on the page.
+	 */
+	const fit = (paper: number) => {
+		if (!mailBody || !(paper > 0)) return;
+		mailBody.style.removeProperty("zoom");
+		const needed = mailBody.scrollWidth;
+		if (needed > paper + 1) mailBody.style.setProperty("zoom", String(Math.max(SMALLEST_PRINT_SCALE, Math.floor((paper / needed) * 1000) / 1000)));
+	};
+	/** Fitted before printing, to the usual paper: the printout is not laid out on screen, so it is measured aside. */
+	const fitToUsualPaper = () => {
+		host.style.cssText = `display:block;position:absolute;left:-10000px;top:0;width:${PAPER_WIDTH_PX}px;visibility:hidden`;
+		fit(PAPER_WIDTH_PX);
+		host.style.cssText = "";
+	};
+	// And again to the paper itself where the browser lays the printout out before it asks (narrower paper, wide margins).
+	const media = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
+	const onPaper = (event: MediaQueryListEvent) => { if (event.matches && document.getElementById(ROOT_ID) === host) fit(host.clientWidth); };
+	media?.addEventListener?.("change", onPaper);
 	const print = () => {
 		if (document.getElementById(ROOT_ID) !== host) return;
+		fitToUsualPaper();
 		try { window.print(); } catch { finish(); return; }
 		// Browsers that return from print() without ever reporting `afterprint` must not keep the page hidden.
 		setTimeout(() => { if (document.getElementById(ROOT_ID) === host && !window.matchMedia("print").matches) finish(); }, 60_000);

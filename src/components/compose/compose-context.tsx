@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { announceStatus } from "@/lib/status-announcer";
@@ -37,9 +37,10 @@ type ComposeContextValue = {
 	isOccupied: () => boolean;
 	/**
 	 * A composer says that its message is on its way to the server. Until that send has answered, no
-	 * other message is opened: the same draft opened again could be sent a second time.
+	 * other message is opened: the same draft opened again could be sent a second time. A message
+	 * asked for meanwhile opens afterwards, unless it is the draft (`sentDraftId`) that just went out.
 	 */
-	setSending: (sending: boolean) => void;
+	setSending: (sending: boolean, sentDraftId?: string | null) => void;
 	/** The page composer, while it is shown, opens a message taken back with Undo instead of the floating one. */
 	setRestoreTarget: (target: ((draftId: string) => void) | null) => void;
 };
@@ -67,7 +68,16 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 	const [freshReply, setFreshReply] = useState(false);
 	const occupied = useRef(new Set<string>());
 	const sending = useRef(false);
-	const setSending = useCallback((value: boolean) => { sending.current = value; }, []);
+	// The message asked for while a send was under way. It opens once that send has answered, unless
+	// the sending window is still there with its message (a send that failed).
+	const blockedOpen = useRef<{ draftId: string; open: () => void } | null>(null);
+	const setSending = useCallback((value: boolean, sentDraftId?: string | null) => {
+		sending.current = value;
+		if (value) return;
+		const blocked = blockedOpen.current;
+		blockedOpen.current = null;
+		if (blocked && blocked.draftId !== sentDraftId && occupied.current.size === 0) blocked.open();
+	}, []);
 	/** True, and says so, while a send is under way: opening another message has to wait for its answer. */
 	const waitsForSend = useCallback(() => {
 		if (sending.current) announceStatus("compose.sendingBusy");
@@ -77,7 +87,15 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 	const setRestoreTarget = useCallback((target: ((draftId: string) => void) | null) => { restoreTarget.current = target; }, []);
 
 	const openDraftComposer = useCallback((nextDraftId: string, options?: { freshReply?: boolean }) => {
-		if (waitsForSend()) return;
+		if (waitsForSend()) {
+			blockedOpen.current = { draftId: nextDraftId, open: () => {
+				setPrefill(null);
+				setFreshReply(!!options?.freshReply);
+				setDraftId(nextDraftId);
+				setOpen(true);
+			} };
+			return;
+		}
 		setPrefill(null);
 		setFreshReply(!!options?.freshReply);
 		setDraftId(nextDraftId);
@@ -90,11 +108,31 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 	const endUndoOffer = useCallback((messageId: string) => setPendingUndos((current) => current.filter((entry) => entry.messageId !== messageId)), []);
 	/** The restored message opens where nothing is lost by it; otherwise it waits under Drafts. */
 	const openRestored = useCallback((restoredId: string) => {
-		if (occupied.current.size > 0) return false;
+		// Nor while another message is on its way: the offer then says "under Drafts", which is true.
+		if (occupied.current.size > 0 || sending.current) return false;
 		// The page composer takes its message back itself; a second window on top of it would be one too many.
 		if (restoreTarget.current) restoreTarget.current(restoredId); else openDraftComposer(restoredId);
 		return true;
 	}, [openDraftComposer]);
+	// The offers and the application's notices share a corner: the notices are told how much room
+	// the offers take and stand above them (`.status-stack`, globals.css).
+	const undoStack = useRef<HTMLDivElement | null>(null);
+	const offers = pendingUndos.length;
+	useEffect(() => {
+		const stack = undoStack.current;
+		const root = document.documentElement;
+		if (!offers || !stack) return;
+		const tell = () => root.style.setProperty("--undo-stack-space", `${Math.ceil(stack.getBoundingClientRect().height) + 8}px`);
+		tell();
+		root.setAttribute("data-undo-offers", "");
+		const observer = new ResizeObserver(tell);
+		observer.observe(stack);
+		return () => {
+			observer.disconnect();
+			root.removeAttribute("data-undo-offers");
+			root.style.removeProperty("--undo-stack-space");
+		};
+	}, [offers]);
 	const value = useMemo<ComposeContextValue>(() => ({
 		open,
 		draftId,
@@ -139,7 +177,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 			{pendingUndos.length > 0 && createPortal(
 				// In the bottom left corner beside the desktop composer. Where the composer fills the screen
 				// (phones, tablets), globals.css lifts the offers above the composer's send bar instead.
-				<div data-compose-layer data-undo-send-stack className="fixed bottom-6 left-6 z-[180] flex max-w-[calc(100vw-32px)] flex-col items-start gap-2">
+				<div ref={undoStack} data-compose-layer data-undo-send-stack className="fixed bottom-6 left-6 z-[180] flex max-w-[calc(100vw-32px)] flex-col items-start gap-2">
 					<Suspense fallback={null}>
 						{pendingUndos.map((pending) => (
 							<UndoSendToast key={pending.messageId} pending={pending} named={pendingUndos.length > 1} onDone={endUndoOffer} onRestored={openRestored} />

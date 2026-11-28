@@ -17,6 +17,10 @@ test('ambiguous delivery errors explain that resending requires checking the out
  assert.equal(composeSendError({code:'delivery_unknown',error:'English provider error'},t),de['compose.error.deliveryUnknown']);
  assert.equal(composeSendError({code:'delivery_status_pending',error:'English provider error'},t),de['compose.error.deliveryStatusPending']);
 });
+test('a failure the server words itself keeps its status and Ray ID',()=>{
+ assert.equal(composeSendError({error:'Upstream provider unavailable.'},t,{status:502,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']}: Upstream provider unavailable (HTTP 502, Ray a5e2e7ef1e481496). ${de['compose.error.sendCheckFirst']}`);
+ assert.equal(composeSendError({error:'Quota reached'},t,{status:429,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']}: Quota reached. ${de['compose.error.sendRetry']}`,'a refusal is explained by its own words');
+});
 test('structured validation payloads and absent bodies never become React children',()=>{
  for(const value of [{error:{fieldErrors:{body:['Invalid']}}},{error:{formErrors:['Invalid']}},null,{},'proxy error'])assert.equal(composeSendError(value,t),de['compose.error.sendFailed']);
 });
@@ -25,7 +29,7 @@ test('HTTP status and Cloudflare Ray ID are kept, and each failure says what to 
  assert.equal(composeSendError(null,t,{status:403,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']} (HTTP 403, Ray a5e2e7ef1e481496). ${de['compose.error.sendRetry']}`);
  // A gateway that gave up may have done so after the message was accepted: look before sending twice.
  for(const status of [500,502,504,524])assert.equal(composeSendError(null,t,{status,rayId:'invalid ray!'}),`${de['compose.error.sendFailed']} (HTTP ${status}). ${de['compose.error.sendCheckFirst']}`);
- assert.equal(composeSendError({error:'Queue write failed.'},t,{status:500}),`${de['compose.error.sendFailed']}: Queue write failed. ${de['compose.error.sendCheckFirst']}`);
+ assert.equal(composeSendError({error:'Queue write failed.'},t,{status:500}),`${de['compose.error.sendFailed']}: Queue write failed (HTTP 500). ${de['compose.error.sendCheckFirst']}`);
  assert.equal(composeSendError({error:{fieldErrors:{threadId:['Thread id is too long']}}},t,{status:400}),`${de['compose.error.sendFailed']}: Thread id is too long. ${de['compose.error.sendRetry']}`);
  // A success that names no message leaves the outcome open: it must not invite a second send.
  assert.equal(composeSendError(null,t,{status:200,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']}. ${de['compose.error.sendCheckFirst']}`);

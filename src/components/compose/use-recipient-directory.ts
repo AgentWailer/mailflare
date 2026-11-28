@@ -29,6 +29,8 @@ export function isKnownCorrespondent(candidate: RecipientCandidate): boolean {
 let lastGood: { session: string | null; directory: RecipientCandidate[] } | null = null;
 
 let cached: { session: string | null; at: number; promise: Promise<RecipientDirectoryAnswer> } | null = null;
+/** Counts the reads: an answer that arrives after a later read began is older than that one's and is not kept. */
+let reads = 0;
 
 function isCandidate(value: unknown): value is RecipientCandidate {
 	const item = value as RecipientCandidate;
@@ -39,11 +41,14 @@ function isCandidate(value: unknown): value is RecipientCandidate {
 export function loadRecipientDirectoryAnswer(force = false): Promise<RecipientDirectoryAnswer> {
 	const session = getClientSessionToken();
 	if (!force && cached && cached.session === session && Date.now() - cached.at < FRESH_MS) return cached.promise;
-	const promise = authFetch("/api/compose/recipients", { cache: "no-store", redirectOnUnauthorized: false, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+	const read = ++reads;
+	const promise: Promise<RecipientDirectoryAnswer> = authFetch("/api/compose/recipients", { cache: "no-store", redirectOnUnauthorized: false, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
 		.then(async (response) => {
 			if (!response.ok) throw new Error("Recipient directory unavailable");
 			const data = await response.json() as { recipients?: unknown };
 			const directory = Array.isArray(data.recipients) ? data.recipients.filter(isCandidate) : EMPTY;
+			// A slower, earlier read must not undo what a later one found: the later one answers for both.
+			if (read !== reads && cached && cached.promise !== promise && cached.session === session) return cached.promise;
 			lastGood = { session, directory };
 			return { directory, ok: true };
 		})

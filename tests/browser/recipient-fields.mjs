@@ -19,10 +19,11 @@ import {FloatingComposer} from '@/components/compose/floating-composer';
 import {parseMailto} from '@/components/compose/mailto-utils';
 import {LanguageProvider} from '@/components/language-provider';
 import {StatusToastHost} from '@/components/status-toast-host';
+import {announceStatus} from '@/lib/status-announcer';
 import de from '../../public/locales/de.json';
 const params=new URLSearchParams(location.search);
 if(params.has('dark'))document.documentElement.classList.add('dark');
-function Open(){const compose=useCompose();(window as never as {compose:unknown}).compose=compose;useEffect(()=>{const link=parseMailto(params.get('mailto'));if(link)compose.openComposerWith(link);else if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
+function Open(){const compose=useCompose();(window as never as {compose:unknown}).compose=compose;(window as never as {announce:unknown}).announce=announceStatus;useEffect(()=>{const link=parseMailto(params.get('mailto'));if(link)compose.openComposerWith(link);else if(params.has('draft'))compose.openDraftComposer('draft');else compose.openComposer();},[]);return null;}
 createRoot(document.getElementById('root')!).render(<LanguageProvider initialLocale="de" initialMessages={de}><ComposeProvider><Open/><FloatingComposer/></ComposeProvider><StatusToastHost/></LanguageProvider>);`);
 const de = JSON.parse(readFileSync(join(root, 'public/locales/de.json'), 'utf8'));
 const label = (key, vars = {}) => Object.entries(vars).reduce((text, [name, value]) => text.replace(`{${name}}`, value), de[key]);
@@ -240,8 +241,11 @@ try {
 			await t.chip('to', 'maxine@partner.test').locator('button').first().click();
 			await menu.getByRole('menuitem', { name: de['recipient.removeItem'], exact: true }).click();
 			await t.page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
-			await t.chip('to', 'lin@harborworks.test').getByRole('button', { name: label('recipient.remove', { address: 'lin@harborworks.test' }), exact: true }).click();
+			// By keyboard: the x goes with its chip, and focus stays in the line instead of falling to the page.
+			await t.chip('to', 'lin@harborworks.test').getByRole('button', { name: label('recipient.remove', { address: 'lin@harborworks.test' }), exact: true }).focus();
+			await t.page.keyboard.press('Enter');
 			assert.deepEqual(await t.chips('to'), []);
+			await t.page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
 			await t.noOverflow('after moving chips');
 			await t.close();
 		}
@@ -463,6 +467,12 @@ try {
 			const box = await t.inViewport(undo, 'Undo');
 			if (touch) assert(box.height >= 44, `${tag}: Undo is finger-sized`);
 			assert.equal(await undo.evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); }), true, `${tag}: Undo is not covered by the composer`);
+			// A confirmation said meanwhile uses the same corner: it stands above the offer, not under it.
+			await t.page.evaluate(() => window.announce('status.archived'));
+			await t.page.locator('[data-status-toast]').waitFor();
+			await t.page.waitForTimeout(250);
+			const corner = await t.page.evaluate(() => { const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom }; }; return { notice: box('[data-status-toast]'), offer: box('[data-undo-send]') }; });
+			assert(corner.notice.bottom <= corner.offer.y + 0.5 || corner.notice.y >= corner.offer.bottom - 0.5 || corner.notice.right <= corner.offer.x + 0.5 || corner.notice.x >= corner.offer.right - 0.5, `${tag}: the confirmation and the undo offer do not cover each other: ${JSON.stringify(corner)}`);
 			// The offer must not sit on the composer's own controls: the next message is written while it shows.
 			const toastBox = await toast.boundingBox();
 			for (const control of [t.send, t.form.getByRole('button', { name: de['compose.attachFiles'], exact: true }), t.form.getByRole('button', { name: de['compose.deleteDraft'], exact: true })]) {
@@ -641,16 +651,34 @@ try {
 			await t.page.keyboard.type('Hallo Maya');
 			await t.send.click();
 			await t.page.waitForFunction(() => document.querySelector('form [aria-busy="true"]'));
-			assert.equal(await t.page.locator('form [role="status"].sr-only').first().evaluate(node => node.textContent), de['compose.preparing'], `${tag}: that a send runs is said outside the locked part`);
+			// First "preparing" (the address book, the draft), then, once the message itself is on its way, "sending":
+			// said outside the locked part, where a screen reader still reads.
+			await t.page.waitForFunction(text => document.querySelector('form [role="status"].sr-only')?.textContent === text, de['compose.sending']);
 			await t.form.getByRole('button', { name: de['compose.close'], exact: true }).click();
 			await t.page.waitForFunction(() => !document.querySelector('form'));
 			await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
 			await t.page.locator('[data-status-toast]').getByText(de['compose.sendingBusy'], { exact: true }).waitFor();
 			assert.equal(await t.page.locator('form').count(), 0, `${tag}: no second window for a message that is being sent`);
-			await t.page.locator('[data-status-toast]').getByText(sendStatus === 200 ? de['compose.sent'] : de['compose.error.closedSendFailed'], { exact: true }).waitFor();
+			if (sendStatus === 200) {
+				await t.page.locator('[data-status-toast]').getByText(de['compose.sent'], { exact: true }).waitFor();
+				// The draft that was asked for meanwhile is the one that went out: it is not opened to be sent again.
+				await t.page.waitForTimeout(400);
+				assert.equal(await t.page.locator('form').count(), 0, `${tag}: a sent draft does not open again`);
+				await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
+			} else {
+				// A refusal is not a confirmation: it interrupts, names the reason and stays until it is closed.
+				const failure = t.page.locator('[role="alert"] [data-status-failure]');
+				await failure.getByText(de['compose.error.closedSend'], { exact: true }).waitFor();
+				assert.match(await failure.innerText(), /HTTP 500/, `${tag}: the notice keeps the reason`);
+				await t.page.waitForTimeout(5600);
+				assert.equal(await failure.count(), 1, `${tag}: the refusal does not fade like a confirmation`);
+				// The message asked for while the send ran opens now by itself.
+				await t.page.locator('form').waitFor();
+				await failure.getByRole('button', { name: de['notification.dismiss'], exact: true }).click();
+				await failure.waitFor({ state: 'detached' });
+			}
 			assert.equal(t.calls.sends.length, 1, `${tag}: sent once`);
 			// Once it has answered, messages open again.
-			await t.page.evaluate(() => window.compose.openDraftComposer('draft'));
 			await t.page.locator('form').waitFor();
 			await t.close();
 		}

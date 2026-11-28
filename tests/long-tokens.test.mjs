@@ -86,8 +86,12 @@ test("the extra break points for a message too small to read are for longer word
 	addRelaxedBreaks(template.content);
 	const cells = [...template.content.querySelectorAll("th,td")];
 	const broken = cells.filter((cell) => breaks(cell) > 0).map((cell) => cell.textContent);
-	// Longer words and long identifiers (an invoice number, an IBAN); the dates and both amounts stay whole.
-	assert.deepEqual(broken, ["Buchungstag", "Wertstellung", "Verwendungszweck", "Lastschrift Stadtwerke Beispielstadt", "INV-2026-0001", "DE89370400440532013000"]);
+	// Longer words only. What is mostly digits (an invoice number, an IBAN) is a number and stays whole, like the dates and both amounts.
+	assert.deepEqual(broken, ["Buchungstag", "Wertstellung", "Verwendungszweck", "Lastschrift Stadtwerke Beispielstadt"]);
+	// An amount glued to its currency and a timestamp carry letters and are numbers all the same; a name with a few digits is not.
+	const glued = wrap("<table><tr><td>USD1,234,567.89</td><td>1.234.567,89EUR</td><td>CHF1'234'567.89</td><td>2026-11-27T17:52:31Z</td><td>Kundenportal-Zugang2026</td></tr></table>");
+	addRelaxedBreaks(glued.content);
+	assert.deepEqual([...glued.content.querySelectorAll("td")].filter((cell) => breaks(cell) > 0).map((cell) => cell.textContent), ["Kundenportal-Zugang2026"]);
 	for (const whole of ["27.11.2026", "1.264,98\u00a0€", "-84,20 €"]) assert.equal(breaks(cells.find((cell) => cell.textContent === whole)), 0, whole);
 	assert([...template.content.querySelectorAll("wbr")].every((point) => point.hasAttribute(RELAXED_BREAK)), "each is marked, so it counts only while the message is relaxed");
 	assert.equal(template.content.textContent, wrap(statement).content.textContent, "the text reads the same");

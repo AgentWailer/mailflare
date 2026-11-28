@@ -89,6 +89,8 @@ export function fitEmailToWidth(host: HTMLElement, viewport: HTMLElement, canvas
 		host.dataset.emailScale = String(scale);
 	}
 	function schedule() { if (!stopped && !frame) frame = requestAnimationFrame(measure); }
+	// An unfolded quote is other content at the same width: it is judged anew.
+	function judgeAgain() { probe = null; schedule(); }
 	const observer = new ResizeObserver(entries => {
 		for (const entry of entries) {
 			if (entry.target === host) {
@@ -101,7 +103,7 @@ export function fitEmailToWidth(host: HTMLElement, viewport: HTMLElement, canvas
 	observer.observe(host);
 	observer.observe(canvas);
 	host.shadowRoot?.addEventListener("load", schedule, true);
-	host.shadowRoot?.addEventListener("toggle", schedule, true);
+	host.shadowRoot?.addEventListener("toggle", judgeAgain, true);
 	window.addEventListener("resize", schedule);
 	document.fonts?.addEventListener("loadingdone", schedule);
 	// Initial fitting runs before the next paint; image loads and quote expansion remeasure later.
@@ -111,7 +113,7 @@ export function fitEmailToWidth(host: HTMLElement, viewport: HTMLElement, canvas
 		cancelAnimationFrame(frame);
 		observer.disconnect();
 		host.shadowRoot?.removeEventListener("load", schedule, true);
-		host.shadowRoot?.removeEventListener("toggle", schedule, true);
+		host.shadowRoot?.removeEventListener("toggle", judgeAgain, true);
 		window.removeEventListener("resize", schedule);
 		document.fonts?.removeEventListener("loadingdone", schedule);
 		layoutStyle.remove();

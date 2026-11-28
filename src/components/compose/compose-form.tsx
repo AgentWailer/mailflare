@@ -5,7 +5,7 @@ import type { DragEvent } from "react";
 import { ChevronDown, ChevronUp, FileText, Forward, Maximize2, Minimize2, Minus, Paperclip, Reply, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
-import { announceStatus } from "@/lib/status-announcer";
+import { announceFailure, announceStatus } from "@/lib/status-announcer";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,8 @@ import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
 /** How long a send may take, large attachments on a slow connection included, before it is given up. */
 const SEND_TIMEOUT_MS = 5 * 60_000;
+/** How long the removal of a sent message's draft may hold other messages back. */
+const DRAFT_REMOVAL_MS = 15_000;
 /** How long Send waits for the address book before it asks without it. */
 const DIRECTORY_WAIT_MS = 4000;
 /** Below this much remaining time an Undo could not be pressed before delivery. */
@@ -123,6 +125,8 @@ export function ComposeForm({
 	useComposeViewport(frameRef, !minimized, mode);
 	useComposeScrollLock(frameRef, mode === "popup" && !minimized, modalMode);
 	const [loading, setLoading] = useState(false);
+	/** The message itself is on its way to the server: "sending", no longer "preparing". */
+	const [transfer, setTransfer] = useState(false);
 	const [loadingDraft, setLoadingDraft] = useState(false);
 	// Told to the provider, so a mail link or an undone send does not replace a message being written.
 	// A draft still loading counts: what it holds is not known yet. So does a picture pasted into an empty body.
@@ -393,7 +397,7 @@ export function ComposeForm({
 	/** Why a step of "review and send" failed: a lost sign-in and a too large upload in the writer's language. */
 	function reviewFailure(response: Response, said: string | null | undefined, fallback: "compose.error.draftAttachments" | "compose.error.saveForReview" | "compose.error.createReview"): string {
 		if (response.status === 401) return t("compose.error.sendSignedOut");
-		if (response.status === 413) return t("compose.error.sendTooLarge");
+		if (response.status === 413) return composeSendError(null, t, { status: 413, rayId: response.headers.get("cf-ray") });
 		return said || t(fallback);
 	}
 
@@ -467,10 +471,15 @@ export function ComposeForm({
 		}
 		// The outcome is said where the writer is: in this window, or, when it was closed meanwhile,
 		// in the application's own notice, so a refusal is never lost with the window.
-		const say = (type: "success" | "error", message: string, closed: TranslationKey) => {
-			if (mounted.current) setToast({ type, message }); else announceStatus(closed);
+		const say = (type: "success" | "error", message: string, closed?: TranslationKey) => {
+			if (mounted.current) setToast({ type, message });
+			else if (type === "error") announceFailure("compose.error.closedSend", message);
+			else announceStatus(closed!);
 		};
 		compose?.setSending(true);
+		setTransfer(true);
+		// The lock on other messages ends with the send, or, once it went out, with its draft's removal.
+		let release = true;
 		try {
 			const res = await authFetch("/api/send", {
 				method: "POST",
@@ -498,13 +507,13 @@ export function ComposeForm({
 			const data = (await res.json().catch(() => null)) as { messageId?: string; scheduled?: boolean; undoUntil?: string; undoRemainingMs?: number; error?: unknown; code?: string; filename?: string } | null;
 
 			if (!res.ok) {
-				say("error", composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }), "compose.error.closedSendFailed");
+				say("error", composeSendError(data, t, { status: res.status, rayId: res.headers.get("cf-ray") }));
 				return;
 			}
 			// Only an answer that names the message is a send. Anything else that came back as a success
 			// (a cut-off body, a page from something in between) leaves the outcome open and the message here.
 			if (!data || typeof data.messageId !== "string" || !data.messageId) {
-				say("error", composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray") }), "compose.error.closedSendFailed");
+				say("error", composeSendError(null, t, { status: res.status, rayId: res.headers.get("cf-ray") }));
 				return;
 			}
 
@@ -514,7 +523,11 @@ export function ComposeForm({
 			setDraftSaveFailed(false);
 			if (currentDraftId) {
 				forgetReplyStartRecipients(currentDraftId);
-				void authFetch(`/api/drafts/${currentDraftId}`, { method: "DELETE" }).catch(() => {}).finally(() => {
+				// The server removed the draft with the send; this covers one that could not. Until it is
+				// settled the draft is not opened again, so it cannot be sent a second time.
+				release = false;
+				void authFetch(`/api/drafts/${currentDraftId}`, { method: "DELETE", redirectOnUnauthorized: false, signal: AbortSignal.timeout(DRAFT_REMOVAL_MS) }).catch(() => {}).finally(() => {
+					compose?.setSending(false, currentDraftId);
 					window.dispatchEvent(new Event("mailflare:messages-changed"));
 				});
 			}
@@ -546,9 +559,10 @@ export function ComposeForm({
 			// A failed fetch is a lost connection, said in the interface language; anything else keeps its own words.
 			const timedOut = cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError");
 			const detail = timedOut ? t("compose.error.sendNoAnswer") : cause instanceof Error && !(cause instanceof TypeError) ? cause.message.trim() : "";
-			say("error", composeSendError(null, t, { network: true, detail }), "compose.error.closedSendFailed");
+			say("error", composeSendError(null, t, { network: true, detail }));
 		} finally {
-			compose?.setSending(false);
+			if (release) compose?.setSending(false);
+			setTransfer(false);
 			setLoading(false);
 		}
 	}
@@ -785,7 +799,7 @@ export function ComposeForm({
 						{threading?.inReplyTo && <Reply className="h-3.5 w-3.5 text-neutral-600" />}
 						{!threading?.inReplyTo && /^fwd?:/i.test(subject) && <Forward className="h-3.5 w-3.5 text-neutral-600" />}
 						{loading
-							? t("compose.preparing")
+							? t(transfer ? "compose.sending" : "compose.preparing")
 							: loadingDraft
 							? t("compose.title.loading")
 							: threading?.inReplyTo
@@ -811,7 +825,7 @@ export function ComposeForm({
 					)}
 				</div>
 				{/* Read out while a send runs: the Send button that shows it is inside the locked part. */}
-				<span role="status" className="sr-only">{loading ? t("compose.preparing") : ""}</span>
+				<span role="status" className="sr-only">{loading ? t(transfer ? "compose.sending" : "compose.preparing") : ""}</span>
 				{/* While a send is prepared or under way the message itself cannot be changed, so what was
 				    checked is what goes out. The header stays usable: the window can be minimised or closed. */}
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")} inert={loading} aria-busy={loading}>
@@ -890,7 +904,7 @@ export function ComposeForm({
 									disabled={loading || loadingDraft || refineActive || !fromAddr}
 									className="h-11 rounded-l-full rounded-r-none px-3 text-sm md:h-9 md:px-4"
 								>
-									{loading ? t("compose.preparing") : scheduledAt ? t("compose.schedule") : agentRevision !== null ? t("compose.reviewSend") : t("compose.send")}
+									{loading ? t(transfer ? "compose.sending" : "compose.preparing") : scheduledAt ? t("compose.schedule") : agentRevision !== null ? t("compose.reviewSend") : t("compose.send")}
 								</Button>
 								<ScheduleSendMenu
 									disabled={loading || loadingDraft || refineActive || !fromAddr}

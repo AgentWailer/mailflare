@@ -256,6 +256,7 @@ html.dark [data-compose-ai-bar] > div:last-child {
 	.compose-toast-close { min-width: 44px; min-height: 44px; margin-block: -10px; }
 	/* The composer fills the screen here, with its send bar along the bottom. */
 	[data-undo-send-stack] { left: 50%; bottom: calc(env(safe-area-inset-bottom) + 9rem); transform: translateX(-50%); align-items: center; }
+	html[data-undo-offers] .status-stack { bottom: calc(env(safe-area-inset-bottom) + 9rem + var(--undo-stack-space, 0px)); }
 	.compose-toolbar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 
@@ -266,6 +267,10 @@ pre {
 .text {
 	font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/* Confirmations and failures share a corner with the "undo send" offers and stand above them. */
+.status-stack { bottom: 6rem; }
+@media (min-width: 768px) { .status-stack { bottom: calc(1.5rem + var(--undo-stack-space, 0px)); } }
 
 @keyframes status-toast-show {
 	from { opacity: 0; transform: translateY(8px); }

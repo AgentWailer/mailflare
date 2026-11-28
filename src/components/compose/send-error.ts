@@ -118,7 +118,10 @@ export function composeSendError(
 		const known = knownRefusal(said);
 		if (known) return t(known);
 		// Without a status the caller only has the server's words; with one they are a detail of ours.
-		return context?.status === undefined ? said : withNextStep(`${t("compose.error.sendFailed")}: ${said.replace(/[.!]+$/, "")}`, t, context);
+		if (context?.status === undefined) return said;
+		// A failure on the server's side keeps its status and Ray ID beside the server's words: support asks for them.
+		const trace = context.status >= 500 ? ` (${diagnostics(context)})` : "";
+		return withNextStep(`${t("compose.error.sendFailed")}: ${said.replace(/[.!]+$/, "")}${trace}`, t, context);
 	}
 	return withNextStep(fallback, t, context);
 }

@@ -259,6 +259,8 @@ export function RecipientInput({
 										onClick={(event) => {
 											event.stopPropagation();
 											onChange(value.filter((item) => item !== entry));
+											// The button goes with its chip: focus stays in the line, as from the menu.
+											refocus();
 										}}
 									>
 										<X className="h-3.5 w-3.5" />

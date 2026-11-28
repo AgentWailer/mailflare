@@ -24,6 +24,8 @@ const mails = {
 	"columnsinline": "<table width=\"100%\" cellpadding=\"4\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th style=\"overflow-wrap:anywhere\">Buchungstag</th><th style=\"overflow-wrap:anywhere\">Wertstellung</th><th style=\"overflow-wrap:anywhere\">Verwendungszweck</th><th style=\"overflow-wrap:anywhere\">Auftraggeber</th><th style=\"overflow-wrap:anywhere\">Betrag</th><th style=\"overflow-wrap:anywhere\">Kontostand</th></tr><tr><td style=\"word-break:break-word\">27.11.2026</td><td style=\"word-break:break-word\">27.11.2026</td><td style=\"word-break:break-word\">Lastschrift Stadtwerke</td><td style=\"word-break:break-word\">Stadtwerke Beispielstadt</td><td align=\"right\" style=\"word-break:break-word\">-84,20&nbsp;€</td><td align=\"right\" style=\"word-break:break-word\">1.264,98&nbsp;€</td></tr><tr><td style=\"word-break:break-word\">26.11.2026</td><td style=\"word-break:break-word\">26.11.2026</td><td style=\"word-break:break-word\">Gehalt November</td><td style=\"word-break:break-word\">Arbeitgeber Beispiel GmbH</td><td align=\"right\" style=\"word-break:break-word\">3.210,00&nbsp;€</td><td align=\"right\" style=\"word-break:break-word\">1.349,18&nbsp;€</td></tr></table>",
 	"orderwide": "<table width=\"100%\" cellpadding=\"4\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th>Pos.</th><th>Artikelnummer</th><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>Einzelpreis</th><th>Rabatt</th><th>Gesamtpreis</th></tr><tr><td>1</td><td>4711-0815</td><td width=\"100%\" style=\"width:100%\">Fahrradschlauch 28 Zoll mit Autoventil</td><td align=\"right\">2</td><td>Stück</td><td align=\"right\">7,99&nbsp;€</td><td align=\"right\">0&nbsp;%</td><td align=\"right\">15,98&nbsp;€</td></tr><tr><td>2</td><td>4711-0816</td><td width=\"100%\" style=\"width:100%\">Kettenschloss mit Versicherungsbedingungen</td><td align=\"right\">1</td><td>Stück</td><td align=\"right\">1.249,00&nbsp;€</td><td align=\"right\">0&nbsp;%</td><td align=\"right\">1.249,00&nbsp;€</td></tr></table>",
 	"prose": "<table width=\"100%\"><tr><td style=\"padding:16px;font:15px Arial\"><p>Ihre Berufsunfähigkeitsversicherung und die Arbeitsunfähigkeitsbescheinigung liegen uns vor. Die Rechtsschutzversicherungsgesellschaften wurden informiert.</p></td></tr></table>",
+	"tencolumns": "<table cellpadding=\"6\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th style=\"white-space:nowrap\">Rechnungsdatum</th><th style=\"white-space:nowrap\">Leistungszeitraum</th><th style=\"white-space:nowrap\">Kostenstelle</th><th style=\"white-space:nowrap\">Bezeichnung</th><th style=\"white-space:nowrap\">Menge</th><th style=\"white-space:nowrap\">Einzelpreis</th><th style=\"white-space:nowrap\">Rabatt</th><th style=\"white-space:nowrap\">Zwischensumme</th><th style=\"white-space:nowrap\">Umsatzsteuer</th><th style=\"white-space:nowrap\">Gesamtbetrag</th></tr><tr><td style=\"white-space:nowrap\">27.11.2026</td><td style=\"white-space:nowrap\">01.11.–30.11.2026</td><td style=\"white-space:nowrap\">4711-0815</td><td style=\"white-space:nowrap\">Wartungsvertrag</td><td style=\"white-space:nowrap\">12</td><td style=\"white-space:nowrap\">9,52</td><td style=\"white-space:nowrap\">0,00</td><td style=\"white-space:nowrap\">114,24</td><td style=\"white-space:nowrap\">0,00</td><td style=\"white-space:nowrap\">TOTAL $114.24</td></tr></table>",
+	"quoted": "<p>Danke, passt so.</p><p>On 27 Nov 2026 Lin Okoro wrote:</p><blockquote><table width=\"100%\" cellpadding=\"4\" cellspacing=\"0\" style=\"font:14px Arial;border-collapse:collapse\"><tr><th>Pos.</th><th>Artikelnummer</th><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>Einzelpreis</th><th>Rabatt</th><th>Gesamtpreis</th></tr><tr><td>1</td><td>4711-0815</td><td width=\"100%\" style=\"width:100%\">Fahrradschlauch 28 Zoll mit Autoventil</td><td align=\"right\">2</td><td>Stück</td><td align=\"right\">7,99&nbsp;€</td><td align=\"right\">0&nbsp;%</td><td align=\"right\">15,98&nbsp;€</td></tr><tr><td>2</td><td>4711-0816</td><td width=\"100%\" style=\"width:100%\">Kettenschloss mit Versicherungsbedingungen</td><td align=\"right\">1</td><td>Stück</td><td align=\"right\">1.249,00&nbsp;€</td><td align=\"right\">0&nbsp;%</td><td align=\"right\">1.249,00&nbsp;€</td></tr></table></blockquote>",
 	"wideprint": "<table cellpadding=\"6\" cellspacing=\"0\" style=\"min-width:1280px;width:1280px;font:14px Arial\"><tr><td style=\"width:1000px\">Jahresabrechnung für den Zeitraum Januar bis Dezember</td><td align=\"right\">TOTAL $114.24</td></tr></table>"
 };
 writeFileSync(join(dir, 'entry.tsx'), `import React from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {EmailHtmlRenderer} from '@/components/messages/email-html-renderer';import {printMessage} from '@/components/messages/print-message';import {LanguageProvider} from '@/components/language-provider';import de from '../../public/locales/de.json';
@@ -92,8 +94,8 @@ try {
 	};
 	// How small a message may get. Most must be shown at full size from 390 px on; a statement with six
 	// or eight columns cannot be, but must stay readable or at least keep every amount whole.
-	const smallest = { columns: 0.6, columnsinline: 0.6, splitlink: 0.6, orderwide: 0.45, wideprint: 0 };
-	const fullFrom = { columns: 1440, columnsinline: 1440, splitlink: 820, orderwide: 1440, wideprint: 1440 };
+	const smallest = { columns: 0.6, columnsinline: 0.6, splitlink: 0.6, orderwide: 0.45, wideprint: 0, tencolumns: 0 };
+	const fullFrom = { columns: 1440, columnsinline: 1440, splitlink: 820, orderwide: 1440, wideprint: 1440, tencolumns: 1440 };
 	// The amount stands three times on a receipt, and each of them counts.
 	const occurrences = { stripe: { '$114.24': 3 }, stripe100: { '$114.24': 3 }, stripebreak: { '$114.24': 3 } };
 	for (const { width, height, dark } of [{ width: 320, height: 700 }, { width: 390, height: 844 }, { width: 390, height: 844, dark: true }, { width: 820, height: 1180 }, { width: 1440, height: 900 }]) {
@@ -124,6 +126,15 @@ try {
 				if (width < 800) assert(span.height > 120, `${tag}: the long link breaks over several lines: ${JSON.stringify(span)}`);
 				assert(span.right <= width + 0.5, `${tag}: the long link stays inside the screen: ${JSON.stringify(span)}`);
 			}
+			if (name === 'quoted' && width === 390) {
+				// The table is in the folded quote: unfolded it is other content at the same width, and is judged anew.
+				assert.equal(scale, 1, `${tag}: with its quote folded the reply is shown at full size`);
+				await page.evaluate(() => { const shadow = [...document.querySelectorAll('*')].find(element => element.shadowRoot).shadowRoot; shadow.querySelector('details > summary').click(); });
+				await page.waitForTimeout(250);
+				const unfolded = Number(await page.locator('[data-email-scale]').getAttribute('data-email-scale'));
+				assert(unfolded >= 0.45, `${tag}: the unfolded quote stays readable, scale ${unfolded}`);
+				for (const result of await measure(page, ['7,99', '15,98', '1.249,00'])) assert.equal(result.lines, 1, `${tag} quoted: "${result.text}" stands whole: ${JSON.stringify(result)}`);
+			}
 			const overflow = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
 			assert(overflow.scroll <= overflow.client, `${tag} ${name}: the page does not scroll sideways: ${JSON.stringify(overflow)}`);
 			if (width === 390 && !dark) await page.screenshot({ path: `/tmp/mailflare-mail-table-${name}-${tag}.png` });
@@ -133,7 +144,7 @@ try {
 				await page.evaluate(() => window.printMail());
 				await page.emulateMedia({ media: 'print' });
 				await page.waitForTimeout(150);
-				if (name === 'wideprint') {
+				if (name === 'wideprint' || name === 'tencolumns') {
 					// A table wider than the paper must not lose its last column off the edge.
 					const [total] = await measure(page, ['TOTAL $114.24'], true);
 					assert(total.lines >= 1 && total.right <= width + 0.5 && total.left >= 0, `${tag}: on paper the total stays on the page: ${JSON.stringify(total)}`);

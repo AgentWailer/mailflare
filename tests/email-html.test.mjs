@@ -210,4 +210,10 @@ test("in the reader, rules that squeeze a table column to one character are read
 	// Editing and sending pass the message on as it was written.
 	assert.match(prepareEmailHtml(receipt, { forOutgoing: true }).html, /word-break:break-word/);
 	assert.match(sanitizeEditorHtml('<p style="word-break:break-word">x</p>'), /word-break:break-word/);
+	// The same keywords spelled with an escape are the same to a browser, and are read the same here.
+	const escaped = prepareEmailHtml('<style>.a { word-break: break\\-word } .b { overflow-wrap: any\\77 here }</style><table><tr><td class="a" style="word-break:break\\-word">$114.24</td></tr></table>', { reader: true }).html;
+	assert.doesNotMatch(escaped, /break\\|any\\|anywhere|word-break:\s*break-word/i);
+	assert.match(escaped, /<td class="a" style="word-break:normal;overflow-wrap:break-word"/);
+	// A style that says neither is left exactly as it was.
+	assert.match(prepareEmailHtml('<p style="margin:0 0 8px;color:#333">x</p>', { reader: true }).html, /style="margin:0 0 8px;color:#333"/);
 });
