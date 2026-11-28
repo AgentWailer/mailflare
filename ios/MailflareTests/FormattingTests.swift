@@ -21,6 +21,7 @@ import MailflareKit
 		#expect(german.syncStatus(.offline(last: nil), now: now) == "Offline")
 		#expect(german.syncStatus(.accessDenied, now: now) == "Zugangsschlüssel abgelehnt")
 		#expect(german.syncStatus(.failed(message: nil), now: now) == "Abgleich fehlgeschlagen")
+		#expect(german.syncStatus(.failed(message: "503"), now: now) == "Abgleich fehlgeschlagen (503)")
 		#expect(english.syncStatus(.idle(last: now.addingTimeInterval(-20)), now: now) == "Updated just now")
 		#expect(english.syncStatus(.offline(last: earlier), now: now).hasPrefix("Offline · as of 9:14"))
 		#expect(english.syncStatus(.accessDenied, now: now) == "Access key rejected")

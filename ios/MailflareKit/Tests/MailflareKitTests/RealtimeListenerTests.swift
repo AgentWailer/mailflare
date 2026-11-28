@@ -71,7 +71,8 @@ final class ScriptedSocket: RealtimeSocket {
 		let result = await run([ScriptedSocket([])])
 		let request = try #require(result.requests.first)
 		#expect(request.url?.absoluteString == "wss://mail.example.test/api/realtime")
-		#expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer dev_token")
+		#expect(request.value(forHTTPHeaderField: "X-Mailflare-Session") == "dev_token")
+		#expect(request.value(forHTTPHeaderField: "Authorization") == nil)
 		#expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == "id.access")
 		#expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "secret")
 	}

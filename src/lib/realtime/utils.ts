@@ -4,11 +4,12 @@ import { mailboxAccess, mailboxes } from "@/db/schema";
 import { isTeamMailboxSharingEnabled } from "@/lib/mailboxes/access-utils";
 import type { NewMessageNotification, AgentDraftNotification } from "./types";
 import { sendPushNotifications } from "@/lib/push/server";
+import { getExplicitSessionToken } from "@/lib/auth/session-header";
 
-/** The session a realtime connection is opened with: an app's bearer token, or a browser's cookie. */
+/** The session a realtime connection is opened with: an app's own header or bearer token, or a browser's cookie. */
 export function getSessionTokenFromRequest(request: Request): string | undefined {
-	const authorization = request.headers.get("Authorization");
-	if (authorization?.startsWith("Bearer ")) return authorization.slice(7).trim() || undefined;
+	const explicit = getExplicitSessionToken(request);
+	if (explicit) return explicit;
 	const cookie = request.headers.get("Cookie");
 	if (!cookie) return undefined;
 

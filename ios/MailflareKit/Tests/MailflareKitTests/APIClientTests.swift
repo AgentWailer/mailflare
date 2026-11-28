@@ -14,7 +14,9 @@ import Testing
 		#expect(request.url?.absoluteString == "https://mail.example.test/api/mailboxes")
 		#expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == "id.access")
 		#expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "secret")
-		#expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer dev_token")
+		#expect(request.value(forHTTPHeaderField: "X-Mailflare-Session") == "dev_token")
+		// Cloudflare Access with Managed OAuth claims this header and refuses a token it did not issue.
+		#expect(request.value(forHTTPHeaderField: "Authorization") == nil)
 		#expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
 		#expect(request.value(forHTTPHeaderField: "Cookie") == nil)
 	}
@@ -22,6 +24,7 @@ import Testing
 	@Test func `a request before sign-in sends no bearer token`() async throws {
 		let transport = StubTransport.json(#"{"error":"Unauthorized"}"#, status: 401)
 		try await client(transport, token: nil).checkAccess()
+		#expect(transport.requests.first?.value(forHTTPHeaderField: "X-Mailflare-Session") == nil)
 		#expect(transport.requests.first?.value(forHTTPHeaderField: "Authorization") == nil)
 	}
 
@@ -42,6 +45,20 @@ import Testing
 		await #expect(throws: APIError.accessDenied) { try await client(page).mailboxes() }
 		let app = StubTransport.json(#"{"error":"Account disabled"}"#, status: 403)
 		await #expect(throws: APIError.server(status: 403, message: "Account disabled")) { try await client(app).mailboxes() }
+	}
+
+	@Test func `the 401 Cloudflare Access gives with Managed OAuth is a refused key, not a lost session and not a pass`() async {
+		// What Access answers when it does not let a request through on an application with Managed OAuth.
+		let access = StubTransport { _ in
+			(401, ["Content-Type": "application/json", "WWW-Authenticate": #"Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token""#],
+			 Data(#"{"error":"invalid_token","error_description":"Missing or invalid access token","resource_metadata":"https://mail.example.test/.well-known/cloudflare-access-protected-resource/api/auth/me"}"#.utf8))
+		}
+		await #expect(throws: APIError.accessDenied) { try await client(access).mailboxes() }
+		await #expect(throws: APIError.accessDenied) { try await client(access, token: nil).checkAccess() }
+		await #expect(throws: APIError.accessDenied) { try await client(access, token: nil).signIn(email: "a@example.test", password: "pw", deviceName: "iPhone") }
+		// The same without the header: the body alone gives it away.
+		let bodyOnly = StubTransport.json(#"{"error":"invalid_token","error_description":"Missing or invalid access token","resource_metadata":"https://mail.example.test/x"}"#, status: 401)
+		await #expect(throws: APIError.accessDenied) { try await client(bodyOnly).mailboxes() }
 	}
 
 	@Test func `Mailflare's own answers map to their cases`() async {
