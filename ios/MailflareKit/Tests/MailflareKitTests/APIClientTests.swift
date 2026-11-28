@@ -226,4 +226,30 @@ import Testing
 		#expect(end.requests.first?.url?.absoluteString == "https://mail.example.test/api/app/devices/s%202")
 		await #expect(throws: APIError.notFound) { try await client(.json(#"{"error":"Device not found"}"#, status: 404)).endDevice(id: "gone") }
 	}
+
+	@Test func `actions are sent to the routes the web uses`() async throws {
+		func body(_ request: URLRequest?) throws -> [String: Any] {
+			let data = try #require(request?.httpBody)
+			return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+		}
+		let ok = StubTransport.json(#"{"ok":true}"#)
+		try await client(ok).bulk(action: "archive", messageIds: ["a", "b"], folderId: nil)
+		try await client(ok).bulk(action: "folder", messageIds: ["a"], folderId: "f1")
+		try await client(ok).star(messageId: "m 1", starred: true)
+		let until = Date(timeIntervalSince1970: 1_800_000_000)
+		try await client(ok).snooze(messageId: "m1", until: until)
+		try await client(ok).snooze(messageId: "m1", until: nil)
+		let requests = ok.requests
+		#expect(requests.map(\.httpMethod) == ["POST", "POST", "POST", "POST", "DELETE"])
+		#expect(requests.map { $0.url?.path(percentEncoded: true) } == ["/api/messages/bulk", "/api/messages/bulk", "/api/messages/m%201/star", "/api/messages/m1/snooze", "/api/messages/m1/snooze"])
+		#expect(try body(requests[0])["action"] as? String == "archive")
+		#expect(try body(requests[0])["messageIds"] as? [String] == ["a", "b"])
+		#expect(try body(requests[0])["folderId"] == nil)
+		#expect(try body(requests[1])["folderId"] as? String == "f1")
+		#expect(try body(requests[2])["starred"] as? Bool == true)
+		#expect(try body(requests[3])["snoozedUntil"] as? String == "2027-01-15T08:00:00.000Z")
+		await #expect(throws: APIError.server(status: 400, message: "Choose a future snooze time")) {
+			try await client(.json(#"{"error":"Choose a future snooze time"}"#, status: 400)).snooze(messageId: "m1", until: until)
+		}
+	}
 }

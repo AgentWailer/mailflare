@@ -75,6 +75,30 @@ public struct APIClient: Sendable {
 		_ = try await data(.delete, "/api/app/devices/\(Self.segment(id))")
 	}
 
+	// MARK: Actions
+
+	/// One of the web's bulk actions: `archive`, `trash`, `spam`, `read`, `unread`, `inbox`, `folder` or `delete`.
+	public func bulk(action: String, messageIds: [String], folderId: String?) async throws {
+		var fields: [String: Any] = ["action": action, "messageIds": messageIds]
+		if let folderId { fields["folderId"] = folderId }
+		_ = try await data(.post, "/api/messages/bulk", body: try JSONSerialization.data(withJSONObject: fields, options: [.sortedKeys]))
+	}
+
+	public func star(messageId: String, starred: Bool) async throws {
+		_ = try await data(.post, "/api/messages/\(Self.segment(messageId))/star", body: try JSONSerialization.data(withJSONObject: ["starred": starred]))
+	}
+
+	/// Snoozes a message until the given time, or wakes it when `until` is nil.
+	public func snooze(messageId: String, until: Date?) async throws {
+		let path = "/api/messages/\(Self.segment(messageId))/snooze"
+		guard let until else {
+			_ = try await data(.delete, path)
+			return
+		}
+		let text = until.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true))
+		_ = try await data(.post, path, body: try JSONSerialization.data(withJSONObject: ["snoozedUntil": text]))
+	}
+
 	// MARK: Mail
 
 	public func sync(cursor: String?, days: Int, limit: Int) async throws -> SyncPage {

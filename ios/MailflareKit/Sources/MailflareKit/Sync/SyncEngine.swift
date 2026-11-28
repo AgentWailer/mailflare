@@ -11,6 +11,11 @@ public actor SyncEngine {
 	private let isOnWiFi: @Sendable () -> Bool
 
 	private var running: Task<Void, Never>?
+	/// Set when something was done on the device after the current run had passed the outbox.
+	private var hasLocalChanges = false
+	private var failureObservers: [UUID: AsyncStream<ActionFailure>.Continuation] = [:]
+	/// A server error is tried again this often before the action is given up.
+	private static let maxAttempts = 5
 	private var observers: [UUID: AsyncStream<SyncStatus>.Continuation] = [:]
 	public private(set) var currentStatus: SyncStatus
 
@@ -56,16 +61,108 @@ public actor SyncEngine {
 			await running.value
 			return
 		}
-		let task = Task { await self.run() }
+		let task = Task {
+			// An action taken during a run is sent by another run right after it.
+			for _ in 0..<4 {
+				await self.run()
+				guard self.hasLocalChanges else { return }
+			}
+		}
 		running = task
 		await task.value
 		running = nil
 	}
 
+	// MARK: Actions
+
+	/// Applies an action on the device at once and notes it for the server. The caller starts
+	/// a sync to send it; a run that is already under way sends it when it ends.
+	public func perform(_ action: MailAction, messageIds: [String]) {
+		guard (try? store.perform(action, messageIds: messageIds, at: now())) != nil else { return }
+		hasLocalChanges = true
+	}
+
+	/// Tells the engine that the store's outbox gained an entry it did not write itself.
+	public func noteLocalChange() {
+		hasLocalChanges = true
+	}
+
+	/// Actions the server refused, as they happen.
+	public func actionFailures() -> AsyncStream<ActionFailure> {
+		let id = UUID()
+		let (stream, continuation) = AsyncStream<ActionFailure>.makeStream(bufferingPolicy: .unbounded)
+		failureObservers[id] = continuation
+		continuation.onTermination = { [weak self] _ in Task { await self?.removeFailureObserver(id) } }
+		return stream
+	}
+
+	private func removeFailureObserver(_ id: UUID) { failureObservers[id] = nil }
+
+	/// Sends what waits in the outbox, oldest first, before anything is pulled: the server must
+	/// know what the user did before the device asks what changed.
+	private func flushOutbox() async throws {
+		for operation in try store.pendingOperations() {
+			try Task.checkCancellation()
+			do {
+				try await send(operation)
+				try store.completeOperation(operation.id)
+			} catch {
+				switch error {
+				case APIError.offline, APIError.accessDenied, APIError.signedOut, is CancellationError:
+					// Nothing is wrong with the action itself: it waits.
+					throw error
+				case APIError.notFound:
+					// The message is gone on the server; the next pull removes it here too.
+					try store.completeOperation(operation.id)
+				case APIError.server(let status, _) where (400..<500).contains(status) && status != 408:
+					try giveUp(operation, because: error)
+				default:
+					// A server error or a throttled request: the action stays and is tried again.
+					guard try store.noteAttempt(operation.id) < Self.maxAttempts else {
+						try giveUp(operation, because: error)
+						continue
+					}
+					throw error
+				}
+			}
+		}
+	}
+
+	private func giveUp(_ operation: PendingOperation, because error: any Error) throws {
+		try store.revertOperation(operation.id)
+		let failure = ActionFailure(action: operation.action, messageIds: operation.messageIds, reason: Self.reason(for: error))
+		for observer in failureObservers.values { observer.yield(failure) }
+	}
+
+	private func send(_ operation: PendingOperation) async throws {
+		let ids = operation.messageIds
+		switch operation.action {
+		case .markRead(let read): try await api.bulk(action: read ? "read" : "unread", messageIds: ids, folderId: nil)
+		case .archive: try await api.bulk(action: "archive", messageIds: ids, folderId: nil)
+		case .trash: try await api.bulk(action: "trash", messageIds: ids, folderId: nil)
+		case .spam: try await api.bulk(action: "spam", messageIds: ids, folderId: nil)
+		case .moveToInbox: try await api.bulk(action: "inbox", messageIds: ids, folderId: nil)
+		case .moveToFolder(let folderId): try await api.bulk(action: "folder", messageIds: ids, folderId: folderId)
+		case .deletePermanently: try await api.bulk(action: "delete", messageIds: ids, folderId: nil)
+		case .star(let starred): try await each(ids) { try await self.api.star(messageId: $0, starred: starred) }
+		case .snooze(let until): try await each(ids) { try await self.api.snooze(messageId: $0, until: until) }
+		case .unsnooze: try await each(ids) { try await self.api.snooze(messageId: $0, until: nil) }
+		}
+	}
+
+	/// For routes that take one message: a message that is gone does not hold up the others.
+	private func each(_ ids: [String], _ call: (String) async throws -> Void) async throws {
+		for id in ids {
+			do { try await call(id) } catch APIError.notFound { continue }
+		}
+	}
+
 	private func run() async {
 		let firstRun = ((try? store.cursor()) ?? nil) == nil
 		set(.syncing(firstRun: firstRun))
+		hasLocalChanges = false
 		do {
+			try await flushOutbox()
 			try await pullChanges()
 			try await refreshMailboxes()
 			let windowStart = now().addingTimeInterval(-Double(settings.days) * 86_400)

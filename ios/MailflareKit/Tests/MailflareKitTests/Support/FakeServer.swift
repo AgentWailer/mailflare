@@ -37,7 +37,7 @@ actor FakeServer: MailAPI {
 	func onSyncAnswer(_ hook: (@Sendable (Int) async -> Void)?) { beforeSyncAnswer = hook }
 	func setReadable(_ ids: Set<String>) { readable = ids }
 	func prune() { prunedBelow = nextSeq; log.removeAll() }
-	func forgetCalls() { syncCursors = []; bodyRequests = []; attachmentRequests = [] }
+	func forgetCalls() { syncCursors = []; bodyRequests = []; attachmentRequests = []; actionCalls = [] }
 
 	func put(_ row: MessageRow) {
 		messages[row.id] = row
@@ -117,6 +117,57 @@ actor FakeServer: MailAPI {
 		let url = FileManager.default.temporaryDirectory.appending(path: "fake-\(UUID().uuidString)")
 		try Data("bytes of \(attachmentId)".utf8).write(to: url)
 		return url
+	}
+
+	// Actions: applied to the model and logged, as the server does.
+	private(set) var actionCalls: [String] = []
+	/// Errors to answer the next action calls with, in order; nil lets a call through.
+	var actionFailures: [APIError?] = []
+	func failActions(_ failures: [APIError?]) { actionFailures = failures }
+
+	private func act(_ name: String, _ ids: [String], _ change: (inout MessageRow) -> Void) throws {
+		actionCalls.append("\(name) \(ids.joined(separator: ","))")
+		if let failure { throw failure }
+		if !actionFailures.isEmpty, let failure = actionFailures.removeFirst() { throw failure }
+		for id in ids {
+			guard var row = messages[id] else { continue }
+			change(&row)
+			put(row)
+		}
+	}
+
+	func bulk(action: String, messageIds: [String], folderId: String?) async throws {
+		if action == "delete" {
+			actionCalls.append("delete \(messageIds.joined(separator: ","))")
+			if let failure { throw failure }
+			if !actionFailures.isEmpty, let failure = actionFailures.removeFirst() { throw failure }
+			messageIds.forEach(remove)
+			return
+		}
+		try act(action + (folderId.map { ":\($0)" } ?? ""), messageIds) { row in
+			switch action {
+			case "archive": row.status = "archived"; row.folderId = nil
+			case "trash": row.status = "trash"; row.folderId = nil
+			case "spam": row.status = "spam"; row.folderId = nil
+			case "inbox": row.status = "received"; row.folderId = nil; row.category = "primary"
+			case "folder": row.status = "received"; row.folderId = folderId
+			case "read": row.read = true
+			case "unread": row.read = false
+			default: break
+			}
+		}
+	}
+
+	func star(messageId: String, starred: Bool) async throws {
+		guard messages[messageId] != nil || failure != nil || !actionFailures.isEmpty else {
+			actionCalls.append("star \(messageId)")
+			throw APIError.notFound
+		}
+		try act("star:\(starred)", [messageId]) { $0.starred = starred }
+	}
+
+	func snooze(messageId: String, until: Date?) async throws {
+		try act(until == nil ? "unsnooze" : "snooze", [messageId]) { $0.snoozedUntil = until }
 	}
 
 	func mailboxes() async throws -> [MailboxInfo] {
