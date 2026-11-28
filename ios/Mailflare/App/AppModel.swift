@@ -9,6 +9,8 @@ struct AppDependencies {
 	var transport: any HTTPTransport
 	var defaults: UserDefaults
 	var deviceName: String
+	/// Removes what the in-app web pages stored for an account: their cookies above all.
+	var removeWebData: @Sendable (String) async -> Void = { _ in }
 }
 
 /// One signed-in account in use: its server client, its mail on the device and its sync.
@@ -119,6 +121,8 @@ final class AppModel {
 			try await self.client(candidate, token: nil).checkAccess()
 			try self.dependencies.credentials.saveAccess(candidate)
 			self.access = candidate
+			// The Access cookie the web pages hold belongs to the old key.
+			for account in self.accounts { await self.dependencies.removeWebData(account.userId) }
 			if let account = self.session?.account { self.activate(account) }
 		}
 	}
@@ -186,12 +190,14 @@ final class AppModel {
 		guard let account = accounts.first(where: { $0.userId == userId }), let access else { return }
 		try? await client(access, token: account.sessionToken).signOut()
 		remove(account)
+		await dependencies.removeWebData(account.userId)
 	}
 
 	/// The server no longer accepts this account's session: its mail must not stay on the device.
 	func handleSignedOut(userId: String) async {
 		guard let account = accounts.first(where: { $0.userId == userId }) else { return }
 		remove(account)
+		await dependencies.removeWebData(account.userId)
 		notice = String(localized: "\(account.email) was signed out on the server. Its mail was removed from this device.")
 	}
 

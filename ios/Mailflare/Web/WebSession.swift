@@ -34,6 +34,16 @@ enum WebSession {
 		                   digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]))
 	}
 
+	/// Forgets everything the web pages of an account stored on this device, the sign-in included.
+	@MainActor
+	static func removeData(userId: String) async {
+		let identifier = storeIdentifier(userId: userId)
+		// A store that a page still has open cannot be removed, so it is emptied first.
+		let store = WKWebsiteDataStore(forIdentifier: identifier)
+		await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+		try? await WKWebsiteDataStore.remove(forIdentifier: identifier)
+	}
+
 	/// Signs the web pages of this account in. Throws when the installation cannot be reached.
 	static func prepare(_ store: WKWebsiteDataStore, session: AccountSession) async throws {
 		var cookies = try await session.api.accessCookies()

@@ -43,6 +43,9 @@ targets:
         CFBundleDisplayName: Mailflare
         CFBundleLocalizations: [en, de]
         ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          # Lets the app reach a Mailflare on the local network or the simulator's host over plain http.
+          NSAllowsLocalNetworking: true
         UIBackgroundModes: [fetch]
         BGTaskSchedulerPermittedIdentifiers: [de.stepo.mailflare.refresh]
         NSCameraUsageDescription: The camera reads the QR code of your access key.
@@ -62,7 +65,28 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         BUNDLE_LOADER: "$(TEST_HOST)"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mailflare.app/Mailflare"
+  MailflareUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: MailflareUITests
+    dependencies:
+      - target: Mailflare
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Mailflare
 schemes:
+  # The walk-through against a local server; see MailflareUITests/WalkthroughTests.swift.
+  MailflareUI:
+    build:
+      targets:
+        Mailflare: all
+        MailflareUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - MailflareUITests
   Mailflare:
     build:
       targets:

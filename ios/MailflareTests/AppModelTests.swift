@@ -3,7 +3,7 @@ import Testing
 import MailflareKit
 @testable import Mailflare
 
-@MainActor @Suite struct AppModelTests {
+@MainActor @Suite(.serialized) struct AppModelTests {
 	private let server = URL(string: "https://mail.example.test")!
 	private let key = AccessKey(clientId: "id.access", clientSecret: "secret")
 
@@ -176,5 +176,19 @@ import MailflareKit
 		#expect(model.session?.account.userId == "u1")
 		#expect(model.session?.api.access.accessClientId == "new.access")
 		#expect(try credentials.accounts().count == 2)
+	}
+
+	@Test func `the web pages' sign-in leaves the device with the account, and with a replaced key`() async throws {
+		let (model, _, _, _) = try await twoAccounts()
+		removedWebData.withLock { $0 = [] }
+		await model.signOut(userId: "u2")
+		#expect(removedWebData.withLock { $0 } == ["u2"])
+		await model.handleSignedOut(userId: "u1")
+		#expect(removedWebData.withLock { $0 } == ["u2", "u1"])
+
+		removedWebData.withLock { $0 = [] }
+		let (second, _, _, _) = try await twoAccounts()
+		await second.replaceAccessKey(AccessKey(clientId: "new.access", clientSecret: "new-secret"))
+		#expect(Set(removedWebData.withLock { $0 }) == ["u1", "u2"], "the old key's Access cookie must not outlive the key")
 	}
 }

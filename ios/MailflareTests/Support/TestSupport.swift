@@ -52,6 +52,10 @@ final class RouteTransport: HTTPTransport {
 func makeModel(_ transport: RouteTransport, credentials: InMemoryCredentialStore = InMemoryCredentialStore()) -> (AppModel, URL) {
 	let directory = FileManager.default.temporaryDirectory.appending(path: "mailflare-app-tests-\(UUID().uuidString)")
 	let defaults = UserDefaults(suiteName: "mailflare-tests-\(UUID().uuidString)")!
-	let model = AppModel(dependencies: AppDependencies(credentials: credentials, storeDirectory: directory, transport: transport, defaults: defaults, deviceName: "Test iPhone"))
+	let model = AppModel(dependencies: AppDependencies(credentials: credentials, storeDirectory: directory, transport: transport, defaults: defaults, deviceName: "Test iPhone",
+	                                                    removeWebData: { userId in removedWebData.withLock { $0.append(userId) } }))
 	return (model, directory)
 }
+
+/// The accounts whose web data the model asked to remove, in order.
+nonisolated let removedWebData = Mutex<[String]>([])
