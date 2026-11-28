@@ -43,8 +43,9 @@ enum Notifications {
 
 	static func registerCategories() {
 		let actions = Action.allCases.map { action in
-			// None of them opens the app; deleting is marked as what it is.
-			UNNotificationAction(identifier: action.rawValue, title: action.title, options: action == .trash ? [.destructive] : [])
+			// None of them opens the app; deleting is marked as what it is. All of them need the
+			// phone unlocked: whoever picks up a locked phone must not be able to move its mail.
+			UNNotificationAction(identifier: action.rawValue, title: action.title, options: action == .trash ? [.destructive, .authenticationRequired] : [.authenticationRequired])
 		}
 		UNUserNotificationCenter.current().setNotificationCategories([
 			UNNotificationCategory(identifier: mailCategory, actions: actions, intentIdentifiers: [], options: []),

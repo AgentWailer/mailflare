@@ -39,7 +39,7 @@ notifications, search) and how to set it up.
 - Notifications from Apple for new mail, once the server holds an Apple key (see
   *Notifications* below): sender, subject and the first lines, grouped by conversation,
   with the number of unread inbox mail at the icon. Archive, mark as read and delete work
-  from the notification, for every signed-in account. Tapping opens the message, in its
+  from the notification, for every signed-in account, once the phone is unlocked. Tapping opens the message, in its
   account. The notification also wakes the app so the mail is on the phone by then.
 
 Notifications still lack answering from the notification and the silent update of the
