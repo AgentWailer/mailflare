@@ -106,4 +106,43 @@ import MailflareKit
 		#expect(model.previewFile == nil)
 		#expect(model.attachmentError == APIError.offline.userMessage)
 	}
+
+	@Test func `opening an unread message marks it read on the device and notes it for the server`() async throws {
+		let transport = RouteTransport.signedIn()
+		transport.answer("/api/messages/m1", detail)
+		let session = try session(transport)
+		let model = MessageModel(messageId: "m1", session: session)
+		model.start()
+		try await settle { model.document != nil && model.message?.row.read == true }
+		try await settle { transport.bulkActions() == ["read m1"] }
+	}
+
+	@Test func `a message that was already read is not marked again, and marking unread by hand stays`() async throws {
+		let transport = RouteTransport.signedIn()
+		transport.answer("/api/messages/m1", detail)
+		transport.goOffline()
+		let session = try session(transport)
+		try session.store.saveBody(MessageDetail(message: try #require(try session.store.message(id: "m0")?.row), body: MessageBody(textBody: "Earlier", htmlBody: nil)))
+		let model = MessageModel(messageId: "m0", session: session)
+		model.start()
+		try await settle { model.document != nil }
+		#expect(try session.store.pendingOperations().isEmpty, "m0 was read already")
+		await model.perform(.markRead(false))
+		try await settle { model.message?.row.read == false }
+		try await Task.sleep(for: .milliseconds(100))
+		#expect(model.message?.row.read == false, "the reader does not mark it read again behind the user's back")
+	}
+
+	@Test func `acting on a message from the reader changes it at once`() async throws {
+		let transport = RouteTransport.signedIn()
+		transport.answer("/api/messages/m1", detail)
+		let session = try session(transport)
+		let model = MessageModel(messageId: "m1", session: session)
+		model.start()
+		try await settle { model.document != nil }
+		await model.perform(.star(true))
+		try await settle { model.message?.row.starred == true }
+		await model.perform(.archive)
+		try await settle { model.message?.row.status == "archived" }
+	}
 }

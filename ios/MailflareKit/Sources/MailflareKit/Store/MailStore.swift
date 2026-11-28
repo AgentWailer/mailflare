@@ -6,9 +6,9 @@ import GRDB
 public final class MailStore: Sendable {
 	private let writer: any DatabaseWriter
 
-	private init(writer: any DatabaseWriter) throws {
+	private init(writer: any DatabaseWriter, migratingUpTo version: String? = nil) throws {
 		self.writer = writer
-		try Schema.migrator.migrate(writer)
+		if let version { try Schema.migrator.migrate(writer, upTo: version) } else { try Schema.migrator.migrate(writer) }
 	}
 
 	// MARK: Opening
@@ -19,13 +19,18 @@ public final class MailStore: Sendable {
 
 	/// Opens the account's own database file below `directory`, creating it when missing.
 	public static func open(userId: String, directory: URL) throws -> MailStore {
+		try open(userId: userId, directory: directory, migratingUpTo: nil)
+	}
+
+	/// For tests of an upgrade: opens the database as an older version of the app left it.
+	static func open(userId: String, directory: URL, migratingUpTo version: String?) throws -> MailStore {
 		let folder = folder(userId: userId, directory: directory)
 		try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
 		#if os(iOS)
 		// Readable once the phone has been unlocked after a restart, so a background sync can write.
 		try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: folder.path)
 		#endif
-		return try MailStore(writer: DatabasePool(path: folder.appending(path: "mail.sqlite").path, configuration: configuration))
+		return try MailStore(writer: DatabasePool(path: folder.appending(path: "mail.sqlite").path, configuration: configuration), migratingUpTo: version)
 	}
 
 	public static func destroy(userId: String, directory: URL) throws {
@@ -55,7 +60,10 @@ public final class MailStore: Sendable {
 	/// remembers the cursor, all or nothing.
 	public func apply(_ page: SyncPage) throws {
 		try writer.write { db in
-			try Self.upsert(db, page.messages)
+			// A message with an action still waiting keeps what the user made of it: the server's
+			// row is older than that action, and a fresh one follows once the action has arrived.
+			let waiting = try Self.idsWithPendingOperations(db)
+			try Self.upsert(db, waiting.isEmpty ? page.messages : page.messages.filter { !waiting.contains($0.id) })
 			for id in page.removed { try MessageRow.deleteOne(db, key: id) }
 			try Self.setState(db, "cursor", page.cursor)
 			try Self.setState(db, "mailboxIds", String(decoding: try JSONEncoder().encode(page.mailboxIds.sorted()), as: UTF8.self))
@@ -82,6 +90,7 @@ public final class MailStore: Sendable {
 		try writer.write { db in
 			try db.execute(sql: "DELETE FROM message")
 			try db.execute(sql: "DELETE FROM sync_state")
+			try db.execute(sql: "DELETE FROM outbox")
 		}
 	}
 
@@ -111,6 +120,91 @@ public final class MailStore: Sendable {
 
 	private static func setState(_ db: Database, _ key: String, _ value: String) throws {
 		try db.execute(sql: "INSERT INTO sync_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", arguments: [key, value])
+	}
+
+	// MARK: Actions
+
+	/// Applies an action to the stored messages at once and notes it for the server, all or
+	/// nothing. Returns the outbox entry, or nil when none of the messages is on the device.
+	@discardableResult
+	public func perform(_ action: MailAction, messageIds: [String], at date: Date = Date()) throws -> Int64? {
+		try writer.write { db in
+			var before: [MessageRow] = []
+			for id in messageIds {
+				if let row = try MessageRow.fetchOne(db, key: id) { before.append(row) }
+			}
+			guard !before.isEmpty else { return nil }
+			for row in before {
+				if let changed = action.applied(to: row) { try Self.upsert(db, [changed]) } else { try MessageRow.deleteOne(db, key: row.id) }
+			}
+			let encoder = JSONEncoder()
+			try db.execute(sql: "INSERT INTO outbox (action, messageIds, snapshot, createdAt) VALUES (?, ?, ?, ?)", arguments: [
+				String(decoding: try encoder.encode(action), as: UTF8.self),
+				String(decoding: try encoder.encode(before.map(\.id)), as: UTF8.self),
+				String(decoding: try encoder.encode(before), as: UTF8.self),
+				date,
+			])
+			return db.lastInsertedRowID
+		}
+	}
+
+	public func pendingOperations() throws -> [PendingOperation] {
+		try writer.read { db in
+			try Row.fetchAll(db, sql: "SELECT id, action, messageIds, attempts FROM outbox ORDER BY id").map { row in
+				PendingOperation(
+					id: row["id"],
+					action: try JSONDecoder().decode(MailAction.self, from: Data((row["action"] as String).utf8)),
+					messageIds: try JSONDecoder().decode([String].self, from: Data((row["messageIds"] as String).utf8)),
+					attempts: row["attempts"]
+				)
+			}
+		}
+	}
+
+	/// The server has taken the action: the change stays, the entry goes.
+	public func completeOperation(_ id: Int64) throws {
+		try writer.write { try $0.execute(sql: "DELETE FROM outbox WHERE id = ?", arguments: [id]) }
+	}
+
+	/// The server refused the action for good: the messages go back to what they were.
+	public func revertOperation(_ id: Int64) throws {
+		try writer.write { db in
+			guard let snapshot = try String.fetchOne(db, sql: "SELECT snapshot FROM outbox WHERE id = ?", arguments: [id]) else { return }
+			try Self.upsert(db, try JSONDecoder().decode([MessageRow].self, from: Data(snapshot.utf8)))
+			try db.execute(sql: "DELETE FROM outbox WHERE id = ?", arguments: [id])
+		}
+	}
+
+	/// Counts a failed try and returns how many there have been.
+	@discardableResult
+	public func noteAttempt(_ id: Int64) throws -> Int {
+		try writer.write { db in
+			try db.execute(sql: "UPDATE outbox SET attempts = attempts + 1 WHERE id = ?", arguments: [id])
+			return try Int.fetchOne(db, sql: "SELECT attempts FROM outbox WHERE id = ?", arguments: [id]) ?? 0
+		}
+	}
+
+	private static func idsWithPendingOperations(_ db: Database) throws -> Set<String> {
+		var ids: Set<String> = []
+		for json in try String.fetchAll(db, sql: "SELECT messageIds FROM outbox") {
+			ids.formUnion(try JSONDecoder().decode([String].self, from: Data(json.utf8)))
+		}
+		return ids
+	}
+
+	/// The messages a row of the list stands for: in a conversation list every message of the
+	/// conversation that the list shows, newest first; otherwise the message itself.
+	public func conversationMemberIds(of messageId: String, in scope: ListScope, now: Date = Date()) throws -> [String] {
+		guard scope.conversations, scope.folder != .drafts else { return [messageId] }
+		return try writer.read { db in
+			let filter = MailQueries.filter(scope, now: now)
+			let ids = try String.fetchAll(db, sql: """
+				SELECT m.id FROM message m JOIN message head ON head.id = ?
+				WHERE coalesce(m.threadId, m.id) = coalesce(head.threadId, head.id) AND \(filter.sql)
+				ORDER BY m.createdAt DESC, m.id DESC
+				""", arguments: [messageId] + filter.arguments)
+			return ids.contains(messageId) ? ids : [messageId]
+		}
 	}
 
 	// MARK: Bodies

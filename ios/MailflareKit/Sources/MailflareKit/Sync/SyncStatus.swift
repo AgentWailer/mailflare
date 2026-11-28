@@ -29,6 +29,13 @@ public struct SyncSettings: Equatable, Sendable {
 	}
 }
 
+/// An action the server refused for good. The messages are back as they were.
+public struct ActionFailure: Equatable, Sendable {
+	public let action: MailAction
+	public let messageIds: [String]
+	public let reason: String
+}
+
 /// The part of the server the sync needs, so a test can stand in for it.
 public protocol MailAPI: Sendable {
 	func sync(cursor: String?, days: Int, limit: Int) async throws -> SyncPage
@@ -36,6 +43,9 @@ public protocol MailAPI: Sendable {
 	func mailboxes() async throws -> [MailboxInfo]
 	func folders(mailboxId: String) async throws -> [FolderInfo]
 	func counts(mailboxId: String?) async throws -> MailCounts
+	func bulk(action: String, messageIds: [String], folderId: String?) async throws
+	func star(messageId: String, starred: Bool) async throws
+	func snooze(messageId: String, until: Date?) async throws
 	/// Downloads an attachment to a temporary file and returns it.
 	func attachment(messageId: String, attachmentId: String, filename: String) async throws -> URL
 }

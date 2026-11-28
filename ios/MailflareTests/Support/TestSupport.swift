@@ -25,6 +25,14 @@ final class RouteTransport: HTTPTransport {
 	var requests: [URLRequest] { recorded.withLock { $0 } }
 	func paths() -> [String] { requests.compactMap { $0.url?.path } }
 
+	/// The bulk actions sent so far, as "action id,id".
+	func bulkActions() -> [String] {
+		requests.filter { $0.url?.path == "/api/messages/bulk" }.compactMap { request in
+			guard let data = request.httpBody, let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+			return "\(body["action"] as? String ?? "?") \(((body["messageIds"] as? [String]) ?? []).sorted().joined(separator: ","))"
+		}
+	}
+
 	func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
 		recorded.withLock { $0.append(request) }
 		if let failure = failure.withLock({ $0 }) { throw failure }
@@ -40,7 +48,11 @@ final class RouteTransport: HTTPTransport {
 		let transport = RouteTransport()
 		transport.answer("/api/auth/me", status: 401, #"{"error":"Unauthorized"}"#)
 		transport.answer("/api/app/login", #"{"ok":true,"token":"dev_\#(userId)","user":{"id":"\#(userId)","email":"\#(email)","name":"Anna","role":"\#(role)"}}"#)
-		transport.answer("/api/app/sync", #"{"cursor":"c","more":false,"reset":false,"mailboxIds":[],"messages":[],"removed":[]}"#)
+		// The same mailbox the tests' stores are filled for; another set would make the app start over.
+		transport.answer("/api/app/sync", #"{"cursor":"c","more":false,"reset":false,"mailboxIds":["box"],"messages":[],"removed":[]}"#)
+		transport.answer("/api/messages/bulk", #"{"ok":true}"#)
+		transport.answer("/api/folders", #"{"folders":[]}"#)
+		transport.answer("/api/settings/external-content", #"{"enabled":false}"#)
 		transport.answer("/api/mailboxes", #"{"mailboxes":[]}"#)
 		transport.answer("/api/messages/counts", #"{"counts":{"folders":{},"customFolders":{},"mailboxes":[]}}"#)
 		transport.answer("/api/auth/logout", #"{"ok":true}"#)

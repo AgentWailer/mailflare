@@ -35,7 +35,38 @@ private struct MessageListContent: View {
 	let showsCategories: Bool
 	@State private var model: MessageListModel
 	@AppStorage("list.conversations") private var conversations = true
+	@State private var prompts = ActionPrompts()
+	@State private var tree = MailboxTree()
+	@State private var selection = Set<String>()
+	@State private var editMode: EditMode = .inactive
 	private let words = Presentation.current
+
+	private var isSelecting: Bool { editMode == .active }
+
+	private func run(_ action: RowAction, on item: ListItem) {
+		prompts.run(action, on: [item.id], mailboxId: item.message.mailboxId) { await model.perform($0, on: $1) }
+	}
+
+	/// What the selected rows have in common: the offers of the first, kept to what all may do.
+	private var selectionOffer: [RowAction] {
+		let rows = model.items.filter { selection.contains($0.id) }
+		guard let first = rows.first else { return [] }
+		let canManage = rows.allSatisfy { MailActions.canManage(mailboxId: $0.message.mailboxId, in: tree) }
+		let offer = MailActions.offered(for: first.message, canManage: canManage)
+		return Array((offer.leading + offer.trailing).filter { $0 != .snooze && $0 != .unsnooze }.prefix(4))
+	}
+
+	private func runOnSelection(_ action: RowAction) {
+		let ids = model.items.map(\.id).filter(selection.contains)
+		let mailboxId = model.items.first { selection.contains($0.id) }?.message.mailboxId
+		prompts.run(action, on: ids, mailboxId: mailboxId) { await model.perform($0, on: $1) }
+		if action != .move && action != .deletePermanently { endSelecting() }
+	}
+
+	private func endSelecting() {
+		selection = []
+		withAnimation { editMode = .inactive }
+	}
 
 	init(scope: ListScope, session: AccountSession, showsCategories: Bool) {
 		self.session = session
@@ -49,17 +80,36 @@ private struct MessageListContent: View {
 	}
 
 	var body: some View {
-		List {
+		// Rows are only selectable while selecting; otherwise a row that was opened would stay highlighted.
+		List(selection: isSelecting ? $selection : .constant([])) {
 			ForEach(model.items) { item in
+				let offer = MailActions.offered(for: item.message, canManage: MailActions.canManage(mailboxId: item.message.mailboxId, in: tree))
 				NavigationLink(value: Route.message(item.id)) {
 					MessageRowView(item: item, showsThread: model.conversations)
 				}
 				.navigationLinkIndicatorVisibility(.hidden)
 				.listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 12))
+				.swipeActions(edge: .leading, allowsFullSwipe: true) {
+					ForEach(offer.leading, id: \.self) { action in
+						RowActionButton(action: action) { run(action, on: item) }.tint(action.tint)
+					}
+				}
+				.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+					ForEach(offer.trailing, id: \.self) { action in
+						RowActionButton(action: action) { run(action, on: item) }.tint(action.tint)
+					}
+				}
+				.contextMenu {
+					ForEach(offer.menu, id: \.self) { action in
+						RowActionButton(action: action) { run(action, on: item) }
+					}
+				}
 			}
 			footer
 		}
 		.listStyle(.plain)
+		.environment(\.editMode, $editMode)
+		.actionPrompts(prompts, tree: tree, onDone: endSelecting) { await model.perform($0, on: $1) }
 		.overlay {
 			if model.hasLoaded && model.items.isEmpty { emptyState }
 		}
@@ -67,7 +117,24 @@ private struct MessageListContent: View {
 		// A large title would sit under the row of categories and be blurred away by it.
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
+			ToolbarItem(placement: .topBarTrailing) {
+				if isSelecting {
+					Button("Done") { endSelecting() }
+				} else if !model.items.isEmpty {
+					Button("Select") { withAnimation { editMode = .active } }
+				}
+			}
+			if isSelecting {
+				ToolbarItemGroup(placement: .bottomBar) {
+					ForEach(selectionOffer, id: \.self) { action in
+						RowActionButton(action: action) { runOnSelection(action) }
+							.disabled(selection.isEmpty)
+						if action != selectionOffer.last { Spacer() }
+					}
+				}
+			}
 			ToolbarItem(placement: .bottomBar) {
+				if !isSelecting {
 				Menu {
 					Picker("Show", selection: $model.unreadOnly) {
 						Text("All").tag(false)
@@ -77,9 +144,10 @@ private struct MessageListContent: View {
 				} label: {
 					Label("Filter", systemImage: model.unreadOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
 				}
+				}
 			}
 			ToolbarItem(placement: .status) {
-				SyncStatusLabel(status: model.status)
+				if !isSelecting { SyncStatusLabel(status: model.status) }
 			}
 		}
 		.refreshable {
@@ -90,6 +158,9 @@ private struct MessageListContent: View {
 		.onChange(of: model.unreadOnly) { _, _ in Haptics.play(.selection) }
 		.onAppear { model.start() }
 		.onDisappear { model.stop() }
+		.task {
+			for await tree in session.store.observeMailboxes() { self.tree = tree }
+		}
 	}
 
 	@ViewBuilder private var footer: some View {

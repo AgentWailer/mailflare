@@ -101,4 +101,16 @@ import MailflareKit
 		#expect(filters(ListScope(folder: .inbox, conversations: true))["group"] == "thread")
 		#expect(filters(ListScope(folder: .drafts, conversations: true))["group"] == nil)
 	}
+
+	@Test func `an action on a conversation row covers the conversation's messages in that list`() async throws {
+		let transport = RouteTransport.signedIn()
+		let session = try session(transport)
+		try session.store.apply(SyncPage(cursor: "c", more: false, mailboxIds: ["box"], messages: [row("first", age: 20, thread: "t"), row("second", age: 10, thread: "t"), row("other", age: 5)]))
+		let model = MessageListModel(scope: ListScope(folder: .inbox, conversations: true), session: session)
+		model.start()
+		try await settle(model) { model.items.map(\.id) == ["other", "second"] }
+		await model.perform(.archive, on: ["second"])
+		try await settle(model) { model.items.map(\.id) == ["other"] }
+		try await settle(model) { transport.bulkActions() == ["archive first,second"] }
+	}
 }
