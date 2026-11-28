@@ -78,6 +78,18 @@ enum Schema {
 				t.column("value", .text).notNull()
 			}
 		}
+		migrator.registerMigration("v2") { db in
+			// Actions applied on the device that still have to reach the server, oldest first.
+			// `snapshot` holds the rows as they were, so a refused action can be put back.
+			try db.create(table: "outbox") { t in
+				t.autoIncrementedPrimaryKey("id")
+				t.column("action", .text).notNull()
+				t.column("messageIds", .text).notNull()
+				t.column("snapshot", .text).notNull()
+				t.column("attempts", .integer).notNull().defaults(to: 0)
+				t.column("createdAt", .datetime).notNull()
+			}
+		}
 		return migrator
 	}
 }
