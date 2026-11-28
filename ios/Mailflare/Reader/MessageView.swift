@@ -8,7 +8,21 @@ struct MessageView: View {
 	// Starts small: the page reports its own height, and never less than the view already has.
 	@State private var bodyHeight: CGFloat = 24
 	@State private var showsRecipients = false
+	@State private var prompts = ActionPrompts()
+	@State private var tree = MailboxTree()
 	@Environment(\.openURL) private var openURL
+	@Environment(\.dismiss) private var dismiss
+
+	/// Actions after which there is nothing left to read here.
+	private static let leavesReader: Set<RowAction> = [.archive, .trash, .spam, .moveToInbox]
+
+	private func run(_ action: RowAction) {
+		let leaves = Self.leavesReader.contains(action)
+		prompts.run(action, on: [model.messageId], mailboxId: model.message?.row.mailboxId) { mailAction, _ in
+			await model.perform(mailAction)
+		}
+		if leaves { dismiss() }
+	}
 	private let words = Presentation.current
 
 	init(messageId: String, session: AccountSession) {
@@ -34,6 +48,30 @@ struct MessageView: View {
 			}
 		}
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			if let row = model.message?.row {
+				let offer = MailActions.offered(for: row, canManage: MailActions.canManage(mailboxId: row.mailboxId, in: tree))
+				// The two things done most are one tap away; everything else is in the menu.
+				let quick = Array((offer.leading.filter { $0 != .markRead && $0 != .markUnread } + offer.trailing).prefix(2))
+				ToolbarItemGroup(placement: .bottomBar) {
+					ForEach(quick, id: \.self) { action in
+						RowActionButton(action: action) { run(action) }
+						Spacer()
+					}
+					Menu {
+						ForEach(offer.menu.filter { !quick.contains($0) }, id: \.self) { action in
+							RowActionButton(action: action) { run(action) }
+						}
+					} label: {
+						Label("More", systemImage: "ellipsis.circle")
+					}
+				}
+			}
+		}
+		.actionPrompts(prompts, tree: tree, onDone: { dismiss() }) { action, _ in await model.perform(action) }
+		.task {
+			for await tree in session.store.observeMailboxes() { self.tree = tree }
+		}
 		.quickLookPreview($model.previewFile)
 		.alert("Attachment", isPresented: Binding(get: { model.attachmentError != nil }, set: { if !$0 { model.attachmentError = nil } })) {
 			Button("OK", role: .cancel) {}

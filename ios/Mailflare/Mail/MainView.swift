@@ -6,6 +6,7 @@ struct MainView: View {
 	let session: AccountSession
 	@State private var path: [Route]
 	@Environment(\.scenePhase) private var scenePhase
+	@Environment(AppModel.self) private var model
 
 	init(session: AccountSession) {
 		self.session = session
@@ -25,6 +26,13 @@ struct MainView: View {
 					case .appSettings: AppSettingsView(session: session)
 					}
 				}
+		}
+		// An action the server refused is back as it was; say so, or it looks like it never happened.
+		.task {
+			for await failure in await session.engine.actionFailures() {
+				model.notice = String(localized: "The server did not accept the last change (\(failure.reason)). The mail is back as it was.")
+				Haptics.play(.error)
+			}
 		}
 		.onChange(of: scenePhase) { _, phase in
 			if phase == .active { Task { await session.engine.syncNow() } }

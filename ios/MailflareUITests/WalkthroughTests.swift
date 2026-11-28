@@ -55,6 +55,15 @@ final class WalkthroughTests: XCTestCase {
 		chip.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap() // near its left end: the right end may be cut off by the screen
 	}
 
+	/// Swipes a row open from its leading edge. XCUITest's swipe does not always catch the row
+	/// on the first try, so it is repeated once.
+	@MainActor private func revealLeadingActions(of row: XCUIElement, in app: XCUIApplication) {
+		for _ in 0..<2 where !app.buttons["Archivieren"].exists {
+			row.swipeRight(velocity: .slow)
+			_ = app.buttons["Archivieren"].waitForExistence(timeout: 3)
+		}
+	}
+
 	@MainActor private func back(_ app: XCUIApplication) {
 		app.navigationBars.buttons.element(boundBy: 0).tap()
 	}
@@ -63,11 +72,12 @@ final class WalkthroughTests: XCTestCase {
 		XCTAssertTrue(element.waitForExistence(timeout: timeout), "\(what) did not appear")
 	}
 
-	@MainActor func testSetupReadingAndOffline() throws {
+	/// Starts as a fresh install and goes through server, access key and sign-in.
+	@MainActor private func signInFresh(capturing: Bool = true) -> XCUIApplication {
 		// Setup: server, access key, sign-in.
-		var app = launch(reset: true)
+		let app = launch(reset: true)
 		expect(app.staticTexts["Dein Mailflare"], "The server step")
-		capture("01-server")
+		if capturing { capture("01-server") }
 		let address = app.textFields["Serveradresse"]
 		address.tap()
 		address.typeText(server)
@@ -80,7 +90,7 @@ final class WalkthroughTests: XCTestCase {
 		let secret = app.secureTextFields["Client-Secret"]
 		secret.tap()
 		secret.typeText("simulator-secret")
-		capture("02-access-key")
+		if capturing { capture("02-access-key") }
 		app.buttons["Schlüssel prüfen"].tap()
 
 		expect(app.textFields["E-Mail-Adresse"], "The sign-in step")
@@ -90,8 +100,14 @@ final class WalkthroughTests: XCTestCase {
 		let passwordField = app.secureTextFields["Passwort"]
 		passwordField.tap()
 		passwordField.typeText(password)
-		capture("03-sign-in")
+		if capturing { capture("03-sign-in") }
 		app.buttons["Anmelden"].firstMatch.tap()
+
+		return app
+	}
+
+	@MainActor func testSetupReadingAndOffline() throws {
+		var app = signInFresh()
 
 		// The inbox fills from the first sync.
 		expect(app.navigationBars["Posteingang"], "The inbox")
@@ -230,5 +246,84 @@ final class WalkthroughTests: XCTestCase {
 		expect(app.webViews.staticTexts["Dezember in der Bibliothek"], "The newsletter in dark")
 		sleep(1)
 		capture("18-dark-newsletter")
+	}
+
+	/// Reading, swiping and selecting change mail at once, reach the server, and survive a start without a connection.
+	@MainActor func testActions() throws {
+		var app = signInFresh(capturing: false)
+		expect(app.navigationBars["Posteingang"], "The inbox")
+		let invoice = app.staticTexts["Ihre Abrechnung für November"].firstMatch
+		expect(invoice, "An unread message", timeout: 40)
+		expect(app.staticTexts["Gerade aktualisiert"], "A finished first sync", timeout: 60)
+		// The row reads itself out as one sentence that starts with its unread state.
+		let unreadRow = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Ungelesen, Stadtwerke'")).firstMatch
+		expect(unreadRow, "The invoice shown as unread")
+
+		// Opening a message marks it read.
+		invoice.tap()
+		expect(app.webViews.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Abrechnung'")).firstMatch, "The invoice's text")
+		capture("20-reader-with-actions")
+		back(app)
+		XCTAssertTrue(unreadRow.waitForNonExistence(timeout: 10), "The opened message is no longer shown as unread")
+		capture("21-inbox-after-reading")
+
+		// A full swipe archives.
+		let kita = app.staticTexts["Elternabend am 9. Dezember"].firstMatch
+		expect(kita, "The message to archive")
+		revealLeadingActions(of: kita, in: app)
+		expect(app.buttons["Archivieren"], "Archive in the swipe from the leading edge")
+		capture("21b-swipe-leading")
+		app.buttons["Archivieren"].tap()
+		XCTAssertTrue(kita.waitForNonExistence(timeout: 10), "The archived message leaves the inbox")
+
+		// The other side offers delete, snooze and move.
+		let offer = app.staticTexts["Angebot Dach"].firstMatch
+		offer.swipeLeft(velocity: .slow)
+		expect(app.buttons["Löschen"], "Delete in the swipe")
+		expect(app.buttons["Zurückstellen"], "Snooze in the swipe")
+		capture("22-swipe-actions")
+		app.buttons["Zurückstellen"].tap()
+		expect(app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Morgen früh'")).firstMatch, "The snooze times")
+		capture("23-snooze-times")
+		app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Morgen früh'")).firstMatch.tap()
+		XCTAssertTrue(offer.waitForNonExistence(timeout: 10), "The snoozed message leaves the inbox")
+
+		// Several at once.
+		app.buttons["Auswählen"].tap()
+		app.staticTexts["Rundschreiben Nr. 1"].firstMatch.tap()
+		app.staticTexts["Rundschreiben Nr. 2"].firstMatch.tap()
+		capture("24-selection")
+		app.buttons["Löschen"].firstMatch.tap()
+		XCTAssertTrue(app.staticTexts["Rundschreiben Nr. 1"].firstMatch.waitForNonExistence(timeout: 10), "The deleted messages leave the inbox")
+		XCTAssertTrue(app.staticTexts["Rundschreiben Nr. 3"].firstMatch.exists, "The others stay")
+
+		// Everything went where it should.
+		back(app)
+		expect(app.navigationBars["Postfächer"], "The mailbox list")
+		for (folder, subject) in [("Archiv", "Elternabend am 9. Dezember"), ("Zurückgestellt", "Angebot Dach"), ("Papierkorb", "Rundschreiben Nr. 2")] {
+			app.staticTexts[folder].firstMatch.tap()
+			expect(app.staticTexts[subject].firstMatch, "\(subject) under \(folder)")
+			back(app)
+		}
+
+		// Give the server time to take the changes, then act without a connection.
+		app.staticTexts["Posteingang"].firstMatch.tap()
+		sleep(6)
+		app.terminate()
+		app = launch(offline: true)
+		expect(app.staticTexts["Ihre Buchung nach Hamburg"].firstMatch, "The inbox without a connection")
+		XCTAssertFalse(app.staticTexts["Elternabend am 9. Dezember"].exists, "What was archived stays archived")
+		revealLeadingActions(of: app.staticTexts["Ihre Buchung nach Hamburg"].firstMatch, in: app)
+		expect(app.buttons["Archivieren"], "Archive in the swipe, offline")
+		app.buttons["Archivieren"].tap()
+		XCTAssertTrue(app.staticTexts["Ihre Buchung nach Hamburg"].firstMatch.waitForNonExistence(timeout: 10), "Archiving works offline")
+		capture("25-offline-after-archiving")
+		app.terminate()
+
+		// Back online, the waiting action goes out and stays done.
+		app = launch()
+		expect(app.staticTexts["Ihre Abrechnung für November"].firstMatch, "The inbox online again")
+		expect(app.staticTexts["Gerade aktualisiert"], "A sync after coming back", timeout: 60)
+		XCTAssertFalse(app.staticTexts["Ihre Buchung nach Hamburg"].exists, "The message archived offline is still archived after the sync")
 	}
 }

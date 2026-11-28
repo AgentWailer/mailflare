@@ -97,7 +97,7 @@ struct Presentation {
 		case .scheduled: text("Scheduled")
 		case .sent: text("Sent")
 		case .drafts: text("Drafts")
-		case .archived: text("Archive")
+		case .archived: text("folder.archive")
 		case .spam: text("Spam")
 		case .trash: text("Trash")
 		case .all: text("All mail")

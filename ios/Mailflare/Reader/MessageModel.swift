@@ -24,6 +24,8 @@ final class MessageModel {
 	private var observation: Task<Void, Never>?
 	private var inlineImages: [String: String] = [:]
 	private var requestedBody = false
+	/// Opening a message marks it read once. After that the user's own choice stands.
+	private var markedRead = false
 	/// Embedded pictures above this size are left out rather than held in memory as text.
 	private static let inlineImageLimit = 2_000_000
 
@@ -55,14 +57,27 @@ final class MessageModel {
 	private func received(_ stored: StoredMessage?) async {
 		message = stored
 		earlier = ((try? session.store.thread(of: messageId)) ?? []).filter { $0.id != messageId }
-		if stored?.body != nil {
+		if let stored, stored.body != nil {
 			state = .ready
 			render()
+			if !markedRead {
+				markedRead = true
+				if !stored.row.read { await session.perform(.markRead(true), on: [messageId]) }
+			}
 			await loadInlineImages()
 		} else if !requestedBody {
 			requestedBody = true
 			await fetchBody()
 		}
+	}
+
+	/// Whether the account may move and delete in this message's mailbox.
+	var canManage: Bool {
+		MailActions.canManage(mailboxId: message?.row.mailboxId, in: (try? session.store.mailboxTree()) ?? MailboxTree())
+	}
+
+	func perform(_ action: MailAction) async {
+		await session.perform(action, on: [messageId])
 	}
 
 	func retry() async {

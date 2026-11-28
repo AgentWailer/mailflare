@@ -66,6 +66,15 @@ final class MessageListModel {
 		}
 	}
 
+	/// Acts on the given rows. A conversation row stands for every message of it in this list.
+	func perform(_ action: MailAction, on rowIds: [String]) async {
+		var ids: [String] = []
+		for id in rowIds {
+			for member in (try? session.store.conversationMemberIds(of: id, in: scope)) ?? [id] where !ids.contains(member) { ids.append(member) }
+		}
+		await session.perform(action, on: ids)
+	}
+
 	func refresh() async {
 		await session.engine.syncNow()
 	}

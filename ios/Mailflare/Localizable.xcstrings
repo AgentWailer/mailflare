@@ -278,7 +278,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Archiv"
+            "value": "Archivieren"
           }
         },
         "en": {
@@ -509,6 +509,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "Continue"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Löschen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "Delete for good": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endgültig löschen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete for good"
+          }
+        }
+      }
+    },
+    "Delete for good?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endgültig löschen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete for good?"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
           }
         }
       }
@@ -945,6 +1009,54 @@
         }
       }
     },
+    "Mark as read": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als gelesen markieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as read"
+          }
+        }
+      }
+    },
+    "Mark as spam": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Spam markieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as spam"
+          }
+        }
+      }
+    },
+    "Mark as unread": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als ungelesen markieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as unread"
+          }
+        }
+      }
+    },
     "More": {
       "localizations": {
         "de": {
@@ -957,6 +1069,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "More"
+          }
+        }
+      }
+    },
+    "Move": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschieben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move"
+          }
+        }
+      }
+    },
+    "Move to": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschieben nach"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to"
+          }
+        }
+      }
+    },
+    "Move to inbox": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In den Posteingang"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to inbox"
+          }
+        }
+      }
+    },
+    "Next week": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächste Woche"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next week"
           }
         }
       }
@@ -1249,6 +1425,22 @@
         }
       }
     },
+    "Remove star": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markierung entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove star"
+          }
+        }
+      }
+    },
     "Replace access key": {
       "localizations": {
         "de": {
@@ -1341,6 +1533,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Second factor"
+          }
+        }
+      }
+    },
+    "Select": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auswählen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select"
           }
         }
       }
@@ -1633,6 +1841,38 @@
         }
       }
     },
+    "Snooze": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurückstellen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze"
+          }
+        }
+      }
+    },
+    "Snooze until": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurückstellen bis"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze until"
+          }
+        }
+      }
+    },
     "Snoozed": {
       "localizations": {
         "de": {
@@ -1677,6 +1917,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Spam"
+          }
+        }
+      }
+    },
+    "Star": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Star"
           }
         }
       }
@@ -1841,6 +2097,22 @@
         }
       }
     },
+    "The server did not accept the last change (%@). The mail is back as it was.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server hat die letzte Änderung nicht angenommen (%@). Die Mail ist wieder so wie vorher."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server did not accept the last change (%@). The mail is back as it was."
+          }
+        }
+      }
+    },
     "The server reported an error (%lld).": {
       "localizations": {
         "de": {
@@ -1857,6 +2129,22 @@
         }
       }
     },
+    "This cannot be undone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das lässt sich nicht rückgängig machen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This cannot be undone."
+          }
+        }
+      }
+    },
     "This device needs its own Cloudflare Access service token. Create one in Cloudflare Zero Trust and enter its two parts here. They are kept in the keychain of this device only.": {
       "localizations": {
         "de": {
@@ -1869,6 +2157,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "This device needs its own Cloudflare Access service token. Create one in Cloudflare Zero Trust and enter its two parts here. They are kept in the keychain of this device only."
+          }
+        }
+      }
+    },
+    "This evening": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute Abend"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This evening"
           }
         }
       }
@@ -1949,6 +2253,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "To: %@ and %lld more"
+          }
+        }
+      }
+    },
+    "Tomorrow morning": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morgen früh"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomorrow morning"
           }
         }
       }
@@ -2113,6 +2433,22 @@
         }
       }
     },
+    "Wake now": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt wieder vorlegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wake now"
+          }
+        }
+      }
+    },
     "Yesterday": {
       "localizations": {
         "de": {
@@ -2157,6 +2493,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your Mailflare"
+          }
+        }
+      }
+    },
+    "folder.archive": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archiv"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archive"
           }
         }
       }

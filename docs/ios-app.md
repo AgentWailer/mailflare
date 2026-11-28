@@ -15,9 +15,13 @@ This page describes what exists after stage 1 (the foundation) and how to set it
   the app.
 - Follows changes while it is on screen, and asks iOS to wake it now and then.
 
-Not built yet, each with its own stage: marking, moving and deleting mail (stage 2),
-writing mail (stage 3), notifications from Apple (stage 4), search and TestFlight (stage 5).
-Opening a message does not mark it as read until stage 2.
+- Opening a message marks it read. Mail can be archived, deleted, starred, snoozed, moved,
+  marked as spam and deleted for good, by swiping a row, from the long-press menu, for several
+  rows at once, and from the reader. Every change shows at once and is sent by the next sync,
+  also when it was made without a network. A change the server refuses is put back and said.
+
+Not built yet, each with its own stage: writing mail (stage 3), notifications from Apple
+(stage 4), search (stage 5).
 
 ## Before the first start: Cloudflare Access
 
@@ -159,6 +163,10 @@ Taken by the walk-through in the simulator, with made-up mail:
 | Without a connection | Devices | Dark | Dark newsletter |
 | --- | --- | --- | --- |
 | ![The inbox offline](screenshots/ios/12-offline-inbox.png) | ![Signed-in devices](screenshots/ios/11-settings-devices.png) | ![The inbox in dark](screenshots/ios/16-dark-inbox.png) | ![A newsletter in dark](screenshots/ios/18-dark-newsletter.png) |
+
+| Swipe from the leading edge | Swipe from the trailing edge | Selecting several |
+| --- | --- | --- |
+| ![Archive and mark](screenshots/ios/21b-swipe-leading.png) | ![Move, snooze, delete](screenshots/ios/22-swipe-actions.png) | ![Several rows selected](screenshots/ios/24-selection.png) |
 
 ## What only a real iPhone can show
 

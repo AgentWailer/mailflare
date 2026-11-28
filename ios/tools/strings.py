@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Writes Mailflare/Localizable.xcstrings from the table below.
 
-English is the key, German the translation. After changing a text in the app, add or change
+English is the key, German the translation. Where one English word needs two German ones,
+the key is a name and the value a pair (English, German). After changing a text in the app, add or change
 its line here and run:  python3 ios/tools/strings.py
 `--check <DerivedData>` lists texts the build found in the code that have no line here.
 """
@@ -79,7 +80,6 @@ GERMAN = {
     "Scheduled": "Geplant",
     "Sent": "Gesendet",
     "Drafts": "Entwürfe",
-    "Archive": "Archiv",
     "Spam": "Spam",
     "Trash": "Papierkorb",
     "All mail": "Alle Mails",
@@ -112,6 +112,31 @@ GERMAN = {
     "No mail here": "Hier ist keine Mail",
     "Has attachments": "Mit Anhang",
     "%lld messages": "%lld Nachrichten",
+    # Actions
+    "Archive": "Archivieren",
+    # The folder, as opposed to the action above. A key of its own with its English text.
+    "folder.archive": ("Archive", "Archiv"),
+    "Delete": "Löschen",
+    "Delete for good": "Endgültig löschen",
+    "Move to inbox": "In den Posteingang",
+    "Mark as spam": "Als Spam markieren",
+    "Mark as read": "Als gelesen markieren",
+    "Mark as unread": "Als ungelesen markieren",
+    "Star": "Markieren",
+    "Remove star": "Markierung entfernen",
+    "Snooze": "Zurückstellen",
+    "Wake now": "Jetzt wieder vorlegen",
+    "Move": "Verschieben",
+    "This evening": "Heute Abend",
+    "Tomorrow morning": "Morgen früh",
+    "Next week": "Nächste Woche",
+    "Snooze until": "Zurückstellen bis",
+    "Delete for good?": "Endgültig löschen?",
+    "This cannot be undone.": "Das lässt sich nicht rückgängig machen.",
+    "Move to": "Verschieben nach",
+    "Done": "Fertig",
+    "Select": "Auswählen",
+    "The server did not accept the last change (%@). The mail is back as it was.": "Der Server hat die letzte Änderung nicht angenommen (%@). Die Mail ist wieder so wie vorher.",
     # Reader
     "Cannot show this message": "Diese Nachricht kann nicht angezeigt werden",
     "Attachment": "Anhang",
@@ -162,8 +187,9 @@ GERMAN = {
 
 def catalog():
     strings = {}
-    for english, german in sorted(GERMAN.items()):
-        strings[english] = {"localizations": {
+    for key, value in sorted(GERMAN.items()):
+        english, german = value if isinstance(value, tuple) else (key, value)
+        strings[key] = {"localizations": {
             "de": {"stringUnit": {"state": "translated", "value": german}},
             "en": {"stringUnit": {"state": "translated", "value": english}},
         }}
