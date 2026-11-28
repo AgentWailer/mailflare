@@ -1,3 +1,4 @@
+import { pruneMailChanges } from "./src/lib/app-sync/prune";
 import { recordFinalQueueFailure } from "./src/lib/queues/failures";
 import { processDatabaseBackup, recoverDatabaseBackups } from "./src/lib/backups/runner";
 import { safeErrorCategory } from "./src/lib/security/logging";
@@ -170,5 +171,6 @@ export default {
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		// Drive trash is emptied once a day, with the 02:00 UTC cron; the 5-minute cron is for queue-like upkeep.
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runDriveTrashRetention(env, new Date(controller.scheduledTime)));
+		if (controller.cron === "0 2 * * *") ctx.waitUntil(pruneMailChanges(env, new Date(controller.scheduledTime)));
 	},
 } satisfies ExportedHandler<CloudflareEnv>;

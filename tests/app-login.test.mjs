@@ -165,4 +165,11 @@ test('an installation that uses Turnstile only signs an app in through Cloudflar
 	const through = await f.post(app.login, credentials, {'Cf-Access-Jwt-Assertion': await assertion(pair.privateKey)});
 	assert.equal(through.status, 200);
 	assert.ok((await through.json()).token);
+
+	// With its own Access application, the app is not let through by an assertion for another one.
+	f.env.APP_ACCESS_AUDIENCE = 'd'.repeat(64);
+	assert.equal((await f.post(app.login, credentials, {'Cf-Access-Jwt-Assertion': await assertion(pair.privateKey)})).status, 403, 'assertion for the MCP application');
+	assert.equal((await f.post(app.login, credentials, {'Cf-Access-Jwt-Assertion': await assertion(pair.privateKey, {aud: ['d'.repeat(64)]})})).status, 200);
+	f.env.APP_ACCESS_AUDIENCE = 'not-an-audience';
+	assert.equal((await f.post(app.login, credentials, {'Cf-Access-Jwt-Assertion': await assertion(pair.privateKey)})).status, 403, 'a broken setting fails closed');
 });

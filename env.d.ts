@@ -42,6 +42,8 @@ interface CloudflareEnv {
 	/** Cloudflare Managed OAuth user assertions; issuer/audience must match the protected MCP application. */
 	MCP_ACCESS_ISSUER?: string;
 	MCP_ACCESS_AUDIENCE?: string;
+	/** Audience of the Access application in front of the app's routes, when it is not the MCP one. */
+	APP_ACCESS_AUDIENCE?: string;
 	CF_TOKEN?: string;
 	GMAIL_OAUTH_CLIENT_ID?: string;
 	GMAIL_OAUTH_CLIENT_SECRET?: string;

@@ -7,10 +7,16 @@ import type { AppSignInResult, AppSignInUser } from "./device-session-types";
  * An installed app cannot solve the Turnstile challenge the web sign-in shows. Where an
  * installation uses Turnstile, the app may therefore only sign in through Cloudflare Access,
  * which stands in for it. Without Turnstile the app is treated like the web sign-in.
+ *
+ * Access proves the path, not the person: a device presents a service token, which has no
+ * user identity. Password, second factor and the sign-in limiter still decide who gets in.
  */
 export async function isAppSignInAllowed(env: CloudflareEnv, request: Request): Promise<boolean> {
 	if (!env.TURNSTILE_SECRET_KEY?.trim()) return true;
-	return hasSignedAccessAssertion(env, request);
+	// APP_ACCESS_AUDIENCE names the Access application in front of the app's routes when it is
+	// not the one MCP uses. A set but malformed value refuses every sign-in rather than fall back.
+	const audience = env.APP_ACCESS_AUDIENCE?.trim();
+	return hasSignedAccessAssertion(env, request, audience || undefined);
 }
 
 export async function finishAppSignIn(

@@ -99,10 +99,11 @@ export async function verifyAccessIdentity(env:CloudflareEnv,request:Request):Pr
 /**
  * Whether the request came through this installation's Cloudflare Access application, as a
  * person or as a service token. It proves the path, not who is asking: issuer, audience,
- * lifetime and signature are checked, the identity claims are not.
+ * lifetime and signature are checked, the identity claims are not. `audience` names another
+ * Access application of the same team than the one MCP uses.
  */
-export async function hasSignedAccessAssertion(env:CloudflareEnv,request:Request):Promise<boolean> {
- const config=mcpAccessConfiguration(env);
+export async function hasSignedAccessAssertion(env:CloudflareEnv,request:Request,audience?:string):Promise<boolean> {
+ const base=mcpAccessConfiguration(env),config=audience===undefined?base:{...base,audience,configured:base.configured && /^[a-f0-9]{64}$/i.test(audience)};
  if(!config.configured)return false;
  const assertion=request.headers.get("Cf-Access-Jwt-Assertion") || accessApplicationCookie(request);
  if(!assertion || assertion.length>MAX_ASSERTION_BYTES)return false;
