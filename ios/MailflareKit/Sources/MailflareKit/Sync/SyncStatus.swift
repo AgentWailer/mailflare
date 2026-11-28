@@ -43,6 +43,11 @@ public protocol MailAPI: Sendable {
 	func mailboxes() async throws -> [MailboxInfo]
 	func folders(mailboxId: String) async throws -> [FolderInfo]
 	func counts(mailboxId: String?) async throws -> MailCounts
+	/// Creates a draft on the server and returns its id. With a request id, repeating the call finds the same draft.
+	func createDraft(_ draft: DraftPayload, requestId: String?) async throws -> String
+	func updateDraft(id: String, _ draft: DraftPayload) async throws
+	/// Sends the message from its draft. A draft that is gone means the message went out before.
+	func send(_ draft: DraftPayload, draftId: String, attachments: [OutgoingAttachment]) async throws
 	func bulk(action: String, messageIds: [String], folderId: String?) async throws
 	func star(messageId: String, starred: Bool) async throws
 	func snooze(messageId: String, until: Date?) async throws

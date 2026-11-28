@@ -75,6 +75,65 @@ public struct APIClient: Sendable {
 		_ = try await data(.delete, "/api/app/devices/\(Self.segment(id))")
 	}
 
+	// MARK: Composing
+
+	private func fields(_ draft: DraftPayload) -> [String: Any] {
+		var fields: [String: Any] = [
+			"mailboxId": draft.mailboxId, "from": draft.from, "to": draft.to.joined(separator: ", "), "cc": draft.cc.joined(separator: ", "),
+			"bcc": draft.bcc.joined(separator: ", "), "subject": draft.subject, "html": draft.html, "text": draft.text,
+		]
+		if let value = draft.inReplyTo { fields["inReplyTo"] = value }
+		if let value = draft.references { fields["references"] = value }
+		if let value = draft.threadId { fields["threadId"] = value }
+		return fields
+	}
+
+	public func createDraft(_ draft: DraftPayload, requestId: String?) async throws -> String {
+		struct Answer: Decodable { struct Draft: Decodable { let id: String }; let draft: Draft }
+		var fields = fields(draft)
+		// The server takes a request id or a forward source, not both.
+		if let source = draft.forwardOfMessageId { fields["forwardOfMessageId"] = source } else if let requestId { fields["requestId"] = requestId.lowercased() }
+		do {
+			return try await decode(Answer.self, .post, "/api/drafts", body: try JSONSerialization.data(withJSONObject: fields, options: [.sortedKeys])).draft.id
+		} catch APIError.server(409, _) {
+			// "Draft already completed": the message this draft was for has gone out.
+			throw APIError.notFound
+		}
+	}
+
+	public func updateDraft(id: String, _ draft: DraftPayload) async throws {
+		_ = try await data(.patch, "/api/drafts/\(Self.segment(id))", body: try JSONSerialization.data(withJSONObject: fields(draft), options: [.sortedKeys]))
+	}
+
+	public func deleteDraft(id: String) async throws {
+		_ = try await data(.delete, "/api/drafts/\(Self.segment(id))")
+	}
+
+	public func draft(id: String) async throws -> ServerDraft {
+		struct Answer: Decodable { let draft: ServerDraft }
+		return try await decode(Answer.self, .get, "/api/drafts/\(Self.segment(id))").draft
+	}
+
+	/// Sends a message from its draft. The draft goes with the send, so a second request for the
+	/// same draft finds none and sends nothing: that is what makes a retry safe.
+	public func send(_ draft: DraftPayload, draftId: String, attachments: [OutgoingAttachment]) async throws {
+		var fields = fields(draft)
+		fields["to"] = draft.to
+		fields["cc"] = draft.cc.isEmpty ? nil : draft.cc
+		fields["bcc"] = draft.bcc.isEmpty ? nil : draft.bcc
+		fields["draftId"] = draftId
+		if !attachments.isEmpty {
+			fields["attachments"] = try attachments.map { ["filename": $0.filename, "type": $0.type, "contentBase64": try Data(contentsOf: $0.file).base64EncodedString()] }
+		}
+		_ = try await data(.post, "/api/send", body: try JSONSerialization.data(withJSONObject: fields.compactMapValues { $0 }, options: [.sortedKeys]))
+	}
+
+	/// The address book the composer suggests from: contacts and everyone mail was sent to, most written-to first.
+	public func recipients() async throws -> [RecipientCandidate] {
+		struct Answer: Decodable { let recipients: [RecipientCandidate] }
+		return try await decode(Answer.self, .get, "/api/compose/recipients").recipients
+	}
+
 	// MARK: Actions
 
 	/// One of the web's bulk actions: `archive`, `trash`, `spam`, `read`, `unread`, `inbox`, `folder` or `delete`.
@@ -153,7 +212,7 @@ public struct APIClient: Sendable {
 	/// The header the session travels in. The server reads it in `src/lib/auth/session-header.ts`.
 	public static let sessionHeader = "X-Mailflare-Session"
 
-	enum Method: String { case get = "GET", post = "POST", delete = "DELETE" }
+	enum Method: String { case get = "GET", post = "POST", delete = "DELETE", patch = "PATCH" }
 
 	static func segment(_ value: String) -> String {
 		var allowed = CharacterSet.urlPathAllowed

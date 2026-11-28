@@ -37,7 +37,7 @@ actor FakeServer: MailAPI {
 	func onSyncAnswer(_ hook: (@Sendable (Int) async -> Void)?) { beforeSyncAnswer = hook }
 	func setReadable(_ ids: Set<String>) { readable = ids }
 	func prune() { prunedBelow = nextSeq; log.removeAll() }
-	func forgetCalls() { syncCursors = []; bodyRequests = []; attachmentRequests = []; actionCalls = [] }
+	func forgetCalls() { syncCursors = []; bodyRequests = []; attachmentRequests = []; actionCalls = []; composeCalls = [] }
 
 	func put(_ row: MessageRow) {
 		messages[row.id] = row
@@ -168,6 +168,52 @@ actor FakeServer: MailAPI {
 
 	func snooze(messageId: String, until: Date?) async throws {
 		try act(until == nil ? "unsnooze" : "snooze", [messageId]) { $0.snoozedUntil = until }
+	}
+
+	// Composing: drafts live on the server until they are sent from there.
+	struct SentMail: Equatable { let subject: String; let to: [String]; let attachments: [String] }
+	private(set) var sent: [SentMail] = []
+	private(set) var composeCalls: [String] = []
+	private var drafts: Set<String> = []
+	private var loseSendAnswer = false
+	private var loseDraftAnswer = false
+	private var refusals: [String: APIError] = [:]
+	var draftCount: Int { drafts.count }
+	func loseNextSendAnswer() { loseSendAnswer = true }
+	func loseNextDraftAnswer() { loseDraftAnswer = true }
+	func refuseSend(subject: String, with error: APIError) { refusals[subject] = error }
+	func addDraft(id: String) { drafts.insert(id) }
+
+	func createDraft(_ draft: DraftPayload, requestId: String?) async throws -> String {
+		if let failure { throw failure }
+		let id: String
+		if let source = draft.forwardOfMessageId {
+			composeCalls.append("forward-draft \(source)")
+			id = "msg_forward_\(composeCalls.count)"
+		} else {
+			composeCalls.append("draft \(requestId ?? "-")")
+			id = "msg_\(requestId ?? UUID().uuidString)"
+		}
+		drafts.insert(id)
+		if loseDraftAnswer { loseDraftAnswer = false; throw APIError.offline }
+		return id
+	}
+
+	func updateDraft(id: String, _ draft: DraftPayload) async throws {
+		composeCalls.append("update \(id)")
+		if let failure { throw failure }
+		guard drafts.contains(id) else { throw APIError.notFound }
+	}
+
+	func send(_ draft: DraftPayload, draftId: String, attachments: [OutgoingAttachment]) async throws {
+		composeCalls.append("send \(draftId)")
+		if let failure { throw failure }
+		guard drafts.contains(draftId) else { throw APIError.notFound }
+		if let refusal = refusals[draft.subject] { throw refusal }
+		let sizes = try attachments.map { "\($0.filename):\(try Data(contentsOf: $0.file).count)" }
+		sent.append(SentMail(subject: draft.subject, to: draft.to, attachments: sizes))
+		drafts.remove(draftId)
+		if loseSendAnswer { loseSendAnswer = false; throw APIError.offline }
 	}
 
 	func mailboxes() async throws -> [MailboxInfo] {

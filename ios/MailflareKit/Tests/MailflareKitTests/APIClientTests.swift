@@ -252,4 +252,51 @@ import Testing
 			try await client(.json(#"{"error":"Choose a future snooze time"}"#, status: 400)).snooze(messageId: "m1", until: until)
 		}
 	}
+
+	@Test func `drafts and sends use the server's own routes and shapes`() async throws {
+		func body(_ request: URLRequest?) throws -> [String: Any] {
+			let data = try #require(request?.httpBody)
+			return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+		}
+		let payload = DraftPayload(mailboxId: "box", from: "me@example.test", to: ["Anna <anna@example.org>", "ben@example.org"], cc: [], bcc: ["boss@example.org"],
+		                           subject: "Hallo", html: "<p>Text</p>", text: "Text", inReplyTo: "abc@example.org", references: "abc@example.org", threadId: "t1", forwardOfMessageId: nil)
+		let created = StubTransport.json(#"{"draft":{"id":"msg_1"}}"#)
+		#expect(try await client(created).createDraft(payload, requestId: "AAAAAAAA-1111-4111-8111-111111111111") == "msg_1")
+		let draftBody = try body(created.requests.first)
+		#expect(created.requests.first?.url?.path == "/api/drafts")
+		#expect(draftBody["requestId"] as? String == "aaaaaaaa-1111-4111-8111-111111111111", "the server takes lower-case ids")
+		#expect(draftBody["to"] as? String == "Anna <anna@example.org>, ben@example.org")
+		#expect(draftBody["inReplyTo"] as? String == "abc@example.org")
+
+		var forward = payload
+		forward.forwardOfMessageId = "m1"
+		let forwarded = StubTransport.json(#"{"draft":{"id":"msg_2","attachments":[]}}"#)
+		_ = try await client(forwarded).createDraft(forward, requestId: "aaaaaaaa-1111-4111-8111-111111111111")
+		#expect(try body(forwarded.requests.first)["forwardOfMessageId"] as? String == "m1")
+		#expect(try body(forwarded.requests.first)["requestId"] == nil, "the server refuses a request id together with a forward")
+
+		await #expect(throws: APIError.notFound) { try await client(.json(#"{"error":"Draft already completed"}"#, status: 409)).createDraft(payload, requestId: "x") }
+
+		let file = FileManager.default.temporaryDirectory.appending(path: "mailflare-send-\(UUID().uuidString).txt")
+		try Data("hello".utf8).write(to: file)
+		defer { try? FileManager.default.removeItem(at: file) }
+		let sent = StubTransport.json(#"{"ok":true}"#)
+		try await client(sent).send(payload, draftId: "msg_1", attachments: [OutgoingAttachment(filename: "note.txt", type: "text/plain", file: file)])
+		let sendBody = try body(sent.requests.first)
+		#expect(sent.requests.first?.url?.path == "/api/send")
+		#expect(sendBody["draftId"] as? String == "msg_1")
+		#expect(sendBody["to"] as? [String] == ["Anna <anna@example.org>", "ben@example.org"])
+		#expect(sendBody["bcc"] as? [String] == ["boss@example.org"])
+		#expect(sendBody["cc"] == nil)
+		#expect(sendBody["mailboxId"] as? String == "box")
+		let attachments = try #require(sendBody["attachments"] as? [[String: String]])
+		#expect(attachments == [["filename": "note.txt", "type": "text/plain", "contentBase64": "aGVsbG8="]])
+		await #expect(throws: APIError.notFound) { try await client(.json(#"{"error":"Draft not found"}"#, status: 404)).send(payload, draftId: "gone", attachments: []) }
+
+		let patch = StubTransport.json(#"{"draft":{"id":"msg_1"}}"#)
+		try await client(patch).updateDraft(id: "msg_1", payload)
+		#expect(patch.requests.first?.httpMethod == "PATCH")
+		let book = StubTransport.json(#"{"recipients":[{"email":"anna@example.org","name":"Anna","sends":4,"lastSentAt":1,"lastSeenAt":null,"source":"manual"},{"email":"ben@example.org","name":null,"sends":1,"lastSentAt":null,"lastSeenAt":null,"source":null}]}"#)
+		#expect(try await client(book).recipients() == [RecipientCandidate(email: "anna@example.org", name: "Anna"), RecipientCandidate(email: "ben@example.org")])
+	}
 }

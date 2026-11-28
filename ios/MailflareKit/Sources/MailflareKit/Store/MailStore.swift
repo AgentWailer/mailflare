@@ -207,6 +207,42 @@ public final class MailStore: Sendable {
 		}
 	}
 
+	// MARK: Messages the user wrote
+
+	public func saveOutgoing(_ message: OutgoingMessage) throws {
+		try writer.write { db in
+			try db.execute(sql: """
+				INSERT INTO outgoing (id, json, state, createdAt) VALUES (?, ?, ?, ?)
+				ON CONFLICT(id) DO UPDATE SET json = excluded.json, state = excluded.state
+				""", arguments: [message.id, String(decoding: try JSONEncoder().encode(message), as: UTF8.self), message.state.kind.rawValue, message.createdAt])
+		}
+	}
+
+	public func outgoing(id: String) throws -> OutgoingMessage? {
+		try writer.read { db in
+			try String.fetchOne(db, sql: "SELECT json FROM outgoing WHERE id = ?", arguments: [id]).map { try JSONDecoder().decode(OutgoingMessage.self, from: Data($0.utf8)) }
+		}
+	}
+
+	/// The messages written on this device, oldest first; all of them, or those in the given states.
+	public func outgoingMessages(in states: [OutgoingMessage.State.Kind]? = nil) throws -> [OutgoingMessage] {
+		try writer.read { try Self.outgoingMessages($0, states) }
+	}
+
+	private static func outgoingMessages(_ db: Database, _ states: [OutgoingMessage.State.Kind]?) throws -> [OutgoingMessage] {
+		let all = try String.fetchAll(db, sql: "SELECT json FROM outgoing ORDER BY rowid").map { try JSONDecoder().decode(OutgoingMessage.self, from: Data($0.utf8)) }
+		guard let states else { return all }
+		return all.filter { states.contains($0.state.kind) }
+	}
+
+	public func deleteOutgoing(id: String) throws {
+		try writer.write { try $0.execute(sql: "DELETE FROM outgoing WHERE id = ?", arguments: [id]) }
+	}
+
+	public func observeOutgoing() -> AsyncStream<[OutgoingMessage]> {
+		stream(ValueObservation.tracking { try Self.outgoingMessages($0, nil) })
+	}
+
 	// MARK: Bodies
 
 	/// Stores a fetched body and its attachments. The list row is left as the sync delivered it;
