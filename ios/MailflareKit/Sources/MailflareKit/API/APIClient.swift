@@ -64,6 +64,17 @@ public struct APIClient: Sendable {
 		return try await decode(Answer.self, .get, "/api/settings/external-content").enabled
 	}
 
+	/// The devices signed in to this account.
+	public func devices() async throws -> [SignedInDevice] {
+		struct Answer: Decodable { let devices: [SignedInDevice] }
+		return try await decode(Answer.self, .get, "/api/app/devices").devices
+	}
+
+	/// Signs one of the account's devices out, this one included.
+	public func endDevice(id: String) async throws {
+		_ = try await data(.delete, "/api/app/devices/\(Self.segment(id))")
+	}
+
 	// MARK: Mail
 
 	public func sync(cursor: String?, days: Int, limit: Int) async throws -> SyncPage {
@@ -115,7 +126,7 @@ public struct APIClient: Sendable {
 
 	// MARK: Requests
 
-	enum Method: String { case get = "GET", post = "POST" }
+	enum Method: String { case get = "GET", post = "POST", delete = "DELETE" }
 
 	static func segment(_ value: String) -> String {
 		var allowed = CharacterSet.urlPathAllowed

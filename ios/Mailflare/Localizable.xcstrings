@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ (this device)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (dieses Gerät)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (this device)"
+          }
+        }
+      }
+    },
     "%@ was signed out on the server. Its mail was removed from this device.": {
       "localizations": {
         "de": {
@@ -1425,6 +1441,22 @@
         }
       }
     },
+    "Sign a lost phone out here. Revoking its access key in Cloudflare cuts it off as well.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melde hier ein verlorenes Handy ab. Auch das Widerrufen seines Zugangsschlüssels in Cloudflare sperrt es aus."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign a lost phone out here. Revoking its access key in Cloudflare cuts it off as well."
+          }
+        }
+      }
+    },
     "Sign in": {
       "localizations": {
         "de": {
@@ -1473,6 +1505,22 @@
         }
       }
     },
+    "Sign out %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ abmelden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out %@"
+          }
+        }
+      }
+    },
     "Sign out and remove mail": {
       "localizations": {
         "de": {
@@ -1505,6 +1553,22 @@
         }
       }
     },
+    "Sign this device out?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Gerät abmelden?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign this device out?"
+          }
+        }
+      }
+    },
     "Signature, rules, security and everything else that belongs to your account opens as the web page for now.": {
       "localizations": {
         "de": {
@@ -1521,6 +1585,22 @@
         }
       }
     },
+    "Signed in %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angemeldet seit %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed in %@"
+          }
+        }
+      }
+    },
     "Signed out": {
       "localizations": {
         "de": {
@@ -1533,6 +1613,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Signed out"
+          }
+        }
+      }
+    },
+    "Signed-in devices": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angemeldete Geräte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed-in devices"
           }
         }
       }
@@ -1645,6 +1741,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "That is not a server address. Enter it like mail.example.com."
+          }
+        }
+      }
+    },
+    "The device is signed out at once. The mail already on it is removed the next time it reaches the server.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Gerät wird sofort abgemeldet. Die Mails, die schon darauf liegen, werden entfernt, sobald es den Server das nächste Mal erreicht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device is signed out at once. The mail already on it is removed the next time it reaches the server."
           }
         }
       }

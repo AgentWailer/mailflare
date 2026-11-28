@@ -35,8 +35,10 @@ sign-in, so each device gets a service token.
    assertion. When the app is protected by a different Access application than MCP, set
    `APP_ACCESS_AUDIENCE` to that application's audience tag.
 
-A lost phone is cut off by revoking its token in Cloudflare and ending its session under
-**Settings → Security** in Mailflare. Either one is enough to stop it.
+A lost phone is cut off by revoking its token in Cloudflare, or by signing it out under
+**Settings → Signed-in devices** in the app on another device. Either one is enough to stop
+it. Changing the account's password signs every device and browser out. The web interface
+does not list devices yet; that comes with the native settings.
 
 ## Server changes the app needs
 
@@ -53,6 +55,7 @@ New routes, all behind the usual session check:
 | --- | --- |
 | `POST /api/app/login`, `POST /api/app/login/mfa` | Sign-in for the app. Returns a device session token (`dev_…`), sets no cookie. |
 | `GET /api/app/sync?cursor=&days=&limit=` | First the last `days` in pages, then only what changed since the cursor. |
+| `GET /api/app/devices`, `DELETE /api/app/devices/[id]` | The devices signed in to the account, and signing one of them out. |
 
 A device session lasts 90 days and renews itself while it is used. `/api/realtime` accepts
 the bearer token as well as the browser cookie.
@@ -99,6 +102,18 @@ xcodebuild -project ios/Mailflare.xcodeproj -scheme Mailflare \
   `node ios/MailflareKit/Tests/MailflareKitTests/Fixtures/generate.mjs`.
 - `node ios/tools/local-server.mjs` runs the built Worker over a local database with
   made-up mail for the simulator (`npm run build` first).
+- With that server running, the walk-through drives the app through setup, the lists, the
+  reader and a start without a connection, and keeps a screenshot of every step:
+
+  ```sh
+  TEST_RUNNER_MAILFLARE_UI_SERVER=http://127.0.0.1:8799 xcodebuild test \
+    -project ios/Mailflare.xcodeproj -scheme MailflareUI \
+    -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/DerivedData \
+    -resultBundlePath ios/DerivedData/walkthrough.xcresult
+  ```
+
+The app accepts `https` addresses only. A development build also accepts `http` for
+`localhost` and `127.0.0.1`, which is how the simulator reaches the local server.
 
 The bundle identifier `de.stepo.mailflare` and the empty development team in
 `ios/project.yml` are placeholders until the values from the developer account are entered.

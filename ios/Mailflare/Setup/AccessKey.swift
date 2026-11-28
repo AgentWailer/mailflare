@@ -29,7 +29,7 @@ func parseAccessKey(_ text: String) -> AccessKey? {
 	)
 }
 
-/// Turns what was typed into the installation's origin. A missing scheme means https.
+/// Turns what was typed into the installation's origin. A missing scheme means https, and https is required.
 func normalizeServerAddress(_ text: String) -> URL? {
 	let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 	guard !trimmed.isEmpty, trimmed.rangeOfCharacter(from: .whitespaces) == nil else { return nil }
@@ -37,6 +37,15 @@ func normalizeServerAddress(_ text: String) -> URL? {
 	guard let components = URLComponents(string: withScheme), let scheme = components.scheme?.lowercased(),
 	      scheme == "https" || scheme == "http", let host = components.host?.lowercased(), !host.isEmpty,
 	      host.contains(".") || host == "localhost" else { return nil }
+	// Plain http would send the access key and the session in the clear. It is accepted only
+	// for a test server on this machine, and only in a development build.
+	if scheme == "http" {
+		#if DEBUG
+		guard host == "localhost" || host == "127.0.0.1" else { return nil }
+		#else
+		return nil
+		#endif
+	}
 	var origin = URLComponents()
 	origin.scheme = scheme
 	origin.host = host

@@ -148,6 +148,13 @@ GERMAN = {
     "Signature, rules, security and everything else that belongs to your account opens as the web page for now.": "Signatur, Regeln, Sicherheit und alles Weitere zu deinem Konto öffnet sich vorerst als Webseite.",
     "Version": "Version",
     "Sign out?": "Abmelden?",
+    "Signed-in devices": "Angemeldete Geräte",
+    "%@ (this device)": "%@ (dieses Gerät)",
+    "Signed in %@": "Angemeldet seit %@",
+    "Sign a lost phone out here. Revoking its access key in Cloudflare cuts it off as well.": "Melde hier ein verlorenes Handy ab. Auch das Widerrufen seines Zugangsschlüssels in Cloudflare sperrt es aus.",
+    "Sign this device out?": "Dieses Gerät abmelden?",
+    "Sign out %@": "%@ abmelden",
+    "The device is signed out at once. The mail already on it is removed the next time it reaches the server.": "Das Gerät wird sofort abgemeldet. Die Mails, die schon darauf liegen, werden entfernt, sobald es den Server das nächste Mal erreicht.",
     "Sign out and remove mail": "Abmelden und Mails entfernen",
     "The mail of %@ is removed from this device. It stays on the server.": "Die Mails von %@ werden von diesem Gerät entfernt. Auf dem Server bleiben sie erhalten.",
 }

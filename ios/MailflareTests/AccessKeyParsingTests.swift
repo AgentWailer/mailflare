@@ -22,5 +22,10 @@ import Testing
 		#expect(normalizeServerAddress("") == nil)
 		#expect(normalizeServerAddress("not a host") == nil)
 		#expect(normalizeServerAddress("ftp://mail.example.test") == nil)
+		// Plain http would send the access key and the session in the clear. Only a test server on this machine may be reached that way.
+		#expect(normalizeServerAddress("http://mail.example.test") == nil)
+		#expect(normalizeServerAddress("http://192.168.1.20:8080") == nil)
+		#expect(normalizeServerAddress("http://127.0.0.1:8799")?.absoluteString == "http://127.0.0.1:8799")
+		#expect(normalizeServerAddress("http://localhost.evil.example") == nil)
 	}
 }

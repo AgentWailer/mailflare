@@ -13,6 +13,9 @@ struct AppSettingsView: View {
 	@State private var wifiOnly = true
 	@State private var isReplacingKey = false
 	@State private var accountToSignOut: AccountCredentials?
+	@State private var devices: [SignedInDevice]?
+	@State private var devicesError: String?
+	@State private var deviceToEnd: SignedInDevice?
 
 	private static let dayChoices = [7, 14, 30, 60, 90]
 
@@ -61,6 +64,31 @@ struct AppSettingsView: View {
 			}
 
 			Section {
+				if let devices {
+					ForEach(devices) { device in
+						HStack {
+							VStack(alignment: .leading) {
+								Text(device.current ? "\(device.name) (this device)" : device.name)
+								Text("Signed in \(device.signedInAt.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(.secondary)
+							}
+							Spacer()
+							if !device.current {
+								Button("Sign out", role: .destructive) { deviceToEnd = device }.buttonStyle(.borderless)
+							}
+						}
+					}
+				} else if let devicesError {
+					Label(devicesError, systemImage: "wifi.slash").font(.footnote).foregroundStyle(.secondary)
+				} else {
+					ProgressView()
+				}
+			} header: {
+				Text("Signed-in devices")
+			} footer: {
+				Text("Sign a lost phone out here. Revoking its access key in Cloudflare cuts it off as well.")
+			}
+
+			Section {
 				NavigationLink(value: Route.web(.settings)) { Label("Mailflare settings", systemImage: "slider.horizontal.3") }
 			} footer: {
 				Text("Signature, rules, security and everything else that belongs to your account opens as the web page for now.")
@@ -72,6 +100,17 @@ struct AppSettingsView: View {
 		}
 		.navigationTitle("Settings")
 		.onAppear(perform: load)
+		.task { await loadDevices() }
+		.confirmationDialog("Sign this device out?", isPresented: Binding(get: { deviceToEnd != nil }, set: { if !$0 { deviceToEnd = nil } }), titleVisibility: .visible, presenting: deviceToEnd) { device in
+			Button("Sign out \(device.name)", role: .destructive) {
+				Task {
+					try? await session.api.endDevice(id: device.id)
+					await loadDevices()
+				}
+			}
+		} message: { _ in
+			Text("The device is signed out at once. The mail already on it is removed the next time it reaches the server.")
+		}
 		.onChange(of: days) { _, value in save(SettingKey.offlineDays, String(value)) }
 		.onChange(of: autoAttachments) { _, value in save(SettingKey.autoAttachments, value ? "1" : "0") }
 		.onChange(of: wifiOnly) { _, value in save(SettingKey.attachmentsWiFiOnly, value ? "1" : "0") }
@@ -85,6 +124,17 @@ struct AppSettingsView: View {
 			Button("Sign out and remove mail", role: .destructive) { Task { await model.signOut(userId: account.userId) } }
 		} message: { account in
 			Text("The mail of \(account.email) is removed from this device. It stays on the server.")
+		}
+	}
+
+	private func loadDevices() async {
+		do {
+			devices = try await session.api.devices()
+			devicesError = nil
+		} catch let error as APIError {
+			devicesError = error.userMessage
+		} catch {
+			devicesError = String(localized: "That did not work. Try again.")
 		}
 	}
 

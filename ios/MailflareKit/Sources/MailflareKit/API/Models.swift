@@ -234,6 +234,16 @@ public struct UserInfo: Codable, Equatable, Sendable {
 	public var role: String
 }
 
+/// A device signed in to the account, as the server lists it.
+public struct SignedInDevice: Codable, Equatable, Identifiable, Sendable {
+	public var id: String
+	public var name: String
+	public var signedInAt: Date
+	public var lastUsedAt: Date?
+	/// True for the device that asked.
+	public var current: Bool
+}
+
 public enum SignInResult: Equatable, Sendable {
 	case signedIn(AccountCredentials)
 	case secondFactor(challengeToken: String)

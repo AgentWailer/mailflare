@@ -193,4 +193,20 @@ import Testing
 		_ = try await APIClient(access: access, sessionToken: "t", transport: transport).mailboxes()
 		#expect(transport.requests.first?.url?.absoluteString == "https://mail.example.test/api/mailboxes")
 	}
+
+	@Test func `signed-in devices are listed and one can be signed out`() async throws {
+		let list = StubTransport.json(#"{"devices":[{"id":"s1","name":"Annas iPhone","signedInAt":"2026-11-20T08:00:00.000Z","lastUsedAt":null,"current":true},{"id":"s 2","name":"Annas iPad","signedInAt":"2026-11-01T08:00:00.000Z","lastUsedAt":"2026-11-27T09:30:00.000Z","current":false}]}"#)
+		let devices = try await client(list).devices()
+		#expect(devices.map(\.name) == ["Annas iPhone", "Annas iPad"])
+		#expect(devices[0].current && !devices[1].current)
+		#expect(devices[0].lastUsedAt == nil)
+		#expect(devices[1].lastUsedAt != nil)
+		#expect(list.requests.first?.url?.path == "/api/app/devices")
+
+		let end = StubTransport.json(#"{"ok":true}"#)
+		try await client(end).endDevice(id: "s 2")
+		#expect(end.requests.first?.httpMethod == "DELETE")
+		#expect(end.requests.first?.url?.absoluteString == "https://mail.example.test/api/app/devices/s%202")
+		await #expect(throws: APIError.notFound) { try await client(.json(#"{"error":"Device not found"}"#, status: 404)).endDevice(id: "gone") }
+	}
 }
