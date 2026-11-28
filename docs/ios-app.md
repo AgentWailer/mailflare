@@ -2,8 +2,8 @@
 
 The native iPhone app lives in `ios/`. Its design is in
 [superpowers/specs/2026-11-28-ios-app-design.md](superpowers/specs/2026-11-28-ios-app-design.md).
-This page describes what exists after stage 3 (reading, acting on mail, writing) and how to
-set it up.
+This page describes what exists after stages 1 to 3 and 5 (reading, acting on mail, writing,
+search) and how to set it up.
 
 ## What the app does today
 
@@ -30,7 +30,13 @@ set it up.
   and a message that already went is not sent again. A message the server refuses, or
   fails on five times, is marked there with the reason and can be opened and sent again.
 
-Not built yet: notifications from Apple (stage 4) and search (stage 5). Writing still
+- Search, from the field of every list: the mail on the phone is searched as it is typed,
+  in subject, sender, recipients and content, also without a network. A word's beginning is
+  enough and accents do not matter. After a short pause the server is asked too and adds
+  what the phone does not hold, such as mail older than the offline period; such a message
+  opens from the server. Spam is left out, as on the web.
+
+Not built yet: notifications from Apple (stage 4). Writing still
 lacks the web's warnings before sending (lookalike address, many visible recipients,
 missing attachment), undo send, scanning a document with the camera, and drafts that
 show on other devices: a draft put aside in the app stays on this phone.
@@ -183,6 +189,10 @@ Taken by the walk-through in the simulator, with made-up mail:
 | Writing | Answering | Outbox |
 | --- | --- | --- |
 | ![A new message](screenshots/ios/31-compose-written.png) | ![A reply with the original folded](screenshots/ios/32-compose-reply.png) | ![A message waiting to be sent](screenshots/ios/33-outbox.png) |
+
+| Search on the device | Older mail from the server |
+| --- | --- |
+| ![Results from the phone](screenshots/ios/40-search-device.png) | ![A result only the server has](screenshots/ios/41-search-server.png) |
 
 ## What only a real iPhone can show
 

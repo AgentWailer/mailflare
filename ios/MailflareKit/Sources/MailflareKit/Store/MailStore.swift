@@ -252,6 +252,8 @@ public final class MailStore: Sendable {
 			let id = detail.message.id
 			if try !MessageRow.exists(db, key: id) { try Self.upsert(db, [detail.message]) }
 			try BodyRecord(messageId: id, textBody: detail.body.textBody, htmlBody: detail.body.htmlBody, unsubscribeUrl: detail.unsubscribeUrl).upsert(db)
+			try db.execute(sql: "UPDATE message_search SET body = ? WHERE rowid = (SELECT rowid FROM message WHERE id = ?)",
+			               arguments: [SearchText.body(text: detail.body.textBody, html: detail.body.htmlBody), id])
 			try db.execute(sql: "DELETE FROM attachment WHERE messageId = ?", arguments: [id])
 			for attachment in detail.attachments { try attachment.upsert(db) }
 		}
@@ -272,6 +274,10 @@ public final class MailStore: Sendable {
 	public func trimBodies(olderThan date: Date) throws -> Int {
 		try writer.write { db in
 			try db.execute(sql: "DELETE FROM attachment WHERE messageId IN (SELECT id FROM message WHERE createdAt < ?)", arguments: [date])
+			try db.execute(sql: """
+				UPDATE message_search SET body = '' WHERE rowid IN
+					(SELECT m.rowid FROM message m JOIN message_body b ON b.messageId = m.id WHERE m.createdAt < ?)
+				""", arguments: [date])
 			try db.execute(sql: "DELETE FROM message_body WHERE messageId IN (SELECT id FROM message WHERE createdAt < ?)", arguments: [date])
 			return db.changesCount
 		}
@@ -307,6 +313,18 @@ public final class MailStore: Sendable {
 
 	public func message(id: String) throws -> StoredMessage? {
 		try writer.read { try Self.message($0, id: id) }
+	}
+
+	/// The mail on this device that contains every word of `text`, newest first. Spam is left out,
+	/// as the server's search leaves it out.
+	public func search(_ text: String, mailboxId: String? = nil, limit: Int) throws -> [ListItem] {
+		guard let match = SearchText.match(text) else { return [] }
+		return try writer.read { db in
+			var sql = "SELECT m.* FROM message m WHERE m.rowid IN (SELECT rowid FROM message_search WHERE message_search MATCH ?) AND m.status NOT IN ('template', 'spam')"
+			var arguments: StatementArguments = [match]
+			if let mailboxId { sql += " AND m.mailboxId = ?"; arguments += [mailboxId] }
+			return try MessageRow.fetchAll(db, sql: sql + " ORDER BY m.createdAt DESC, m.id DESC LIMIT ?", arguments: arguments + [limit]).map { ListItem(message: $0) }
+		}
 	}
 
 	private static func message(_ db: Database, id: String) throws -> StoredMessage? {
@@ -400,6 +418,10 @@ public final class MailStore: Sendable {
 			)
 			continuation.onTermination = { _ in cancellable.cancel() }
 		}
+	}
+
+	func executeForTesting(_ sql: String) throws {
+		try writer.write { try $0.execute(sql: sql) }
 	}
 
 	func attachmentCountForTesting() throws -> Int {

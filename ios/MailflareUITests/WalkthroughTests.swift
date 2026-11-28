@@ -69,6 +69,9 @@ final class WalkthroughTests: XCTestCase {
 	}
 
 	@MainActor private func expect(_ element: XCUIElement, _ what: String, timeout: TimeInterval = 20) {
+		// The offer to save the password can come a minute after the sign-in; until it has been
+		// answered, every step first looks for it.
+		if signedIn, !passwordOfferAnswered { declinePasswordOffer(in: XCUIApplication(), within: 0) }
 		XCTAssertTrue(element.waitForExistence(timeout: timeout), "\(what) did not appear")
 	}
 
@@ -102,7 +105,8 @@ final class WalkthroughTests: XCTestCase {
 		passwordField.typeText(password)
 		if capturing { capture("03-sign-in") }
 		app.buttons["Anmelden"].firstMatch.tap()
-		declinePasswordOffer(in: app)
+		signedIn = true
+		declinePasswordOffer(in: app, within: 8)
 
 		return app
 	}
@@ -110,19 +114,23 @@ final class WalkthroughTests: XCTestCase {
 	/// The offer to save the password comes seconds after the sign-in, over whatever is on screen by
 	/// then. The interruption monitor only answers it at the next tap, which is then lost; so it is
 	/// waited for here and declined before the walk-through goes on.
-	@MainActor private func declinePasswordOffer(in app: XCUIApplication) {
-		let hosts = [app, XCUIApplication(bundleIdentifier: "com.apple.springboard")]
-		let deadline = Date().addingTimeInterval(8)
-		while Date() < deadline {
+	@MainActor private func declinePasswordOffer(in app: XCUIApplication, within seconds: TimeInterval = 20) {
+		let hosts = [XCUIApplication(bundleIdentifier: "com.apple.springboard"), XCUIApplication(bundleIdentifier: "com.apple.AuthenticationServicesUI"), app]
+		let deadline = Date().addingTimeInterval(seconds)
+		repeat {
 			for host in hosts {
 				for title in ["Später", "Not Now", "Jetzt nicht"] where host.buttons[title].exists {
 					host.buttons[title].tap()
+					passwordOfferAnswered = true
 					return
 				}
 			}
 			Thread.sleep(forTimeInterval: 0.5)
-		}
+		} while Date() < deadline
 	}
+
+	private var passwordOfferAnswered = false
+	private var signedIn = false
 
 	@MainActor func testSetupReadingAndOffline() throws {
 		var app = signInFresh()
@@ -343,6 +351,32 @@ final class WalkthroughTests: XCTestCase {
 		expect(app.staticTexts["Ihre Abrechnung für November"].firstMatch, "The inbox online again")
 		expect(app.staticTexts["Gerade aktualisiert"], "A sync after coming back", timeout: 60)
 		XCTAssertFalse(app.staticTexts["Ihre Buchung nach Hamburg"].exists, "The message archived offline is still archived after the sync")
+	}
+
+	/// Searching: the mail on the device at once, then a message only the server still has.
+	@MainActor func testSearch() throws {
+		let app = signInFresh(capturing: false)
+		expect(app.navigationBars["Posteingang"], "The inbox")
+		expect(app.staticTexts["Gerade aktualisiert"], "A finished first sync", timeout: 60)
+
+		let field = app.searchFields.firstMatch
+		expect(field, "The search field")
+		field.tap()
+		field.typeText("unterlagen")
+		expect(app.staticTexts["Auf diesem Gerät"], "Results from the device")
+		expect(app.staticTexts["Unterlagen nachreichen"].firstMatch, "A snoozed message is found by its subject")
+		expect(app.staticTexts["Termin am Donnerstag"].firstMatch, "A message is found by its content")
+		capture("40-search-device")
+
+		field.buttons.firstMatch.tap()
+		field.typeText("archivar")
+		expect(app.staticTexts["Ältere Mails am Server"], "Results from the server")
+		let old = app.staticTexts["Älter als das Offline-Fenster"].firstMatch
+		expect(old, "A message older than the device keeps")
+		capture("41-search-server")
+		old.tap()
+		expect(app.webViews.staticTexts.containing(NSPredicate(format: "label CONTAINS '45 Tage'")).firstMatch, "The old message opens from the server")
+		capture("42-search-opened")
 	}
 
 	/// Writing a new message with a suggested recipient, and answering one: both end up waiting to be sent.

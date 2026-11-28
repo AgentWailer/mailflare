@@ -5,24 +5,39 @@ import MailflareKit
 struct MessageListView: View {
 	let session: AccountSession
 	@State private var scope: ListScope
+	@State private var query = ""
+	@State private var search: SearchModel
 	private let showsCategories: Bool
 
 	init(scope: ListScope, session: AccountSession) {
 		self.session = session
 		_scope = State(initialValue: scope)
+		_search = State(initialValue: SearchModel(session: session, mailboxId: scope.mailboxId))
 		showsCategories = scope.folder.isCategory && scope.folderId == nil
 	}
 
 	var body: some View {
 		MessageListContent(scope: scope, session: session, showsCategories: showsCategories)
 			.id(scope)
+			// The results lie over the list instead of replacing it: taking the list away while
+			// the field is being typed in ends the typing. A search looks through the whole
+			// mailbox, not only the list it was started from.
+			.overlay {
+				if search.isSearching {
+					SearchResultsView(model: search, session: session).background(Color(.systemBackground).ignoresSafeArea())
+				}
+			}
 			// The categories belong to the screen, not to one list: they stay where the user
 			// scrolled them while the list underneath is swapped.
 			.safeAreaInset(edge: .top, spacing: 0) {
-				if showsCategories {
+				if showsCategories && !search.isSearching {
 					CategoryBar(selection: $scope.folder).background(.bar)
 				}
 			}
+			.searchable(text: $query, prompt: "Search mail")
+			.autocorrectionDisabled()
+			.textInputAutocapitalization(.never)
+			.onChange(of: query) { _, text in search.search(text) }
 			.onChange(of: scope, initial: true) { _, scope in
 				// Remember the list so the app opens on it the next time.
 				if let json = try? JSONEncoder().encode(scope) { try? session.store.setSetting(SettingKey.lastScope, String(decoding: json, as: UTF8.self)) }
