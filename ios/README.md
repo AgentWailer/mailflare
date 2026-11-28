@@ -16,4 +16,4 @@ xcodebuild -project ios/Mailflare.xcodeproj -scheme Mailflare \
   -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/DerivedData test
 ```
 
-The bundle identifier `de.stepo.mailflare` and the empty development team in `project.yml` are placeholders until the values from the developer account are entered.
+Bundle identifier, team and signing are set in `project.yml`. Getting a build onto a phone through TestFlight is described in `docs/ios-app.md`.

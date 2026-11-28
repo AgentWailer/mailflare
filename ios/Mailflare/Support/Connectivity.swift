@@ -14,7 +14,7 @@ nonisolated final class Connectivity: Sendable {
 			let wifi = path.status == .satisfied && (path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet)) && !path.isExpensive
 			self?.state.withLock { $0 = wifi }
 		}
-		monitor.start(queue: DispatchQueue(label: "de.stepo.mailflare.connectivity"))
+		monitor.start(queue: DispatchQueue(label: "de.steffenvonlindern.mailflare.connectivity"))
 	}
 
 	var isOnWiFi: Bool { state.withLock { $0 } }

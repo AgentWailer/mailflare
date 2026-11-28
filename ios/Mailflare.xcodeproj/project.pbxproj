@@ -32,6 +32,7 @@
 		914FDA1C934320E173085D5F /* MessageListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60854C2D14D6C727E1464F32 /* MessageListView.swift */; };
 		98D359E8B9F3E86B3C66E06F /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED9AE53A2F06897281F7BE4B /* MainView.swift */; };
 		9E48435D861292DAA2B343BA /* MessageListModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 052E305D9BF3F7D296F10BA0 /* MessageListModelTests.swift */; };
+		A5BFF10603B6C5CF2D327E93 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DDE1DEFF2BAAED72D9F731B2 /* PrivacyInfo.xcprivacy */; };
 		AC0A8BAE8AC246F9D033A372 /* MailflareKit in Frameworks */ = {isa = PBXBuildFile; productRef = 880BED00CC3460A92B912673 /* MailflareKit */; };
 		B15631774AA19BB91D277D74 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1ADA5582B9059D7331DB55B /* Assets.xcassets */; };
 		B3954196BFB4A9418939C148 /* FormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1D4C097C12AA4700D1C71F /* FormattingTests.swift */; };
@@ -98,6 +99,7 @@
 		CE1D4C097C12AA4700D1C71F /* FormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormattingTests.swift; sourceTree = "<group>"; };
 		D14E33281AC96185B9E26081 /* WalkthroughTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkthroughTests.swift; sourceTree = "<group>"; };
 		D2054584C8B4ED4D27BA6499 /* AccessKeyScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessKeyScanner.swift; sourceTree = "<group>"; };
+		DDE1DEFF2BAAED72D9F731B2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		E20F7E3019D340527018BE40 /* MailflareTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MailflareTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5DB6265D72B7B99DCA65E03 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		ED9AE53A2F06897281F7BE4B /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -173,6 +175,7 @@
 				C1ADA5582B9059D7331DB55B /* Assets.xcassets */,
 				4B4BC912A47D60DB7EC46139 /* Info.plist */,
 				86822F3A9CD77C7B3169109C /* Localizable.xcstrings */,
+				DDE1DEFF2BAAED72D9F731B2 /* PrivacyInfo.xcprivacy */,
 				F80F5607FF8EBEB403C5139D /* App */,
 				D09E4D15437C3018BFEE5E16 /* Mail */,
 				209727EC23B98ABEB2CD66B4 /* Reader */,
@@ -347,14 +350,17 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					09220273765497BC392E2C81 = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = 4F3M4YYQN3;
+						ProvisioningStyle = Automatic;
 					};
 					52D91E82B39C6C2A3D5B2B3E = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = 4F3M4YYQN3;
+						ProvisioningStyle = Automatic;
 						TestTargetID = 09220273765497BC392E2C81;
 					};
 					53C3FEE872B4E3AE8EC6F85F = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = 4F3M4YYQN3;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -390,6 +396,7 @@
 			files = (
 				B15631774AA19BB91D277D74 /* Assets.xcassets in Resources */,
 				3FC42D69E207D10C96796FDA /* Localizable.xcstrings in Resources */,
+				A5BFF10603B6C5CF2D327E93 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -477,7 +484,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.mailflare;
+				PRODUCT_BUNDLE_IDENTIFIER = de.steffenvonlindern.mailflare;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -494,7 +501,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareTests;
+				PRODUCT_BUNDLE_IDENTIFIER = de.steffenvonlindern.MailflareTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mailflare.app/Mailflare";
@@ -511,7 +518,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = de.steffenvonlindern.MailflareUITests;
 				SDKROOT = iphoneos;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -552,10 +559,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4F3M4YYQN3;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -613,10 +621,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4F3M4YYQN3;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -660,7 +669,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.mailflare;
+				PRODUCT_BUNDLE_IDENTIFIER = de.steffenvonlindern.mailflare;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -677,7 +686,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = de.steffenvonlindern.MailflareUITests;
 				SDKROOT = iphoneos;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -695,7 +704,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareTests;
+				PRODUCT_BUNDLE_IDENTIFIER = de.steffenvonlindern.MailflareTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mailflare.app/Mailflare";

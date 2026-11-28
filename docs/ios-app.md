@@ -115,10 +115,35 @@ xcodebuild -project ios/Mailflare.xcodeproj -scheme Mailflare \
 The app accepts `https` addresses only. A development build also accepts `http` for
 `localhost` and `127.0.0.1`, which is how the simulator reaches the local server.
 
-The bundle identifier `de.stepo.mailflare` and the empty development team in
-`ios/project.yml` are placeholders until the values from the developer account are entered.
-The app icon is the web icon scaled up; it needs a 1024 px version without transparency
-before TestFlight.
+## Getting it onto a phone: TestFlight through Xcode Cloud
+
+The project is ready for it: bundle identifier `de.steffenvonlindern.mailflare`, team
+`4F3M4YYQN3`, automatic signing, a 1024 px icon without transparency (drawn by
+`ios/tools/make-icon.swift`), a privacy manifest, and the export-compliance answer in the
+Info.plist. An unsigned release archive builds with package resolution switched off, which
+is how Xcode Cloud builds. What is left needs the Apple account and is done once:
+
+1. **App record.** In App Store Connect choose **Apps → + → New App**: platform iOS, bundle
+   ID `de.steffenvonlindern.mailflare` (register it under *Certificates, Identifiers &
+   Profiles* first if it is not offered), SKU `mailflare-ios`. The name must be free in the
+   whole App Store, also for an app that only ever lives in TestFlight; if "Mailflare" is
+   taken, any other name works, the name under the icon stays "Mailflare".
+2. **Workflow.** Open `ios/Mailflare.xcodeproj` in Xcode, then **Integrate → Create
+   Workflow**. Pick the app `Mailflare`, let Xcode Cloud connect to the GitHub repository,
+   and set:
+   - Start condition: branch changes to `main`, limited to files under `ios/`.
+   - Action: **Archive**, scheme `Mailflare`, platform iOS.
+   - Post-action: **TestFlight Internal Testing**, with a group that holds the testers.
+3. **Testers.** Internal testers are people of the App Store Connect team (**Users and
+   Access**); add them to the group. They install the TestFlight app and accept the invite.
+
+Xcode Cloud numbers the builds itself. A TestFlight build runs for 90 days; every later
+build renews that. Nothing needs to be built in a script before the archive, so there is
+no `ci_scripts` folder.
+
+To try a build before the pull request is merged, start the workflow by hand for the
+branch `feature/ios-app` (**Start Build** in Xcode's Report navigator or in App Store
+Connect).
 
 ## What it looks like
 

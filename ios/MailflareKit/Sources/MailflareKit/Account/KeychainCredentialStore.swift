@@ -13,7 +13,7 @@ public final class KeychainCredentialStore: CredentialStore {
 	private let account = "credentials"
 	private let lock = Mutex(())
 
-	public init(service: String = "de.stepo.mailflare.credentials") {
+	public init(service: String = "de.steffenvonlindern.mailflare.credentials") {
 		self.service = service
 	}
 
