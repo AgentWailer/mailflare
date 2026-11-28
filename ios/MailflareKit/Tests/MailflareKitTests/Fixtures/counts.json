@@ -1,0 +1,82 @@
+{
+  "counts": {
+    "folders": {
+      "inbox": {
+        "total": 2,
+        "unread": 1
+      },
+      "promotions": {
+        "total": 0,
+        "unread": 0
+      },
+      "social": {
+        "total": 0,
+        "unread": 0
+      },
+      "invoices": {
+        "total": 1,
+        "unread": 0
+      },
+      "orders": {
+        "total": 0,
+        "unread": 0
+      },
+      "starred": {
+        "total": 1,
+        "unread": 1
+      },
+      "all": {
+        "total": 2,
+        "unread": 1
+      },
+      "snoozed": {
+        "total": 0,
+        "unread": 0
+      },
+      "sent": {
+        "total": 1,
+        "unread": 0
+      },
+      "scheduled": {
+        "total": 0,
+        "unread": 0
+      },
+      "drafts": {
+        "total": 0,
+        "unread": 0
+      },
+      "archived": {
+        "total": 0,
+        "unread": 0
+      },
+      "spam": {
+        "total": 0,
+        "unread": 0
+      },
+      "trash": {
+        "total": 0,
+        "unread": 0
+      }
+    },
+    "customFolders": {
+      "label": {
+        "total": 1,
+        "unread": 1
+      }
+    },
+    "mailboxes": [
+      {
+        "mailboxId": "box",
+        "total": 2,
+        "unread": 1,
+        "inbox": 1
+      },
+      {
+        "mailboxId": "shared",
+        "total": 1,
+        "unread": 0,
+        "inbox": 1
+      }
+    ]
+  }
+}

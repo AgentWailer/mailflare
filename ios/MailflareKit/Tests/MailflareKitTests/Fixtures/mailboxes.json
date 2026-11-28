@@ -1,0 +1,49 @@
+{
+  "mailboxes": [
+    {
+      "id": "box",
+      "userId": "owner",
+      "domainId": "domain",
+      "localPart": "owner",
+      "displayName": "Owner",
+      "signature": null,
+      "autoReplyEnabled": false,
+      "autoReplySubject": "Out of office",
+      "autoReplyBody": "",
+      "useAllDomains": true,
+      "type": "personal",
+      "disabled": false,
+      "createdAt": "1970-01-01T00:00:01.000Z",
+      "hostname": "example.test",
+      "hasAvatar": false,
+      "permission": "full_access",
+      "isPrimary": true,
+      "senderAddresses": [
+        "owner@example.test"
+      ]
+    },
+    {
+      "id": "shared",
+      "userId": "owner",
+      "domainId": "domain",
+      "localPart": "team",
+      "displayName": null,
+      "signature": null,
+      "autoReplyEnabled": false,
+      "autoReplySubject": "Out of office",
+      "autoReplyBody": "",
+      "useAllDomains": true,
+      "type": "shared",
+      "disabled": false,
+      "createdAt": "1970-01-01T00:00:01.000Z",
+      "hostname": "example.test",
+      "hasAvatar": false,
+      "permission": "full_access",
+      "isPrimary": false,
+      "senderAddresses": [
+        "team@example.test"
+      ]
+    }
+  ],
+  "canCreateShared": true
+}

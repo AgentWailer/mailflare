@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "id": "label",
+      "userId": "owner",
+      "mailboxId": "box",
+      "name": "Work",
+      "parentId": null,
+      "color": "#2563eb",
+      "createdAt": "1970-01-01T00:00:01.000Z"
+    }
+  ]
+}
