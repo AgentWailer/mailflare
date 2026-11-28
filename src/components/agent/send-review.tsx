@@ -15,9 +15,11 @@ export function SendReview({ approvalId, snapshot, onClose, onSent }: SendReview
 		setBusy(true);
 		setError(null);
 		try {
-			const response = await authFetch(`/api/agent/approvals/${approvalId}/confirm`, { method: "POST" });
-			const result = await response.json() as { status?: string; messageId?: string; error?: string };
-			if (!response.ok || result.status !== "sent" || !result.messageId) throw new Error(result.error || t("agent.review.deliveryNeedsReview"));
+			// An ended sign-in is said here: leaving for the login page would close the message being reviewed.
+			const response = await authFetch(`/api/agent/approvals/${approvalId}/confirm`, { method: "POST", redirectOnUnauthorized: false });
+			const result = await response.json().catch(() => null) as { status?: string; messageId?: string; error?: string } | null;
+			if (response.status === 401) throw new Error(t("compose.error.sendSignedOut"));
+			if (!response.ok || result?.status !== "sent" || !result.messageId) throw new Error(result?.error || t("agent.review.deliveryNeedsReview"));
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
 			onSent?.(result.messageId);
 		} catch (cause) { setError(cause instanceof Error ? cause.message : t("agent.review.couldNotSend")); }

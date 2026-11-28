@@ -303,7 +303,7 @@ export default function MessageDetailPage() {
             {htmlBody ? (
               <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />
             ) : (
-              <pre className="max-w-[72ch] whitespace-pre-wrap text-sm">
+              <pre className="max-w-[72ch] whitespace-pre-wrap break-words text-sm">
                 {cloudAttachmentResult.content}
               </pre>
             )}

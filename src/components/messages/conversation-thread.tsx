@@ -224,7 +224,7 @@ export function ConversationMessageCard({
 						{body.html ? (
 							<EmailHtmlRenderer html={body.html} />
 						) : (
-							<pre className="max-w-[72ch] whitespace-pre-wrap font-sans text-sm text-neutral-900">{body.text}</pre>
+							<pre className="max-w-[72ch] whitespace-pre-wrap break-words font-sans text-sm text-neutral-900">{body.text}</pre>
 						)}
 						{body.quotedHtml && <QuotedEmailToggle html={body.quotedHtml} />}
 						{attachments.length > 0 && (

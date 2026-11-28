@@ -4,8 +4,8 @@ import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
 import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
-import { LONG_TOKEN_STYLE, wrapLongTokens } from "./long-tokens";
-import { fitEmailToWidth } from "./fit-email-to-width";
+import { wrapLongTokens } from "./long-tokens";
+import { fitEmailToWidth, relaxedWrapStyle } from "./fit-email-to-width";
 import { createEmailTheme } from "./email-theme";
 import { useExternalContent } from "./use-external-content";
 import { preferNativeAmazonLinks } from "./native-app-links";
@@ -49,10 +49,10 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		const prepared = prepareEmailHtml(html, { reader: true, allowRemote });
 		setHasRemote(prepared.hasRemote);
 		const base = document.createElement("style");
-		base.textContent = `${BASE_STYLE}\n${prepared.rootTag} { display:block; font:14px/1.5 Arial,sans-serif; color:#202124; background:#fff; color-scheme:light; overflow-wrap:break-word; }\n${LONG_TOKEN_STYLE}\n${prepared.bodyTag} { display:block; }`;
+		base.textContent = `${BASE_STYLE}\n${prepared.rootTag} { display:block; font:14px/1.5 Arial,sans-serif; color:#202124; background:#fff; color-scheme:light; overflow-wrap:break-word; }\n${prepared.bodyTag} { display:block; }\n${relaxedWrapStyle(prepared.rootTag)}`;
 		const content = document.createElement("template");
 		content.innerHTML = collapseQuotes ? collapseQuotedEmailHtml(prepared.html, preserveLeadingQuote) ?? "" : prepared.html;
-		// Words stay whole so table columns keep their width; only very long strings may break anywhere.
+		// Words stay whole so table columns keep their width; very long strings get places to break.
 		wrapLongTokens(content.content);
 		const viewport = document.createElement(`${prepared.rootTag}-viewport`);
 		const canvas = document.createElement(`${prepared.rootTag}-canvas`);

@@ -191,3 +191,17 @@ test("styled signatures are deterministic and editor copies are inert but export
 	assert.match(prepareEmailHtml(preview, { forOutgoing: true }).html, /\.signature\{color:red;background:url\(https:\/\/remote.example\/bg\)/);
 	assert.equal(sanitizeEditorHtml(prepareEmailHtml(preview, { forOutgoing: true }).html), preview);
 });
+
+test("in the reader, rules that squeeze a table column to one character are read as their harmless form", () => {
+	// Payment receipts style every cell of the price column this way; as written, "$114.24" is shown one digit per line.
+	const receipt = '<html><head><style>td.amount { word-break: break-word } .note { overflow-wrap: anywhere; word-wrap: anywhere } .code { word-break: break-all }</style></head><body><table><tr><td style="width:100%;word-break:break-word">Sync yearly</td><td class="amount" style="font:15px Arial; word-break : break-word">$114.24</td></tr></table></body></html>';
+	const shown = prepareEmailHtml(receipt, { reader: true }).html;
+	assert.doesNotMatch(shown, /word-break\s*:\s*break-word/i);
+	assert.doesNotMatch(shown, /anywhere/i);
+	assert.equal((shown.match(/overflow-wrap:break-word/g) ?? []).length, 5, "the sheet's three and both cells' own");
+	assert.match(shown, /word-break:break-all/, "what a sender asks for on purpose is kept");
+	assert.match(shown, /font:15px Arial/, "the other declarations of the cell are untouched");
+	// Editing and sending pass the message on as it was written.
+	assert.match(prepareEmailHtml(receipt, { forOutgoing: true }).html, /word-break:break-word/);
+	assert.match(sanitizeEditorHtml('<p style="word-break:break-word">x</p>'), /word-break:break-word/);
+});

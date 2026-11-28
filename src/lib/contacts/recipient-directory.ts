@@ -25,7 +25,7 @@ export async function loadRecipientDirectory(
 		db.select({ email: contacts.email, displayName: contacts.displayName, source: contacts.source, blocked: contacts.blocked, lastSeenAt: contacts.lastSeenAt })
 			.from(contacts).where(eq(contacts.userId, user.id)).orderBy(desc(contacts.lastSeenAt)).limit(CONTACTS_READ),
 		// Only what this user sent themselves; sent mail of a shared mailbox belongs to its sender.
-		db.select({ toAddr: messages.toAddr, ccAddr: messages.ccAddr, bccAddr: messages.bccAddr, createdAt: messages.createdAt })
+		db.select({ toAddr: messages.toAddr, ccAddr: messages.ccAddr, bccAddr: messages.bccAddr, createdAt: messages.createdAt, status: messages.status })
 			.from(messages).where(sentBy).orderBy(desc(messages.createdAt)).limit(SENT_MESSAGES_READ),
 		listAccessibleMailboxes(db, user),
 	]);

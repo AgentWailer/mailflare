@@ -18,11 +18,12 @@ export type RecipientDirectoryAnswer = {
 };
 
 /**
- * Somebody the owner wrote to or keeps as a contact. A message that was taken back, or never left,
- * is no send: the address it was meant for stays a stranger, however it got into the contacts.
+ * Somebody the owner wrote to or keeps as a contact. A message that was taken back, never left, or
+ * still waits to go is no send: the address it was meant for stays a stranger, however it got into
+ * the contacts.
  */
 export function isKnownCorrespondent(candidate: RecipientCandidate): boolean {
-	return candidate.sends > 0 || candidate.source === "manual";
+	return (candidate.delivered ?? candidate.sends) > 0 || candidate.source === "manual";
 }
 
 let lastGood: { session: string | null; directory: RecipientCandidate[] } | null = null;
@@ -64,7 +65,12 @@ export function loadRecipientDirectory(force = false): Promise<RecipientCandidat
 /** Forget the directory, e.g. after a send changed who is written to most. */
 export function invalidateRecipientDirectory() {
 	cached = null;
+	// What was read while a message waited may count it; after a send or an undo it is read anew.
+	lastGood = null;
 }
+
+// A send that was taken back (`undo-send-toast.tsx`) says so with this event.
+if (typeof window !== "undefined") window.addEventListener("mailflare:recipients-stale", invalidateRecipientDirectory);
 
 /** The address book already read for this reader, if any, for a caller that cannot wait for a new read. */
 export function knownRecipientDirectory(): RecipientCandidate[] | null {

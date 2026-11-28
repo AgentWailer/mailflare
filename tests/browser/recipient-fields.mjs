@@ -606,6 +606,9 @@ try {
 			await t.send.click();
 			await t.page.getByRole('alert').filter({ hasText: de['compose.error.sendNotAllowed'] }).waitFor();
 			await t.noOverflow('with an error');
+			// After the refusal, focus is back on Send, not lost on the page.
+			await t.page.waitForFunction(text => document.activeElement?.textContent?.trim() === text, de['compose.send']);
+			if (touch) { const close = await t.page.getByRole('alert').getByRole('button', { name: de['navigation.close'], exact: true }).boundingBox(); assert(close.width >= 44 && close.height >= 44, `${tag}: the notice's close button is finger-sized: ${JSON.stringify(close)}`); }
 			await t.close();
 		}
 		// A success that names no message, or cannot be read, is not a send: the message stays and the
@@ -632,12 +635,16 @@ try {
 			await t.page.keyboard.type('Hallo Lin');
 			await t.send.click();
 			// While Send waits, the message cannot be changed or closed: what is checked is what goes out.
-			await t.page.waitForFunction(() => document.querySelector('form')?.inert === true);
+			await t.page.waitForFunction(() => document.querySelector('form [aria-busy="true"]')?.inert === true);
+			// Only the message is locked. The window itself can still be minimised or closed: a send that
+			// hangs must not hold the whole screen.
+			assert.equal(await t.form.getByRole('button', { name: de['compose.close'], exact: true }).evaluate(node => !node.closest('[inert]') && !node.disabled), true, `${tag}: Close stays usable while a send is prepared`);
+			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).evaluate(node => !!node.closest('[inert]')), true);
 			await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).fill('Geändert', { force: true, timeout: 500 }).catch(() => {});
 			const warning = t.page.locator('[data-send-warning]');
 			await warning.waitFor();
 			assert.equal(await t.form.getByPlaceholder(de['compose.subject'], { exact: true }).inputValue(), 'Unterlagen', `${tag}: nothing was changed during the wait`);
-			assert.equal(await t.page.evaluate(() => document.querySelector('form').inert), false, 'the message can be edited again once the question is asked');
+			assert.equal(await t.page.evaluate(() => !!document.querySelector('form [inert]')), false, 'the message can be edited again once the question is asked');
 			assert((await warning.innerText()).includes(label('compose.warn.lookalike', { address: 'lin@harborwork.test', like: 'harborworks.test' })), `${tag}: the look-alike is caught although the address book was late`);
 			assert.equal(t.calls.sends.length, 0);
 			await t.close();

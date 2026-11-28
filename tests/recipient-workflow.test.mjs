@@ -218,3 +218,16 @@ test("capital letters that carry no accent are found by their plain form", () =>
 	assert.deepEqual(find("dor"), ["dj@example.com"]);
 	assert.deepEqual(find("strasse"), ["strasse@example.com"]);
 });
+
+test("a message that still waits to go ranks its recipient but is not a delivered send", () => {
+	const waiting = (toAddr, status) => ({ toAddr, ccAddr: null, bccAddr: null, createdAt: new Date(now), status });
+	const list = app.buildRecipientDirectory({
+		now, own: [], limit: 25,
+		contacts: [contact("lin@harborwork.example", null, "outbound", now), contact("maya@example.com", "Maya Chen", "outbound", now)],
+		// An undo window or a scheduled time holds the first; the second went out twice, and once more is on its way.
+		sent: [waiting("lin@harborwork.example", "queued"), waiting("maya@example.com", "sent"), waiting("maya@example.com", "sending"), sentTo("maya@example.com", now)],
+	});
+	const byEmail = Object.fromEntries(list.map((entry) => [entry.email, entry]));
+	assert.deepEqual([byEmail["lin@harborwork.example"].sends, byEmail["lin@harborwork.example"].delivered], [1, 0], "it can still be taken back");
+	assert.deepEqual([byEmail["maya@example.com"].sends, byEmail["maya@example.com"].delivered], [3, 2], "a row without a status is an old sent one");
+});

@@ -103,7 +103,7 @@ const MAIL_PROVIDERS = new Set([
 	"gmail.com", "googlemail.com", "outlook.com", "outlook.de", "hotmail.com", "hotmail.de", "live.com", "live.de",
 	"msn.com", "yahoo.com", "yahoo.de", "ymail.com", "icloud.com", "me.com", "mac.com", "aol.com", "aol.de",
 	"gmx.de", "gmx.net", "gmx.at", "gmx.ch", "gmx.com", "web.de", "t-online.de", "freenet.de", "posteo.de",
-	"posteo.net", "mailbox.org", "proton.me", "protonmail.com", "pm.me", "tutanota.com", "tuta.io", "zoho.com",
+	"posteo.net", "mailbox.org", "proton.me", "protonmail.com", "protonmail.ch", "pm.me", "tutanota.com", "tuta.io", "zoho.com",
 	"yandex.com", "yandex.ru", "mail.ru", "fastmail.com", "hey.com", "arcor.de", "vodafone.de", "1und1.de",
 ]);
 

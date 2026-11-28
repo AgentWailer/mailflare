@@ -49,6 +49,19 @@ const SAFE_AT_RULES = new Set([
 	"container", "scope", "starting-style", "page", "property", "counter-style",
 ]);
 
+/**
+ * For showing a message, not for editing or sending it: `word-break: break-word` (payment receipts
+ * put it on every cell) and `overflow-wrap: anywhere` let a table squeeze a column to one character,
+ * so an amount is shown one digit per line. Both are read as `overflow-wrap: break-word`, which
+ * breaks a word only when it does not fit and leaves a column its width. `break-all` is left alone:
+ * that is asked for on purpose.
+ */
+function keepWordsWhole(styles: string): string {
+	return styles
+		.replace(/\bword-break\s*:\s*break-word\b/gi, "overflow-wrap:break-word")
+		.replace(/\b(?:overflow-wrap|word-wrap)\s*:\s*anywhere\b/gi, "overflow-wrap:break-word");
+}
+
 /** Only remove unsupported syntax at its declaration/rule boundary, not an entire sheet. */
 function transformCss(source: string, inline: boolean, resource: (value: string) => string | null, doc?: MailDocument, classScope = false, allowIndirect = false, onIndirect?: () => void): string {
 	try {
@@ -267,7 +280,8 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 				continue;
 			}
 			if (!options.reader && !options.forOutgoing) { element.remove(); continue; }
-			element.textContent = transformCss(element.textContent ?? "", false, resource, options.reader || outgoing ? doc : undefined, outgoing, allowIndirect, markIndirect);
+			const sheet = transformCss(element.textContent ?? "", false, resource, options.reader || outgoing ? doc : undefined, outgoing, allowIndirect, markIndirect);
+			element.textContent = options.reader && !options.editor ? keepWordsWhole(sheet) : sheet;
 		}
 		// Editor placeholders preserve source addresses without loading them. Validate again on send.
 		for (const attr of [...RESOURCE_ATTRIBUTES, "srcset", "style"]) {
@@ -282,7 +296,7 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 				try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) ? url.href : resource(value); }
 				catch { return resource(value); }
 			}, undefined, false, true)));
-			element.setAttribute("style", safe);
+			element.setAttribute("style", options.reader && !options.editor ? keepWordsWhole(safe) : safe);
 		}
 		for (const attr of RESOURCE_ATTRIBUTES) {
 			if (!element.hasAttribute(attr)) continue;

@@ -50,6 +50,8 @@ import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } fro
 import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
+/** How long a send may take, large attachments on a slow connection included, before it is given up. */
+const SEND_TIMEOUT_MS = 5 * 60_000;
 /** How long Send waits for the address book before it asks without it. */
 const DIRECTORY_WAIT_MS = 4000;
 /** Below this much remaining time an Undo could not be pressed before delivery. */
@@ -87,6 +89,9 @@ export function ComposeForm({
 	const [sendWarnings, setSendWarnings] = useState<SendWarning[] | null>(null);
 	// Who was already on the message being answered: they have seen each other's addresses.
 	const seenRecipients = useRef<string[]>([]);
+	// Send loses focus while the message is locked; when the lock ends with the message still here
+	// (a refusal, a question), focus returns to it instead of staying on the page.
+	const wasLoading = useRef(false);
 	const mounted = useRef(true);
 	useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 	const startedAsReply = useRef(freshReply);
@@ -336,6 +341,7 @@ export function ComposeForm({
 					if (session !== getClientSessionToken()) return;
 					if (data.draft.reused) {
 						const updated = await authFetch(`/api/drafts/${data.draft.id}`, { method: "PATCH", redirectOnUnauthorized: false, signal: AbortSignal.timeout(15000), headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+						setDraftSaveSignedOut(updated.status === 401);
 						if (!updated.ok) throw new Error("Draft save failed");
 					}
 					if (generation !== draftGeneration.current) { void authFetch(`/api/drafts/${data.draft.id}`, { method: "DELETE" }).catch(() => {}); return; }
@@ -352,6 +358,13 @@ export function ComposeForm({
 		// Do not reset this debounce for mailbox counts/avatar refreshes or for the draft ID returned by its own save.
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- The explicit mailbox fields below define the save snapshot; recovery-only state and save-result state are intentionally non-reactive.
 	}, [bcc, cc, fromAddr, html, loadingDraft, quotedHtml, selectedMailbox?.id, selectedMailbox?.signature, subject, threading, to, draftIdToLoad, deletingDraft]);
+
+	useEffect(() => {
+		if (wasLoading.current && !loading && (!document.activeElement || document.activeElement === document.body)) {
+			frameRef.current?.querySelector<HTMLElement>('button[type="submit"]:not([disabled])')?.focus();
+		}
+		wasLoading.current = loading;
+	}, [loading]);
 
 	function onSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -419,6 +432,8 @@ export function ComposeForm({
 		if (saveTimer.current) clearTimeout(saveTimer.current);
 		if (dirtyDraft.current) flushSave.current?.();
 		await saveChain.current;
+		// Closed while the draft was being saved: a message whose window is gone is not sent.
+		if (!mounted.current) return;
 		const currentDraftId = savedDraftId.current ?? draftId;
 		if (currentDraftId && agentRevision !== null) {
 			try {
@@ -434,7 +449,10 @@ export function ComposeForm({
 				}
 				const updated = await authFetch(`/api/drafts/${currentDraftId}`, { method: "PATCH", redirectOnUnauthorized: false, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId: selectedMailbox?.id, from: fromAddr, to: recipientsToHeader(to), cc: recipientsToHeader(cc), bcc: recipientsToHeader(bcc), subject, html: fullHtml, text: htmlToPlainText(fullHtml), inReplyTo: threading?.inReplyTo ?? null, references: threading?.references ?? null, threadId: threading?.threadId ?? null, scheduledAt: scheduledAt?.toISOString() ?? null }) });
 				if (!updated.ok) throw new Error(reviewFailure(updated, null, "compose.error.saveForReview"));
-				const current = await fetchDraft(currentDraftId, { redirectOnUnauthorized: false });
+				const current = await fetchDraft(currentDraftId, { redirectOnUnauthorized: false }).catch((cause: unknown) => {
+					const status = (cause as { status?: unknown } | null)?.status;
+					throw new Error(status === 401 ? t("compose.error.sendSignedOut") : t("compose.error.saveForReview"));
+				});
 				if (!current.agent) throw new Error(t("compose.error.aiMetadata"));
 				setAgentRevision(current.agent.revision);
 				const response = await authFetch("/api/agent/approvals", { method: "POST", redirectOnUnauthorized: false, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftId: currentDraftId, expectedRevision: current.agent.revision }) });
@@ -451,6 +469,8 @@ export function ComposeForm({
 				// An expired sign-in is said here, with the message and its files still open: leaving for the
 				// login page would throw them away.
 				redirectOnUnauthorized: false,
+				// A send that never answers ends, so the window is not held for good; the outcome is then open.
+				signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
 				body: buildSendFormData({
 					attachments,
 					from: fromAddr,
@@ -741,10 +761,10 @@ export function ComposeForm({
 					)}
 				>
 					<span className="min-w-0">{toast.message}</span>
-					{toast.type === "error" && <button type="button" onClick={() => setToast(null)} aria-label={t("navigation.close")} className="-my-1 -mr-2 shrink-0 rounded p-1 hover:bg-white/15"><X aria-hidden="true" className="h-4 w-4" /></button>}
+					{toast.type === "error" && <button type="button" onClick={() => setToast(null)} aria-label={t("navigation.close")} className="compose-toast-close -my-1 -mr-2 flex shrink-0 items-center justify-center rounded p-1 hover:bg-white/15"><X aria-hidden="true" className="h-4 w-4" /></button>}
 				</div>
 			)}
-			<form ref={frameRef} onSubmit={onSubmit} className={frameClass} inert={loading} role={modalMode && !minimized ? "dialog" : undefined} aria-modal={modalMode && !minimized || undefined} aria-label={modalMode && !minimized ? t("compose.dialogLabel") : undefined} onKeyDown={(event) => { if (modalMode && !minimized && event.key === "Escape") { event.preventDefault(); setModalMode(false); } }} onDragEnterCapture={minimized ? undefined : onFileDragEnter} onDragOverCapture={minimized ? undefined : onFileDragOver} onDragLeaveCapture={minimized ? undefined : onFileDragLeave} onDropCapture={minimized ? undefined : onFileDrop}>
+			<form ref={frameRef} onSubmit={onSubmit} className={frameClass} role={modalMode && !minimized ? "dialog" : undefined} aria-modal={modalMode && !minimized || undefined} aria-label={modalMode && !minimized ? t("compose.dialogLabel") : undefined} onKeyDown={(event) => { if (modalMode && !minimized && event.key === "Escape") { event.preventDefault(); setModalMode(false); } }} onDragEnterCapture={minimized ? undefined : onFileDragEnter} onDragOverCapture={minimized ? undefined : onFileDragOver} onDragLeaveCapture={minimized ? undefined : onFileDragLeave} onDropCapture={minimized ? undefined : onFileDrop}>
 				{draggingFiles && !minimized && (
 					<div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-blue-400 bg-blue-50/90 text-sm font-medium text-blue-700" aria-hidden="true">
 						{t("compose.dropFiles")}
@@ -778,7 +798,9 @@ export function ComposeForm({
 						</div>
 					)}
 				</div>
-				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")}>
+				{/* While a send is prepared or under way the message itself cannot be changed, so what was
+				    checked is what goes out. The header stays usable: the window can be minimised or closed. */}
+				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")} inert={loading} aria-busy={loading}>
 				{draftRestored && <p role="status" className="px-4 py-2 text-sm">{t("compose.recoveredText")}</p>}
 				{draftSaveFailed && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{t(draftSaveSignedOut ? "compose.error.saveDraftSignedOut" : "compose.error.saveDraft")} <button type="button" className="underline" onClick={() => { setDraftSaving(true); flushSave.current?.(); }}>{t("message.retry")}</button></p>}
 				<div className="max-h-[45%] shrink-0 overflow-y-auto overscroll-contain">

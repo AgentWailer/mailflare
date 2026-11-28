@@ -1,5 +1,5 @@
 import { prepareEmailHtml } from "@/lib/email/html";
-import { LONG_TOKEN_STYLE, wrapLongTokens } from "./long-tokens";
+import { wrapLongTokens } from "./long-tokens";
 
 export type PrintableMessage = {
 	subject: string;
@@ -61,7 +61,7 @@ export function printMessage(message: PrintableMessage): void {
 		// A message's own `header { display: none }` or `h1 { ... }` must not touch the lines above.
 		const mail = document.createElement("div");
 		const mailStyle = document.createElement("style");
-		mailStyle.textContent = `:host{display:block;color-scheme:light;overflow-wrap:break-word}${LONG_TOKEN_STYLE}img,table{max-width:100%!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
+		mailStyle.textContent = `:host{display:block;color-scheme:light;overflow-wrap:break-word}img,table{max-width:100%!important}a{color:inherit}${prepared.rootTag},${prepared.bodyTag}{display:block}`;
 		mail.attachShadow({ mode: "open" }).replaceChildren(mailStyle, content.content);
 		body.appendChild(mail);
 	} else {

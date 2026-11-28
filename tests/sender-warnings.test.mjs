@@ -139,7 +139,7 @@ test("a public provider is one whatever country ending it carries", () => {
 test("a mistyped or forged ending of a public provider is not the provider", () => {
 	// gmail.co, outlook.cm and the like belong to whoever registered them. They must be compared, not waved through.
 	for (const domain of ["gmail.co", "gmail.cm", "gmail.con", "hotmail.co", "outlook.cm", "yahoo.co", "live.io", "gmx.xyz"]) assert.equal(app.isMailProviderDomain(domain), false, domain);
-	for (const domain of ["gmail.com", "yahoo.co.uk", "outlook.fr", "hotmail.co.uk", "gmx.es", "mail.yahoo.co.uk"]) assert.equal(app.isMailProviderDomain(domain), true, domain);
+	for (const domain of ["gmail.com", "yahoo.co.uk", "outlook.fr", "hotmail.co.uk", "gmx.es", "mail.yahoo.co.uk", "protonmail.ch"]) assert.equal(app.isMailProviderDomain(domain), true, domain);
 	assert.deepEqual(kinds(check('"Jo" <friend.name@gmail.co>')), ["lookalike"], "mail from the look-alike of a friend's address is said");
 	assert.deepEqual(kinds(check('friend.name@gmail.cm')), ["lookalike"]);
 });
@@ -162,6 +162,22 @@ test("where the browser stores nothing, a mark still holds until the page is clo
 		assert.deepEqual(app.readTrustedSenders("user:b"), []);
 		app.untrustSender("x@evil.example", "user:a");
 		assert.deepEqual(app.readTrustedSenders("user:a"), []);
+	} finally { globalThis.localStorage = real; }
+});
+
+test("a full store, which still reads but no longer writes, does not leave the button dead", () => {
+	const real = globalThis.localStorage, kept = new Map([["mailflare-trusted-senders:user:full", '["old@example.com"]']]);
+	globalThis.localStorage = { getItem: (key) => kept.get(key) ?? null, setItem() { throw new Error("QuotaExceededError"); } };
+	try {
+		app.trustSender("x@evil.example", "user:full");
+		assert.deepEqual(app.readTrustedSenders("user:full"), ["x@evil.example", "old@example.com"], "the mark of this visit is read, not the older stored list");
+		app.untrustSender("x@evil.example", "user:full");
+		assert.deepEqual(app.readTrustedSenders("user:full"), ["old@example.com"]);
+		// Once writing works again, the store is the truth again.
+		globalThis.localStorage = { getItem: (key) => kept.get(key) ?? null, setItem: (key, value) => { kept.set(key, value); } };
+		app.trustSender("y@evil.example", "user:full");
+		assert.deepEqual(JSON.parse(kept.get("mailflare-trusted-senders:user:full")), ["y@evil.example", "old@example.com"]);
+		assert.deepEqual(app.readTrustedSenders("user:full"), ["y@evil.example", "old@example.com"]);
 	} finally { globalThis.localStorage = real; }
 });
 
@@ -202,6 +218,9 @@ test("only a real send or a kept contact makes an address known", () => {
 	// A send that was taken back or never left leaves the contact row behind, and nothing else.
 	assert.equal(app.isKnownCorrespondent(candidate(0, "outbound")), false, "a look-alike must not become known by an undone send");
 	assert.equal(app.isKnownCorrespondent(candidate(0, "inbound")), false, "somebody who only wrote to the owner");
+	// While a message waits (undo window, scheduled time) its recipient is not known yet.
+	assert.equal(app.isKnownCorrespondent({ ...candidate(1, "outbound"), delivered: 0 }), false);
+	assert.equal(app.isKnownCorrespondent({ ...candidate(2, "outbound"), delivered: 1 }), true);
 });
 
 test("a picture counts as the writer's own only outside the signature and the quoted mail", () => {

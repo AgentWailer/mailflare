@@ -115,13 +115,18 @@ function trustedKey(scope: string): string {
 	return scope ? `${TRUSTED_KEY}:${scope}` : TRUSTED_KEY;
 }
 
-/** The stored list as text, for a component to follow (`useSyncExternalStore`); empty when nothing is stored. */
-export function readTrustedSendersText(scope = ""): string {
-	try { return localStorage.getItem(trustedKey(scope)) ?? ""; } catch { return unstored.get(trustedKey(scope)) ?? ""; }
-}
-
 // Where the browser keeps nothing (storage blocked or full), a mark still holds until the page is closed.
 const unstored = new Map<string, string>();
+
+/** The stored list as text, for a component to follow (`useSyncExternalStore`); empty when nothing is stored. */
+export function readTrustedSendersText(scope = ""): string {
+	const key = trustedKey(scope);
+	// A mark that could not be written (storage full or blocked) is newer than whatever is stored.
+	const held = unstored.get(key);
+	if (held !== undefined) return held;
+	try { return localStorage.getItem(key) ?? ""; } catch { return ""; }
+}
+
 
 export function parseTrustedSenders(text: string): string[] {
 	try {

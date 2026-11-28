@@ -244,6 +244,7 @@
 	"compose.error.sendTooManyRecipients": "Diese Nachricht hat zu viele Empfänger; möglich sind höchstens 50. Entfernen Sie einige und senden Sie erneut.",
 	"compose.error.sendRecipientsRefused": "Die Empfänger wurden nicht angenommen: Es sind zu viele (höchstens 50 je Zeile) oder eine Adresse ist ungültig. Prüfen Sie An, Cc und Bcc und senden Sie erneut.",
 	"compose.error.sendSubjectTooLong": "Der Betreff ist zu lang zum Senden. Kürzen Sie ihn und senden Sie erneut.",
+	"compose.error.sendSubjectMissing": "Diese Nachricht hat keinen Betreff, und ohne wurde sie nicht angenommen. Ergänzen Sie einen Betreff und senden Sie erneut.",
 	"compose.error.sendDraftGone": "Diese Nachricht konnte nicht zum Senden übergeben werden. Schließen Sie das Fenster, öffnen Sie die Nachricht unter „Entwürfe“ und senden Sie erneut.",
 	"compose.error.sendTooLarge": "Diese Nachricht ist mit ihren Anhängen zu groß zum Senden. Entfernen oder verkleinern Sie Anhänge und senden Sie erneut.",
 	"compose.error.sendSignedOut": "Sie sind abgemeldet, es wurde nichts gesendet. Ihre Nachricht ist hier noch geöffnet: Kopieren Sie Ihren Text, bevor Sie sich neu anmelden, denn beim Anmelden wird dieses Fenster geleert. Anhänge müssen Sie danach erneut hinzufügen.",

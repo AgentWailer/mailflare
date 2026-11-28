@@ -89,6 +89,9 @@ export function UndoSendToast({ pending, named, onDone, onRestored }: {
 		try {
 			const response = await authFetch(`/api/messages/${encodeURIComponent(pending.messageId)}/cancel-schedule`, { method: "POST", redirectOnUnauthorized: false, signal: AbortSignal.timeout(15000) });
 			if (response.ok) {
+				// The address book read while this message waited counted it as written to. Said as an event:
+				// importing the address book here would split it into a startup script of its own.
+				window.dispatchEvent(new Event("mailflare:recipients-stale"));
 				window.dispatchEvent(new Event("mailflare:messages-changed"));
 				setPhase(onRestored(pending.messageId) ? "restored" : "inDrafts");
 				return;

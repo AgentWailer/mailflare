@@ -246,6 +246,7 @@
 	"compose.error.sendTooManyRecipients": "This message has too many recipients; at most 50 are possible. Remove some and send again.",
 	"compose.error.sendRecipientsRefused": "The recipients were not accepted: there are too many (at most 50 per line) or one address is not valid. Check To, Cc and Bcc and send again.",
 	"compose.error.sendSubjectTooLong": "The subject is too long to send. Shorten it and send again.",
+	"compose.error.sendSubjectMissing": "This message has no subject, and the server did not accept it without one. Add a subject and send again.",
 	"compose.error.sendDraftGone": "This message could not be handed over for sending. Close the window, open the message from Drafts and send again.",
 	"compose.error.sendTooLarge": "This message is too large to send with its attachments. Remove or shrink attachments and send again.",
 	"compose.error.sendSignedOut": "You are signed out, so nothing was sent. Your message is still open here: copy what you wrote before you sign in again, because signing in clears this window. Attached files have to be added again.",

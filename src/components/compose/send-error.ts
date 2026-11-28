@@ -35,7 +35,8 @@ function refusedField(error: unknown): string | null {
 	return null;
 }
 
-function formatFallbackSendError(base: string, context?: ComposeSendErrorContext): string {
+/** "HTTP 502, Ray a5e2…" for a refused or failed request, or nothing when there is no status to name. */
+function diagnostics(context?: ComposeSendErrorContext): string {
 	const details: string[] = [];
 	if (typeof context?.status === "number" && Number.isInteger(context.status) && context.status >= 400) {
 		details.push(`HTTP ${context.status}`);
@@ -44,7 +45,12 @@ function formatFallbackSendError(base: string, context?: ComposeSendErrorContext
 	if (details.length > 0 && /^[a-z0-9]{8,32}$/i.test(ray)) {
 		details.push(`Ray ${ray}`);
 	}
-	return details.length > 0 ? `${base} (${details.join(", ")})` : base;
+	return details.join(", ");
+}
+
+function formatFallbackSendError(base: string, context?: ComposeSendErrorContext): string {
+	const details = diagnostics(context);
+	return details ? `${base} (${details})` : base;
 }
 
 /**
@@ -83,7 +89,9 @@ export function composeSendError(
 	if (context?.network) return withNextStep(`${t("compose.error.sendFailed")} (${context.detail?.trim() || t("compose.error.sendNoConnection")})`, t, context);
 	const fallback = formatFallbackSendError(t("compose.error.sendFailed"), context);
 	// The answers the writer can act on are said in the interface language, whoever worded them.
-	if (context?.status === 413) return t("compose.error.sendTooLarge");
+	// Something in front of the server refused it (no answer of ours): its status and Ray ID stay
+	// beside the advice, because that is what support asks for.
+	if (context?.status === 413) return !data || typeof data !== "object" ? `${t("compose.error.sendTooLarge")} (${diagnostics(context)})` : t("compose.error.sendTooLarge");
 	if (context?.status === 401) return t("compose.error.sendSignedOut");
 	if (!data || typeof data !== "object") return withNextStep(fallback, t, context);
 	const result = data as { code?: unknown; filename?: unknown; error?: unknown };
@@ -95,7 +103,11 @@ export function composeSendError(
 	if (result.code === "delivery_status_pending") return t("compose.error.deliveryStatusPending");
 	// A refused field is named in the interface language; the validator's own wording is English.
 	const field = refusedField(result.error);
-	if (field === "subject") return t("compose.error.sendSubjectTooLong");
+	// "Too small" is an empty field, "too big" a long one: the validator says which.
+	const small = /too small|at least|required|>=\s*1\b/i.test(firstValidationError(result.error) ?? "");
+	if (field === "subject") return t(small ? "compose.error.sendSubjectMissing" : "compose.error.sendSubjectTooLong");
+	if (field === "html" || field === "text") return t("compose.error.sendTooLarge");
+	if (field === "from" || field === "mailboxId") return t("compose.error.sendNotAllowed");
 	if (field === "to" || field === "cc" || field === "bcc") {
 		const said = firstValidationError(result.error);
 		return t(said && knownRefusal(said) === "compose.error.noRecipient" ? "compose.error.noRecipient" : "compose.error.sendRecipientsRefused");

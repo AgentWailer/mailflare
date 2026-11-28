@@ -26,7 +26,7 @@ test('HTTP status and Cloudflare Ray ID are kept, and each failure says what to 
  // A gateway that gave up may have done so after the message was accepted: look before sending twice.
  for(const status of [500,502,504,524])assert.equal(composeSendError(null,t,{status,rayId:'invalid ray!'}),`${de['compose.error.sendFailed']} (HTTP ${status}). ${de['compose.error.sendCheckFirst']}`);
  assert.equal(composeSendError({error:'Queue write failed.'},t,{status:500}),`${de['compose.error.sendFailed']}: Queue write failed. ${de['compose.error.sendCheckFirst']}`);
- assert.equal(composeSendError({error:{fieldErrors:{html:['Body is too long']}}},t,{status:400}),`${de['compose.error.sendFailed']}: Body is too long. ${de['compose.error.sendRetry']}`);
+ assert.equal(composeSendError({error:{fieldErrors:{threadId:['Thread id is too long']}}},t,{status:400}),`${de['compose.error.sendFailed']}: Thread id is too long. ${de['compose.error.sendRetry']}`);
  // A success that names no message leaves the outcome open: it must not invite a second send.
  assert.equal(composeSendError(null,t,{status:200,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendFailed']}. ${de['compose.error.sendCheckFirst']}`);
 });
@@ -36,6 +36,10 @@ test('the server\'s fixed refusals are said in the interface language',()=>{
  assert.equal(composeSendError({error:"Attachments exceed the administrator's 25 MB outgoing limit"},t,{status:400}),de['compose.error.sendTooLarge']);
  // The validator words its refusals in English; the field it names says which translated sentence fits.
  assert.equal(composeSendError({error:{fieldErrors:{subject:['Too big: expected string to have <=500 characters']}}},t,{status:400}),de['compose.error.sendSubjectTooLong']);
+ // An empty subject is not a long one.
+ for(const said of ['Too small: expected string to have >=1 characters','String must contain at least 1 character(s)','Required'])assert.equal(composeSendError({error:{fieldErrors:{subject:[said]}}},t,{status:400}),de['compose.error.sendSubjectMissing'],said);
+ assert.equal(composeSendError({error:{fieldErrors:{html:['Too big: expected string to have <=2097152 characters']}}},t,{status:400}),de['compose.error.sendTooLarge']);
+ assert.equal(composeSendError({error:{fieldErrors:{from:['Too small: expected string to have >=3 characters']}}},t,{status:400}),de['compose.error.sendNotAllowed']);
  assert.equal(composeSendError({error:{fieldErrors:{bcc:['Too big: expected array to have <=50 items']}}},t,{status:400}),de['compose.error.sendRecipientsRefused']);
  assert.equal(composeSendError({error:'A message can have at most 50 recipients'},t,{status:400}),de['compose.error.sendTooManyRecipients']);
  assert.equal(composeSendError({error:"Subject exceeds Cloudflare's 998-character limit"},t,{status:400}),de['compose.error.sendSubjectTooLong']);
@@ -43,7 +47,8 @@ test('the server\'s fixed refusals are said in the interface language',()=>{
 });
 test('a message that is too large and a lost sign-in are said in the interface language with what to do',()=>{
  assert.equal(composeSendError({error:'Request body is too large'},t,{status:413}),de['compose.error.sendTooLarge']);
- assert.equal(composeSendError(null,t,{status:413,rayId:'a5e2e7ef1e481496-FRA'}),de['compose.error.sendTooLarge'],'also when a proxy in front refused it');
+ assert.equal(composeSendError(null,t,{status:413,rayId:'a5e2e7ef1e481496-FRA'}),`${de['compose.error.sendTooLarge']} (HTTP 413, Ray a5e2e7ef1e481496)`,'a proxy in front refused it: its status and Ray ID stay for support');
+ assert.equal(composeSendError('<html>too large</html>',t,{status:413}),`${de['compose.error.sendTooLarge']} (HTTP 413)`);
  assert.equal(composeSendError({error:'Unauthorized'},t,{status:401}),de['compose.error.sendSignedOut']);
  assert.equal(composeSendError(null,t,{status:401}),de['compose.error.sendSignedOut'],'also when the answer was not JSON');
 });
