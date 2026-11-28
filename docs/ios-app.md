@@ -120,6 +120,18 @@ The bundle identifier `de.stepo.mailflare` and the empty development team in
 The app icon is the web icon scaled up; it needs a 1024 px version without transparency
 before TestFlight.
 
+## What it looks like
+
+Taken by the walk-through in the simulator, with made-up mail:
+
+| Inbox | Message | Newsletter | Mailboxes |
+| --- | --- | --- | --- |
+| ![Inbox](screenshots/ios/04-inbox.png) | ![A conversation with an attachment](screenshots/ios/05-reader.png) | ![An HTML newsletter with its pictures held back](screenshots/ios/07-newsletter.png) | ![Mailboxes and folders](screenshots/ios/08-mailboxes.png) |
+
+| Without a connection | Devices | Dark | Dark newsletter |
+| --- | --- | --- | --- |
+| ![The inbox offline](screenshots/ios/12-offline-inbox.png) | ![Signed-in devices](screenshots/ios/11-settings-devices.png) | ![The inbox in dark](screenshots/ios/16-dark-inbox.png) | ![A newsletter in dark](screenshots/ios/18-dark-newsletter.png) |
+
 ## What only a real iPhone can show
 
 The simulator and the tests cannot prove these, and none of them has been tried on a device:

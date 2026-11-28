@@ -5,7 +5,8 @@ import MailflareKit
 struct MessageView: View {
 	let session: AccountSession
 	@State private var model: MessageModel
-	@State private var bodyHeight: CGFloat = 120
+	// Starts small: the page reports its own height, and never less than the view already has.
+	@State private var bodyHeight: CGFloat = 24
 	@State private var showsRecipients = false
 	@Environment(\.openURL) private var openURL
 	private let words = Presentation.current

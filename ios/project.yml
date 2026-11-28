@@ -77,6 +77,8 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: Mailflare
+        # XCTestCase is not bound to the main actor; its test methods ask for it themselves.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
 schemes:
   # The walk-through against a local server; see MailflareUITests/WalkthroughTests.swift.
   MailflareUI:

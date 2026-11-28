@@ -38,8 +38,9 @@ final class MessageListModel {
 	}
 
 	func start() {
-		guard listTask == nil else { return }
-		restart()
+		// A setting applied before the screen appears has already started the list; the status has its own guard.
+		if listTask == nil { restart() }
+		guard statusTask == nil else { return }
 		let engine = session.engine
 		statusTask = Task { [weak self] in
 			for await status in await engine.statusUpdates() { self?.status = status }

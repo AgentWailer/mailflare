@@ -75,7 +75,7 @@ for (let i = 0; i < 70; i++) {
 const pdf = '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 52>>stream\nBT /F1 18 Tf 40 110 Td (Unterlagen zum Termin) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n';
 
 const sql = `
-INSERT INTO users (id,email,password_hash,name,role,is_primary_admin,created_at) VALUES ('anna','anna@example.test',${quote(hash)},'Anna Beispiel','user',0,${now}),('admin','admin@example.test',${quote(hash)},'Admin Beispiel','admin',1,${now});
+INSERT INTO users (id,email,password_hash,name,role,is_primary_admin,allow_external_content,created_at) VALUES ('anna','anna@example.test',${quote(hash)},'Anna Beispiel','user',0,0,${now}),('admin','admin@example.test',${quote(hash)},'Admin Beispiel','admin',1,1,${now});
 INSERT INTO domains (id,user_id,hostname,zone_id,status,created_at) VALUES ('domain','admin','example.test','synthetic-local-zone','active',${now});
 INSERT INTO mailboxes (id,user_id,domain_id,local_part,display_name,type,created_at) VALUES ('box-anna','anna','domain','anna','Anna Beispiel','personal',${now}),('box-admin','admin','domain','admin','Admin Beispiel','personal',${now}),('box-team','admin','domain','team','Team','shared',${now});
 INSERT INTO mailbox_access (id,user_id,mailbox_id,permission,created_at) VALUES ('access-anna-team','anna','box-team','read_only',${now});

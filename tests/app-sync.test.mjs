@@ -206,6 +206,12 @@ test('pruning keeps 45 days', async (t) => {
 	assert.deepEqual(f.DB.db.prepare('SELECT message_id FROM mail_changes').all().map((row) => row.message_id), ['m1']);
 });
 
+test('pruning does nothing on a database that has not been migrated yet', async (t) => {
+	const f = await fixture(t);
+	f.DB.db.exec('DROP TABLE mail_changes');
+	assert.equal(await app.pruneMailChanges(f.env, new Date()), 0);
+});
+
 test('a request without a session is refused and odd parameters are bounded', async (t) => {
 	const f = await fixture(t);
 	assert.equal((await f.call({}, null)).status, 401);

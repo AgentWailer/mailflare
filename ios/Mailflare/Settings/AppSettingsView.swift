@@ -68,7 +68,8 @@ struct AppSettingsView: View {
 					ForEach(devices) { device in
 						HStack {
 							VStack(alignment: .leading) {
-								Text(device.current ? "\(device.name) (this device)" : device.name)
+								// Two texts, not one chosen by a condition: only a literal is looked up in the user's language.
+								if device.current { Text("\(device.name) (this device)") } else { Text(device.name) }
 								Text("Signed in \(device.signedInAt.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(.secondary)
 							}
 							Spacer()

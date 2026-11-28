@@ -147,6 +147,16 @@ struct SignInView: View {
 
 	private enum Field { case email, password, code }
 
+	/// The UI walk-through types a made-up password; the system's offer to save it would cover the app.
+	/// Fields marked as one-time codes are never offered for saving.
+	private static var offersPasswordSaving: Bool {
+		#if DEBUG
+		ProcessInfo.processInfo.environment["MAILFLARE_UI_NO_PASSWORD_SAVING"] != "1"
+		#else
+		true
+		#endif
+	}
+
 	var body: some View {
 		Group {
 			if model.needsSecondFactor {
@@ -181,7 +191,7 @@ struct SignInView: View {
 					VStack(spacing: 12) {
 						TextField("E-mail address", text: $email)
 							.textFieldStyle(.roundedBorder)
-							.textContentType(.username)
+							.textContentType(Self.offersPasswordSaving ? .username : .oneTimeCode)
 							.keyboardType(.emailAddress)
 							.textInputAutocapitalization(.never)
 							.autocorrectionDisabled()
@@ -190,7 +200,7 @@ struct SignInView: View {
 							.onSubmit { focus = .password }
 						SecureField("Password", text: $password)
 							.textFieldStyle(.roundedBorder)
-							.textContentType(.password)
+							.textContentType(Self.offersPasswordSaving ? .password : .oneTimeCode)
 							.focused($focus, equals: .password)
 							.submitLabel(.go)
 							.onSubmit { Task { await model.signIn(email: email, password: password) } }

@@ -34,6 +34,16 @@ import MailflareKit
 		try await settle(model) { model.items.map(\.id) == ["c", "a"] }
 	}
 
+	@Test func `the sync status is followed even when a setting was applied before the list appeared`() async throws {
+		let session = try session(.signedIn())
+		let model = MessageListModel(scope: ListScope(folder: .inbox, conversations: true), session: session)
+		// The screen applies the stored conversation setting before it starts the model.
+		model.conversations = false
+		model.start()
+		await session.engine.syncNow()
+		try await settle(model) { if case .idle(last: .some) = model.status { true } else { false } }
+	}
+
 	@Test func `the conversation setting switches between threads and single messages`() async throws {
 		let session = try session(.signedIn())
 		try session.store.apply(SyncPage(cursor: "c", more: false, mailboxIds: ["box"], messages: [row("first", age: 20, thread: "t"), row("second", age: 10, thread: "t")]))

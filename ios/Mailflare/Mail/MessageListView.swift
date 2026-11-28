@@ -14,8 +14,15 @@ struct MessageListView: View {
 	}
 
 	var body: some View {
-		MessageListContent(scope: scope, session: session, categories: showsCategories ? $scope.folder : nil)
+		MessageListContent(scope: scope, session: session, showsCategories: showsCategories)
 			.id(scope)
+			// The categories belong to the screen, not to one list: they stay where the user
+			// scrolled them while the list underneath is swapped.
+			.safeAreaInset(edge: .top, spacing: 0) {
+				if showsCategories {
+					CategoryBar(selection: $scope.folder).background(.bar)
+				}
+			}
 			.onChange(of: scope, initial: true) { _, scope in
 				// Remember the list so the app opens on it the next time.
 				if let json = try? JSONEncoder().encode(scope) { try? session.store.setSetting(SettingKey.lastScope, String(decoding: json, as: UTF8.self)) }
@@ -25,33 +32,29 @@ struct MessageListView: View {
 
 private struct MessageListContent: View {
 	let session: AccountSession
-	let categories: Binding<SystemFolder>?
+	let showsCategories: Bool
 	@State private var model: MessageListModel
 	@AppStorage("list.conversations") private var conversations = true
 	private let words = Presentation.current
 
-	init(scope: ListScope, session: AccountSession, categories: Binding<SystemFolder>?) {
+	init(scope: ListScope, session: AccountSession, showsCategories: Bool) {
 		self.session = session
-		self.categories = categories
+		self.showsCategories = showsCategories
 		_model = State(initialValue: MessageListModel(scope: scope, session: session))
 	}
 
 	private var title: String {
 		if let folderId = model.scope.folderId, let folder = (try? session.store.mailboxTree())?.folders.first(where: { $0.id == folderId }) { return folder.name }
-		return words.name(of: categories == nil ? model.scope.folder : .inbox)
+		return words.name(of: showsCategories ? .inbox : model.scope.folder)
 	}
 
 	var body: some View {
 		List {
-			if let categories {
-				CategoryBar(selection: categories)
-					.listRowInsets(EdgeInsets())
-					.listRowSeparator(.hidden)
-			}
 			ForEach(model.items) { item in
 				NavigationLink(value: Route.message(item.id)) {
 					MessageRowView(item: item, showsThread: model.conversations)
 				}
+				.navigationLinkIndicatorVisibility(.hidden)
 				.listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 12))
 			}
 			footer
@@ -61,6 +64,8 @@ private struct MessageListContent: View {
 			if model.hasLoaded && model.items.isEmpty { emptyState }
 		}
 		.navigationTitle(title)
+		// A large title would sit under the row of categories and be blurred away by it.
+		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
 			ToolbarItem(placement: .bottomBar) {
 				Menu {
@@ -123,6 +128,7 @@ struct CategoryBar: View {
 	private let words = Presentation.current
 
 	var body: some View {
+		ScrollViewReader { proxy in
 		ScrollView(.horizontal, showsIndicators: false) {
 			HStack(spacing: 8) {
 				ForEach(SystemFolder.categories, id: \.self) { folder in
@@ -141,10 +147,16 @@ struct CategoryBar: View {
 					}
 					.buttonStyle(.plain)
 					.accessibilityAddTraits(selected ? .isSelected : [])
+					.id(folder)
 				}
 			}
 			.padding(.horizontal, 16)
 			.padding(.vertical, 8)
+		}
+		// A chip chosen at the edge of the screen moves fully into view.
+		.onChange(of: selection, initial: true) { _, folder in
+			withAnimation { proxy.scrollTo(folder, anchor: .center) }
+		}
 		}
 	}
 }

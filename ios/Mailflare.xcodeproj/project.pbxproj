@@ -513,6 +513,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareUITests;
 				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Mailflare;
 			};
@@ -678,6 +679,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = de.stepo.MailflareUITests;
 				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Mailflare;
 			};
