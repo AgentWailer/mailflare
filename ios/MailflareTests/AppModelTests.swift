@@ -138,7 +138,7 @@ import MailflareKit
 		#expect(model.session?.account.userId == "u2")
 		#expect(try model.session?.store.setting("kept") == "yes")
 		let logout = try #require(transport.requests.last { $0.url?.path == "/api/auth/logout" })
-		#expect(logout.value(forHTTPHeaderField: "Authorization") == "Bearer dev_u1")
+		#expect(logout.value(forHTTPHeaderField: "X-Mailflare-Session") == "dev_u1")
 		let reopened = try MailStore.open(userId: "u1", directory: directory)
 		#expect(try reopened.list(ListScope(folder: .all), limit: 10).isEmpty, "the signed-out account's mail is gone")
 	}

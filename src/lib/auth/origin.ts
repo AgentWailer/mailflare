@@ -1,6 +1,9 @@
+import { getExplicitSessionToken } from "./session-header";
+
 /** Call only after session authentication. Bearer tokens are not sent automatically by browsers. */
 export function hasValidSessionMutationOrigin(request: Request): boolean {
-	if (request.headers.get("Authorization")?.startsWith("Bearer ")) return true;
+	// A token the client put there itself; a page on another site cannot make a browser send one.
+	if (getExplicitSessionToken(request)) return true;
 	const fetchSite = request.headers.get("Sec-Fetch-Site");
 	if (fetchSite === "cross-site" || fetchSite === "same-site") return false;
 	const origin = request.headers.get("Origin");

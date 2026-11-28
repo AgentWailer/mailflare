@@ -78,7 +78,8 @@ struct Presentation {
 		case .offline(nil): return text("Offline")
 		case .accessDenied: return text("Access key rejected")
 		case .signedOut: return text("Signed out")
-		case .failed: return text("Sync failed")
+		case .failed(let reason?): return "\(text("Sync failed")) (\(reason))"
+		case .failed(nil): return text("Sync failed")
 		}
 	}
 

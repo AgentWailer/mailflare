@@ -1,17 +1,12 @@
 import { cookies } from "next/headers";
 import { hasValidSessionMutationOrigin } from "./origin";
 import { SESSION_COOKIE, getUserFromSession } from "@/lib/auth/session";
+import { getExplicitSessionToken } from "./session-header";
 
-function getBearerToken(request?: Request): string | undefined {
-	const authorization = request?.headers.get("Authorization");
-	if (!authorization?.startsWith("Bearer ")) return undefined;
-	const token = authorization.slice(7).trim();
-	return token || undefined;
-}
 
 /** Shared authentication boundary, including cookie CSRF checks for legacy routes. */
 export async function resolveCurrentUser(env: CloudflareEnv, request?: Request) {
-	const bearerToken = getBearerToken(request);
+	const bearerToken = getExplicitSessionToken(request);
 	const token = bearerToken ?? (await cookies()).get(SESSION_COOKIE)?.value;
 	if (!token) return { user: null, failure: "unauthorized" } as const;
 	// Bearer tokens are explicitly supplied; browsers attach cookies automatically.

@@ -95,7 +95,7 @@ import Testing
 		await server.failSync(afterCalls: 2)
 		let first = engine(server, store)
 		await first.syncNow()
-		#expect(await first.currentStatus == .failed(message: "interrupted"))
+		#expect(await first.currentStatus == .failed(message: "500 interrupted"))
 		#expect(try ids(store).count == 20, "what arrived stays")
 		let resumeFrom = try #require(try store.cursor())
 
@@ -147,7 +147,15 @@ import Testing
 		#expect(try store.message(id: "aged")?.body == nil)
 	}
 
-	@Test(arguments: [(APIError.offline, SyncStatus.offline(last: nil)), (.accessDenied, .accessDenied), (.signedOut, .signedOut), (.decoding, .failed(message: nil))])
+	@Test(arguments: [
+		(APIError.offline, SyncStatus.offline(last: nil)), (.accessDenied, .accessDenied), (.signedOut, .signedOut),
+		// A failure names what went wrong, so it can be told apart on the phone.
+		(.decoding, .failed(message: "unreadable answer")),
+		(.server(status: 503, message: nil), .failed(message: "503")),
+		(.server(status: 403, message: "Forbidden here"), .failed(message: "403 Forbidden here")),
+		(.rateLimited(retryAfter: 60), .failed(message: "429")),
+		(.notFound, .failed(message: "404")),
+	])
 	func `a failed run reports why and leaves the stored mail alone`(failure: APIError, expected: SyncStatus) async throws {
 		let server = FakeServer()
 		let store = try MailStore.inMemory()

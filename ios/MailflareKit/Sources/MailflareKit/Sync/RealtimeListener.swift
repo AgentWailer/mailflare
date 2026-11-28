@@ -38,7 +38,7 @@ public struct RealtimeListener: Sendable {
 		components.path = "/api/realtime"
 		guard let url = components.url else { return nil }
 		var request = URLRequest(url: url)
-		request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+		request.setValue(sessionToken, forHTTPHeaderField: APIClient.sessionHeader)
 		request.setValue(access.accessClientId, forHTTPHeaderField: "CF-Access-Client-Id")
 		request.setValue(access.accessClientSecret, forHTTPHeaderField: "CF-Access-Client-Secret")
 		return request

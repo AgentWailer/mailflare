@@ -57,8 +57,11 @@ New routes, all behind the usual session check:
 | `GET /api/app/sync?cursor=&days=&limit=` | First the last `days` in pages, then only what changed since the cursor. |
 | `GET /api/app/devices`, `DELETE /api/app/devices/[id]` | The devices signed in to the account, and signing one of them out. |
 
-A device session lasts 90 days and renews itself while it is used. `/api/realtime` accepts
-the bearer token as well as the browser cookie.
+A device session lasts 90 days and renews itself while it is used. The app sends it in the
+header `X-Mailflare-Session`, on `/api/realtime` too. It must not use `Authorization: Bearer`:
+an Access application with Managed OAuth (as set up for ChatGPT) claims that header for its
+own access tokens and answers 401 to anything else before the request reaches Mailflare.
+The first TestFlight build did exactly that: sign-in worked, every later request was refused.
 
 ## First start
 

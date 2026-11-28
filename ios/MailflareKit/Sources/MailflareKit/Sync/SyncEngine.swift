@@ -81,12 +81,23 @@ public actor SyncEngine {
 			set(.accessDenied)
 		} catch APIError.signedOut {
 			set(.signedOut)
-		} catch APIError.server(_, let message) {
-			set(.failed(message: message))
 		} catch is CancellationError {
 			set(.idle(last: try? store.lastSync()))
 		} catch {
-			set(.failed(message: nil))
+			set(.failed(message: Self.reason(for: error)))
+		}
+	}
+
+	/// A few words that tell one failure from another on the phone: the status the server gave
+	/// and its own wording, or what kind of error it was on the device.
+	static func reason(for error: any Error) -> String {
+		switch error {
+		case APIError.server(let status, let message):
+			return [status > 0 ? String(status) : "sync did not settle", message].compactMap { $0 }.joined(separator: " ")
+		case APIError.rateLimited: return "429"
+		case APIError.notFound: return "404"
+		case APIError.decoding: return "unreadable answer"
+		default: return String(String(describing: type(of: error)).prefix(40))
 		}
 	}
 

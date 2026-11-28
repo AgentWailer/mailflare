@@ -2,6 +2,7 @@ import { and, eq, gt, ne, getTableColumns } from "drizzle-orm";
 import { newId } from "@/lib/ids";
 import { getDb } from "@/db";
 import { deviceSessions, sessions, users } from "@/db/schema";
+import { getExplicitSessionToken } from "./session-header";
 
 export const SESSION_COOKIE = "ep_session";
 const SESSION_DAYS = 30;
@@ -134,10 +135,10 @@ export async function deleteUserSessions(env: CloudflareEnv, userId: string, kee
 	await db.delete(sessions).where(eq(sessions.userId, userId));
 }
 
-/** The session token a request carries, from the Bearer header or the cookie. */
+/** The session token a request carries: the app's header, a bearer token, or the cookie. */
 export function getSessionTokenFromRequestHeaders(request: Request): string | undefined {
-	const authorization = request.headers.get("Authorization");
-	if (authorization?.startsWith("Bearer ")) return authorization.slice(7).trim() || undefined;
+	const explicit = getExplicitSessionToken(request);
+	if (explicit) return explicit;
 	const cookie = request.headers.get("Cookie") ?? "";
 	const match = cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
 	return match ? decodeURIComponent(match[1]) : undefined;

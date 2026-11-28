@@ -5,13 +5,13 @@ import { getEnv } from "@/lib/cloudflare";
 import { deleteSession, getUserFromSession, SESSION_COOKIE } from "@/lib/auth/session";
 import { ACCOUNTS_COOKIE, cookieOptions, parseAccountTokens, resolveAccounts, serializeAccountTokens } from "@/lib/auth/accounts";
 import { recordAuthActivity } from "@/lib/auth/activity";
+import { getExplicitSessionToken } from "@/lib/auth/session-header";
 
 export async function POST(request: Request) {
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const env = getEnv();
 	const jar = await cookies();
-	const authorization = request.headers.get("Authorization");
-	const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : undefined;
+	const bearerToken = getExplicitSessionToken(request);
 	const token = bearerToken || jar.get(SESSION_COOKIE)?.value;
 	if (token) {
 		const user = await getUserFromSession(env, token);

@@ -126,6 +126,9 @@ public struct APIClient: Sendable {
 
 	// MARK: Requests
 
+	/// The header the session travels in. The server reads it in `src/lib/auth/session-header.ts`.
+	public static let sessionHeader = "X-Mailflare-Session"
+
 	enum Method: String { case get = "GET", post = "POST", delete = "DELETE" }
 
 	static func segment(_ value: String) -> String {
@@ -162,7 +165,9 @@ public struct APIClient: Sendable {
 		request.setValue(access.accessClientId, forHTTPHeaderField: "CF-Access-Client-Id")
 		request.setValue(access.accessClientSecret, forHTTPHeaderField: "CF-Access-Client-Secret")
 		request.setValue("application/json", forHTTPHeaderField: "Accept")
-		if let sessionToken { request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization") }
+		// Not `Authorization: Bearer`: Cloudflare Access with Managed OAuth claims that header for its
+		// own tokens and refuses anything else there before the request reaches Mailflare.
+		if let sessionToken { request.setValue(sessionToken, forHTTPHeaderField: Self.sessionHeader) }
 		if let body {
 			request.httpBody = body
 			request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -195,7 +200,12 @@ public struct APIClient: Sendable {
 			if expectJSON && !isJSON { throw APIError.accessDenied }
 			return data
 		}
-		let message = isJSON ? (try? JSONDecoder().decode(ErrorAnswer.self, from: data))?.message : nil
+		let answer = isJSON ? try? JSONDecoder().decode(ErrorAnswer.self, from: data) : nil
+		let message = answer?.message
+		// With Managed OAuth, Access refuses with a 401 of its own, in JSON like Mailflare's.
+		// It is told apart by its challenge and by the pointer to its metadata.
+		let challenge = response.value(forHTTPHeaderField: "WWW-Authenticate") ?? ""
+		if status == 401, challenge.localizedCaseInsensitiveContains("OAuth") || answer?.isAccessRefusal == true { throw APIError.accessDenied }
 		switch status {
 		case 401 where signingIn && isJSON: throw APIError.server(status: 401, message: message)
 		case 401: throw isJSON || !expectJSON ? APIError.signedOut : APIError.accessDenied
@@ -224,12 +234,16 @@ public struct APIClient: Sendable {
 
 private struct ErrorAnswer: Decodable {
 	let message: String?
+	/// True for the answer Cloudflare Access gives in Mailflare's place.
+	let isAccessRefusal: Bool
 
-	enum CodingKeys: String, CodingKey { case error }
+	enum CodingKeys: String, CodingKey { case error, resourceMetadata = "resource_metadata" }
 
 	init(from decoder: any Decoder) throws {
+		let container = try? decoder.container(keyedBy: CodingKeys.self)
 		// `error` is a sentence, or for a rejected form an object of field errors.
-		message = try? decoder.container(keyedBy: CodingKeys.self).decode(String.self, forKey: .error)
+		message = try? container?.decode(String.self, forKey: .error)
+		isAccessRefusal = container?.contains(.resourceMetadata) ?? false
 	}
 }
 
